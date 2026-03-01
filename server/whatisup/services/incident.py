@@ -29,7 +29,7 @@ async def process_check_result(
 
     # Fetch all active probes
     active_probes = (await db.execute(
-        select(Probe).where(Probe.is_active is True)
+        select(Probe).where(Probe.is_active)
     )).scalars().all()
 
     if not active_probes:

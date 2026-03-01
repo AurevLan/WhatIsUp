@@ -62,7 +62,7 @@ async def get_current_probe(
         )
 
     probes = (await db.execute(
-        select(Probe).where(Probe.is_active is True)
+        select(Probe).where(Probe.is_active)
     )).scalars().all()
 
     for probe in probes:

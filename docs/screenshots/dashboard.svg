@@ -1,0 +1,152 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#111827"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#00000044"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="720" fill="url(#bg)"/>
+
+  <!-- Sidebar -->
+  <rect x="0" y="0" width="220" height="720" fill="#0f172a"/>
+  <rect x="0" y="0" width="220" height="720" fill="#1e293b" opacity="0.5"/>
+
+  <!-- Logo -->
+  <rect x="20" y="22" width="10" height="10" rx="2" fill="#3b82f6"/>
+  <rect x="34" y="22" width="10" height="10" rx="2" fill="#10b981"/>
+  <text x="50" y="33" font-family="system-ui,sans-serif" font-size="15" font-weight="700" fill="#f1f5f9">WhatIsUp</text>
+
+  <!-- Nav items -->
+  <rect x="8" y="60" width="204" height="36" rx="8" fill="#3b82f6" opacity="0.2"/>
+  <text x="32" y="84" font-family="system-ui,sans-serif" font-size="13" fill="#3b82f6">● Dashboard</text>
+
+  <text x="32" y="120" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">  Monitors</text>
+  <text x="32" y="152" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">  Probes</text>
+  <text x="32" y="184" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">  Alerts</text>
+  <text x="32" y="216" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">  Groups</text>
+
+  <!-- User badge -->
+  <circle cx="32" cy="688" r="12" fill="#1e40af"/>
+  <text x="32" y="693" font-family="system-ui,sans-serif" font-size="11" fill="#fff" text-anchor="middle">A</text>
+  <text x="52" y="685" font-family="system-ui,sans-serif" font-size="12" fill="#94a3b8">admin@local</text>
+  <text x="52" y="698" font-family="system-ui,sans-serif" font-size="10" fill="#475569">Superadmin</text>
+
+  <!-- Main content area -->
+  <rect x="220" y="0" width="980" height="720" fill="#0f172a"/>
+
+  <!-- Header -->
+  <text x="248" y="48" font-family="system-ui,sans-serif" font-size="22" font-weight="700" fill="#f1f5f9">Dashboard</text>
+  <text x="248" y="68" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">Vue d'ensemble de vos monitors</text>
+
+  <!-- WS indicator -->
+  <circle cx="1142" cy="30" r="5" fill="#10b981"/>
+  <text x="1152" y="35" font-family="system-ui,sans-serif" font-size="11" fill="#10b981">Live</text>
+
+  <!-- Summary cards -->
+  <!-- Card 1: Total monitors -->
+  <rect x="248" y="90" width="210" height="90" rx="12" fill="#1e293b" filter="url(#shadow)"/>
+  <text x="268" y="118" font-family="system-ui,sans-serif" font-size="12" fill="#94a3b8">Monitors actifs</text>
+  <text x="268" y="153" font-family="system-ui,sans-serif" font-size="34" font-weight="700" fill="#f1f5f9">8</text>
+
+  <!-- Card 2: UP -->
+  <rect x="470" y="90" width="210" height="90" rx="12" fill="#1e293b" filter="url(#shadow)"/>
+  <text x="490" y="118" font-family="system-ui,sans-serif" font-size="12" fill="#94a3b8">En ligne</text>
+  <text x="490" y="153" font-family="system-ui,sans-serif" font-size="34" font-weight="700" fill="#10b981">7</text>
+
+  <!-- Card 3: DOWN -->
+  <rect x="692" y="90" width="210" height="90" rx="12" fill="#1e293b" filter="url(#shadow)"/>
+  <text x="712" y="118" font-family="system-ui,sans-serif" font-size="12" fill="#94a3b8">Incidents actifs</text>
+  <text x="712" y="153" font-family="system-ui,sans-serif" font-size="34" font-weight="700" fill="#ef4444">1</text>
+
+  <!-- Card 4: Uptime avg -->
+  <rect x="914" y="90" width="266" height="90" rx="12" fill="#1e293b" filter="url(#shadow)"/>
+  <text x="934" y="118" font-family="system-ui,sans-serif" font-size="12" fill="#94a3b8">Uptime moyen 24h</text>
+  <text x="934" y="153" font-family="system-ui,sans-serif" font-size="34" font-weight="700" fill="#3b82f6">98.73%</text>
+
+  <!-- Monitor list header -->
+  <text x="248" y="218" font-family="system-ui,sans-serif" font-size="16" font-weight="600" fill="#f1f5f9">Monitors</text>
+  <rect x="1080" y="202" width="120" height="30" rx="8" fill="#3b82f6"/>
+  <text x="1140" y="222" font-family="system-ui,sans-serif" font-size="13" fill="#fff" text-anchor="middle">+ Nouveau</text>
+
+  <!-- Monitor rows -->
+  <!-- Row header -->
+  <rect x="248" y="234" width="932" height="36" rx="8" fill="#1e293b" opacity="0.6"/>
+  <text x="276" y="257" font-family="system-ui,sans-serif" font-size="11" fill="#475569" font-weight="600">STATUT</text>
+  <text x="360" y="257" font-family="system-ui,sans-serif" font-size="11" fill="#475569" font-weight="600">NOM</text>
+  <text x="600" y="257" font-family="system-ui,sans-serif" font-size="11" fill="#475569" font-weight="600">URL</text>
+  <text x="830" y="257" font-family="system-ui,sans-serif" font-size="11" fill="#475569" font-weight="600">UPTIME 24H</text>
+  <text x="940" y="257" font-family="system-ui,sans-serif" font-size="11" fill="#475569" font-weight="600">RÉPONSE</text>
+  <text x="1060" y="257" font-family="system-ui,sans-serif" font-size="11" fill="#475569" font-weight="600">INTERVAL</text>
+
+  <!-- Row 1 - UP -->
+  <rect x="248" y="276" width="932" height="52" rx="8" fill="#1e293b" filter="url(#shadow)"/>
+  <circle cx="272" cy="302" r="7" fill="#10b981"/>
+  <text x="360" y="297" font-family="system-ui,sans-serif" font-size="14" font-weight="600" fill="#f1f5f9">API Production</text>
+  <text x="360" y="314" font-family="system-ui,sans-serif" font-size="11" fill="#64748b">Groupe: Backend</text>
+  <text x="600" y="305" font-family="system-ui,sans-serif" font-size="12" fill="#94a3b8" font-family="monospace">https://api.example.com</text>
+  <text x="830" y="305" font-family="system-ui,sans-serif" font-size="14" font-weight="600" fill="#10b981">99.97%</text>
+  <text x="940" y="305" font-family="system-ui,sans-serif" font-size="14" fill="#94a3b8">142 ms</text>
+  <text x="1060" y="305" font-family="system-ui,sans-serif" font-size="12" fill="#64748b">30 s</text>
+
+  <!-- Row 2 - DOWN -->
+  <rect x="248" y="336" width="932" height="52" rx="8" fill="#1e293b" filter="url(#shadow)"/>
+  <rect x="248" y="336" width="4" height="52" rx="2" fill="#ef4444"/>
+  <circle cx="272" cy="362" r="7" fill="#ef4444"/>
+  <text x="360" y="357" font-family="system-ui,sans-serif" font-size="14" font-weight="600" fill="#f1f5f9">Service Paiement</text>
+  <text x="360" y="374" font-family="system-ui,sans-serif" font-size="11" fill="#ef4444">↓ Incident depuis 14 min</text>
+  <text x="600" y="365" font-family="system-ui,sans-serif" font-size="12" fill="#94a3b8" font-family="monospace">https://pay.example.com</text>
+  <text x="830" y="365" font-family="system-ui,sans-serif" font-size="14" font-weight="600" fill="#ef4444">94.12%</text>
+  <text x="940" y="365" font-family="system-ui,sans-serif" font-size="14" fill="#64748b">—</text>
+  <text x="1060" y="365" font-family="system-ui,sans-serif" font-size="12" fill="#64748b">60 s</text>
+
+  <!-- Row 3 - UP -->
+  <rect x="248" y="396" width="932" height="52" rx="8" fill="#1e293b" filter="url(#shadow)"/>
+  <circle cx="272" cy="422" r="7" fill="#10b981"/>
+  <text x="360" y="417" font-family="system-ui,sans-serif" font-size="14" font-weight="600" fill="#f1f5f9">Site Vitrine</text>
+  <text x="360" y="434" font-family="system-ui,sans-serif" font-size="11" fill="#64748b">Groupe: Frontend</text>
+  <text x="600" y="425" font-family="system-ui,sans-serif" font-size="12" fill="#94a3b8" font-family="monospace">https://www.example.com</text>
+  <text x="830" y="425" font-family="system-ui,sans-serif" font-size="14" font-weight="600" fill="#10b981">100.00%</text>
+  <text x="940" y="425" font-family="system-ui,sans-serif" font-size="14" fill="#94a3b8">89 ms</text>
+  <text x="1060" y="425" font-family="system-ui,sans-serif" font-size="12" fill="#64748b">30 s</text>
+
+  <!-- Row 4 - UP -->
+  <rect x="248" y="456" width="932" height="52" rx="8" fill="#1e293b" filter="url(#shadow)"/>
+  <circle cx="272" cy="482" r="7" fill="#10b981"/>
+  <text x="360" y="477" font-family="system-ui,sans-serif" font-size="14" font-weight="600" fill="#f1f5f9">Webhook Notifications</text>
+  <text x="360" y="494" font-family="system-ui,sans-serif" font-size="11" fill="#64748b">Groupe: Infra</text>
+  <text x="600" y="485" font-family="system-ui,sans-serif" font-size="12" fill="#94a3b8" font-family="monospace">https://hooks.example.com/push</text>
+  <text x="830" y="485" font-family="system-ui,sans-serif" font-size="14" font-weight="600" fill="#10b981">99.61%</text>
+  <text x="940" y="485" font-family="system-ui,sans-serif" font-size="14" fill="#94a3b8">234 ms</text>
+  <text x="1060" y="485" font-family="system-ui,sans-serif" font-size="12" fill="#64748b">60 s</text>
+
+  <!-- Row 5 - UP -->
+  <rect x="248" y="516" width="932" height="52" rx="8" fill="#1e293b" filter="url(#shadow)"/>
+  <circle cx="272" cy="542" r="7" fill="#10b981"/>
+  <text x="360" y="537" font-family="system-ui,sans-serif" font-size="14" font-weight="600" fill="#f1f5f9">Admin Panel</text>
+  <text x="360" y="554" font-family="system-ui,sans-serif" font-size="11" fill="#64748b">Groupe: Internal</text>
+  <text x="600" y="545" font-family="system-ui,sans-serif" font-size="12" fill="#94a3b8" font-family="monospace">https://admin.example.com</text>
+  <text x="830" y="545" font-family="system-ui,sans-serif" font-size="14" font-weight="600" fill="#10b981">99.89%</text>
+  <text x="940" y="545" font-family="system-ui,sans-serif" font-size="14" fill="#94a3b8">198 ms</text>
+  <text x="1060" y="545" font-family="system-ui,sans-serif" font-size="12" fill="#64748b">120 s</text>
+
+  <!-- Incident banner -->
+  <rect x="248" y="590" width="932" height="60" rx="12" fill="#7f1d1d" opacity="0.6"/>
+  <rect x="248" y="590" width="932" height="60" rx="12" fill="none" stroke="#ef4444" stroke-width="1" opacity="0.5"/>
+  <circle cx="280" cy="620" r="10" fill="#ef4444"/>
+  <text x="280" y="625" font-family="system-ui,sans-serif" font-size="14" fill="#fff" text-anchor="middle">!</text>
+  <text x="304" y="614" font-family="system-ui,sans-serif" font-size="14" font-weight="600" fill="#fca5a5">Incident actif — Service Paiement</text>
+  <text x="304" y="634" font-family="system-ui,sans-serif" font-size="12" fill="#f87171">Portée: géographique · Sonde Paris (DOWN) · Sonde Frankfurt (UP) · Depuis 14 min</text>
+  <rect x="1090" y="602" width="76" height="28" rx="6" fill="#ef4444" opacity="0.8"/>
+  <text x="1128" y="621" font-family="system-ui,sans-serif" font-size="12" fill="#fff" text-anchor="middle">Détails</text>
+
+  <!-- Status bar bottom -->
+  <rect x="220" y="680" width="980" height="40" fill="#1e293b" opacity="0.4"/>
+  <circle cx="248" cy="700" r="4" fill="#10b981"/>
+  <text x="260" y="704" font-family="system-ui,sans-serif" font-size="11" fill="#64748b">WebSocket connecté · Dernière mise à jour il y a 2 s</text>
+  <text x="1150" y="704" font-family="system-ui,sans-serif" font-size="11" fill="#475569" text-anchor="end">v0.2.0</text>
+</svg>

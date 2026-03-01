@@ -17,6 +17,12 @@ class ProbeCreate(BaseModel):
     longitude: float | None = Field(default=None, ge=-180.0, le=180.0)
 
 
+class ProbeUpdate(BaseModel):
+    location_name: str | None = Field(default=None, min_length=1, max_length=255)
+    latitude: float | None = Field(default=None, ge=-90.0, le=90.0)
+    longitude: float | None = Field(default=None, ge=-180.0, le=180.0)
+
+
 class ProbeOut(BaseModel):
     id: uuid.UUID
     name: str
@@ -63,3 +69,18 @@ class ProbeMonitorConfig(BaseModel):
     expected_status_codes: list[int]
     ssl_check_enabled: bool
     ssl_expiry_warn_days: int
+
+
+class ProbeMonitorStatus(BaseModel):
+    """Status of a probe for a given monitor (last check result)."""
+
+    probe_id: uuid.UUID
+    name: str
+    location_name: str
+    latitude: float | None
+    longitude: float | None
+    is_active: bool
+    last_seen_at: datetime | None
+    last_status: CheckStatus | None
+    last_checked_at: datetime | None
+    response_time_ms: float | None

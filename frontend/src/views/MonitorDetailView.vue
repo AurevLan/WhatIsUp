@@ -12,6 +12,23 @@
       </div>
     </div>
 
+    <!-- View tabs -->
+    <div class="flex gap-1 mb-6 border-b border-gray-800">
+      <button
+        v-for="tab in viewTabs" :key="tab"
+        @click="setTab(tab)"
+        class="px-4 py-2 text-sm font-medium transition-colors"
+        :class="activeTab === tab
+          ? 'text-blue-400 border-b-2 border-blue-400 -mb-px'
+          : 'text-gray-500 hover:text-gray-300'"
+      >
+        {{ tab }}
+      </button>
+    </div>
+
+    <!-- ── Disponibilité + Temps de réponse + Checks ─────────────────────── -->
+    <div v-if="activeTab !== 'Carte'">
+
     <!-- Stats cards -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
       <div class="card text-center">
@@ -156,12 +173,33 @@
         </tbody>
       </table>
     </div>
+
+    </div><!-- end v-if != Carte -->
+
+    <!-- ── Onglet Carte ─────────────────────────────────────────────────────── -->
+    <div v-if="activeTab === 'Carte'">
+      <div ref="probeMapEl" class="rounded-xl overflow-hidden" style="height: 480px;"></div>
+
+      <!-- Sondes sans coordonnées -->
+      <div v-if="probesWithoutCoords.length" class="mt-6">
+        <h3 class="text-sm font-semibold text-gray-400 mb-3">Sondes non localisées</h3>
+        <div class="space-y-2">
+          <div v-for="p in probesWithoutCoords" :key="p.probe_id"
+            class="flex items-center gap-3 text-sm text-gray-300">
+            <span class="w-2 h-2 rounded-full" :class="markerColor(p).dot"></span>
+            <span class="font-medium">{{ p.name }}</span>
+            <span class="text-gray-500">{{ p.location_name }}</span>
+            <span class="text-xs" :class="markerColor(p).text">{{ statusLabel(p) }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
   <div v-else class="p-8 text-gray-400">Chargement…</div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { Shield, ShieldAlert, ShieldCheck } from 'lucide-vue-next'
 import { monitorsApi } from '../api/monitors'
@@ -173,6 +211,97 @@ const results   = ref([])
 const uptime24  = ref(null)
 const uptime7d  = ref(null)
 const probeMap  = ref({})   // probeId → { name, location_name }
+
+// ── Tabs ─────────────────────────────────────────────────────────────────────
+const viewTabs = ['Disponibilité', 'Carte']
+const activeTab = ref('Disponibilité')
+
+// ── Map (Carte tab) ───────────────────────────────────────────────────────────
+const probeMapEl = ref(null)
+const probeStatuses = ref([])  // list of ProbeMonitorStatus
+let monitorLeafletMap = null
+let monitorMarkers = []
+
+const probesWithCoords = computed(() =>
+  probeStatuses.value.filter(p => p.latitude != null && p.longitude != null)
+)
+const probesWithoutCoords = computed(() =>
+  probeStatuses.value.filter(p => p.latitude == null || p.longitude == null)
+)
+
+function markerColor(p) {
+  if (!p.last_status) return { dot: 'bg-gray-500', text: 'text-gray-500', hex: '#6b7280' }
+  if (p.last_status === 'up') return { dot: 'bg-emerald-400', text: 'text-emerald-400', hex: '#34d399' }
+  return { dot: 'bg-red-500', text: 'text-red-400', hex: '#ef4444' }
+}
+
+function statusLabel(p) {
+  if (!p.last_status) return 'Pas encore de check'
+  return p.last_status + (p.response_time_ms ? ` — ${Math.round(p.response_time_ms)}ms` : '')
+}
+
+async function initMonitorMap() {
+  if (!probeMapEl.value) return
+  const L = (await import('leaflet')).default
+  await import('leaflet/dist/leaflet.css')
+
+  delete L.Icon.Default.prototype._getIconUrl
+  L.Icon.Default.mergeOptions({
+    iconRetinaUrl: new URL('leaflet/dist/images/marker-icon-2x.png', import.meta.url).href,
+    iconUrl: new URL('leaflet/dist/images/marker-icon.png', import.meta.url).href,
+    shadowUrl: new URL('leaflet/dist/images/marker-shadow.png', import.meta.url).href,
+  })
+
+  monitorLeafletMap = L.map(probeMapEl.value).setView([20, 0], 2)
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom: 18,
+  }).addTo(monitorLeafletMap)
+
+  monitorMarkers.forEach(m => m.remove())
+  monitorMarkers = []
+
+  for (const p of probesWithCoords.value) {
+    const col = markerColor(p)
+    const icon = L.divIcon({
+      className: '',
+      html: `<div style="
+        width:14px;height:14px;border-radius:50%;
+        background:${col.hex};
+        border:2px solid ${col.hex}aa;
+        box-shadow:0 0 6px ${col.hex}88;
+      "></div>`,
+      iconSize: [14, 14],
+      iconAnchor: [7, 7],
+    })
+    const checkedAt = p.last_checked_at
+      ? new Date(p.last_checked_at).toLocaleString('fr-FR') : 'Jamais'
+    const marker = L.marker([p.latitude, p.longitude], { icon })
+      .addTo(monitorLeafletMap)
+      .bindPopup(`
+        <b>${p.name}</b><br>
+        ${p.location_name}<br>
+        <span style="color:${col.hex}">● ${p.last_status ?? 'Aucun check'}</span>
+        ${p.response_time_ms != null ? ` — ${Math.round(p.response_time_ms)}ms` : ''}<br>
+        <small>Dernier check : ${checkedAt}</small>
+      `)
+    monitorMarkers.push(marker)
+  }
+}
+
+async function setTab(tab) {
+  activeTab.value = tab
+  if (tab === 'Carte') {
+    if (!probeStatuses.value.length) {
+      try {
+        const { data } = await monitorsApi.probeStatus(route.params.id)
+        probeStatuses.value = data
+      } catch {}
+    }
+    await nextTick()
+    if (!monitorLeafletMap) await initMonitorMap()
+  }
+}
 
 const probeColors = ['#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#ef4444', '#06b6d4']
 

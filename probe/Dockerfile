@@ -15,9 +15,14 @@ RUN pip install --no-cache-dir -e .
 
 # Non-root user
 RUN useradd -m -u 1000 probe
+
+COPY docker-entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 USER probe
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
-ENTRYPOINT ["whatisup-probe"]
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["whatisup-probe"]

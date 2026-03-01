@@ -22,6 +22,7 @@ from whatisup.schemas.probe import (
     ProbeMonitorConfig,
     ProbeOut,
     ProbeRegistered,
+    ProbeUpdate,
 )
 from whatisup.services.incident import process_check_result
 
@@ -164,6 +165,23 @@ async def get_probe(
     if target.id != probe.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
     return target
+
+
+@router.patch("/{probe_id}", response_model=ProbeOut)
+async def update_probe(
+    probe_id: uuid.UUID,
+    payload: ProbeUpdate,
+    _user: User = Depends(require_superadmin),
+    db: AsyncSession = Depends(get_db),
+) -> Probe:
+    probe = (await db.execute(select(Probe).where(Probe.id == probe_id))).scalar_one_or_none()
+    if probe is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Probe not found")
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(probe, field, value)
+    await db.flush()
+    logger.info("probe_updated", probe_id=str(probe.id))
+    return probe
 
 
 @router.delete("/{probe_id}", status_code=status.HTTP_204_NO_CONTENT)

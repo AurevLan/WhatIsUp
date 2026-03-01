@@ -16,4 +16,4 @@ ENV PYTHONUNBUFFERED=1 \
 EXPOSE 8000
 
 # Source is mounted via volume at runtime (live reload)
-CMD ["sh", "-c", "alembic upgrade head && uvicorn whatisup.main:app --host 0.0.0.0 --port 8000 --reload"]
+CMD ["sh", "-c", "alembic upgrade head && python -m whatisup.init_data && uvicorn whatisup.main:app --host 0.0.0.0 --port 8000 --reload"]

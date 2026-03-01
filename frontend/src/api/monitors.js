@@ -9,6 +9,7 @@ export const monitorsApi = {
   results: (id, params = {}) => api.get(`/monitors/${id}/results`, { params }),
   uptime: (id, periodHours = 24) => api.get(`/monitors/${id}/uptime`, { params: { period_hours: periodHours } }),
   incidents: (id, params = {}) => api.get(`/monitors/${id}/incidents`, { params }),
+  probeStatus: (id) => api.get(`/monitors/${id}/probes`),
 }
 
 export const groupsApi = {

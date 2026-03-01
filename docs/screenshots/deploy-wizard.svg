@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="560" viewBox="0 0 800 560">
+  <defs>
+    <linearGradient id="termBg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1a1a2e"/>
+      <stop offset="100%" stop-color="#0f0f1a"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Terminal window -->
+  <rect width="800" height="560" rx="12" fill="#1a1a2e"/>
+  <rect width="800" height="560" rx="12" fill="none" stroke="#2d2d4e" stroke-width="2"/>
+
+  <!-- Title bar -->
+  <rect x="0" y="0" width="800" height="40" rx="12" fill="#2d2d4e"/>
+  <rect x="0" y="28" width="800" height="12" fill="#2d2d4e"/>
+
+  <!-- Traffic lights -->
+  <circle cx="24" cy="20" r="7" fill="#ff5f57"/>
+  <circle cx="46" cy="20" r="7" fill="#febc2e"/>
+  <circle cx="68" cy="20" r="7" fill="#28c840"/>
+
+  <!-- Terminal title -->
+  <text x="400" y="25" font-family="system-ui,sans-serif" font-size="13" fill="#8888aa" text-anchor="middle">bash — deploy.sh — 80×30</text>
+
+  <!-- Terminal content -->
+  <text x="30" y="80" font-family="'Courier New',Courier,monospace" font-size="14" fill="#666688">$ ./deploy.sh</text>
+
+  <!-- Banner -->
+  <text x="30" y="110" font-family="'Courier New',Courier,monospace" font-size="13" fill="#22d3ee">  ╔══════════════════════════════════════════════╗</text>
+  <text x="30" y="128" font-family="'Courier New',Courier,monospace" font-size="13" fill="#22d3ee">  ║   WhatIsUp — Assistant de déploiement       ║</text>
+  <text x="30" y="146" font-family="'Courier New',Courier,monospace" font-size="13" fill="#22d3ee">  ╚══════════════════════════════════════════════╝</text>
+
+  <!-- Menu options -->
+  <text x="30" y="174" font-family="'Courier New',Courier,monospace" font-size="13" fill="#f8f8f2">  <tspan fill="#e2e8f0" font-weight="bold">1)</tspan> Serveur + sonde centrale <tspan fill="#22d3ee">(recommandé)</tspan></text>
+  <text x="30" y="192" font-family="'Courier New',Courier,monospace" font-size="12" fill="#64748b">     Lance toute la plateforme et enrôle une sonde locale.</text>
+
+  <text x="30" y="214" font-family="'Courier New',Courier,monospace" font-size="13" fill="#f8f8f2">  <tspan fill="#e2e8f0" font-weight="bold">2)</tspan> Serveur seul</text>
+  <text x="30" y="232" font-family="'Courier New',Courier,monospace" font-size="12" fill="#64748b">     Lance la plateforme sans sonde locale.</text>
+
+  <text x="30" y="254" font-family="'Courier New',Courier,monospace" font-size="13" fill="#f8f8f2">  <tspan fill="#e2e8f0" font-weight="bold">3)</tspan> Sonde distante (enrôlement automatique)</text>
+  <text x="30" y="272" font-family="'Courier New',Courier,monospace" font-size="12" fill="#64748b">     Déploie l'agent probe et se connecte au serveur central.</text>
+
+  <text x="30" y="294" font-family="'Courier New',Courier,monospace" font-size="13" fill="#f8f8f2">  <tspan fill="#e2e8f0" font-weight="bold">q)</tspan> Quitter</text>
+
+  <!-- Prompt -->
+  <text x="30" y="322" font-family="'Courier New',Courier,monospace" font-size="13" fill="#fbbf24">  Votre choix [1/2/3/q] : 1</text>
+
+  <!-- Output after choice 1 -->
+  <text x="30" y="350" font-family="'Courier New',Courier,monospace" font-size="13" fill="#94a3b8">── Configuration du serveur ──</text>
+  <text x="30" y="370" font-family="'Courier New',Courier,monospace" font-size="13" fill="#22d3ee">  ? </text>
+  <text x="68" y="370" font-family="'Courier New',Courier,monospace" font-size="13" fill="#f8f8f2">URL publique (ex: https://monitoring.example.com) :</text>
+  <text x="30" y="370" font-family="'Courier New',Courier,monospace" font-size="13" fill="#f8f8f2" dx="510">https://mon.example.com</text>
+
+  <text x="30" y="390" font-family="'Courier New',Courier,monospace" font-size="13" fill="#94a3b8">── Secrets ──</text>
+  <text x="30" y="410" font-family="'Courier New',Courier,monospace" font-size="13" fill="#10b981">  ✓ </text>
+  <text x="54" y="410" font-family="'Courier New',Courier,monospace" font-size="13" fill="#f8f8f2">Secrets cryptographiques générés</text>
+
+  <text x="30" y="430" font-family="'Courier New',Courier,monospace" font-size="13" fill="#94a3b8">── Certificat SSL ──</text>
+  <text x="30" y="450" font-family="'Courier New',Courier,monospace" font-size="13" fill="#fbbf24">  ? </text>
+  <text x="54" y="450" font-family="'Courier New',Courier,monospace" font-size="13" fill="#f8f8f2">Générer un certificat auto-signé pour mon.example.com ? [o/N] : o</text>
+  <text x="30" y="470" font-family="'Courier New',Courier,monospace" font-size="13" fill="#10b981">  ✓ </text>
+  <text x="54" y="470" font-family="'Courier New',Courier,monospace" font-size="13" fill="#f8f8f2">Certificats écrits dans nginx/ssl/cert.pem et nginx/ssl/key.pem</text>
+
+  <text x="30" y="490" font-family="'Courier New',Courier,monospace" font-size="13" fill="#94a3b8">── Construction des images ──</text>
+  <text x="30" y="510" font-family="'Courier New',Courier,monospace" font-size="13" fill="#10b981">  ✓ </text>
+  <text x="54" y="510" font-family="'Courier New',Courier,monospace" font-size="13" fill="#f8f8f2">Déploiement serveur terminé !</text>
+
+  <!-- Cursor blink -->
+  <rect x="30" y="526" width="9" height="16" fill="#22d3ee" opacity="0.8">
+    <animate attributeName="opacity" values="0.8;0;0.8" dur="1.2s" repeatCount="indefinite"/>
+  </rect>
+</svg>

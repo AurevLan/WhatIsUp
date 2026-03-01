@@ -1,0 +1,128 @@
+version: 2
+
+updates:
+  # ── Server Python dependencies ────────────────────────────────────────────
+  - package-ecosystem: "pip"
+    directory: "/server"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Europe/Paris"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "server"
+    reviewers:
+      - "AurevLan"
+    commit-message:
+      prefix: "chore(deps/server)"
+      include: "scope"
+    groups:
+      server-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # ── Probe Python dependencies ─────────────────────────────────────────────
+  - package-ecosystem: "pip"
+    directory: "/probe"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Europe/Paris"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "probe"
+    reviewers:
+      - "AurevLan"
+    commit-message:
+      prefix: "chore(deps/probe)"
+      include: "scope"
+    groups:
+      probe-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # ── Frontend npm dependencies ─────────────────────────────────────────────
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Europe/Paris"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "frontend"
+    reviewers:
+      - "AurevLan"
+    commit-message:
+      prefix: "chore(deps/frontend)"
+      include: "scope"
+    groups:
+      frontend-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # ── GitHub Actions ────────────────────────────────────────────────────────
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Europe/Paris"
+    labels:
+      - "dependencies"
+      - "ci"
+    reviewers:
+      - "AurevLan"
+    commit-message:
+      prefix: "chore(ci)"
+      include: "scope"
+
+  # ── Docker base images ────────────────────────────────────────────────────
+  - package-ecosystem: "docker"
+    directory: "/server"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Europe/Paris"
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "chore(docker/server)"
+
+  - package-ecosystem: "docker"
+    directory: "/probe"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Europe/Paris"
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "chore(docker/probe)"
+
+  - package-ecosystem: "docker"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Europe/Paris"
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "chore(docker/frontend)"

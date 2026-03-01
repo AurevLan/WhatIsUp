@@ -1,0 +1,32 @@
+# WhatIsUp — Probe agent (standalone)
+#
+# Deploy this file on any remote server to add a monitoring probe.
+#
+# Setup:
+#   1. Register the probe via the central API (superadmin):
+#        POST /api/v1/probes/register  →  note the returned api_key
+#   2. Copy .env.probe.example to .env.probe and fill in the values
+#   3. docker compose -f docker-compose.probe.yml --env-file .env.probe up -d
+#
+# The probe will connect to the central server, fetch the list of monitors
+# and start sending check results automatically.
+
+services:
+  probe:
+    build:
+      context: ./probe
+    image: whatisup-probe:latest
+    restart: unless-stopped
+    environment:
+      # --- Required ---
+      CENTRAL_API_URL: ${CENTRAL_API_URL:?Set CENTRAL_API_URL to the central server URL}
+      PROBE_API_KEY: ${PROBE_API_KEY:?Set PROBE_API_KEY returned by /api/v1/probes/register}
+
+      # --- Identity ---
+      PROBE_NAME: ${PROBE_NAME:-probe-1}
+      PROBE_LOCATION: ${PROBE_LOCATION:-Unknown}
+
+      # --- Optional ---
+      HEARTBEAT_INTERVAL: ${HEARTBEAT_INTERVAL:-30}
+      MAX_CONCURRENT_CHECKS: ${MAX_CONCURRENT_CHECKS:-10}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}

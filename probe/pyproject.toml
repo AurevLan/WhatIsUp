@@ -1,0 +1,57 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "whatisup-probe"
+version = "0.1.0"
+description = "WhatIsUp — remote probe agent"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "WhatIsUp Contributors" }]
+
+dependencies = [
+    # HTTP checks (with redirect support and SSL)
+    "httpx>=0.28.0,<0.29",
+
+    # SSL certificate parsing
+    "cryptography>=44.0.0,<45",
+
+    # Scheduling
+    "apscheduler>=3.11.0,<4",
+
+    # Configuration
+    "pydantic>=2.10.0,<3",
+    "pydantic-settings>=2.6.0,<3",
+    "python-dotenv>=1.0.1,<2",
+
+    # Structured logging
+    "structlog>=25.1.0,<26",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0,<9",
+    "pytest-asyncio>=0.25.0,<0.26",
+    "respx>=0.22.0,<0.23",
+    "ruff>=0.9.0,<0.10",
+    "pip-audit>=2.8.0,<3",
+]
+
+[project.scripts]
+whatisup-probe = "whatisup_probe.main:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["whatisup_probe"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

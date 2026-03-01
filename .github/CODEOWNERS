@@ -1,0 +1,7 @@
+# All files require review from the project owner
+* @AurevLan
+
+# Security-sensitive paths — mandatory review
+.github/workflows/    @AurevLan
+server/whatisup/core/ @AurevLan
+server/whatisup/api/  @AurevLan

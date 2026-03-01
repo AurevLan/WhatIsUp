@@ -1,0 +1,87 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "whatisup-server"
+version = "0.1.0"
+description = "WhatIsUp — central monitoring server"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "WhatIsUp Contributors" }]
+
+dependencies = [
+    # Web framework
+    "fastapi>=0.115.0,<0.116",
+    "uvicorn[standard]>=0.32.0,<0.33",
+
+    # Database
+    "sqlalchemy[asyncio]>=2.0.36,<2.1",
+    "asyncpg>=0.30.0,<0.31",
+    "alembic>=1.14.0,<1.15",
+
+    # Cache / pub-sub
+    "redis[hiredis]>=5.2.0,<6",
+
+    # Configuration
+    "pydantic>=2.10.0,<3",
+    "pydantic-settings>=2.6.0,<3",
+    "python-dotenv>=1.0.1,<2",
+
+    # Authentication
+    "pyjwt>=2.10.0,<3",
+    "bcrypt>=4.2.0,<5",
+    "python-multipart>=0.0.12,<0.1",
+    "email-validator>=2.2.0,<3",
+
+    # Rate limiting
+    "slowapi>=0.1.9,<0.2",
+
+    # SSL certificate parsing
+    "cryptography>=44.0.0,<45",
+
+    # Async email
+    "aiosmtplib>=3.0.0,<4",
+
+    # HTTP client (webhook/telegram dispatch + probe validation)
+    "httpx>=0.28.0,<0.29",
+
+    # Structured logging
+    "structlog>=25.1.0,<26",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0,<9",
+    "pytest-asyncio>=0.25.0,<0.26",
+    "pytest-cov>=6.0.0,<7",
+    "httpx>=0.28.0,<0.29",
+    "aiosqlite>=0.20.0,<0.21",
+    "ruff>=0.9.0,<0.10",
+    "mypy>=1.14.0,<2",
+    "pip-audit>=2.8.0,<3",
+    "fakeredis>=2.26.0,<3",
+]
+
+[project.scripts]
+whatisup-server = "whatisup.main:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["whatisup"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+ignore_missing_imports = true

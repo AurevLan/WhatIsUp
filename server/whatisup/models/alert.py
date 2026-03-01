@@ -30,19 +30,19 @@ if TYPE_CHECKING:
     from whatisup.models.user import User
 
 
-class AlertChannelType(str, enum.Enum):
+class AlertChannelType(enum.StrEnum):
     email = "email"
     webhook = "webhook"
     telegram = "telegram"
 
 
-class AlertCondition(str, enum.Enum):
+class AlertCondition(enum.StrEnum):
     all_down = "all_down"        # All probes report down (global outage)
     any_down = "any_down"        # Any probe reports down
     ssl_expiry = "ssl_expiry"    # SSL cert expires within warn window
 
 
-class AlertEventStatus(str, enum.Enum):
+class AlertEventStatus(enum.StrEnum):
     sent = "sent"
     failed = "failed"
 

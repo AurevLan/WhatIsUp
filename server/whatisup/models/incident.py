@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from whatisup.models.monitor import Monitor
 
 
-class IncidentScope(str, enum.Enum):
+class IncidentScope(enum.StrEnum):
     global_ = "global"      # All probes report down
     geographic = "geographic"  # Only some probes report down
 

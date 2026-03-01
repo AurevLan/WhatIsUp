@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from whatisup.models.probe import Probe
 
 
-class CheckStatus(str, enum.Enum):
+class CheckStatus(enum.StrEnum):
     up = "up"
     down = "down"
     timeout = "timeout"

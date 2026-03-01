@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 import enum
 
 
-class PermissionLevel(str, enum.Enum):
+class PermissionLevel(enum.StrEnum):
     view = "view"
     edit = "edit"
     admin = "admin"

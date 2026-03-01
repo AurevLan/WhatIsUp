@@ -1,10 +1,20 @@
 # WhatIsUp — Central platform (development)
 # Usage: docker compose up -d
 #
+# First-time probe setup:
+#   1. POST /api/v1/auth/register  →  create superadmin account
+#   2. POST /api/v1/probes/register  →  note the returned api_key
+#   3. Set PROBE_API_KEY in .env (or export it) then:
+#        docker compose --profile probe up -d probe-local
+#
 # Access:
 #   Frontend  → http://localhost:5173
 #   API       → http://localhost:8000
 #   API docs  → http://localhost:8000/api/docs
+
+networks:
+  whatisup:
+    driver: bridge
 
 services:
   postgres:
@@ -15,8 +25,8 @@ services:
       POSTGRES_PASSWORD: whatisup_dev_password
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5433:5432"
+    networks:
+      - whatisup
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U whatisup"]
       interval: 5s
@@ -28,8 +38,8 @@ services:
     command: redis-server --save 60 1 --loglevel warning
     volumes:
       - redis_data:/data
-    ports:
-      - "6379:6379"
+    networks:
+      - whatisup
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -51,12 +61,19 @@ services:
       ENVIRONMENT: development
       DEBUG: "true"
       CORS_ALLOWED_ORIGINS: '["http://localhost:5173"]'
+    networks:
+      - whatisup
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: uvicorn whatisup.main:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   frontend:
     image: node:22-alpine
@@ -67,13 +84,17 @@ services:
     ports:
       - "5173:5173"
     environment:
-      # Proxy target: frontend container reaches API via Docker network
       VITE_API_TARGET: http://server:8000
+    networks:
+      - whatisup
     command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
     depends_on:
-      - server
+      server:
+        condition: service_healthy
 
-  # Local probe — start with: docker compose --profile probe up -d
+  # Local probe — requires PROBE_API_KEY to be set
+  # Start after registering a probe via the API:
+  #   docker compose --profile probe up -d probe-local
   probe-local:
     build:
       context: ./probe
@@ -83,8 +104,11 @@ services:
       PROBE_NAME: ${PROBE_NAME:-local-probe}
       PROBE_LOCATION: ${PROBE_LOCATION:-Local Development}
       HEARTBEAT_INTERVAL: "15"
+    networks:
+      - whatisup
     depends_on:
-      - server
+      server:
+        condition: service_healthy
     restart: unless-stopped
     profiles:
       - probe

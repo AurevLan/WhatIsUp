@@ -36,7 +36,10 @@ async def get_current_user(
 
     user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
     if user is None or not user.is_active:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found or inactive",
+        )
 
     return user
 
@@ -53,10 +56,13 @@ async def get_current_probe(
 ) -> Probe:
     """Authenticate a probe via its API key."""
     if not x_probe_api_key.startswith("wiu_"):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid probe API key")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid probe API key",
+        )
 
     probes = (await db.execute(
-        select(Probe).where(Probe.is_active == True)
+        select(Probe).where(Probe.is_active is True)
     )).scalars().all()
 
     for probe in probes:

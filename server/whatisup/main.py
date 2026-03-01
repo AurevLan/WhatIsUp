@@ -69,7 +69,7 @@ def create_app() -> FastAPI:
     )
 
     # Routers
-    from whatisup.api.v1 import auth, monitors, groups, probes, alerts, public, status, ws
+    from whatisup.api.v1 import alerts, auth, groups, monitors, probes, public, status, ws
 
     app.include_router(auth.router, prefix="/api/v1")
     app.include_router(monitors.router, prefix="/api/v1")

@@ -58,7 +58,9 @@ async def delete_channel(
     db: AsyncSession = Depends(get_db),
 ) -> None:
     channel = (await db.execute(
-        select(AlertChannel).where(AlertChannel.id == channel_id, AlertChannel.owner_id == current_user.id)
+        select(AlertChannel).where(
+            AlertChannel.id == channel_id, AlertChannel.owner_id == current_user.id
+        )
     )).scalar_one_or_none()
     if channel is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Channel not found")
@@ -100,7 +102,9 @@ async def create_rule(
     )
     channels = list(channels_result.scalars().all())
     if len(channels) != len(payload.channel_ids):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Some channels not found")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Some channels not found"
+        )
 
     rule = AlertRule(
         monitor_id=payload.monitor_id,

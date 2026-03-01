@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import structlog
-
 import httpx
+import structlog
 
 from whatisup_probe.checker import CheckResult
 from whatisup_probe.config import get_settings

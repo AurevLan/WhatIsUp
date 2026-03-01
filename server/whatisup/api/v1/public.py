@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from whatisup.core.database import get_db
 from whatisup.models.monitor import Monitor, PublicPage
 from whatisup.schemas.monitor import PublicPageOut
-from whatisup.schemas.result import UptimeStats
 from whatisup.services.stats import compute_uptime
 
 router = APIRouter(prefix="/public", tags=["public"])
@@ -35,7 +34,7 @@ async def get_public_monitors(slug: str, db: AsyncSession = Depends(get_db)) -> 
         return []
 
     monitors = (await db.execute(
-        select(Monitor).where(Monitor.group_id == page.group_id, Monitor.enabled == True)
+        select(Monitor).where(Monitor.group_id == page.group_id, Monitor.enabled is True)
     )).scalars().all()
 
     results = []

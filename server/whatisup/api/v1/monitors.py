@@ -119,7 +119,9 @@ async def create_monitor(
         tags_result = await db.execute(select(Tag).where(Tag.id.in_(payload.tag_ids)))
         tags = list(tags_result.scalars().all())
         if len(tags) != len(payload.tag_ids):
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Some tags not found")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Some tags not found"
+            )
 
     monitor = Monitor(
         name=payload.name,
@@ -189,7 +191,9 @@ async def get_results(
     monitor_id: uuid.UUID,
     limit: int = Query(default=100, ge=1, le=2000),
     offset: int = Query(default=0, ge=0),
-    since: datetime | None = Query(default=None, description="ISO datetime — only results after this timestamp"),
+    since: datetime | None = Query(
+        default=None, description="ISO datetime — only results after this timestamp"
+    ),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list:

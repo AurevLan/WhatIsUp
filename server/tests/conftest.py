@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 import pytest_asyncio
 from fakeredis.aioredis import FakeRedis
 from httpx import ASGITransport, AsyncClient

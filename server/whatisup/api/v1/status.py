@@ -10,7 +10,7 @@ from whatisup.api.deps import get_current_user
 from whatisup.core.database import get_db
 from whatisup.models.incident import Incident
 from whatisup.models.monitor import Monitor
-from whatisup.models.result import CheckResult, CheckStatus
+from whatisup.models.result import CheckResult
 from whatisup.models.user import User
 from whatisup.services.stats import compute_uptime
 
@@ -22,7 +22,7 @@ async def status_all_monitors(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[dict]:
-    query = select(Monitor).where(Monitor.enabled == True)
+    query = select(Monitor).where(Monitor.enabled is True)
     if not current_user.is_superadmin:
         query = query.where(Monitor.owner_id == current_user.id)
 

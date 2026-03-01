@@ -1,7 +1,6 @@
 """Authentication endpoints: register, login, refresh, logout, me."""
 
 import uuid
-from datetime import timedelta
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -112,13 +111,17 @@ async def refresh(
         data = decode_token(payload.refresh_token, "refresh")
         user_id = uuid.UUID(data["sub"])
     except (InvalidTokenError, ValueError, KeyError) as exc:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token") from exc
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
+        ) from exc
 
     # Check not blacklisted
     redis = get_redis()
     key = f"whatisup:refresh:{user_id}:{payload.refresh_token[-12:]}"
     if not await redis.exists(key):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token revoked")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token revoked"
+        )
 
     user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
     if user is None or not user.is_active:

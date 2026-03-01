@@ -11,7 +11,12 @@ from whatisup.core.database import get_db
 from whatisup.models.monitor import Monitor, MonitorGroup
 from whatisup.models.tag import Tag
 from whatisup.models.user import User
-from whatisup.schemas.monitor import MonitorGroupCreate, MonitorGroupOut, MonitorGroupUpdate, MonitorOut
+from whatisup.schemas.monitor import (
+    MonitorGroupCreate,
+    MonitorGroupOut,
+    MonitorGroupUpdate,
+    MonitorOut,
+)
 
 router = APIRouter(prefix="/groups", tags=["groups"])
 

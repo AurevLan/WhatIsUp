@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import logging
-from typing import Annotated
 
-from pydantic import AnyHttpUrl, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
@@ -65,7 +64,7 @@ class Settings(BaseSettings):
     registration_open: bool = True  # False = invite-only after first user
 
     @model_validator(mode="after")
-    def warn_default_secrets(self) -> "Settings":
+    def warn_default_secrets(self) -> Settings:
         if self.environment == "production" and self.secret_key == _DEFAULT_SECRET:
             logger.warning(
                 "SECRET_KEY is set to the default value — "

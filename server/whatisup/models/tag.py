@@ -5,8 +5,7 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Column, Enum, ForeignKey, Index, String, Table, Text
-from sqlalchemy import Uuid
+from sqlalchemy import Enum, ForeignKey, Index, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from whatisup.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -31,7 +30,7 @@ class Tag(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Relationships
-    user_permissions: Mapped[list["UserTagPermission"]] = relationship(
+    user_permissions: Mapped[list[UserTagPermission]] = relationship(
         "UserTagPermission", back_populates="tag", cascade="all, delete-orphan"
     )
 
@@ -52,8 +51,8 @@ class UserTagPermission(Base):
         Enum(PermissionLevel, name="permission_level"), nullable=False
     )
 
-    user: Mapped["User"] = relationship("User", back_populates="tag_permissions")
-    tag: Mapped["Tag"] = relationship("Tag", back_populates="user_permissions")
+    user: Mapped[User] = relationship("User", back_populates="tag_permissions")
+    tag: Mapped[Tag] = relationship("Tag", back_populates="user_permissions")
 
     __table_args__ = (
         Index("ix_utp_user_id", "user_id"),

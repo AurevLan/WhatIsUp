@@ -7,9 +7,17 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Enum, Float, Index, Integer, String, Text
-from sqlalchemy import ForeignKey, Boolean
-from sqlalchemy import Uuid
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Enum,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    Text,
+    Uuid,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from whatisup.models.base import Base
@@ -58,8 +66,8 @@ class CheckResult(Base):
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Relationships
-    monitor: Mapped["Monitor"] = relationship("Monitor", back_populates="check_results")
-    probe: Mapped["Probe"] = relationship("Probe", back_populates="check_results")
+    monitor: Mapped[Monitor] = relationship("Monitor", back_populates="check_results")
+    probe: Mapped[Probe] = relationship("Probe", back_populates="check_results")
 
     __table_args__ = (
         Index("ix_cr_monitor_checked_at", "monitor_id", "checked_at"),

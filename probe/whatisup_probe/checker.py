@@ -5,7 +5,7 @@ from __future__ import annotations
 import socket
 import ssl
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
@@ -61,12 +61,14 @@ def _extract_ssl_info(url: str) -> tuple[bool, datetime | None, int | None]:
         # not_after format: 'May 15 12:00:00 2025 GMT'
         not_after_str = cert.get("notAfter", "")
         if not_after_str:
-            expires_at = datetime.strptime(not_after_str, "%b %d %H:%M:%S %Y %Z").replace(tzinfo=UTC)
+            expires_at = datetime.strptime(
+                not_after_str, "%b %d %H:%M:%S %Y %Z"
+            ).replace(tzinfo=UTC)
             days_remaining = (expires_at - datetime.now(UTC)).days
             return days_remaining > 0, expires_at, days_remaining
 
         return True, None, None
-    except ssl.SSLCertVerificationError as exc:
+    except ssl.SSLCertVerificationError:
         return False, None, None
     except Exception:
         return False, None, None
@@ -123,7 +125,7 @@ async def perform_check(
             ssl_days_remaining=ssl_days_remaining,
         )
 
-    except httpx.TimeoutException as exc:
+    except httpx.TimeoutException:
         return CheckResult(
             monitor_id=monitor_id,
             checked_at=checked_at,

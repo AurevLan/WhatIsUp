@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
+import httpx
 import pytest
 import respx
-import httpx
-from datetime import UTC, datetime
 
 from whatisup_probe.checker import perform_check
 

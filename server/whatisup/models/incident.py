@@ -7,16 +7,14 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Index, Integer
-from sqlalchemy import Uuid
-from sqlalchemy import JSON
+from sqlalchemy import JSON, DateTime, Enum, ForeignKey, Index, Integer, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from whatisup.models.base import Base
 
 if TYPE_CHECKING:
-    from whatisup.models.monitor import Monitor
     from whatisup.models.alert import AlertEvent
+    from whatisup.models.monitor import Monitor
 
 
 class IncidentScope(str, enum.Enum):
@@ -45,8 +43,8 @@ class Incident(Base):
     )
 
     # Relationships
-    monitor: Mapped["Monitor"] = relationship("Monitor", back_populates="incidents")
-    alert_events: Mapped[list["AlertEvent"]] = relationship(
+    monitor: Mapped[Monitor] = relationship("Monitor", back_populates="incidents")
+    alert_events: Mapped[list[AlertEvent]] = relationship(
         "AlertEvent", back_populates="incident", cascade="all, delete-orphan"
     )
 

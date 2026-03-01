@@ -7,16 +7,16 @@ Create Date: 2026-03-01 00:09:11.534900
 """
 from __future__ import annotations
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = '76f1c42af699'
-down_revision: Union[str, None] = None
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = None
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -66,7 +66,8 @@ def upgrade() -> None:
     op.create_table('alert_channels',
     sa.Column('owner_id', sa.Uuid(), nullable=False),
     sa.Column('name', sa.String(length=255), nullable=False),
-    sa.Column('type', sa.Enum('email', 'webhook', 'telegram', name='alert_channel_type'), nullable=False),
+    sa.Column('type', sa.Enum('email', 'webhook', 'telegram', name='alert_channel_type'),
+        nullable=False),
     sa.Column('config', sa.JSON(), nullable=False),
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
@@ -75,7 +76,9 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_alert_channels_id'), 'alert_channels', ['id'], unique=False)
-    op.create_index(op.f('ix_alert_channels_owner_id'), 'alert_channels', ['owner_id'], unique=False)
+    op.create_index(
+        op.f('ix_alert_channels_owner_id'), 'alert_channels', ['owner_id'], unique=False
+    )
     op.create_table('monitor_groups',
     sa.Column('name', sa.String(length=255), nullable=False),
     sa.Column('description', sa.Text(), nullable=True),
@@ -88,12 +91,17 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_monitor_groups_id'), 'monitor_groups', ['id'], unique=False)
-    op.create_index(op.f('ix_monitor_groups_owner_id'), 'monitor_groups', ['owner_id'], unique=False)
-    op.create_index(op.f('ix_monitor_groups_public_slug'), 'monitor_groups', ['public_slug'], unique=True)
+    op.create_index(
+        op.f('ix_monitor_groups_owner_id'), 'monitor_groups', ['owner_id'], unique=False
+    )
+    op.create_index(
+        op.f('ix_monitor_groups_public_slug'), 'monitor_groups', ['public_slug'], unique=True
+    )
     op.create_table('user_tag_permissions',
     sa.Column('user_id', sa.Uuid(), nullable=False),
     sa.Column('tag_id', sa.Uuid(), nullable=False),
-    sa.Column('permission', sa.Enum('view', 'edit', 'admin', name='permission_level'), nullable=False),
+    sa.Column('permission', sa.Enum('view', 'edit', 'admin', name='permission_level'),
+        nullable=False),
     sa.ForeignKeyConstraint(['tag_id'], ['tags.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('user_id', 'tag_id')
@@ -148,7 +156,11 @@ def upgrade() -> None:
     op.create_table('alert_rules',
     sa.Column('monitor_id', sa.Uuid(), nullable=True),
     sa.Column('group_id', sa.Uuid(), nullable=True),
-    sa.Column('condition', sa.Enum('all_down', 'any_down', 'ssl_expiry', name='alert_condition'), nullable=False),
+    sa.Column(
+        'condition',
+        sa.Enum('all_down', 'any_down', 'ssl_expiry', name='alert_condition'),
+        nullable=False,
+    ),
     sa.Column('min_duration_seconds', sa.Integer(), nullable=False),
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
@@ -165,7 +177,9 @@ def upgrade() -> None:
     sa.Column('monitor_id', sa.Uuid(), nullable=False),
     sa.Column('probe_id', sa.Uuid(), nullable=False),
     sa.Column('checked_at', sa.DateTime(timezone=True), nullable=False),
-    sa.Column('status', sa.Enum('up', 'down', 'timeout', 'error', name='check_status'), nullable=False),
+    sa.Column(
+        'status', sa.Enum('up', 'down', 'timeout', 'error', name='check_status'), nullable=False
+    ),
     sa.Column('http_status', sa.Integer(), nullable=True),
     sa.Column('response_time_ms', sa.Float(), nullable=True),
     sa.Column('redirect_count', sa.Integer(), nullable=False),
@@ -178,8 +192,12 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['probe_id'], ['probes.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_index('ix_cr_monitor_checked_at', 'check_results', ['monitor_id', 'checked_at'], unique=False)
-    op.create_index('ix_cr_probe_checked_at', 'check_results', ['probe_id', 'checked_at'], unique=False)
+    op.create_index(
+        'ix_cr_monitor_checked_at', 'check_results', ['monitor_id', 'checked_at'], unique=False
+    )
+    op.create_index(
+        'ix_cr_probe_checked_at', 'check_results', ['probe_id', 'checked_at'], unique=False
+    )
     op.create_table('incidents',
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.Column('monitor_id', sa.Uuid(), nullable=False),
@@ -191,7 +209,9 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['monitor_id'], ['monitors.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_index('ix_incidents_monitor_started', 'incidents', ['monitor_id', 'started_at'], unique=False)
+    op.create_index(
+        'ix_incidents_monitor_started', 'incidents', ['monitor_id', 'started_at'], unique=False
+    )
     op.create_index('ix_incidents_resolved', 'incidents', ['resolved_at'], unique=False)
     op.create_table('monitor_tags',
     sa.Column('monitor_id', sa.Uuid(), nullable=False),

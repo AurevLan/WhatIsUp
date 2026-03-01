@@ -29,13 +29,13 @@ async def process_check_result(
 
     # Fetch all active probes
     active_probes = (await db.execute(
-        select(Probe).where(Probe.is_active == True)
+        select(Probe).where(Probe.is_active is True)
     )).scalars().all()
 
     if not active_probes:
         return
 
-    probe_ids = [p.id for p in active_probes]
+    [p.id for p in active_probes]
 
     # Get the most recent result per active probe for this monitor
     latest_by_probe: dict[uuid.UUID, CheckResult] = {}
@@ -60,7 +60,7 @@ async def process_check_result(
         1 for r in latest_by_probe.values()
         if r.status in (CheckStatus.down, CheckStatus.timeout, CheckStatus.error)
     )
-    probes_up = probes_total - probes_down
+    probes_total - probes_down
     affected_probe_ids = [
         str(pid) for pid, r in latest_by_probe.items()
         if r.status in (CheckStatus.down, CheckStatus.timeout, CheckStatus.error)
@@ -114,7 +114,8 @@ async def process_check_result(
 
     elif scope is not None and open_incident is not None:
         # Update scope/affected probes if changed
-        if open_incident.scope != scope or set(open_incident.affected_probe_ids) != set(affected_probe_ids):
+        if (open_incident.scope != scope
+                or set(open_incident.affected_probe_ids) != set(affected_probe_ids)):
             open_incident.scope = scope
             open_incident.affected_probe_ids = affected_probe_ids
 

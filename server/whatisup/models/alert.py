@@ -7,17 +7,27 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, Index, Integer, String, Table, Text
-from sqlalchemy import Uuid
-from sqlalchemy import JSON
+from sqlalchemy import (
+    JSON,
+    Column,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Table,
+    Text,
+    Uuid,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from whatisup.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 
 if TYPE_CHECKING:
-    from whatisup.models.user import User
-    from whatisup.models.monitor import Monitor, MonitorGroup
     from whatisup.models.incident import Incident
+    from whatisup.models.monitor import Monitor
+    from whatisup.models.user import User
 
 
 class AlertChannelType(str, enum.Enum):
@@ -41,8 +51,14 @@ class AlertEventStatus(str, enum.Enum):
 alert_rule_channels = Table(
     "alert_rule_channels",
     Base.metadata,
-    Column("rule_id", Uuid(as_uuid=True), ForeignKey("alert_rules.id", ondelete="CASCADE"), primary_key=True),
-    Column("channel_id", Uuid(as_uuid=True), ForeignKey("alert_channels.id", ondelete="CASCADE"), primary_key=True),
+    Column(
+        "rule_id", Uuid(as_uuid=True), ForeignKey("alert_rules.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "channel_id", Uuid(as_uuid=True), ForeignKey("alert_channels.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
 )
 
 
@@ -62,11 +78,11 @@ class AlertChannel(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # telegram: {"bot_token": "<fernet-encrypted>", "chat_id": "..."}
     config: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
 
-    owner: Mapped["User"] = relationship("User", back_populates="alert_channels")
-    rules: Mapped[list["AlertRule"]] = relationship(
+    owner: Mapped[User] = relationship("User", back_populates="alert_channels")
+    rules: Mapped[list[AlertRule]] = relationship(
         "AlertRule", secondary=alert_rule_channels, back_populates="channels"
     )
-    alert_events: Mapped[list["AlertEvent"]] = relationship(
+    alert_events: Mapped[list[AlertEvent]] = relationship(
         "AlertEvent", back_populates="channel"
     )
 
@@ -78,17 +94,18 @@ class AlertRule(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Uuid(as_uuid=True), ForeignKey("monitors.id", ondelete="CASCADE"), nullable=True, index=True
     )
     group_id: Mapped[uuid.UUID | None] = mapped_column(
-        Uuid(as_uuid=True), ForeignKey("monitor_groups.id", ondelete="CASCADE"), nullable=True, index=True
+        Uuid(as_uuid=True), ForeignKey("monitor_groups.id", ondelete="CASCADE"),
+        nullable=True, index=True,
     )
     condition: Mapped[AlertCondition] = mapped_column(
         Enum(AlertCondition, name="alert_condition"), nullable=False
     )
     min_duration_seconds: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
-    monitor: Mapped["Monitor | None"] = relationship(
+    monitor: Mapped[Monitor | None] = relationship(
         "Monitor", back_populates="alert_rules", foreign_keys=[monitor_id]
     )
-    channels: Mapped[list["AlertChannel"]] = relationship(
+    channels: Mapped[list[AlertChannel]] = relationship(
         "AlertChannel", secondary=alert_rule_channels, back_populates="rules"
     )
 
@@ -111,8 +128,8 @@ class AlertEvent(Base):
     )
     response_body: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    incident: Mapped["Incident"] = relationship("Incident", back_populates="alert_events")
-    channel: Mapped["AlertChannel"] = relationship("AlertChannel", back_populates="alert_events")
+    incident: Mapped[Incident] = relationship("Incident", back_populates="alert_events")
+    channel: Mapped[AlertChannel] = relationship("AlertChannel", back_populates="alert_events")
 
     __table_args__ = (
         Index("ix_alert_events_incident", "incident_id"),

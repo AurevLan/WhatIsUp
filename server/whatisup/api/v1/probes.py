@@ -16,12 +16,12 @@ from whatisup.models.probe import Probe
 from whatisup.models.result import CheckResult
 from whatisup.models.user import User
 from whatisup.schemas.probe import (
+    ProbeCheckResultIn,
     ProbeCreate,
     ProbeHeartbeatResponse,
     ProbeMonitorConfig,
     ProbeOut,
     ProbeRegistered,
-    ProbeCheckResultIn,
 )
 from whatisup.services.incident import process_check_result
 
@@ -48,7 +48,9 @@ async def register_probe(
         select(Probe).where(Probe.name == payload.name)
     )).scalar_one_or_none()
     if existing:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Probe name already exists")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Probe name already exists"
+        )
 
     api_key = generate_probe_api_key()
 
@@ -85,7 +87,7 @@ async def heartbeat(
     probe.last_seen_at = datetime.now(UTC)
 
     monitors = (await db.execute(
-        select(Monitor).where(Monitor.enabled == True)
+        select(Monitor).where(Monitor.enabled is True)
     )).scalars().all()
 
     configs = [
@@ -113,10 +115,12 @@ async def push_result(
 ) -> dict:
     """Receive a check result from a probe and trigger incident detection."""
     monitor = (await db.execute(
-        select(Monitor).where(Monitor.id == payload.monitor_id, Monitor.enabled == True)
+        select(Monitor).where(Monitor.id == payload.monitor_id, Monitor.enabled is True)
     )).scalar_one_or_none()
     if monitor is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Monitor not found or disabled")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Monitor not found or disabled"
+        )
 
     result = CheckResult(
         monitor_id=payload.monitor_id,

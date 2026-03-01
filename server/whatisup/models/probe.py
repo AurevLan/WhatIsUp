@@ -27,7 +27,7 @@ class Probe(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         DateTime(timezone=True), nullable=True
     )
 
-    check_results: Mapped[list["CheckResult"]] = relationship(
+    check_results: Mapped[list[CheckResult]] = relationship(
         "CheckResult", back_populates="probe"
     )
 

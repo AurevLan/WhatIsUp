@@ -23,7 +23,7 @@ jobs:
       - name: Install server + pip-audit
         run: pip install -e ".[dev]" pip-audit
       - name: Audit server dependencies
-        run: pip-audit --require-hashes=false
+        run: pip-audit
 
   pip-audit-probe:
     name: pip-audit (probe)
@@ -39,7 +39,7 @@ jobs:
       - name: Install probe + pip-audit
         run: pip install -e ".[dev]" pip-audit
       - name: Audit probe dependencies
-        run: pip-audit --require-hashes=false
+        run: pip-audit
 
   npm-audit-frontend:
     name: npm audit (frontend)

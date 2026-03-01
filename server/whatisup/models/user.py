@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import uuid
 from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, String, Text
@@ -11,8 +10,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from whatisup.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 
 if TYPE_CHECKING:
-    from whatisup.models.tag import UserTagPermission
     from whatisup.models.alert import AlertChannel
+    from whatisup.models.tag import UserTagPermission
 
 
 class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -26,10 +25,10 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     is_superadmin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Relationships
-    tag_permissions: Mapped[list["UserTagPermission"]] = relationship(
+    tag_permissions: Mapped[list[UserTagPermission]] = relationship(
         "UserTagPermission", back_populates="user", cascade="all, delete-orphan"
     )
-    alert_channels: Mapped[list["AlertChannel"]] = relationship(
+    alert_channels: Mapped[list[AlertChannel]] = relationship(
         "AlertChannel", back_populates="owner"
     )
 

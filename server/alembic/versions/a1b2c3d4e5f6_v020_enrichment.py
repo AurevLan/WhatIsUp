@@ -8,6 +8,7 @@ Create Date: 2026-03-10 00:00:00.000000
 from collections.abc import Sequence
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision: str = "a1b2c3d4e5f6"
@@ -18,12 +19,17 @@ depends_on: str | Sequence[str] | None = None
 
 def upgrade() -> None:
     # ── Monitors: new check type fields ──────────────────────────────────────
-    op.add_column("monitors", sa.Column("check_type", sa.String(20), nullable=False, server_default="http"))
+    op.add_column(
+        "monitors", sa.Column("check_type", sa.String(20), nullable=False, server_default="http")
+    )
     op.add_column("monitors", sa.Column("tcp_port", sa.Integer(), nullable=True))
     op.add_column("monitors", sa.Column("dns_record_type", sa.String(10), nullable=True))
     op.add_column("monitors", sa.Column("dns_expected_value", sa.String(512), nullable=True))
     op.add_column("monitors", sa.Column("keyword", sa.String(512), nullable=True))
-    op.add_column("monitors", sa.Column("keyword_negate", sa.Boolean(), nullable=False, server_default="false"))
+    op.add_column(
+        "monitors",
+        sa.Column("keyword_negate", sa.Boolean(), nullable=False, server_default="false"),
+    )
     op.add_column("monitors", sa.Column("expected_json_path", sa.String(512), nullable=True))
     op.add_column("monitors", sa.Column("expected_json_value", sa.String(512), nullable=True))
 
@@ -62,9 +68,24 @@ def upgrade() -> None:
         sa.Column("id", sa.Uuid(as_uuid=True), primary_key=True),
         sa.Column("name", sa.String(255), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
-        sa.Column("owner_id", sa.Uuid(as_uuid=True), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("monitor_id", sa.Uuid(as_uuid=True), sa.ForeignKey("monitors.id", ondelete="CASCADE"), nullable=True),
-        sa.Column("group_id", sa.Uuid(as_uuid=True), sa.ForeignKey("monitor_groups.id", ondelete="CASCADE"), nullable=True),
+        sa.Column(
+            "owner_id",
+            sa.Uuid(as_uuid=True),
+            sa.ForeignKey("users.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
+        sa.Column(
+            "monitor_id",
+            sa.Uuid(as_uuid=True),
+            sa.ForeignKey("monitors.id", ondelete="CASCADE"),
+            nullable=True,
+        ),
+        sa.Column(
+            "group_id",
+            sa.Uuid(as_uuid=True),
+            sa.ForeignKey("monitor_groups.id", ondelete="CASCADE"),
+            nullable=True,
+        ),
         sa.Column("starts_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("ends_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("suppress_alerts", sa.Boolean(), nullable=False, server_default="true"),

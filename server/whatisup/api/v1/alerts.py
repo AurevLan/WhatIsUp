@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from whatisup.api.deps import get_current_user
 from whatisup.core.database import get_db
-from whatisup.core.security import decrypt_channel_config, encrypt_channel_config
+from whatisup.core.security import encrypt_channel_config
 from whatisup.models.alert import AlertChannel, AlertEvent, AlertRule
 from whatisup.models.user import User
 from whatisup.schemas.alert import (
@@ -25,14 +25,13 @@ router = APIRouter(prefix="/alerts", tags=["alerts"])
 
 # ── Channels ──────────────────────────────────────────────────────────────
 
+
 @router.get("/channels", response_model=list[AlertChannelOut])
 async def list_channels(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[AlertChannel]:
-    result = await db.execute(
-        select(AlertChannel).where(AlertChannel.owner_id == current_user.id)
-    )
+    result = await db.execute(select(AlertChannel).where(AlertChannel.owner_id == current_user.id))
     return list(result.scalars().all())
 
 
@@ -59,17 +58,20 @@ async def delete_channel(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    channel = (await db.execute(
-        select(AlertChannel).where(
-            AlertChannel.id == channel_id, AlertChannel.owner_id == current_user.id
+    channel = (
+        await db.execute(
+            select(AlertChannel).where(
+                AlertChannel.id == channel_id, AlertChannel.owner_id == current_user.id
+            )
         )
-    )).scalar_one_or_none()
+    ).scalar_one_or_none()
     if channel is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Channel not found")
     await db.delete(channel)
 
 
 # ── Rules ─────────────────────────────────────────────────────────────────
+
 
 @router.get("/rules", response_model=list[AlertRuleOut])
 async def list_rules(
@@ -133,18 +135,21 @@ async def delete_rule(
     db: AsyncSession = Depends(get_db),
 ) -> None:
     # Verify ownership via channels (a rule belongs to the user if at least one channel is theirs)
-    rule = (await db.execute(
-        select(AlertRule)
-        .join(AlertRule.channels)
-        .where(AlertRule.id == rule_id, AlertChannel.owner_id == current_user.id)
-        .options(selectinload(AlertRule.channels))
-    )).scalar_one_or_none()
+    rule = (
+        await db.execute(
+            select(AlertRule)
+            .join(AlertRule.channels)
+            .where(AlertRule.id == rule_id, AlertChannel.owner_id == current_user.id)
+            .options(selectinload(AlertRule.channels))
+        )
+    ).scalar_one_or_none()
     if rule is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rule not found")
     await db.delete(rule)
 
 
 # ── Events ────────────────────────────────────────────────────────────────
+
 
 @router.get("/events", response_model=list[AlertEventOut])
 async def list_events(

@@ -21,12 +21,10 @@ from whatisup.schemas.monitor import (
 router = APIRouter(prefix="/groups", tags=["groups"])
 
 
-async def _get_group_or_404(
-    group_id: uuid.UUID, user: User, db: AsyncSession
-) -> MonitorGroup:
-    group = (await db.execute(
-        select(MonitorGroup).where(MonitorGroup.id == group_id)
-    )).scalar_one_or_none()
+async def _get_group_or_404(group_id: uuid.UUID, user: User, db: AsyncSession) -> MonitorGroup:
+    group = (
+        await db.execute(select(MonitorGroup).where(MonitorGroup.id == group_id))
+    ).scalar_one_or_none()
     if group is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
     if not user.is_superadmin and group.owner_id != user.id:
@@ -53,9 +51,11 @@ async def create_group(
     db: AsyncSession = Depends(get_db),
 ) -> MonitorGroup:
     if payload.public_slug:
-        existing = (await db.execute(
-            select(MonitorGroup).where(MonitorGroup.public_slug == payload.public_slug)
-        )).scalar_one_or_none()
+        existing = (
+            await db.execute(
+                select(MonitorGroup).where(MonitorGroup.public_slug == payload.public_slug)
+            )
+        ).scalar_one_or_none()
         if existing:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Slug already in use")
 

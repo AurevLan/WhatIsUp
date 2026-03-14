@@ -1,4 +1,5 @@
 """Heartbeat monitor checker — detects overdue pings and manages incidents."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
@@ -15,30 +16,39 @@ logger = structlog.get_logger(__name__)
 async def check_heartbeats() -> None:
     """Check all heartbeat monitors for overdue pings. Opens/closes incidents."""
     from whatisup.core.database import get_session_factory
+
     factory = get_session_factory()
     async with factory() as db:
         now = datetime.now(UTC)
-        monitors = (await db.execute(
-            select(Monitor).where(
-                Monitor.check_type == "heartbeat",
-                Monitor.enabled.is_(True),
-                Monitor.heartbeat_interval_seconds.isnot(None),
+        monitors = (
+            (
+                await db.execute(
+                    select(Monitor).where(
+                        Monitor.check_type == "heartbeat",
+                        Monitor.enabled.is_(True),
+                        Monitor.heartbeat_interval_seconds.isnot(None),
+                    )
+                )
             )
-        )).scalars().all()
+            .scalars()
+            .all()
+        )
 
         for monitor in monitors:
             interval = monitor.heartbeat_interval_seconds
-            grace    = monitor.heartbeat_grace_seconds or 60
-            last     = monitor.last_heartbeat_at or datetime(1970, 1, 1, tzinfo=UTC)
+            grace = monitor.heartbeat_grace_seconds or 60
+            last = monitor.last_heartbeat_at or datetime(1970, 1, 1, tzinfo=UTC)
             deadline = last + timedelta(seconds=interval + grace)
             is_overdue = now > deadline
 
-            open_incident = (await db.execute(
-                select(Incident).where(
-                    Incident.monitor_id == monitor.id,
-                    Incident.resolved_at.is_(None),
+            open_incident = (
+                await db.execute(
+                    select(Incident).where(
+                        Incident.monitor_id == monitor.id,
+                        Incident.resolved_at.is_(None),
+                    )
                 )
-            )).scalar_one_or_none()
+            ).scalar_one_or_none()
 
             if is_overdue and open_incident is None:
                 incident = Incident(

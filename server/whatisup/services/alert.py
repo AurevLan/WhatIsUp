@@ -24,12 +24,15 @@ logger = structlog.get_logger(__name__)
 
 # ── Digest helpers ─────────────────────────────────────────────────────────────
 
+
 async def _flush_digest(rule_id: str, channels: list[AlertChannel], ctx: dict) -> None:
     """Lit les événements en attente dans Redis pour rule_id et envoie un message groupé."""
+    import uuid as _uuid
+
     from whatisup.core.database import get_session_factory
     from whatisup.core.redis import get_redis
-    from whatisup.models.alert import AlertChannel as AC, AlertEvent as AE, AlertEventStatus as AES
-    import uuid as _uuid
+    from whatisup.models.alert import AlertEvent as AE
+    from whatisup.models.alert import AlertEventStatus as AES
 
     redis = get_redis()
     redis_key = f"whatisup:digest:{rule_id}"
@@ -79,7 +82,9 @@ async def _flush_digest(rule_id: str, channels: list[AlertChannel], ctx: dict) -
                     msg = EmailMessage()
                     msg["From"] = str(settings.smtp_from)
                     msg["To"] = ", ".join(decrypted_config["to"])
-                    msg["Subject"] = f"[WhatIsUp] Digest — {count} alertes groupées : {monitor_name}"
+                    msg["Subject"] = (
+                        f"[WhatIsUp] Digest — {count} alertes groupées : {monitor_name}"
+                    )
                     msg.set_content(summary_text.replace("**", "").replace("*", ""))
                     await aiosmtplib.send(
                         msg,
@@ -95,7 +100,11 @@ async def _flush_digest(rule_id: str, channels: list[AlertChannel], ctx: dict) -
                     async with httpx.AsyncClient(timeout=10) as client:
                         await client.post(
                             url,
-                            json={"chat_id": decrypted_config["chat_id"], "text": summary_text, "parse_mode": "Markdown"},
+                            json={
+                                "chat_id": decrypted_config["chat_id"],
+                                "text": summary_text,
+                                "parse_mode": "Markdown",
+                            },
                         )
                 elif channel.type == AlertChannelType.slack:
                     async with httpx.AsyncClient(timeout=10) as client:
@@ -105,19 +114,23 @@ async def _flush_digest(rule_id: str, channels: list[AlertChannel], ctx: dict) -
                         )
                 elif channel.type == AlertChannelType.webhook:
                     _validate_webhook_url(decrypted_config["url"])
-                    payload_bytes = json.dumps({
-                        "event": "digest",
-                        "monitor_name": monitor_name,
-                        "check_type": check_type,
-                        "count": count,
-                        "events": events_data,
-                    }).encode()
+                    payload_bytes = json.dumps(
+                        {
+                            "event": "digest",
+                            "monitor_name": monitor_name,
+                            "check_type": check_type,
+                            "count": count,
+                            "events": events_data,
+                        }
+                    ).encode()
                     headers = {"Content-Type": "application/json", "User-Agent": "WhatIsUp/1.0"}
                     if secret := decrypted_config.get("secret"):
                         sig = hmac.new(secret.encode(), payload_bytes, hashlib.sha256).hexdigest()
                         headers["X-WhatIsUp-Signature"] = f"sha256={sig}"
                     async with httpx.AsyncClient(timeout=10) as client:
-                        resp = await client.post(decrypted_config["url"], content=payload_bytes, headers=headers)
+                        resp = await client.post(
+                            decrypted_config["url"], content=payload_bytes, headers=headers
+                        )
                         resp.raise_for_status()
 
                 digest_event = AE(
@@ -130,7 +143,12 @@ async def _flush_digest(rule_id: str, channels: list[AlertChannel], ctx: dict) -
                 db.add(digest_event)
                 logger.info("digest_sent", rule_id=rule_id, channel_id=str(channel.id), count=count)
             except Exception as exc:
-                logger.error("digest_dispatch_failed", rule_id=rule_id, channel_id=str(channel.id), error=str(exc))
+                logger.error(
+                    "digest_dispatch_failed",
+                    rule_id=rule_id,
+                    channel_id=str(channel.id),
+                    error=str(exc),
+                )
         await db.commit()
 
 
@@ -152,14 +170,16 @@ async def maybe_digest_or_dispatch(
     redis = get_redis()
     redis_key = f"whatisup:digest:{rule.id}"
 
-    event_payload = json.dumps({
-        "incident_id": str(incident.id),
-        "monitor_id": str(incident.monitor_id),
-        "event_type": event_type,
-        "scope": incident.scope.value,
-        "started_at": incident.started_at.isoformat(),
-        "resolved_at": incident.resolved_at.isoformat() if incident.resolved_at else None,
-    })
+    event_payload = json.dumps(
+        {
+            "incident_id": str(incident.id),
+            "monitor_id": str(incident.monitor_id),
+            "event_type": event_type,
+            "scope": incident.scope.value,
+            "started_at": incident.started_at.isoformat(),
+            "resolved_at": incident.resolved_at.isoformat() if incident.resolved_at else None,
+        }
+    )
 
     count = await redis.lpush(redis_key, event_payload)
     await redis.expire(redis_key, rule.digest_minutes * 60)
@@ -210,9 +230,13 @@ async def dispatch_alert(
         if channel.type == AlertChannelType.email:
             await _send_email(incident, channel, event_type, settings, ctx, decrypted_config)
         elif channel.type == AlertChannelType.webhook:
-            response_body = await _send_webhook(incident, channel, event_type, ctx, decrypted_config)
+            response_body = await _send_webhook(
+                incident, channel, event_type, ctx, decrypted_config
+            )
         elif channel.type == AlertChannelType.telegram:
-            response_body = await _send_telegram(incident, channel, event_type, ctx, decrypted_config)
+            response_body = await _send_telegram(
+                incident, channel, event_type, ctx, decrypted_config
+            )
         elif channel.type == AlertChannelType.slack:
             response_body = await _send_slack(incident, channel, event_type, ctx, decrypted_config)
         elif channel.type == AlertChannelType.pagerduty:
@@ -251,6 +275,7 @@ async def dispatch_alert(
 
 # ── Context helpers ────────────────────────────────────────────────────────────
 
+
 def _scope_label(incident: Incident, ctx: dict) -> str:
     probe_names: dict = ctx.get("probe_names", {})
     affected = incident.affected_probe_ids or []
@@ -282,6 +307,7 @@ def _scope_label_en(incident: Incident, ctx: dict) -> str:
 
 
 # ── Email ──────────────────────────────────────────────────────────────────────
+
 
 async def _send_email(
     incident: Incident,
@@ -330,7 +356,9 @@ def _build_email_body(
     scope_label = _scope_label(incident, ctx)
     resolved_line = ""
     if incident.resolved_at:
-        resolved_line = f"<p><b>Résolu le :</b> {incident.resolved_at.strftime('%Y-%m-%d %H:%M:%S UTC')}</p>"
+        resolved_line = (
+            f"<p><b>Résolu le :</b> {incident.resolved_at.strftime('%Y-%m-%d %H:%M:%S UTC')}</p>"
+        )
         if incident.duration_seconds:
             resolved_line += f"<p><b>Durée :</b> {incident.duration_seconds}s</p>"
 
@@ -339,7 +367,7 @@ def _build_email_body(
     <h2>{status_emoji} WhatIsUp — {scope_label}</h2>
     <p><b>Monitor :</b> {monitor_name}</p>
     <p><b>Type :</b> {check_type.upper()}</p>
-    <p><b>Début :</b> {incident.started_at.strftime('%Y-%m-%d %H:%M:%S UTC')}</p>
+    <p><b>Début :</b> {incident.started_at.strftime("%Y-%m-%d %H:%M:%S UTC")}</p>
     {resolved_line}
     <hr><p style="color:#888; font-size:12px;">WhatIsUp Monitoring</p>
     </body></html>
@@ -347,6 +375,7 @@ def _build_email_body(
 
 
 # ── Webhook ────────────────────────────────────────────────────────────────────
+
 
 def _validate_webhook_url(url: str) -> None:
     """Reject webhook URLs pointing to internal/private IP ranges (SSRF prevention)."""
@@ -418,6 +447,7 @@ async def _send_webhook(
 
 # ── Telegram ───────────────────────────────────────────────────────────────────
 
+
 async def _send_telegram(
     incident: Incident,
     channel: AlertChannel,
@@ -457,6 +487,7 @@ async def _send_telegram(
 
 # ── Slack ──────────────────────────────────────────────────────────────────────
 
+
 async def _send_slack(
     incident: Incident,
     channel: AlertChannel,
@@ -476,19 +507,27 @@ async def _send_slack(
         {"title": "Monitor", "value": monitor_name, "short": True},
         {"title": "Type", "value": check_type, "short": True},
         {"title": "Scope", "value": scope_label, "short": False},
-        {"title": "Started", "value": incident.started_at.strftime("%Y-%m-%d %H:%M UTC"), "short": True},
+        {
+            "title": "Started",
+            "value": incident.started_at.strftime("%Y-%m-%d %H:%M UTC"),
+            "short": True,
+        },
     ]
     if is_resolved and incident.duration_seconds:
-        fields.append({"title": "Duration", "value": f"{incident.duration_seconds}s", "short": True})
+        fields.append(
+            {"title": "Duration", "value": f"{incident.duration_seconds}s", "short": True}
+        )
 
     payload = {
-        "attachments": [{
-            "color": color,
-            "title": f"WhatIsUp — {status_text}",
-            "fields": fields,
-            "footer": "WhatIsUp Monitoring",
-            "ts": int(incident.started_at.timestamp()),
-        }]
+        "attachments": [
+            {
+                "color": color,
+                "title": f"WhatIsUp — {status_text}",
+                "fields": fields,
+                "footer": "WhatIsUp Monitoring",
+                "ts": int(incident.started_at.timestamp()),
+            }
+        ]
     }
 
     async with httpx.AsyncClient(timeout=10) as client:
@@ -498,6 +537,7 @@ async def _send_slack(
 
 
 # ── PagerDuty ──────────────────────────────────────────────────────────────────
+
 
 async def _send_pagerduty(
     config: dict,
@@ -542,6 +582,7 @@ async def _send_pagerduty(
 
 # ── Opsgenie ───────────────────────────────────────────────────────────────────
 
+
 async def _send_opsgenie(
     config: dict,
     monitor_name: str,
@@ -565,9 +606,7 @@ async def _send_opsgenie(
         return "skipped:non_production"
 
     region = config.get("region", "us")
-    base_url = (
-        "https://api.opsgenie.com" if region == "us" else "https://api.eu.opsgenie.com"
-    )
+    base_url = "https://api.opsgenie.com" if region == "us" else "https://api.eu.opsgenie.com"
     headers = {"Authorization": f"GenieKey {config['api_key']}"}
 
     if status == "down":

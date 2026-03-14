@@ -23,7 +23,9 @@ class MonitorCreate(BaseModel):
     ssl_check_enabled: bool = True
     ssl_expiry_warn_days: int = Field(default=30, ge=1, le=365)
     tag_ids: list[uuid.UUID] = Field(default=[])
-    check_type: str = Field(default="http", pattern=r"^(http|tcp|dns|keyword|json_path|scenario|heartbeat)$")
+    check_type: str = Field(
+        default="http", pattern=r"^(http|tcp|dns|keyword|json_path|scenario|heartbeat)$"
+    )
     tcp_port: int | None = Field(default=None, ge=1, le=65535)
     dns_record_type: str | None = Field(default=None, pattern=r"^(A|AAAA|CNAME|MX|TXT|NS)$")
     dns_expected_value: str | None = Field(default=None, max_length=512)
@@ -59,7 +61,7 @@ class MonitorCreate(BaseModel):
         return str(v) if not isinstance(v, str) else v
 
     @model_validator(mode="after")
-    def validate_heartbeat_fields(self) -> "MonitorCreate":
+    def validate_heartbeat_fields(self) -> MonitorCreate:
         if self.check_type == "heartbeat":
             if not self.heartbeat_slug:
                 raise ValueError("heartbeat_slug is required for check_type=heartbeat")
@@ -80,7 +82,9 @@ class MonitorUpdate(BaseModel):
     ssl_check_enabled: bool | None = None
     ssl_expiry_warn_days: int | None = Field(default=None, ge=1, le=365)
     tag_ids: list[uuid.UUID] | None = None
-    check_type: str | None = Field(default=None, pattern=r"^(http|tcp|dns|keyword|json_path|scenario|heartbeat)$")
+    check_type: str | None = Field(
+        default=None, pattern=r"^(http|tcp|dns|keyword|json_path|scenario|heartbeat)$"
+    )
     tcp_port: int | None = Field(default=None, ge=1, le=65535)
     dns_record_type: str | None = Field(default=None, pattern=r"^(A|AAAA|CNAME|MX|TXT|NS)$")
     dns_expected_value: str | None = Field(default=None, max_length=512)

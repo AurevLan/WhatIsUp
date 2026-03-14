@@ -1,4 +1,5 @@
 """Public heartbeat ping endpoint — called by monitored cron jobs/services."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -30,12 +31,14 @@ async def heartbeat_ping(
     Call from your cron job to signal it is alive:
         curl -X POST https://your-instance/api/v1/ping/my-daily-backup
     """
-    monitor = (await db.execute(
-        select(Monitor).where(
-            Monitor.heartbeat_slug == slug,
-            Monitor.enabled.is_(True),
+    monitor = (
+        await db.execute(
+            select(Monitor).where(
+                Monitor.heartbeat_slug == slug,
+                Monitor.enabled.is_(True),
+            )
         )
-    )).scalar_one_or_none()
+    ).scalar_one_or_none()
 
     if monitor is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown heartbeat slug")

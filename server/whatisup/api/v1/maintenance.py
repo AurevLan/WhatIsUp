@@ -54,9 +54,9 @@ async def delete_window(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    window = (await db.execute(
-        select(MaintenanceWindow).where(MaintenanceWindow.id == window_id)
-    )).scalar_one_or_none()
+    window = (
+        await db.execute(select(MaintenanceWindow).where(MaintenanceWindow.id == window_id))
+    ).scalar_one_or_none()
     if window is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Window not found")
     if not current_user.is_superadmin and window.owner_id != current_user.id:
@@ -71,9 +71,9 @@ async def update_window(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> MaintenanceWindow:
-    window = (await db.execute(
-        select(MaintenanceWindow).where(MaintenanceWindow.id == window_id)
-    )).scalar_one_or_none()
+    window = (
+        await db.execute(select(MaintenanceWindow).where(MaintenanceWindow.id == window_id))
+    ).scalar_one_or_none()
     if window is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Window not found")
     if not current_user.is_superadmin and window.owner_id != current_user.id:

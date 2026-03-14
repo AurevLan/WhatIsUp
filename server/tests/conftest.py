@@ -54,9 +54,7 @@ async def client(db_session: AsyncSession, fake_redis: FakeRedis):
     # Disable rate limiting for tests
     limiter.enabled = False
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
 
     limiter.enabled = True

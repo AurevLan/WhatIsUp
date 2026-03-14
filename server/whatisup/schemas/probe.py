@@ -42,11 +42,13 @@ class ProbeOut(BaseModel):
 
 class ProbeRegistered(ProbeOut):
     """Returned once at probe creation — includes the plaintext API key."""
+
     api_key: str
 
 
 class ProbeCheckResultIn(BaseModel):
     """Payload pushed by a probe to report a check result."""
+
     monitor_id: uuid.UUID
     checked_at: datetime
     status: CheckStatus
@@ -63,6 +65,7 @@ class ProbeCheckResultIn(BaseModel):
 
 class ProbeHeartbeatResponse(BaseModel):
     """Response to probe heartbeat — includes monitor configs to check."""
+
     monitors: list[ProbeMonitorConfig]
 
 

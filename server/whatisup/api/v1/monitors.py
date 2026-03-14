@@ -18,7 +18,13 @@ from whatisup.models.tag import Tag
 from whatisup.models.user import User
 from whatisup.schemas.annotation import AnnotationCreate, AnnotationOut
 from whatisup.schemas.incident import IncidentOut
-from whatisup.schemas.monitor import BulkActionRequest, BulkActionResponse, MonitorCreate, MonitorOut, MonitorUpdate
+from whatisup.schemas.monitor import (
+    BulkActionRequest,
+    BulkActionResponse,
+    MonitorCreate,
+    MonitorOut,
+    MonitorUpdate,
+)
 from whatisup.schemas.probe import ProbeMonitorStatus
 from whatisup.schemas.result import CheckResultOut, UptimeStats
 from whatisup.services.stats import compute_uptime
@@ -26,12 +32,10 @@ from whatisup.services.stats import compute_uptime
 router = APIRouter(prefix="/monitors", tags=["monitors"])
 
 
-async def _get_monitor_or_404(
-    monitor_id: uuid.UUID, user: User, db: AsyncSession
-) -> Monitor:
-    monitor = (await db.execute(
-        select(Monitor).where(Monitor.id == monitor_id)
-    )).scalar_one_or_none()
+async def _get_monitor_or_404(monitor_id: uuid.UUID, user: User, db: AsyncSession) -> Monitor:
+    monitor = (
+        await db.execute(select(Monitor).where(Monitor.id == monitor_id))
+    ).scalar_one_or_none()
     if monitor is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Monitor not found")
     # Superadmin sees all; others see only their own
@@ -71,37 +75,40 @@ async def list_monitors(
         .group_by(CheckResult.monitor_id)
         .subquery()
     )
-    latest_rows = (await db.execute(
-        select(CheckResult.monitor_id, CheckResult.status, CheckResult.checked_at)
-        .join(
-            max_ts_subq,
-            and_(
-                CheckResult.monitor_id == max_ts_subq.c.monitor_id,
-                CheckResult.checked_at == max_ts_subq.c.max_at,
-            ),
+    latest_rows = (
+        await db.execute(
+            select(CheckResult.monitor_id, CheckResult.status, CheckResult.checked_at).join(
+                max_ts_subq,
+                and_(
+                    CheckResult.monitor_id == max_ts_subq.c.monitor_id,
+                    CheckResult.checked_at == max_ts_subq.c.max_at,
+                ),
+            )
         )
-    )).all()
+    ).all()
     # Map: monitor_id → (status_value, checked_at)
     latest_map = {str(r.monitor_id): (r.status.value, r.checked_at) for r in latest_rows}
 
     # Uptime 24h per monitor (one query)
     cutoff = datetime.now(UTC) - timedelta(hours=24)
-    uptime_rows = (await db.execute(
-        select(
-            CheckResult.monitor_id,
-            func.count(CheckResult.id).label("total"),
-            func.sum(case((CheckResult.status == CheckStatus.up, 1), else_=0)).label("up_count"),
+    uptime_rows = (
+        await db.execute(
+            select(
+                CheckResult.monitor_id,
+                func.count(CheckResult.id).label("total"),
+                func.sum(case((CheckResult.status == CheckStatus.up, 1), else_=0)).label(
+                    "up_count"
+                ),
+            )
+            .where(
+                CheckResult.monitor_id.in_(monitor_ids),
+                CheckResult.checked_at >= cutoff,
+            )
+            .group_by(CheckResult.monitor_id)
         )
-        .where(
-            CheckResult.monitor_id.in_(monitor_ids),
-            CheckResult.checked_at >= cutoff,
-        )
-        .group_by(CheckResult.monitor_id)
-    )).all()
+    ).all()
     uptime_map = {
-        str(r.monitor_id): round(r.up_count / r.total * 100, 2)
-        for r in uptime_rows
-        if r.total > 0
+        str(r.monitor_id): round(r.up_count / r.total * 100, 2) for r in uptime_rows if r.total > 0
     }
 
     now = datetime.now(UTC)
@@ -173,6 +180,7 @@ async def create_monitor(
     await db.flush()
 
     from whatisup.services.audit import log_action
+
     await log_action(db, "monitor.create", "monitor", monitor.id, monitor.name, current_user)
 
     return monitor
@@ -195,19 +203,13 @@ async def bulk_action(
     )
 
     if payload.action == "delete":
-        result = await db.execute(
-            delete(Monitor).where(ownership_clause)
-        )
+        result = await db.execute(delete(Monitor).where(ownership_clause))
         affected = result.rowcount
     elif payload.action == "enable":
-        result = await db.execute(
-            update(Monitor).where(ownership_clause).values(enabled=True)
-        )
+        result = await db.execute(update(Monitor).where(ownership_clause).values(enabled=True))
         affected = result.rowcount
     else:  # pause
-        result = await db.execute(
-            update(Monitor).where(ownership_clause).values(enabled=False)
-        )
+        result = await db.execute(update(Monitor).where(ownership_clause).values(enabled=False))
         affected = result.rowcount
 
     return {"affected": affected}
@@ -249,8 +251,14 @@ async def update_monitor(
 
     after = MonitorOut.model_validate(monitor).model_dump(mode="json")
     from whatisup.services.audit import log_action
+
     await log_action(
-        db, "monitor.update", "monitor", monitor.id, monitor.name, current_user,
+        db,
+        "monitor.update",
+        "monitor",
+        monitor.id,
+        monitor.name,
+        current_user,
         diff={"before": before, "after": after},
     )
 
@@ -265,6 +273,7 @@ async def delete_monitor(
 ) -> None:
     monitor = await _get_monitor_or_404(monitor_id, current_user, db)
     from whatisup.services.audit import log_action
+
     await log_action(db, "monitor.delete", "monitor", monitor.id, monitor.name, current_user)
     await db.delete(monitor)
 
@@ -310,6 +319,7 @@ async def get_history(
     """Daily uptime history for the last N days (for history bars UI)."""
     await _get_monitor_or_404(monitor_id, current_user, db)
     from whatisup.services.stats import compute_daily_history
+
     return await compute_daily_history(db, monitor_id, days)
 
 
@@ -383,6 +393,7 @@ async def trigger_check(
     """Request an immediate check of this monitor on the next probe heartbeat cycle."""
     await _get_monitor_or_404(monitor_id, current_user, db)
     from whatisup.core.redis import get_redis
+
     redis = get_redis()
     await redis.setex(f"whatisup:trigger_check:{monitor_id}", 120, "1")
     return {"status": "queued", "monitor_id": str(monitor_id)}
@@ -397,6 +408,7 @@ async def get_incidents(
     db: AsyncSession = Depends(get_db),
 ) -> list:
     from whatisup.models.incident import Incident
+
     await _get_monitor_or_404(monitor_id, current_user, db)
     query = select(Incident).where(Incident.monitor_id == monitor_id)
     if resolved is True:
@@ -422,12 +434,14 @@ async def get_postmortem(
     monitor = await _get_monitor_or_404(monitor_id, current_user, db)
 
     # Ownership check via monitor (déjà fait par _get_monitor_or_404)
-    incident = (await db.execute(
-        select(Incident).where(
-            Incident.id == incident_id,
-            Incident.monitor_id == monitor_id,
+    incident = (
+        await db.execute(
+            select(Incident).where(
+                Incident.id == incident_id,
+                Incident.monitor_id == monitor_id,
+            )
         )
-    )).scalar_one_or_none()
+    ).scalar_one_or_none()
     if incident is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incident introuvable")
 
@@ -436,39 +450,54 @@ async def get_postmortem(
     window_end = (incident.resolved_at or now_utc) + timedelta(minutes=5)
 
     # Checks pendant la fenêtre
-    check_rows = (await db.execute(
-        select(CheckResult).where(
-            CheckResult.monitor_id == monitor_id,
-            CheckResult.checked_at >= window_start,
-            CheckResult.checked_at <= window_end,
-        ).order_by(CheckResult.checked_at.asc())
-    )).scalars().all()
+    check_rows = (
+        (
+            await db.execute(
+                select(CheckResult)
+                .where(
+                    CheckResult.monitor_id == monitor_id,
+                    CheckResult.checked_at >= window_start,
+                    CheckResult.checked_at <= window_end,
+                )
+                .order_by(CheckResult.checked_at.asc())
+            )
+        )
+        .scalars()
+        .all()
+    )
 
     total_checks = len(check_rows)
-    failed_checks = sum(
-        1 for r in check_rows
-        if r.status.value not in ("up",)
-    )
+    failed_checks = sum(1 for r in check_rows if r.status.value not in ("up",))
     failure_pct = round(failed_checks / total_checks * 100, 1) if total_checks > 0 else 0
     avg_rt_values = [r.response_time_ms for r in check_rows if r.response_time_ms is not None]
     avg_rt = round(sum(avg_rt_values) / len(avg_rt_values)) if avg_rt_values else None
 
     # AlertEvents liés à l'incident (avec nom du canal)
-    alert_events_rows = (await db.execute(
-        select(AlertEvent, AlertChannel.name)
-        .join(AlertChannel, AlertEvent.channel_id == AlertChannel.id)
-        .where(AlertEvent.incident_id == incident_id)
-        .order_by(AlertEvent.sent_at.asc())
-    )).all()
+    alert_events_rows = (
+        await db.execute(
+            select(AlertEvent, AlertChannel.name)
+            .join(AlertChannel, AlertEvent.channel_id == AlertChannel.id)
+            .where(AlertEvent.incident_id == incident_id)
+            .order_by(AlertEvent.sent_at.asc())
+        )
+    ).all()
 
     # Annotations dans la fenêtre
-    annotations_rows = (await db.execute(
-        select(MonitorAnnotation).where(
-            MonitorAnnotation.monitor_id == monitor_id,
-            MonitorAnnotation.annotated_at >= window_start,
-            MonitorAnnotation.annotated_at <= window_end,
-        ).order_by(MonitorAnnotation.annotated_at.asc())
-    )).scalars().all()
+    annotations_rows = (
+        (
+            await db.execute(
+                select(MonitorAnnotation)
+                .where(
+                    MonitorAnnotation.monitor_id == monitor_id,
+                    MonitorAnnotation.annotated_at >= window_start,
+                    MonitorAnnotation.annotated_at <= window_end,
+                )
+                .order_by(MonitorAnnotation.annotated_at.asc())
+            )
+        )
+        .scalars()
+        .all()
+    )
 
     # Calcul durée
     if incident.resolved_at:
@@ -485,7 +514,8 @@ async def get_postmortem(
 
     # Construction de la chronologie
     timeline_rows = [
-        f"| {incident.started_at.strftime('%H:%M UTC')} | ❌ Incident ouvert — {incident.scope.value} |"
+        f"| {incident.started_at.strftime('%H:%M UTC')}"
+        f" | ❌ Incident ouvert — {incident.scope.value} |"
     ]
     for evt, ch_name in alert_events_rows:
         icon = "📧" if evt.status.value == "sent" else "⚠️"
@@ -521,7 +551,7 @@ async def get_postmortem(
 ## Métriques pendant l'incident
 - Checks effectués : {total_checks}
 - Taux d'échec : {failure_pct}%
-- Temps de réponse moyen : {avg_rt if avg_rt is not None else '—'}ms
+- Temps de réponse moyen : {avg_rt if avg_rt is not None else "—"}ms
 
 ## Actions correctives
 <!-- À compléter -->
@@ -554,9 +584,7 @@ async def get_sla_report(
             func.count(CheckResult.id).label("total"),
             func.sum(case((CheckResult.status == CheckStatus.up, 1), else_=0)).label("up_count"),
             func.avg(CheckResult.response_time_ms).label("avg_rt"),
-            func.percentile_cont(0.95).within_group(
-                CheckResult.response_time_ms
-            ).label("p95_rt"),
+            func.percentile_cont(0.95).within_group(CheckResult.response_time_ms).label("p95_rt"),
             func.min(CheckResult.response_time_ms).label("min_rt"),
             func.max(CheckResult.response_time_ms).label("max_rt"),
         ).where(
@@ -571,6 +599,7 @@ async def get_sla_report(
 
     # Count incidents in period
     from whatisup.models.incident import Incident
+
     inc_result = await db.execute(
         select(
             func.count(Incident.id).label("count"),
@@ -606,12 +635,18 @@ async def list_annotations(
     db: AsyncSession = Depends(get_db),
 ) -> list[dict]:
     await _get_monitor_or_404(monitor_id, current_user, db)
-    rows = (await db.execute(
-        select(MonitorAnnotation)
-        .where(MonitorAnnotation.monitor_id == monitor_id)
-        .order_by(MonitorAnnotation.annotated_at.desc())
-        .limit(200)
-    )).scalars().all()
+    rows = (
+        (
+            await db.execute(
+                select(MonitorAnnotation)
+                .where(MonitorAnnotation.monitor_id == monitor_id)
+                .order_by(MonitorAnnotation.annotated_at.desc())
+                .limit(200)
+            )
+        )
+        .scalars()
+        .all()
+    )
     return [AnnotationOut.model_validate(r).model_dump(mode="json") for r in rows]
 
 
@@ -643,12 +678,14 @@ async def delete_annotation(
     db: AsyncSession = Depends(get_db),
 ) -> None:
     await _get_monitor_or_404(monitor_id, current_user, db)
-    ann = (await db.execute(
-        select(MonitorAnnotation).where(
-            MonitorAnnotation.id == annotation_id,
-            MonitorAnnotation.monitor_id == monitor_id,
+    ann = (
+        await db.execute(
+            select(MonitorAnnotation).where(
+                MonitorAnnotation.id == annotation_id,
+                MonitorAnnotation.monitor_id == monitor_id,
+            )
         )
-    )).scalar_one_or_none()
+    ).scalar_one_or_none()
     if ann is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Annotation not found")
     await db.delete(ann)
@@ -679,30 +716,36 @@ async def get_slo(
     window_start = now - timedelta(days=window_days)
 
     # Uptime over the SLO window
-    uptime_row = (await db.execute(
-        select(
-            func.count(CheckResult.id).label("total"),
-            func.sum(case((CheckResult.status == CheckStatus.up, 1), else_=0)).label("up_count"),
-        ).where(
-            CheckResult.monitor_id == monitor_id,
-            CheckResult.checked_at >= window_start,
+    uptime_row = (
+        await db.execute(
+            select(
+                func.count(CheckResult.id).label("total"),
+                func.sum(case((CheckResult.status == CheckStatus.up, 1), else_=0)).label(
+                    "up_count"
+                ),
+            ).where(
+                CheckResult.monitor_id == monitor_id,
+                CheckResult.checked_at >= window_start,
+            )
         )
-    )).one()
+    ).one()
 
     total_checks = int(uptime_row.total or 0)
     up_count = int(uptime_row.up_count or 0)
     uptime_pct = round(up_count / total_checks * 100, 4) if total_checks > 0 else 100.0
 
     # Downtime from resolved incidents in the window
-    inc_row = (await db.execute(
-        select(
-            func.coalesce(func.sum(Incident.duration_seconds), 0).label("total_downtime_s"),
-        ).where(
-            Incident.monitor_id == monitor_id,
-            Incident.started_at >= window_start,
-            Incident.resolved_at.isnot(None),
+    inc_row = (
+        await db.execute(
+            select(
+                func.coalesce(func.sum(Incident.duration_seconds), 0).label("total_downtime_s"),
+            ).where(
+                Incident.monitor_id == monitor_id,
+                Incident.started_at >= window_start,
+                Incident.resolved_at.isnot(None),
+            )
         )
-    )).one()
+    ).one()
     downtime_minutes = float(inc_row.total_downtime_s or 0) / 60.0
 
     # Error budget calculation
@@ -710,9 +753,7 @@ async def get_slo(
     error_budget_remaining_minutes = error_budget_total_minutes - downtime_minutes
     error_budget_used_minutes = downtime_minutes
     burn_rate = (
-        downtime_minutes / error_budget_total_minutes
-        if error_budget_total_minutes > 0
-        else 0.0
+        downtime_minutes / error_budget_total_minutes if error_budget_total_minutes > 0 else 0.0
     )
 
     if burn_rate >= 1.0:

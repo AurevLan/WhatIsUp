@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import JSON, DateTime, Index, String, Text, Uuid
+from sqlalchemy import JSON, DateTime, Index, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from whatisup.models.base import Base

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 import structlog
@@ -64,7 +64,7 @@ async def push_metric(
         metric_name=payload.metric_name,
         value=payload.value,
         unit=payload.unit,
-        pushed_at=payload.pushed_at or datetime.now(timezone.utc),
+        pushed_at=payload.pushed_at or datetime.now(UTC),
     )
     db.add(metric)
     await db.commit()
@@ -99,7 +99,7 @@ async def list_metrics(
     if not monitor:
         raise HTTPException(status_code=404, detail="Moniteur introuvable")
 
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=min(hours, 720))
+    cutoff = datetime.now(UTC) - timedelta(hours=min(hours, 720))
     q = (
         select(CustomMetric)
         .where(

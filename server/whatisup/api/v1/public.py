@@ -24,9 +24,9 @@ class SubscribeRequest(BaseModel):
 
 
 async def _get_group_by_slug(slug: str, db: AsyncSession) -> MonitorGroup:
-    group = (await db.execute(
-        select(MonitorGroup).where(MonitorGroup.public_slug == slug)
-    )).scalar_one_or_none()
+    group = (
+        await db.execute(select(MonitorGroup).where(MonitorGroup.public_slug == slug))
+    ).scalar_one_or_none()
     if group is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Status page not found")
     return group
@@ -42,12 +42,18 @@ async def get_public_page(slug: str, db: AsyncSession = Depends(get_db)) -> dict
 async def get_public_monitors(slug: str, db: AsyncSession = Depends(get_db)) -> list[dict]:
     group = await _get_group_by_slug(slug, db)
 
-    monitors = (await db.execute(
-        select(Monitor).where(
-            Monitor.group_id == group.id,
-            Monitor.enabled.is_(True),
+    monitors = (
+        (
+            await db.execute(
+                select(Monitor).where(
+                    Monitor.group_id == group.id,
+                    Monitor.enabled.is_(True),
+                )
+            )
         )
-    )).scalars().all()
+        .scalars()
+        .all()
+    )
 
     if not monitors:
         return []
@@ -59,13 +65,19 @@ async def get_public_monitors(slug: str, db: AsyncSession = Depends(get_db)) -> 
         CheckResult.monitor_id.in_(monitor_ids),
         group_col=CheckResult.monitor_id,
     )
-    latest_rows = (await db.execute(
-        select(CheckResult).join(
-            subq,
-            (CheckResult.monitor_id == subq.c.monitor_id)
-            & (CheckResult.checked_at == subq.c.max_at),
+    latest_rows = (
+        (
+            await db.execute(
+                select(CheckResult).join(
+                    subq,
+                    (CheckResult.monitor_id == subq.c.monitor_id)
+                    & (CheckResult.checked_at == subq.c.max_at),
+                )
+            )
         )
-    )).scalars().all()
+        .scalars()
+        .all()
+    )
     latest_by_monitor = {r.monitor_id: r for r in latest_rows}
 
     results = []
@@ -95,32 +107,38 @@ async def get_public_monitors(slug: str, db: AsyncSession = Depends(get_db)) -> 
                     day_status = "degraded"
                 else:
                     day_status = "up"
-                history_90d.append({
-                    "date": day_str,
-                    "status": day_status,
-                    "uptime_pct": entry["uptime_percent"],
-                })
+                history_90d.append(
+                    {
+                        "date": day_str,
+                        "status": day_status,
+                        "uptime_pct": entry["uptime_percent"],
+                    }
+                )
             else:
-                history_90d.append({
-                    "date": day_str,
-                    "status": "no_data",
-                    "uptime_pct": None,
-                })
+                history_90d.append(
+                    {
+                        "date": day_str,
+                        "status": "no_data",
+                        "uptime_pct": None,
+                    }
+                )
 
-        results.append({
-            "id": str(m.id),
-            "name": m.name,
-            "url": m.url,
-            "check_type": m.check_type,
-            "tcp_port": m.tcp_port,
-            "dns_record_type": m.dns_record_type,
-            "uptime_24h": uptime.uptime_percent,
-            "avg_response_time_ms": uptime.avg_response_time_ms,
-            "current_status": latest.status.value if latest else None,
-            "current_value": latest.final_url if latest else None,
-            "last_checked_at": latest.checked_at.isoformat() if latest else None,
-            "history_90d": history_90d,
-        })
+        results.append(
+            {
+                "id": str(m.id),
+                "name": m.name,
+                "url": m.url,
+                "check_type": m.check_type,
+                "tcp_port": m.tcp_port,
+                "dns_record_type": m.dns_record_type,
+                "uptime_24h": uptime.uptime_percent,
+                "avg_response_time_ms": uptime.avg_response_time_ms,
+                "current_status": latest.status.value if latest else None,
+                "current_value": latest.final_url if latest else None,
+                "last_checked_at": latest.checked_at.isoformat() if latest else None,
+                "history_90d": history_90d,
+            }
+        )
     return results
 
 
@@ -129,24 +147,38 @@ async def get_public_status(slug: str, db: AsyncSession = Depends(get_db)) -> di
     """Enriched status: page info + components + incidents_30d."""
     group = await _get_group_by_slug(slug, db)
 
-    monitors = (await db.execute(
-        select(Monitor).where(
-            Monitor.group_id == group.id,
-            Monitor.enabled.is_(True),
+    monitors = (
+        (
+            await db.execute(
+                select(Monitor).where(
+                    Monitor.group_id == group.id,
+                    Monitor.enabled.is_(True),
+                )
+            )
         )
-    )).scalars().all()
+        .scalars()
+        .all()
+    )
 
     monitor_ids = [m.id for m in monitors]
     monitor_by_id = {m.id: m for m in monitors}
 
     # Incidents des 30 derniers jours
     cutoff_30d = datetime.now(UTC) - timedelta(days=30)
-    incident_rows = (await db.execute(
-        select(Incident).where(
-            Incident.monitor_id.in_(monitor_ids),
-            Incident.started_at >= cutoff_30d,
-        ).order_by(Incident.started_at.desc())
-    )).scalars().all()
+    incident_rows = (
+        (
+            await db.execute(
+                select(Incident)
+                .where(
+                    Incident.monitor_id.in_(monitor_ids),
+                    Incident.started_at >= cutoff_30d,
+                )
+                .order_by(Incident.started_at.desc())
+            )
+        )
+        .scalars()
+        .all()
+    )
 
     incidents_30d = []
     for inc in incident_rows:
@@ -155,19 +187,19 @@ async def get_public_status(slug: str, db: AsyncSession = Depends(get_db)) -> di
         if inc.duration_seconds is not None:
             duration_minutes = inc.duration_seconds // 60
         elif inc.resolved_at is not None:
-            duration_minutes = int(
-                (inc.resolved_at - inc.started_at).total_seconds() // 60
-            )
-        incidents_30d.append({
-            "id": str(inc.id),
-            "monitor_id": str(inc.monitor_id),
-            "monitor_name": mon.name if mon else None,
-            "started_at": inc.started_at.isoformat(),
-            "resolved_at": inc.resolved_at.isoformat() if inc.resolved_at else None,
-            "duration_minutes": duration_minutes,
-            "scope": inc.scope.value,
-            "is_resolved": inc.is_resolved,
-        })
+            duration_minutes = int((inc.resolved_at - inc.started_at).total_seconds() // 60)
+        incidents_30d.append(
+            {
+                "id": str(inc.id),
+                "monitor_id": str(inc.monitor_id),
+                "monitor_name": mon.name if mon else None,
+                "started_at": inc.started_at.isoformat(),
+                "resolved_at": inc.resolved_at.isoformat() if inc.resolved_at else None,
+                "duration_minutes": duration_minutes,
+                "scope": inc.scope.value,
+                "is_resolved": inc.is_resolved,
+            }
+        )
 
     return {
         "name": group.name,
@@ -190,12 +222,14 @@ async def subscribe_status(
 
     email = payload.email
     # Vérifier si déjà inscrit
-    existing = (await db.execute(
-        select(StatusSubscription).where(
-            StatusSubscription.group_id == group.id,
-            StatusSubscription.email == email,
+    existing = (
+        await db.execute(
+            select(StatusSubscription).where(
+                StatusSubscription.group_id == group.id,
+                StatusSubscription.email == email,
+            )
         )
-    )).scalar_one_or_none()
+    ).scalar_one_or_none()
     if existing is not None:
         # Répondre 200 sans révéler si l'email existe (anti-enumeration)
         return {"message": "Inscription confirmée"}
@@ -217,12 +251,14 @@ async def unsubscribe_status(
     # Vérifier que le slug correspond bien (évite l'exploitation cross-group)
     group = await _get_group_by_slug(slug, db)
 
-    sub = (await db.execute(
-        select(StatusSubscription).where(
-            StatusSubscription.token == token,
-            StatusSubscription.group_id == group.id,
+    sub = (
+        await db.execute(
+            select(StatusSubscription).where(
+                StatusSubscription.token == token,
+                StatusSubscription.group_id == group.id,
+            )
         )
-    )).scalar_one_or_none()
+    ).scalar_one_or_none()
     if sub is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Token invalide")
     await db.delete(sub)

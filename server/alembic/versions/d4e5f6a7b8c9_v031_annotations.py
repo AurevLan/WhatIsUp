@@ -4,10 +4,12 @@ Revision ID: d4e5f6a7b8c9
 Revises: c3d4e5f6a7b8
 Create Date: 2026-03-13 00:00:00.000000
 """
+
 from __future__ import annotations
-from alembic import op
+
 import sqlalchemy as sa
-import uuid as _uuid
+
+from alembic import op
 
 revision = "d4e5f6a7b8c9"
 down_revision = "c3d4e5f6a7b8"
@@ -19,7 +21,12 @@ def upgrade() -> None:
     op.create_table(
         "monitor_annotations",
         sa.Column("id", sa.UUID(), nullable=False, primary_key=True),
-        sa.Column("monitor_id", sa.UUID(), sa.ForeignKey("monitors.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "monitor_id",
+            sa.UUID(),
+            sa.ForeignKey("monitors.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("content", sa.String(500), nullable=False),
         sa.Column("annotated_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),

@@ -43,6 +43,7 @@ def latest_results_subq(*where_clauses: Any, group_col: Any) -> Any:
 async def invalidate_uptime_cache(monitor_id: uuid.UUID) -> None:
     """Delete cached uptime entries for a monitor (called on new check result)."""
     from whatisup.core.redis import get_redis
+
     redis = get_redis()
     keys = [f"whatisup:uptime:{monitor_id}:24", f"whatisup:uptime:{monitor_id}:168"]
     await redis.delete(*keys)
@@ -55,6 +56,7 @@ async def compute_uptime(
 ) -> UptimeStats:
     # Check Redis cache first (TTL 60s — balances freshness vs DB load)
     from whatisup.core.redis import get_redis
+
     redis = get_redis()
     cache_key = f"whatisup:uptime:{monitor_id}:{period_hours}"
     cached = await redis.get(cache_key)
@@ -69,9 +71,7 @@ async def compute_uptime(
             func.count(CheckResult.id).label("total"),
             func.sum(case((CheckResult.status == CheckStatus.up, 1), else_=0)).label("up_count"),
             func.avg(CheckResult.response_time_ms).label("avg_rt"),
-            func.percentile_cont(0.95).within_group(
-                CheckResult.response_time_ms
-            ).label("p95_rt"),
+            func.percentile_cont(0.95).within_group(CheckResult.response_time_ms).label("p95_rt"),
         ).where(
             CheckResult.monitor_id == monitor_id,
             CheckResult.checked_at >= cutoff,
@@ -140,7 +140,9 @@ async def compute_daily_history(
             "date": row.day.date().isoformat(),
             "total": row.total,
             "up_count": int(row.up_count or 0),
-            "uptime_percent": round((int(row.up_count or 0) / row.total * 100), 2) if row.total else 100.0,
+            "uptime_percent": round((int(row.up_count or 0) / row.total * 100), 2)
+            if row.total
+            else 100.0,
             "avg_response_time_ms": float(row.avg_rt) if row.avg_rt else None,
         }
         for row in rows.all()

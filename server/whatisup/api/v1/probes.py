@@ -8,7 +8,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request,
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from whatisup.api.deps import get_current_probe, get_current_user, require_superadmin
+from whatisup.api.deps import get_current_probe, require_superadmin
 from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
 from whatisup.core.security import generate_probe_api_key, hash_api_key
@@ -46,9 +46,9 @@ async def register_probe(
     _user: User = Depends(require_superadmin),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    existing = (await db.execute(
-        select(Probe).where(Probe.name == payload.name)
-    )).scalar_one_or_none()
+    existing = (
+        await db.execute(select(Probe).where(Probe.name == payload.name))
+    ).scalar_one_or_none()
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="Probe name already exists"
@@ -70,6 +70,7 @@ async def register_probe(
     logger.info("probe_registered", probe_id=str(probe.id), name=probe.name)
 
     from whatisup.services.audit import log_action
+
     await log_action(db, "probe.register", "probe", probe.id, probe.name, None)
 
     return {
@@ -95,22 +96,19 @@ async def heartbeat(
     """Probe heartbeat — returns current list of enabled monitors to check."""
     probe.last_seen_at = datetime.now(UTC)
 
-    monitors = list((await db.execute(
-        select(Monitor).where(Monitor.enabled.is_(True))
-    )).scalars().all())
+    monitors = list(
+        (await db.execute(select(Monitor).where(Monitor.enabled.is_(True)))).scalars().all()
+    )
 
     # Check for immediate trigger requests set via the trigger-check endpoint
     from whatisup.core.redis import get_redis
+
     redis = get_redis()
     trigger_keys = await redis.mget([f"whatisup:trigger_check:{m.id}" for m in monitors])
     trigger_map = {str(m.id): bool(v) for m, v in zip(monitors, trigger_keys)}
 
     # Consume (delete) the trigger keys that were set
-    keys_to_delete = [
-        f"whatisup:trigger_check:{m.id}"
-        for m, v in zip(monitors, trigger_keys)
-        if v
-    ]
+    keys_to_delete = [f"whatisup:trigger_check:{m.id}" for m, v in zip(monitors, trigger_keys) if v]
     if keys_to_delete:
         await redis.delete(*keys_to_delete)
 
@@ -151,9 +149,11 @@ async def push_result(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Receive a check result from a probe and trigger incident detection."""
-    monitor = (await db.execute(
-        select(Monitor).where(Monitor.id == payload.monitor_id, Monitor.enabled.is_(True))
-    )).scalar_one_or_none()
+    monitor = (
+        await db.execute(
+            select(Monitor).where(Monitor.id == payload.monitor_id, Monitor.enabled.is_(True))
+        )
+    ).scalar_one_or_none()
     if monitor is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Monitor not found or disabled"
@@ -185,10 +185,9 @@ async def push_result(
     async def _process():
         from whatisup.core.database import get_session_factory
         from whatisup.models.result import CheckResult as CR
+
         async with get_session_factory()() as bg_db:
-            bg_result = (await bg_db.execute(
-                select(CR).where(CR.id == result_id)
-            )).scalar_one()
+            bg_result = (await bg_db.execute(select(CR).where(CR.id == result_id))).scalar_one()
             await process_check_result(bg_db, bg_result, manager.broadcast)
             await bg_db.commit()
 
@@ -239,6 +238,7 @@ async def delete_probe(
     if probe is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Probe not found")
     from whatisup.services.audit import log_action
+
     await log_action(db, "probe.delete", "probe", probe.id, probe.name, None)
     await db.delete(probe)
     # NOTE (R-01): The Redis probe-auth cache entry for this probe's API key cannot be
@@ -246,5 +246,3 @@ async def delete_probe(
     # will return None and the stale cache entry will be evicted. The maximum stale window
     # is the cache TTL (300 seconds).
     logger.info("probe_deleted", probe_id=str(probe_id))
-
-

@@ -21,14 +21,13 @@ from sqlalchemy import (
     Text,
     Uuid,
 )
-from sqlalchemy import JSON
 from sqlalchemy.dialects.postgresql import JSONB
-
-# Use JSONB on PostgreSQL (indexable), fall back to JSON on SQLite (tests)
-_JSON = JSON().with_variant(JSONB(), "postgresql")
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from whatisup.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
+
+# Use JSONB on PostgreSQL (indexable), fall back to JSON on SQLite (tests)
+_JSON = JSON().with_variant(JSONB(), "postgresql")
 
 
 class CheckType(enum.StrEnum):
@@ -53,7 +52,9 @@ monitor_group_tags = Table(
     "monitor_group_tags",
     Base.metadata,
     Column(
-        "group_id", Uuid(as_uuid=True), ForeignKey("monitor_groups.id", ondelete="CASCADE"),
+        "group_id",
+        Uuid(as_uuid=True),
+        ForeignKey("monitor_groups.id", ondelete="CASCADE"),
         primary_key=True,
     ),
     Column(
@@ -66,7 +67,9 @@ monitor_tags = Table(
     "monitor_tags",
     Base.metadata,
     Column(
-        "monitor_id", Uuid(as_uuid=True), ForeignKey("monitors.id", ondelete="CASCADE"),
+        "monitor_id",
+        Uuid(as_uuid=True),
+        ForeignKey("monitors.id", ondelete="CASCADE"),
         primary_key=True,
     ),
     Column(
@@ -101,8 +104,10 @@ class Monitor(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     url: Mapped[str] = mapped_column(Text, nullable=False)
     group_id: Mapped[uuid.UUID | None] = mapped_column(
-        Uuid(as_uuid=True), ForeignKey("monitor_groups.id", ondelete="SET NULL"),
-        nullable=True, index=True,
+        Uuid(as_uuid=True),
+        ForeignKey("monitor_groups.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
     )
     owner_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
@@ -128,7 +133,9 @@ class Monitor(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     tcp_port: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # DNS checks
-    dns_record_type: Mapped[str | None] = mapped_column(String(10), nullable=True)  # A, AAAA, CNAME, MX, TXT
+    dns_record_type: Mapped[str | None] = mapped_column(
+        String(10), nullable=True
+    )  # A, AAAA, CNAME, MX, TXT
     dns_expected_value: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
     # Keyword / body checks
@@ -150,13 +157,19 @@ class Monitor(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     # SLO / Error Budget
     slo_target: Mapped[float | None] = mapped_column(Float, nullable=True)  # ex: 99.9
-    slo_window_days: Mapped[int] = mapped_column(Integer, nullable=False, server_default="30", default=30)
+    slo_window_days: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="30", default=30
+    )
 
     # Heartbeat / cron check type
     heartbeat_slug: Mapped[str | None] = mapped_column(String(80), nullable=True, unique=True)
     heartbeat_interval_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    heartbeat_grace_seconds: Mapped[int] = mapped_column(Integer, nullable=False, server_default="60", default=60)
-    last_heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    heartbeat_grace_seconds: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="60", default=60
+    )
+    last_heartbeat_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     # Relationships
     tags: Mapped[list[Tag]] = relationship("Tag", secondary=monitor_tags, lazy="selectin")
@@ -171,9 +184,7 @@ class Monitor(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         "AlertRule", back_populates="monitor", foreign_keys="AlertRule.monitor_id"
     )
 
-    __table_args__ = (
-        Index("ix_monitors_enabled_owner", "enabled", "owner_id"),
-    )
+    __table_args__ = (Index("ix_monitors_enabled_owner", "enabled", "owner_id"),)
 
     def __repr__(self) -> str:
         return f"<Monitor {self.name!r} url={self.url!r}>"
@@ -185,8 +196,10 @@ class PublicPage(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     slug: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     group_id: Mapped[uuid.UUID | None] = mapped_column(
-        Uuid(as_uuid=True), ForeignKey("monitor_groups.id", ondelete="SET NULL"),
-        nullable=True, index=True,
+        Uuid(as_uuid=True),
+        ForeignKey("monitor_groups.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
     )
     custom_domain: Mapped[str | None] = mapped_column(String(255), nullable=True)
 

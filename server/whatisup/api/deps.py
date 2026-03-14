@@ -68,22 +68,21 @@ async def get_current_probe(
 
     # Fast path: try Redis cache (key is SHA-256 of the raw API key — safe, preimage-resistant)
     from whatisup.core.redis import get_redis
+
     redis = get_redis()
     cache_key = f"whatisup:probe_auth:{hashlib.sha256(x_probe_api_key.encode()).hexdigest()[:32]}"
     cached_id = await redis.get(cache_key)
     if cached_id:
-        probe = (await db.execute(
-            select(Probe).where(Probe.id == cached_id, Probe.is_active)
-        )).scalar_one_or_none()
+        probe = (
+            await db.execute(select(Probe).where(Probe.id == cached_id, Probe.is_active))
+        ).scalar_one_or_none()
         if probe is not None:
             return probe
         # Cache stale (probe deactivated/deleted) — fall through to slow path
         await redis.delete(cache_key)
 
     # Slow path: full bcrypt scan
-    probes = (await db.execute(
-        select(Probe).where(Probe.is_active)
-    )).scalars().all()
+    probes = (await db.execute(select(Probe).where(Probe.is_active))).scalars().all()
 
     for probe in probes:
         if verify_api_key(x_probe_api_key, probe.api_key_hash):

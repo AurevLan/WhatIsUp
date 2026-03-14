@@ -35,6 +35,7 @@ async def register(
     db: AsyncSession = Depends(get_db),
 ) -> User:
     from whatisup.core.config import get_settings
+
     settings = get_settings()
     if not settings.registration_open:
         raise HTTPException(
@@ -42,11 +43,11 @@ async def register(
             detail="Registration is closed. Contact an administrator.",
         )
 
-    existing = (await db.execute(
-        select(User).where(
-            (User.email == payload.email) | (User.username == payload.username)
+    existing = (
+        await db.execute(
+            select(User).where((User.email == payload.email) | (User.username == payload.username))
         )
-    )).scalar_one_or_none()
+    ).scalar_one_or_none()
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -68,6 +69,7 @@ async def register(
     await db.flush()
 
     from whatisup.services.audit import log_action
+
     await log_action(db, "user.register", "user", user.id, user.username, None)
 
     logger.info("user_registered", user_id=str(user.id), is_superadmin=is_first)
@@ -81,11 +83,11 @@ async def create_user(
     db: AsyncSession = Depends(get_db),
 ) -> User:
     """Create a user account (superadmin only — for invite-only deployments)."""
-    existing = (await db.execute(
-        select(User).where(
-            (User.email == payload.email) | (User.username == payload.username)
+    existing = (
+        await db.execute(
+            select(User).where((User.email == payload.email) | (User.username == payload.username))
         )
-    )).scalar_one_or_none()
+    ).scalar_one_or_none()
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -103,6 +105,7 @@ async def create_user(
     await db.flush()
 
     from whatisup.services.audit import log_action
+
     await log_action(db, "user.create", "user", user.id, user.username, None)
 
     logger.info("user_created_by_admin", user_id=str(user.id), admin_id=str(_admin.id))
@@ -116,9 +119,7 @@ async def login(
     form: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db),
 ) -> TokenResponse:
-    user = (await db.execute(
-        select(User).where(User.email == form.username)
-    )).scalar_one_or_none()
+    user = (await db.execute(select(User).where(User.email == form.username))).scalar_one_or_none()
 
     if user is None or not user.is_active or not user.hashed_password:
         logger.warning("login_failed", email=form.username[:50])
@@ -145,6 +146,7 @@ async def login(
 
     logger.info("login_success", user_id=str(user.id))
     from whatisup.services.audit import log_action
+
     await log_action(db, "user.login", "user", user.id, user.username, None)
     return TokenResponse(access_token=access, refresh_token=refresh)
 

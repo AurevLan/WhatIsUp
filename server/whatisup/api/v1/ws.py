@@ -99,7 +99,7 @@ async def websocket_dashboard(websocket: WebSocket) -> None:
         if auth_data.get("type") != "auth" or not auth_data.get("token"):
             raise ValueError("Expected auth frame")
         decode_token(auth_data["token"], "access")
-    except (asyncio.TimeoutError, json.JSONDecodeError, ValueError, InvalidTokenError):
+    except (TimeoutError, json.JSONDecodeError, ValueError, InvalidTokenError):
         await websocket.close(code=4001, reason="Unauthorized")
         return
 

@@ -19,9 +19,7 @@ async def purge_old_results(retention_days: int) -> int:
         return 0
     cutoff = datetime.now(UTC) - timedelta(days=retention_days)
     async with get_session_factory()() as db:
-        result = await db.execute(
-            delete(CheckResult).where(CheckResult.checked_at < cutoff)
-        )
+        result = await db.execute(delete(CheckResult).where(CheckResult.checked_at < cutoff))
         await db.commit()
         count = result.rowcount
         if count > 0:

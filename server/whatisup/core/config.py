@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     secret_key: str = _DEFAULT_SECRET
     jwt_algorithm: str = "HS256"
     # Fernet key for encrypting alert channel secrets at rest
-    # Generate: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    # Generate: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"  # noqa: E501
     fernet_key: str = ""
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 7
@@ -78,10 +78,7 @@ class Settings(BaseSettings):
                     "refusing to start in production. Set the SECRET_KEY env var."
                 )
             # Enforce HTTPS-only CORS origins in production
-            http_origins = [
-                o for o in self.cors_allowed_origins
-                if o.startswith("http://")
-            ]
+            http_origins = [o for o in self.cors_allowed_origins if o.startswith("http://")]
             if http_origins:
                 raise ValueError(
                     f"CORS_ALLOWED_ORIGINS contains insecure HTTP origins in production: "

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import DateTime, Float, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column
@@ -24,9 +24,7 @@ class CustomMetric(Base):
     pushed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        default=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
     )
 
-    __table_args__ = (
-        Index("ix_custom_metrics_monitor_time", "monitor_id", "pushed_at"),
-    )
+    __table_args__ = (Index("ix_custom_metrics_monitor_time", "monitor_id", "pushed_at"),)

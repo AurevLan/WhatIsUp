@@ -30,20 +30,23 @@ FLAP_WINDOW_MINUTES = 10
 async def _is_flapping(db: AsyncSession, monitor_id: uuid.UUID) -> bool:
     """Detect rapid up/down oscillation within FLAP_WINDOW_MINUTES."""
     cutoff = datetime.now(UTC) - timedelta(minutes=FLAP_WINDOW_MINUTES)
-    rows = (await db.execute(
-        select(CheckResult.status, CheckResult.checked_at)
-        .where(
-            CheckResult.monitor_id == monitor_id,
-            CheckResult.checked_at >= cutoff,
+    rows = (
+        await db.execute(
+            select(CheckResult.status, CheckResult.checked_at)
+            .where(
+                CheckResult.monitor_id == monitor_id,
+                CheckResult.checked_at >= cutoff,
+            )
+            .order_by(CheckResult.checked_at.asc())
         )
-        .order_by(CheckResult.checked_at.asc())
-    )).all()
+    ).all()
 
     if len(rows) < FLAP_THRESHOLD:
         return False
 
     transitions = sum(
-        1 for i in range(1, len(rows))
+        1
+        for i in range(1, len(rows))
         if (rows[i].status == CheckStatus.up) != (rows[i - 1].status == CheckStatus.up)
     )
     return transitions >= FLAP_THRESHOLD
@@ -65,13 +68,19 @@ async def _correlate_common_cause(
     window_start = datetime.now(UTC) - timedelta(seconds=90)
 
     # Find monitors that recently opened an incident with overlapping affected probes
-    open_incidents = (await db.execute(
-        select(Incident).where(
-            Incident.resolved_at.is_(None),
-            Incident.started_at >= window_start,
-            Incident.monitor_id != monitor_id,
+    open_incidents = (
+        (
+            await db.execute(
+                select(Incident).where(
+                    Incident.resolved_at.is_(None),
+                    Incident.started_at >= window_start,
+                    Incident.monitor_id != monitor_id,
+                )
+            )
         )
-    )).scalars().all()
+        .scalars()
+        .all()
+    )
 
     correlated = []
     for inc in open_incidents:
@@ -86,12 +95,14 @@ async def _correlate_common_cause(
             correlated_monitors=correlated,
             shared_probes=affected_probe_ids,
         )
-        await publish_event({
-            "type": "common_cause_detected",
-            "monitor_id": str(monitor_id),
-            "correlated_monitor_ids": correlated,
-            "shared_probe_ids": affected_probe_ids,
-        })
+        await publish_event(
+            {
+                "type": "common_cause_detected",
+                "monitor_id": str(monitor_id),
+                "correlated_monitor_ids": correlated,
+                "shared_probe_ids": affected_probe_ids,
+            }
+        )
 
 
 async def _fire_alerts(
@@ -113,11 +124,15 @@ async def _fire_alerts(
     if monitor.group_id:
         conditions.append(AlertRule.group_id == monitor.group_id)
 
-    rules = (await db.execute(
-        select(AlertRule)
-        .where(or_(*conditions))
-        .options(selectinload(AlertRule.channels))
-    )).scalars().all()
+    rules = (
+        (
+            await db.execute(
+                select(AlertRule).where(or_(*conditions)).options(selectinload(AlertRule.channels))
+            )
+        )
+        .scalars()
+        .all()
+    )
 
     if not rules:
         return
@@ -132,9 +147,9 @@ async def _fire_alerts(
             except ValueError:
                 pass
         if probe_uuids:
-            probes = (await db.execute(
-                select(Probe).where(Probe.id.in_(probe_uuids))
-            )).scalars().all()
+            probes = (
+                (await db.execute(select(Probe).where(Probe.id.in_(probe_uuids)))).scalars().all()
+            )
             probe_names = {str(p.id): p.name for p in probes}
 
     ctx = {
@@ -147,9 +162,11 @@ async def _fire_alerts(
 
     for rule in rules:
         # H-10: min_duration_seconds — skip if incident too short for "opened" events
-        if (event_type == "incident_opened"
-                and rule.min_duration_seconds > 0
-                and (now - incident.started_at).total_seconds() < rule.min_duration_seconds):
+        if (
+            event_type == "incident_opened"
+            and rule.min_duration_seconds > 0
+            and (now - incident.started_at).total_seconds() < rule.min_duration_seconds
+        ):
             continue
 
         # H-11: renotify logic — only fire for renotify events if rule allows it
@@ -162,16 +179,18 @@ async def _fire_alerts(
             # Check last sent alert event for this incident + rule channels
             channel_ids = [c.id for c in rule.channels]
             if channel_ids:
-                last_event = (await db.execute(
-                    select(AlertEvent)
-                    .where(
-                        AlertEvent.incident_id == incident.id,
-                        AlertEvent.channel_id.in_(channel_ids),
-                        AlertEvent.status == AlertEventStatus.sent,
+                last_event = (
+                    await db.execute(
+                        select(AlertEvent)
+                        .where(
+                            AlertEvent.incident_id == incident.id,
+                            AlertEvent.channel_id.in_(channel_ids),
+                            AlertEvent.status == AlertEventStatus.sent,
+                        )
+                        .order_by(AlertEvent.sent_at.desc())
+                        .limit(1)
                     )
-                    .order_by(AlertEvent.sent_at.desc())
-                    .limit(1)
-                )).scalar_one_or_none()
+                ).scalar_one_or_none()
                 if last_event:
                     minutes_since = (now - last_event.sent_at).total_seconds() / 60
                     if minutes_since < rule.renotify_after_minutes:
@@ -191,10 +210,14 @@ async def _fire_alerts(
             if event_type not in ("incident_opened", "incident_resolved"):
                 continue
         elif rule.condition == AlertCondition.ssl_expiry:
-            if not (result.ssl_valid is False or
-                    (result.ssl_days_remaining is not None
-                     and monitor.ssl_expiry_warn_days is not None
-                     and result.ssl_days_remaining <= monitor.ssl_expiry_warn_days)):
+            if not (
+                result.ssl_valid is False
+                or (
+                    result.ssl_days_remaining is not None
+                    and monitor.ssl_expiry_warn_days is not None
+                    and result.ssl_days_remaining <= monitor.ssl_expiry_warn_days
+                )
+            ):
                 continue
             if event_type != "incident_opened":
                 continue
@@ -227,9 +250,9 @@ async def process_check_result(
     monitor_id = result.monitor_id
 
     # Check maintenance window — suppress incident creation if in maintenance
-    monitor = (await db.execute(
-        select(Monitor).where(Monitor.id == monitor_id)
-    )).scalar_one_or_none()
+    monitor = (
+        await db.execute(select(Monitor).where(Monitor.id == monitor_id))
+    ).scalar_one_or_none()
     group_id = monitor.group_id if monitor else None
 
     in_maintenance = await is_in_maintenance(db, monitor_id, group_id)
@@ -241,9 +264,7 @@ async def process_check_result(
     await invalidate_uptime_cache(monitor_id)
 
     # Fetch all active probes
-    active_probes = (await db.execute(
-        select(Probe).where(Probe.is_active)
-    )).scalars().all()
+    active_probes = (await db.execute(select(Probe).where(Probe.is_active))).scalars().all()
 
     if not active_probes:
         return
@@ -255,20 +276,24 @@ async def process_check_result(
         CheckResult.monitor_id == monitor_id,
         group_col=CheckResult.probe_id,
     )
-    batch_results = (await db.execute(
-        select(CheckResult)
-        .join(
-            latest_subq,
-            (CheckResult.probe_id == latest_subq.c.probe_id)
-            & (CheckResult.checked_at == latest_subq.c.max_at),
+    batch_results = (
+        (
+            await db.execute(
+                select(CheckResult)
+                .join(
+                    latest_subq,
+                    (CheckResult.probe_id == latest_subq.c.probe_id)
+                    & (CheckResult.checked_at == latest_subq.c.max_at),
+                )
+                .where(CheckResult.monitor_id == monitor_id)
+            )
         )
-        .where(CheckResult.monitor_id == monitor_id)
-    )).scalars().all()
+        .scalars()
+        .all()
+    )
 
     latest_by_probe: dict[uuid.UUID, CheckResult] = {
-        r.probe_id: r
-        for r in batch_results
-        if r.probe_id in active_probe_ids
+        r.probe_id: r for r in batch_results if r.probe_id in active_probe_ids
     }
 
     if not latest_by_probe:
@@ -276,11 +301,13 @@ async def process_check_result(
 
     probes_total = len(latest_by_probe)
     probes_down = sum(
-        1 for r in latest_by_probe.values()
+        1
+        for r in latest_by_probe.values()
         if r.status in (CheckStatus.down, CheckStatus.timeout, CheckStatus.error)
     )
     affected_probe_ids = [
-        str(pid) for pid, r in latest_by_probe.items()
+        str(pid)
+        for pid, r in latest_by_probe.items()
         if r.status in (CheckStatus.down, CheckStatus.timeout, CheckStatus.error)
     ]
 
@@ -301,21 +328,25 @@ async def process_check_result(
                 monitor_id=str(monitor_id),
                 probes_down=probes_down,
             )
-            await publish_event({
-                "type": "flapping_detected",
-                "monitor_id": str(monitor_id),
-                "probes_down": probes_down,
-                "probes_total": probes_total,
-            })
+            await publish_event(
+                {
+                    "type": "flapping_detected",
+                    "monitor_id": str(monitor_id),
+                    "probes_down": probes_down,
+                    "probes_total": probes_total,
+                }
+            )
             return
 
     # Fetch open incident for this monitor
-    open_incident = (await db.execute(
-        select(Incident).where(
-            Incident.monitor_id == monitor_id,
-            Incident.resolved_at.is_(None),
+    open_incident = (
+        await db.execute(
+            select(Incident).where(
+                Incident.monitor_id == monitor_id,
+                Incident.resolved_at.is_(None),
+            )
         )
-    )).scalar_one_or_none()
+    ).scalar_one_or_none()
 
     now = datetime.now(UTC)
 
@@ -338,14 +369,16 @@ async def process_check_result(
             probes_total=probes_total,
         )
 
-        await publish_event({
-            "type": "incident_opened",
-            "monitor_id": str(monitor_id),
-            "incident_id": str(incident.id),
-            "scope": scope.value,
-            "affected_probes": affected_probe_ids,
-            "started_at": now.isoformat(),
-        })
+        await publish_event(
+            {
+                "type": "incident_opened",
+                "monitor_id": str(monitor_id),
+                "incident_id": str(incident.id),
+                "scope": scope.value,
+                "affected_probes": affected_probe_ids,
+                "started_at": now.isoformat(),
+            }
+        )
 
         # Fire alerts for incident open
         await _fire_alerts(db, incident, monitor, result, "incident_opened")
@@ -355,8 +388,9 @@ async def process_check_result(
 
     elif scope is not None and open_incident is not None:
         # Update scope/affected probes if changed
-        if (open_incident.scope != scope
-                or set(open_incident.affected_probe_ids) != set(affected_probe_ids)):
+        if open_incident.scope != scope or set(open_incident.affected_probe_ids) != set(
+            affected_probe_ids
+        ):
             open_incident.scope = scope
             open_incident.affected_probe_ids = affected_probe_ids
 
@@ -365,12 +399,16 @@ async def process_check_result(
         renotify_conditions = [AlertRule.monitor_id == monitor.id]
         if monitor.group_id:
             renotify_conditions.append(AlertRule.group_id == monitor.group_id)
-        has_renotify = (await db.execute(
-            select(AlertRule.id).where(
-                or_(*renotify_conditions),
-                AlertRule.renotify_after_minutes.isnot(None),
-            ).limit(1)
-        )).scalar_one_or_none()
+        has_renotify = (
+            await db.execute(
+                select(AlertRule.id)
+                .where(
+                    or_(*renotify_conditions),
+                    AlertRule.renotify_after_minutes.isnot(None),
+                )
+                .limit(1)
+            )
+        ).scalar_one_or_none()
         if has_renotify:
             await _fire_alerts(db, open_incident, monitor, result, "incident_renotify")
 
@@ -387,13 +425,15 @@ async def process_check_result(
             duration_seconds=duration,
         )
 
-        await publish_event({
-            "type": "incident_resolved",
-            "monitor_id": str(monitor_id),
-            "incident_id": str(open_incident.id),
-            "duration_seconds": duration,
-            "resolved_at": now.isoformat(),
-        })
+        await publish_event(
+            {
+                "type": "incident_resolved",
+                "monitor_id": str(monitor_id),
+                "incident_id": str(open_incident.id),
+                "duration_seconds": duration,
+                "resolved_at": now.isoformat(),
+            }
+        )
 
         # Fire alerts for incident resolve
         await _fire_alerts(db, open_incident, monitor, result, "incident_resolved")

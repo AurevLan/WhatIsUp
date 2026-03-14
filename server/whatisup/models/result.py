@@ -38,9 +38,7 @@ class CheckStatus(enum.StrEnum):
 class CheckResult(Base):
     __tablename__ = "check_results"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     monitor_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("monitors.id", ondelete="CASCADE"), nullable=False
     )

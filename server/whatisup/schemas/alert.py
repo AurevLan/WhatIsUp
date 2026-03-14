@@ -5,15 +5,14 @@ from __future__ import annotations
 import re
 import uuid
 from datetime import datetime
-
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
 from whatisup.models.alert import AlertChannelType, AlertCondition, AlertEventStatus
 
-
 # ── Per-type channel config validators ────────────────────────────────────────
+
 
 class EmailChannelConfig(BaseModel):
     to: list[str] = Field(min_length=1, max_length=20)
@@ -86,6 +85,7 @@ _CONFIG_VALIDATORS: dict[AlertChannelType, type[BaseModel]] = {
 
 
 # ── Public schemas ─────────────────────────────────────────────────────────────
+
 
 class AlertChannelCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)

@@ -111,7 +111,9 @@ class ProbeScheduler:
                     lambda t: logger.error(
                         "trigger_check_failed",
                         error=str(t.exception()),
-                    ) if not t.cancelled() and t.exception() else None
+                    )
+                    if not t.cancelled() and t.exception()
+                    else None
                 )
 
     async def start(self) -> None:

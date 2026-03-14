@@ -18,16 +18,14 @@ if TYPE_CHECKING:
 
 
 class IncidentScope(enum.StrEnum):
-    global_ = "global"      # All probes report down
+    global_ = "global"  # All probes report down
     geographic = "geographic"  # Only some probes report down
 
 
 class Incident(Base):
     __tablename__ = "incidents"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     monitor_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("monitors.id", ondelete="CASCADE"), nullable=False
     )
@@ -38,9 +36,7 @@ class Incident(Base):
     scope: Mapped[IncidentScope] = mapped_column(
         Enum(IncidentScope, name="incident_scope"), nullable=False
     )
-    affected_probe_ids: Mapped[list[str]] = mapped_column(
-        JSON, default=list, nullable=False
-    )
+    affected_probe_ids: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
 
     # Relationships
     monitor: Mapped[Monitor] = relationship("Monitor", back_populates="incidents")

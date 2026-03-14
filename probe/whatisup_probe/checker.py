@@ -49,6 +49,7 @@ def _extract_ssl_info(url: str) -> tuple[bool, datetime | None, int | None]:
     """Extract SSL certificate info for an HTTPS URL."""
     try:
         from urllib.parse import urlparse
+
         parsed = urlparse(url)
         hostname = parsed.hostname or ""
         port = parsed.port or 443
@@ -62,7 +63,9 @@ def _extract_ssl_info(url: str) -> tuple[bool, datetime | None, int | None]:
 
         not_after_str = cert.get("notAfter", "")
         if not_after_str:
-            expires_at = datetime.strptime(not_after_str, "%b %d %H:%M:%S %Y %Z").replace(tzinfo=UTC)
+            expires_at = datetime.strptime(not_after_str, "%b %d %H:%M:%S %Y %Z").replace(
+                tzinfo=UTC
+            )
             days_remaining = (expires_at - datetime.now(UTC)).days
             return days_remaining > 0, expires_at, days_remaining
 
@@ -142,7 +145,9 @@ async def _check_http(
             try:
                 if not re.search(body_regex, response.text or ""):
                     status = "down"
-                    error_message = f"body_regex_no_match: pattern {body_regex!r} not found in response body"
+                    error_message = (
+                        f"body_regex_no_match: pattern {body_regex!r} not found in response body"
+                    )
             except re.error as exc:
                 status = "down"
                 error_message = f"body_regex_invalid: {exc}"
@@ -156,7 +161,10 @@ async def _check_http(
                     try:
                         if not re.search(pattern, actual):
                             status = "down"
-                            error_message = f"header_{header_name}_mismatch: expected pattern {pattern!r}, got {actual!r}"
+                            error_message = (
+                                f"header_{header_name}_mismatch: expected pattern"
+                                f" {pattern!r}, got {actual!r}"
+                            )
                             break
                     except re.error as exc:
                         status = "down"
@@ -165,13 +173,17 @@ async def _check_http(
                 else:
                     if actual != expected_value:
                         status = "down"
-                        error_message = f"header_{header_name}_mismatch: expected {expected_value!r}, got {actual!r}"
+                        error_message = (
+                            f"header_{header_name}_mismatch: expected"
+                            f" {expected_value!r}, got {actual!r}"
+                        )
                         break
 
         # JSON Schema validation
         if json_schema and status == "up":
             try:
                 from jsonschema import ValidationError, validate  # type: ignore[import]
+
                 body = json.loads(response.text or "")
                 validate(instance=body, schema=json_schema)
             except ValidationError as exc:
@@ -280,7 +292,7 @@ async def _check_tcp(
             status="up",
             response_time_ms=round(elapsed_ms, 2),
         )
-    except asyncio.TimeoutError:
+    except TimeoutError:
         return CheckResult(
             monitor_id=monitor_id,
             checked_at=checked_at,
@@ -427,7 +439,13 @@ def _build_web_vitals(raw: dict) -> dict | None:
 
 def _make_step_result(i: int, step_type: str, step_label: str, duration_ms: float, **extra) -> dict:
     """Build a step result dict with common fields + optional status-specific extras."""
-    return {"index": i, "type": step_type, "label": step_label, "duration_ms": round(duration_ms, 2), **extra}
+    return {
+        "index": i,
+        "type": step_type,
+        "label": step_label,
+        "duration_ms": round(duration_ms, 2),
+        **extra,
+    }
 
 
 def _substitute_vars(text: str, variables: list[dict]) -> str:
@@ -450,7 +468,8 @@ async def _check_scenario(
     t0 = time.perf_counter()
 
     try:
-        from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeout
+        from playwright.async_api import TimeoutError as PlaywrightTimeout
+        from playwright.async_api import async_playwright
     except ImportError:
         return CheckResult(
             monitor_id=monitor_id,
@@ -528,9 +547,13 @@ async def _check_scenario(
                             raise AssertionError(f"Element '{selector}' not found")
                         actual = (await el.text_content() or "").strip()
                         if mode == "equals" and actual != expected:
-                            raise AssertionError(f"Text equals check: expected {expected!r}, got {actual!r}")
+                            raise AssertionError(
+                                f"Text equals check: expected {expected!r}, got {actual!r}"
+                            )
                         elif mode == "contains" and expected not in actual:
-                            raise AssertionError(f"Text contains check: {expected!r} not in {actual!r}")
+                            raise AssertionError(
+                                f"Text contains check: {expected!r} not in {actual!r}"
+                            )
 
                     elif step_type == "assert_visible":
                         el = await page.query_selector(params["selector"])
@@ -542,13 +565,17 @@ async def _check_scenario(
                         expected = params.get("expected", "")
                         mode = params.get("mode", "contains")
                         if mode == "equals" and current != expected:
-                            raise AssertionError(f"URL equals: expected {expected!r}, got {current!r}")
+                            raise AssertionError(
+                                f"URL equals: expected {expected!r}, got {current!r}"
+                            )
                         elif mode == "contains" and expected not in current:
                             raise AssertionError(f"URL contains: {expected!r} not in {current!r}")
 
                     elif step_type == "screenshot":
                         img_bytes = await page.screenshot(type="jpeg", quality=50, full_page=False)
-                        step_screenshot = "data:image/jpeg;base64," + base64.b64encode(img_bytes).decode()
+                        step_screenshot = (
+                            "data:image/jpeg;base64," + base64.b64encode(img_bytes).decode()
+                        )
 
                     elif step_type == "hover":
                         await page.hover(params["selector"])
@@ -583,30 +610,52 @@ async def _check_scenario(
                                     found = True
                                     break
                             if not found:
-                                variables.append({"name": variable_name, "value": value, "secret": False})
+                                variables.append(
+                                    {"name": variable_name, "value": value, "secret": False}
+                                )
 
                     page.set_default_timeout(timeout_seconds * 1000)
                     dur = (time.perf_counter() - step_t0) * 1000
-                    step_results.append(_make_step_result(
-                        i, step_type, step_label, dur,
-                        status="passed", screenshot=step_screenshot,
-                    ))
+                    step_results.append(
+                        _make_step_result(
+                            i,
+                            step_type,
+                            step_label,
+                            dur,
+                            status="passed",
+                            screenshot=step_screenshot,
+                        )
+                    )
                     steps_passed += 1
 
                 except (PlaywrightTimeout, AssertionError, KeyError, Exception) as step_err:
                     page.set_default_timeout(timeout_seconds * 1000)
                     dur = (time.perf_counter() - step_t0) * 1000
                     if step.get("continue_on_fail", False):
-                        step_results.append(_make_step_result(
-                            i, step_type, step_label, dur,
-                            status="warned", error=str(step_err)[:300],
-                            screenshot=None, continue_on_fail=True,
-                        ))
+                        step_results.append(
+                            _make_step_result(
+                                i,
+                                step_type,
+                                step_label,
+                                dur,
+                                status="warned",
+                                error=str(step_err)[:300],
+                                screenshot=None,
+                                continue_on_fail=True,
+                            )
+                        )
                         continue
-                    step_results.append(_make_step_result(
-                        i, step_type, step_label, dur,
-                        status="failed", error=str(step_err)[:300], screenshot=None,
-                    ))
+                    step_results.append(
+                        _make_step_result(
+                            i,
+                            step_type,
+                            step_label,
+                            dur,
+                            status="failed",
+                            error=str(step_err)[:300],
+                            screenshot=None,
+                        )
+                    )
                     elapsed_ms = (time.perf_counter() - t0) * 1000
                     current_url = page.url
                     await browser.close()
@@ -691,6 +740,7 @@ async def perform_check(
     """
     if check_type == "tcp":
         from urllib.parse import urlparse
+
         parsed = urlparse(url)
         host = parsed.hostname or url
         port = tcp_port or parsed.port or 80
@@ -698,10 +748,12 @@ async def perform_check(
 
     elif check_type == "dns":
         from urllib.parse import urlparse
+
         parsed = urlparse(url)
         host = parsed.hostname or url
         return await _check_dns(
-            monitor_id, host,
+            monitor_id,
+            host,
             dns_record_type or "A",
             dns_expected_value,
             timeout_seconds,
@@ -710,8 +762,12 @@ async def perform_check(
     elif check_type in ("keyword", "json_path"):
         # These are HTTP checks with additional body validation
         return await _check_http(
-            monitor_id, url, timeout_seconds, follow_redirects,
-            expected_status_codes, ssl_check_enabled,
+            monitor_id,
+            url,
+            timeout_seconds,
+            follow_redirects,
+            expected_status_codes,
+            ssl_check_enabled,
             keyword=keyword,
             keyword_negate=keyword_negate,
             expected_json_path=expected_json_path if check_type == "json_path" else None,
@@ -732,8 +788,12 @@ async def perform_check(
     else:
         # Default: http
         return await _check_http(
-            monitor_id, url, timeout_seconds, follow_redirects,
-            expected_status_codes, ssl_check_enabled,
+            monitor_id,
+            url,
+            timeout_seconds,
+            follow_redirects,
+            expected_status_codes,
+            ssl_check_enabled,
             body_regex=body_regex,
             expected_headers=expected_headers,
             json_schema=json_schema,

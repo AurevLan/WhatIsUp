@@ -22,12 +22,16 @@ async def is_in_maintenance(
     if group_id:
         conditions.append(MaintenanceWindow.group_id == group_id)
 
-    result = (await db.execute(
-        select(MaintenanceWindow).where(
-            or_(*conditions),
-            MaintenanceWindow.starts_at <= now,
-            MaintenanceWindow.ends_at >= now,
-        ).limit(1)
-    )).scalar_one_or_none()
+    result = (
+        await db.execute(
+            select(MaintenanceWindow)
+            .where(
+                or_(*conditions),
+                MaintenanceWindow.starts_at <= now,
+                MaintenanceWindow.ends_at >= now,
+            )
+            .limit(1)
+        )
+    ).scalar_one_or_none()
 
     return result is not None

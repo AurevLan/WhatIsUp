@@ -15,6 +15,7 @@ from whatisup.core.config import get_settings
 # Password hashing (users)
 # ---------------------------------------------------------------------------
 
+
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt(rounds=12)).decode()
 
@@ -26,6 +27,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 # ---------------------------------------------------------------------------
 # JWT tokens (users)
 # ---------------------------------------------------------------------------
+
 
 def create_access_token(subject: str) -> str:
     settings = get_settings()
@@ -75,6 +77,7 @@ def decode_token(token: str, token_type: str = "access") -> dict:
 # Probe API keys
 # ---------------------------------------------------------------------------
 
+
 def generate_probe_api_key() -> str:
     """Generate a cryptographically secure probe API key (displayed once)."""
     return f"wiu_{secrets.token_urlsafe(32)}"
@@ -94,6 +97,7 @@ def verify_api_key(api_key: str, hashed: str) -> bool:
 # Redis key helpers
 # ---------------------------------------------------------------------------
 
+
 def refresh_token_redis_key(jti_or_subject: str) -> str:
     return f"whatisup:refresh:{jti_or_subject}"
 
@@ -102,13 +106,19 @@ def refresh_token_redis_key(jti_or_subject: str) -> str:
 # Alert channel config encryption (Fernet symmetric)
 # ---------------------------------------------------------------------------
 
+
 def _get_fernet():
     """Return a Fernet instance using FERNET_KEY from settings, or None if not configured."""
     from cryptography.fernet import Fernet
+
     settings = get_settings()
     if not settings.fernet_key:
         return None
-    return Fernet(settings.fernet_key.encode() if isinstance(settings.fernet_key, str) else settings.fernet_key)
+    return Fernet(
+        settings.fernet_key.encode()
+        if isinstance(settings.fernet_key, str)
+        else settings.fernet_key
+    )
 
 
 # Fields in alert channel config that contain secrets and must be encrypted
@@ -125,7 +135,9 @@ def encrypt_channel_config(config: dict) -> dict:
     if fernet is None:
         return config
     return {
-        k: fernet.encrypt(v.encode()).decode() if k in _SECRET_FIELDS and isinstance(v, str) and v else v
+        k: fernet.encrypt(v.encode()).decode()
+        if k in _SECRET_FIELDS and isinstance(v, str) and v
+        else v
         for k, v in config.items()
     }
 
@@ -137,6 +149,7 @@ def decrypt_channel_config(config: dict) -> dict:
     Silently skips fields that cannot be decrypted (e.g. plaintext legacy values).
     """
     from cryptography.fernet import InvalidToken
+
     fernet = _get_fernet()
     if fernet is None:
         return config

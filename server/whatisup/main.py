@@ -23,6 +23,7 @@ logger = structlog.get_logger(__name__)
 async def _retention_job() -> None:
     """Run nightly data retention purge at 03:00 UTC."""
     from whatisup.services.retention import purge_old_results
+
     settings = get_settings()
 
     while True:
@@ -46,6 +47,7 @@ async def lifespan(app: FastAPI):
 
     # Start Redis subscriber for WebSocket broadcasting
     from whatisup.api.v1.ws import _redis_subscriber
+
     subscriber_task = asyncio.create_task(_redis_subscriber())
 
     # Start nightly data retention job
@@ -54,6 +56,7 @@ async def lifespan(app: FastAPI):
     # Heartbeat monitor checker (every 30s)
     async def _heartbeat_checker():
         from whatisup.services.heartbeat import check_heartbeats
+
         while True:
             try:
                 await check_heartbeats()
@@ -116,7 +119,20 @@ def create_app() -> FastAPI:
     )
 
     # Routers
-    from whatisup.api.v1 import alerts, audit, auth, groups, maintenance, metrics, monitors, ping, probes, public, status, ws
+    from whatisup.api.v1 import (
+        alerts,
+        audit,
+        auth,
+        groups,
+        maintenance,
+        metrics,
+        monitors,
+        ping,
+        probes,
+        public,
+        status,
+        ws,
+    )
 
     app.include_router(auth.router, prefix="/api/v1")
     app.include_router(monitors.router, prefix="/api/v1")
@@ -134,6 +150,7 @@ def create_app() -> FastAPI:
     # Prometheus metrics (optional dependency)
     try:
         from prometheus_fastapi_instrumentator import Instrumentator
+
         Instrumentator().instrument(app).expose(app, endpoint="/api/metrics")
     except ImportError:
         logger.warning("prometheus_fastapi_instrumentator not installed, /api/metrics unavailable")
@@ -150,6 +167,7 @@ app = create_app()
 
 def main() -> None:
     import uvicorn
+
     settings = get_settings()
     uvicorn.run(
         "whatisup.main:app",

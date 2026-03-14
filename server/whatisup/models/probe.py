@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from whatisup.models.result import CheckResult
 
 
-class NetworkType(str, enum.Enum):
+class NetworkType(enum.StrEnum):
     internal = "internal"  # Réseau d'entreprise / LAN privé
     external = "external"  # Internet public
 

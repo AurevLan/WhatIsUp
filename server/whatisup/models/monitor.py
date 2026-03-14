@@ -21,7 +21,11 @@ from sqlalchemy import (
     Text,
     Uuid,
 )
+from sqlalchemy import JSON
 from sqlalchemy.dialects.postgresql import JSONB
+
+# Use JSONB on PostgreSQL (indexable), fall back to JSON on SQLite (tests)
+_JSON = JSON().with_variant(JSONB(), "postgresql")
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from whatisup.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -141,8 +145,8 @@ class Monitor(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     # Advanced HTTP assertions
     body_regex: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    expected_headers: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    json_schema: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    expected_headers: Mapped[dict | None] = mapped_column(_JSON, nullable=True)
+    json_schema: Mapped[dict | None] = mapped_column(_JSON, nullable=True)
 
     # SLO / Error Budget
     slo_target: Mapped[float | None] = mapped_column(Float, nullable=True)  # ex: 99.9

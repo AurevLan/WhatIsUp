@@ -22,7 +22,7 @@
     "vue3-apexcharts": "^1.8.0"
   },
   "devDependencies": {
-    "@vitejs/plugin-vue": "^5.2.1",
+    "@vitejs/plugin-vue": "^6.0.5",
     "autoprefixer": "^10.4.20",
     "eslint": "^9.18.0",
     "eslint-plugin-vue": "^10.8.0",

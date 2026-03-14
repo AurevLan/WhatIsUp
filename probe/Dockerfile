@@ -13,6 +13,11 @@ COPY whatisup_probe/ whatisup_probe/
 
 RUN pip install --no-cache-dir -e .
 
+# Install Playwright browsers in a shared path accessible to any user
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN playwright install --with-deps chromium \
+    && chmod -R 755 /ms-playwright
+
 # Non-root user
 RUN useradd -m -u 1000 probe
 

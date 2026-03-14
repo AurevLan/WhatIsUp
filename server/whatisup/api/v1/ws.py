@@ -14,23 +14,39 @@ logger = structlog.get_logger(__name__)
 router = APIRouter(tags=["websocket"])
 
 REDIS_CHANNEL = "whatisup:events"
+MAX_CONNECTIONS_PER_IP = 10
 
 
 class ConnectionManager:
     def __init__(self) -> None:
         self._connections: list[WebSocket] = []
+        self._ip_counts: dict[str, int] = {}
         self._lock = asyncio.Lock()
 
-    async def connect(self, websocket: WebSocket) -> None:
+    async def connect(self, websocket: WebSocket, client_ip: str | None = None) -> bool:
+        """Accept a WebSocket connection. Returns False if per-IP limit exceeded."""
+        if client_ip:
+            async with self._lock:
+                if self._ip_counts.get(client_ip, 0) >= MAX_CONNECTIONS_PER_IP:
+                    return False
+                self._ip_counts[client_ip] = self._ip_counts.get(client_ip, 0) + 1
         await websocket.accept()
         async with self._lock:
             self._connections.append(websocket)
+            if client_ip:
+                websocket._client_ip = client_ip  # store for cleanup
+        return True
 
     async def disconnect(self, websocket: WebSocket) -> None:
         async with self._lock:
-            self._connections.discard(websocket) if hasattr(self._connections, "discard") else None
             if websocket in self._connections:
                 self._connections.remove(websocket)
+            # Decrement IP counter
+            client_ip = getattr(websocket, "_client_ip", None)
+            if client_ip and client_ip in self._ip_counts:
+                self._ip_counts[client_ip] = max(0, self._ip_counts[client_ip] - 1)
+                if self._ip_counts[client_ip] == 0:
+                    del self._ip_counts[client_ip]
 
     async def broadcast(self, event: dict) -> None:
         message = json.dumps(event)
@@ -68,12 +84,22 @@ async def _redis_subscriber() -> None:
 
 
 @router.websocket("/ws/dashboard")
-async def websocket_dashboard(websocket: WebSocket, token: str) -> None:
-    """Authenticated real-time dashboard WebSocket."""
+async def websocket_dashboard(websocket: WebSocket) -> None:
+    """Authenticated real-time dashboard WebSocket.
+
+    Auth protocol: after connect, client must send a JSON frame
+    {"type": "auth", "token": "<access_jwt>"} within 5 seconds.
+    JWT is validated server-side; failure closes with code 4001.
+    This avoids leaking the token in server access logs (ANSSI recommendation).
+    """
     await websocket.accept()
     try:
-        decode_token(token, "access")
-    except InvalidTokenError:
+        auth_text = await asyncio.wait_for(websocket.receive_text(), timeout=5.0)
+        auth_data = json.loads(auth_text)
+        if auth_data.get("type") != "auth" or not auth_data.get("token"):
+            raise ValueError("Expected auth frame")
+        decode_token(auth_data["token"], "access")
+    except (TimeoutError, json.JSONDecodeError, ValueError, InvalidTokenError):
         await websocket.close(code=4001, reason="Unauthorized")
         return
 
@@ -89,8 +115,16 @@ async def websocket_dashboard(websocket: WebSocket, token: str) -> None:
 
 @router.websocket("/ws/public/{slug}")
 async def websocket_public(websocket: WebSocket, slug: str) -> None:
-    """Unauthenticated real-time WebSocket for public status pages."""
-    await manager.connect(websocket)
+    """Unauthenticated real-time WebSocket for public status pages.
+
+    Limited to MAX_CONNECTIONS_PER_IP concurrent connections per IP address
+    to prevent abuse.
+    """
+    client_ip = websocket.client.host if websocket.client else None
+    accepted = await manager.connect(websocket, client_ip=client_ip)
+    if not accepted:
+        await websocket.close(code=4029, reason="Too many connections from this IP")
+        return
     try:
         while True:
             await websocket.receive_text()

@@ -26,6 +26,11 @@ services:
     networks:
       - backend
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "1.0"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-whatisup}"]
       interval: 10s
@@ -40,6 +45,11 @@ services:
     networks:
       - backend
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+          cpus: "0.5"
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
@@ -72,6 +82,11 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "1.0"
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')\""]
       interval: 15s
@@ -86,6 +101,11 @@ services:
     networks:
       - frontend
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+          cpus: "0.5"
 
   nginx:
     image: nginx:1.27-alpine
@@ -103,6 +123,11 @@ services:
       frontend:
         condition: service_started
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 64m
+          cpus: "0.25"
 
   # Co-located probe (optional) — start after registering via the API:
   #   PROBE_API_KEY=wiu_... docker compose -f docker-compose.prod.yml --env-file .env --profile probe up -d probe
@@ -122,6 +147,11 @@ services:
       server:
         condition: service_healthy
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "1.0"
     profiles:
       - probe
 

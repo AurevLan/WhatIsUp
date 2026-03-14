@@ -7,6 +7,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
+import sqlalchemy
 from sqlalchemy import (
     JSON,
     Column,
@@ -34,12 +35,17 @@ class AlertChannelType(enum.StrEnum):
     email = "email"
     webhook = "webhook"
     telegram = "telegram"
+    slack = "slack"
+    pagerduty = "pagerduty"
+    opsgenie = "opsgenie"
 
 
 class AlertCondition(enum.StrEnum):
-    all_down = "all_down"        # All probes report down (global outage)
-    any_down = "any_down"        # Any probe reports down
-    ssl_expiry = "ssl_expiry"    # SSL cert expires within warn window
+    all_down = "all_down"  # All probes report down (global outage)
+    any_down = "any_down"  # Any probe reports down
+    ssl_expiry = "ssl_expiry"  # SSL cert expires within warn window
+    response_time_above = "response_time_above"
+    uptime_below = "uptime_below"
 
 
 class AlertEventStatus(enum.StrEnum):
@@ -52,11 +58,15 @@ alert_rule_channels = Table(
     "alert_rule_channels",
     Base.metadata,
     Column(
-        "rule_id", Uuid(as_uuid=True), ForeignKey("alert_rules.id", ondelete="CASCADE"),
+        "rule_id",
+        Uuid(as_uuid=True),
+        ForeignKey("alert_rules.id", ondelete="CASCADE"),
         primary_key=True,
     ),
     Column(
-        "channel_id", Uuid(as_uuid=True), ForeignKey("alert_channels.id", ondelete="CASCADE"),
+        "channel_id",
+        Uuid(as_uuid=True),
+        ForeignKey("alert_channels.id", ondelete="CASCADE"),
         primary_key=True,
     ),
 )
@@ -82,9 +92,7 @@ class AlertChannel(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     rules: Mapped[list[AlertRule]] = relationship(
         "AlertRule", secondary=alert_rule_channels, back_populates="channels"
     )
-    alert_events: Mapped[list[AlertEvent]] = relationship(
-        "AlertEvent", back_populates="channel"
-    )
+    alert_events: Mapped[list[AlertEvent]] = relationship("AlertEvent", back_populates="channel")
 
 
 class AlertRule(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -94,13 +102,20 @@ class AlertRule(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Uuid(as_uuid=True), ForeignKey("monitors.id", ondelete="CASCADE"), nullable=True, index=True
     )
     group_id: Mapped[uuid.UUID | None] = mapped_column(
-        Uuid(as_uuid=True), ForeignKey("monitor_groups.id", ondelete="CASCADE"),
-        nullable=True, index=True,
+        Uuid(as_uuid=True),
+        ForeignKey("monitor_groups.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
     )
     condition: Mapped[AlertCondition] = mapped_column(
         Enum(AlertCondition, name="alert_condition"), nullable=False
     )
     min_duration_seconds: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    renotify_after_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    threshold_value: Mapped[float | None] = mapped_column(sqlalchemy.Float, nullable=True)
+    digest_minutes: Mapped[int] = mapped_column(
+        Integer, default=0, nullable=False, server_default="0"
+    )
 
     monitor: Mapped[Monitor | None] = relationship(
         "Monitor", back_populates="alert_rules", foreign_keys=[monitor_id]
@@ -113,9 +128,7 @@ class AlertRule(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 class AlertEvent(Base):
     __tablename__ = "alert_events"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     incident_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False
     )

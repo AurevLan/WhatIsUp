@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     # Security
     secret_key: str = _DEFAULT_SECRET
     jwt_algorithm: str = "HS256"
+    # Fernet key for encrypting alert channel secrets at rest
+    # Generate: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"  # noqa: E501
+    fernet_key: str = ""
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 7
 
@@ -60,16 +63,27 @@ class Settings(BaseSettings):
     probe_result_rate_limit: str = "30/minute"
     probe_heartbeat_interval_seconds: int = 30
 
+    # Data retention
+    data_retention_days: int = 90  # 0 = keep forever
+
     # Feature flags
     registration_open: bool = True  # False = invite-only after first user
 
     @model_validator(mode="after")
-    def warn_default_secrets(self) -> Settings:
-        if self.environment == "production" and self.secret_key == _DEFAULT_SECRET:
-            logger.warning(
-                "SECRET_KEY is set to the default value — "
-                "this is insecure for production. Set SECRET_KEY env var."
-            )
+    def validate_production_settings(self) -> Settings:
+        if self.environment == "production":
+            if self.secret_key == _DEFAULT_SECRET:
+                raise ValueError(
+                    "SECRET_KEY is set to the default value — "
+                    "refusing to start in production. Set the SECRET_KEY env var."
+                )
+            # Enforce HTTPS-only CORS origins in production
+            http_origins = [o for o in self.cors_allowed_origins if o.startswith("http://")]
+            if http_origins:
+                raise ValueError(
+                    f"CORS_ALLOWED_ORIGINS contains insecure HTTP origins in production: "
+                    f"{http_origins}. Use HTTPS."
+                )
         return self
 
     @property

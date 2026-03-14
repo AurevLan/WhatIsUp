@@ -11,6 +11,135 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.4.0] - 2026-03-14
+
+### Added
+
+#### Functional improvements
+
+- **Bulk actions** — multi-select monitors in list view; bulk enable / pause / delete / export CSV (client-side)
+- **Advanced HTTP assertions** — regex body check (`body_regex`), response header validation (exact or `/regex/` mode), JSON Schema validation via `jsonschema`; all assertions stop processing on first failure with descriptive error
+- **SLO / Error Budget** — configurable `slo_target` (%) and `slo_window_days` per monitor; `GET /monitors/{id}/slo` returns burn rate, budget remaining (minutes), and status (`healthy` / `at_risk` / `critical` / `exhausted`)
+- **Auto post-mortem** — `GET /monitors/{id}/incidents/{incident_id}/postmortem` generates a structured Markdown report with incident timeline, alert events, metrics, and annotations; downloadable `.md` from the UI
+- **Digest / batch notifications** — `digest_minutes` field on `AlertRule`; alerts within the window are buffered in Redis (`LPUSH`) and dispatched as a single grouped message after the delay
+- **Enriched public status page** — 90-day daily history bars (up / degraded / down / no_data), incident timeline (30 days), email subscription with unsubscribe token, global status banner
+- **Custom push metrics** — `POST /api/v1/metrics/{monitor_id}` lets external services push business metrics (orders, latency…); displayed as ApexCharts line graphs per metric name in the monitor detail view
+- **Core Web Vitals** — Playwright scenario checks now capture LCP, CLS and INP via `PerformanceObserver`; stored in `scenario_result.web_vitals`; displayed with colour-coded thresholds in the UI
+- **PagerDuty integration** — new alert channel type using Events API v2 (`trigger` / `resolve` with `dedup_key`); integration key encrypted at rest with Fernet
+- **Opsgenie integration** — new alert channel type using Alerts API (US and EU regions); alert create / close lifecycle; API key encrypted at rest
+
+#### Probe improvements
+
+- **City / address geocoding** — "Locate" button in probe registration and edit modals calls Nominatim (OpenStreetMap) to resolve any address, city, or place name to GPS coordinates (4-decimal precision, no API key required)
+- **Network type** — new `network_type` field (`external` / `internal`) on probes; shown as coloured badge in list and map popups; used to distinguish corporate LAN failures from public internet outages; PostgreSQL enum `networktype`
+
+#### Internationalisation
+
+- **EN/FR i18n** — `vue-i18n@9` (Composition API mode) with comprehensive locale files (`src/i18n/en.js`, `src/i18n/fr.js`) covering all UI strings
+- **Language toggle** — 🇬🇧/🇫🇷 button in the sidebar; preference persisted to `localStorage`
+- **English as default** — entire UI now defaults to English; French available via toggle in the admin sidebar
+
+#### UI / UX
+
+- **Unified button system** — all buttons now use semantic CSS classes (`btn-primary`, `btn-secondary`, `btn-ghost`, `btn-danger`) with consistent padding, radius, transition, and disabled state
+- **SLO edit form** — inline SLO configuration card in monitor detail (previously read-only); visible even when no SLO is configured
+- **Dashboard nav fix** — Dashboard nav link now uses `isExactActive` (`exact` prop) so it only highlights on `/`, not on child routes
+- **Address input for probes** — location field accepts full street addresses, not just city names; Nominatim handles geocoding
+
+### Changed
+
+- `compute_daily_history` in `services/stats.py` — replaced parameterised `date_trunc('day', ...)` with `text("'day'")` literal to fix PostgreSQL `GroupingError` with asyncpg
+- `POST /public/pages/{slug}/subscribe` — email now sent as JSON body (`SubscribeRequest` schema) instead of query parameter
+- Probe list/map — badge colours updated to reflect `network_type` (blue = external, purple = internal)
+
+### Fixed
+
+- `PublicPageView.vue` — import path `@/api/public.js` → `../api/public.js` (no `@` alias configured in Vite)
+- `ScenarioBuilder.vue` — `{{ '{{' + varName + '}}' }}` replaced with `<span v-text>` to avoid Vue template parser crash on nested interpolation delimiters
+
+### Database migrations (in order)
+
+| Revision | Description |
+|----------|-------------|
+| `e5f6a7b8c9d0` | Add `digest_minutes` to `alert_rules` |
+| `b8c9d0e1f2a3` | Create `status_subscriptions` table |
+| `f6a7b8c9d0e1` | Add `body_regex`, `expected_headers`, `json_schema` to `monitors` |
+| `a7b8c9d0e1f2` | Add `slo_target`, `slo_window_days` to `monitors` |
+| `c9d0e1f2a3b4` | Create `custom_metrics` table |
+| `394eaf748eaf` | Merge point for above migrations |
+| `d1e2f3a4b5c6` | Add `network_type` enum column to `probes` |
+
+---
+
+## [0.3.0] - 2026-03-11
+
+### Added
+
+#### New check types — TCP, DNS, Keyword, JSON Path
+- **TCP** — `asyncio.open_connection` probe; checks port reachability (databases, SSH, SMTP…)
+- **DNS** — `dnspython` resolver; optional record-value assertion (A, AAAA, CNAME, MX, TXT, NS)
+- **Keyword** — HTTP response body scan with optional negate mode (alert if keyword IS found)
+- **JSON Path** — HTTP response JSON validation via dot-notation path (e.g. `$.status == "ok"`)
+- New check-type selector in `CreateMonitorModal.vue` (5-button grid with icons + description)
+- Conditional form fields per type (port, DNS record type, keyword, JSON path, expected value)
+- `probe/whatisup_probe/checker.py` — dispatcher with 4 dedicated check engines
+- `probe/pyproject.toml` — added `dnspython>=2.7.0,<3`
+- Alembic migration adds `check_type`, `tcp_port`, `dns_record_type`, `dns_expected_value`, `keyword`, `keyword_negate`, `expected_json_path`, `expected_json_value` columns to `monitors`
+
+#### Audit trail
+- `AuditLog` model — records who changed what with before/after diff (JSON)
+- `GET /api/v1/audit/` endpoint — filterable by action, object type, date range (superadmin only)
+- `AuditView.vue` — paginated table with color-coded action badges and expandable diff panels
+- Actions logged: monitor create/update/delete, probe register/delete
+
+#### Maintenance windows
+- `MaintenanceWindow` model — per-monitor or per-group scheduled downtime
+- Full CRUD via `GET/POST/PATCH/DELETE /api/v1/maintenance/`
+- `is_in_maintenance()` service — suppresses incident creation and alerts during active windows
+- `MaintenanceView.vue` — management UI with active/upcoming/past indicator
+
+#### Flapping detection
+- 5+ status transitions within 10 minutes → suppress incident creation
+- Prevents alert storms on unstable services
+
+#### Common-cause correlation
+- Monitors sharing the same set of failing probes within a 90 s window are grouped as a single correlated incident
+
+#### Performance-based alert conditions
+- `AlertCondition` enum extended: `response_time_above`, `uptime_below`
+- `AlertRule.threshold_value` column for numeric thresholds
+- `AlertRule.renotify_after_minutes` column for re-notification cadence
+
+#### Slack alert channel
+- `AlertChannelType` enum extended: `slack`
+- `_send_slack()` — posts rich attachment (color, title, fields, footer) to Slack webhook
+
+#### Uptime history bars
+- `UptimeHistoryBars.vue` — 90-day strip chart (green ≥ 99 %, amber ≥ 95 %, red < 95 %)
+- `GET /api/v1/monitors/{monitor_id}/history?days=90` endpoint
+- P95 response time via PostgreSQL `percentile_cont(0.95)` (replaces in-memory approximation)
+
+#### Prometheus metrics
+- `prometheus-fastapi-instrumentator` installed and exposed at `/api/metrics`
+
+### Fixed
+- **Critical (BUG-6)**: background task passed a detached ORM object to `process_check_result` → results were never persisted. Fixed: main session commits before the background task runs; background task re-fetches by ID in a fresh session
+- **BUG-1**: `Monitor.enabled is True` (Python identity) always evaluated to `False` in SQLAlchemy queries → all monitors excluded from heartbeat and result ingestion. Fixed: `.is_(True)`
+- **XSS (BUG-2)**: Leaflet popup interpolations in `ProbesView.vue` were unescaped. Fixed: added `escapeHtml()` applied to all popup fields
+- **BUG-3**: `GET /probes/{id}` used `get_current_probe` (probe API key) instead of `require_superadmin`. Fixed
+- **BUG-4**: `ProbeCheckResultIn` schema lacked range validators. Fixed: `ge=100,le=599` for `http_status`, `ge=0` for `response_time_ms`, `le=50` for `redirect_count`, `max_length=2048` for `final_url`
+- **BUG-5**: Empty `catch` blocks in `ProbesView.vue` silently swallowed errors. Fixed: `showError()` with auto-dismiss banners (5 s)
+- **`UserOut.email: EmailStr`**: Pydantic v2 rejects `admin@local` (no TLD) during response serialization → HTTP 500 on `/auth/me`. Fixed: changed to `email: str` in `UserOut` (validation kept on `UserCreate`)
+
+### Changed
+- `server/main.py` — audit and maintenance routers registered; Prometheus instrumented
+- `server/whatisup/schemas/probe.py` — `ProbeMonitorConfig` extended with all new check-type fields
+- `server/whatisup/api/v1/probes.py` — heartbeat passes all new fields; result ingestion commits before background task
+- `frontend/src/router/index.js` — added `/maintenance` and `/audit` routes
+- `frontend/src/views/layouts/AppLayout.vue` — Maintenance and Audit Log nav links added
+
+---
+
 ## [0.2.0] - 2026-03-01
 
 ### Added
@@ -92,6 +221,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docker Compose (dev + prod with Nginx + TLS)
 - Security: rate limiting, security headers, JWT validation, probe API key bcrypt hashing
 
-[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.2.0...v0.4.0
+[0.3.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.2.0...v0.4.0
 [0.2.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/AurevLan/WhatIsUp/releases/tag/v0.1.0

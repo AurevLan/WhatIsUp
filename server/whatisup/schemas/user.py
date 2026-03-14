@@ -31,7 +31,7 @@ class UserUpdate(BaseModel):
 
 class UserOut(BaseModel):
     id: uuid.UUID
-    email: EmailStr
+    email: str
     username: str
     full_name: str | None
     is_active: bool

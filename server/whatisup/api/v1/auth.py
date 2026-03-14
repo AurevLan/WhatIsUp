@@ -9,7 +9,7 @@ from jwt.exceptions import InvalidTokenError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from whatisup.api.deps import get_current_user
+from whatisup.api.deps import get_current_user, require_superadmin
 from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
 from whatisup.core.redis import get_redis
@@ -34,19 +34,27 @@ async def register(
     payload: UserCreate,
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    # Check email/username uniqueness
-    existing = (await db.execute(
-        select(User).where(
-            (User.email == payload.email) | (User.username == payload.username)
+    from whatisup.core.config import get_settings
+
+    settings = get_settings()
+    if not settings.registration_open:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Registration is closed. Contact an administrator.",
         )
-    )).scalar_one_or_none()
+
+    existing = (
+        await db.execute(
+            select(User).where((User.email == payload.email) | (User.username == payload.username))
+        )
+    ).scalar_one_or_none()
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Email or username already registered",
         )
 
-    # First registered user becomes superadmin
+    # Only the very first user (bootstrap) becomes superadmin
     user_count = (await db.execute(select(func.count(User.id)))).scalar_one()
     is_first = user_count == 0
 
@@ -60,7 +68,47 @@ async def register(
     db.add(user)
     await db.flush()
 
+    from whatisup.services.audit import log_action
+
+    await log_action(db, "user.register", "user", user.id, user.username, None)
+
     logger.info("user_registered", user_id=str(user.id), is_superadmin=is_first)
+    return user
+
+
+@router.post("/users", response_model=UserOut, status_code=status.HTTP_201_CREATED)
+async def create_user(
+    payload: UserCreate,
+    _admin: User = Depends(require_superadmin),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """Create a user account (superadmin only — for invite-only deployments)."""
+    existing = (
+        await db.execute(
+            select(User).where((User.email == payload.email) | (User.username == payload.username))
+        )
+    ).scalar_one_or_none()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email or username already registered",
+        )
+
+    user = User(
+        email=str(payload.email),
+        username=payload.username,
+        full_name=payload.full_name,
+        hashed_password=hash_password(payload.password),
+        is_superadmin=False,  # Admin explicitly sets superadmin if needed
+    )
+    db.add(user)
+    await db.flush()
+
+    from whatisup.services.audit import log_action
+
+    await log_action(db, "user.create", "user", user.id, user.username, None)
+
+    logger.info("user_created_by_admin", user_id=str(user.id), admin_id=str(_admin.id))
     return user
 
 
@@ -71,9 +119,7 @@ async def login(
     form: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db),
 ) -> TokenResponse:
-    user = (await db.execute(
-        select(User).where(User.email == form.username)
-    )).scalar_one_or_none()
+    user = (await db.execute(select(User).where(User.email == form.username))).scalar_one_or_none()
 
     if user is None or not user.is_active or not user.hashed_password:
         logger.warning("login_failed", email=form.username[:50])
@@ -99,6 +145,9 @@ async def login(
     await redis.setex(f"whatisup:refresh:{user.id}:{refresh[-12:]}", 7 * 86400, "1")
 
     logger.info("login_success", user_id=str(user.id))
+    from whatisup.services.audit import log_action
+
+    await log_action(db, "user.login", "user", user.id, user.username, None)
     return TokenResponse(access_token=access, refresh_token=refresh)
 
 

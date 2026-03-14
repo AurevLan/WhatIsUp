@@ -47,12 +47,36 @@
   }
   .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-  .btn-primary {
-    background: #2563eb;
-    color: #fff;
-    box-shadow: 0 0 0 1px rgba(37,99,235,.4), 0 4px 12px rgba(37,99,235,.25);
+  .btn-primary, .btn-secondary, .btn-ghost, .btn-danger {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 0.625rem;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    transition: all 0.15s ease;
+    cursor: pointer;
+    border: 1px solid transparent;
+    white-space: nowrap;
+    outline: none;
+    gap: 0.375rem;
   }
-  .btn-primary:hover { background: #3b82f6; }
+  .btn-primary:disabled, .btn-secondary:disabled, .btn-ghost:disabled, .btn-danger:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn-primary {
+    background: rgba(99,102,241,.14);
+    color: #a5b4fc;
+    border: 1px solid rgba(99,102,241,.28);
+    box-shadow: none;
+  }
+  .btn-primary:hover {
+    background: rgba(99,102,241,.24);
+    color: #c7d2fe;
+    border-color: rgba(99,102,241,.45);
+  }
 
   .btn-secondary {
     background: #1e293b;

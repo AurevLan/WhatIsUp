@@ -1,187 +1,286 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720">
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675">
   <defs>
-    <linearGradient id="barUp" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#10b981"/>
-      <stop offset="100%" stop-color="#059669"/>
+    <linearGradient id="chartArea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#22c55e" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#22c55e" stop-opacity="0.02"/>
     </linearGradient>
-    <linearGradient id="barDown" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#ef4444"/>
-      <stop offset="100%" stop-color="#dc2626"/>
+    <linearGradient id="sloBar" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#22c55e"/>
+      <stop offset="99.2%" stop-color="#22c55e"/>
+      <stop offset="99.2%" stop-color="#334155"/>
+      <stop offset="100%" stop-color="#334155"/>
     </linearGradient>
-    <linearGradient id="chartBg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.15"/>
-      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
-    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#00000044"/>
+    </filter>
   </defs>
 
   <!-- Background -->
-  <rect width="1200" height="720" fill="#0f172a"/>
+  <rect width="1200" height="675" fill="#0f172a"/>
 
-  <!-- Sidebar (collapsed) -->
-  <rect x="0" y="0" width="220" height="720" fill="#1e293b" opacity="0.5"/>
-  <rect x="0" y="0" width="220" height="720" fill="#0f172a" opacity="0.4"/>
-  <text x="50" y="33" font-family="system-ui,sans-serif" font-size="15" font-weight="700" fill="#f1f5f9">WhatIsUp</text>
-  <rect x="20" y="22" width="10" height="10" rx="2" fill="#3b82f6"/>
-  <rect x="34" y="22" width="10" height="10" rx="2" fill="#10b981"/>
-  <text x="32" y="84" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">  Dashboard</text>
-  <rect x="8" y="96" width="204" height="36" rx="8" fill="#3b82f6" opacity="0.2"/>
-  <text x="32" y="120" font-family="system-ui,sans-serif" font-size="13" fill="#3b82f6">● Monitors</text>
-  <text x="32" y="152" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">  Probes</text>
-  <text x="32" y="184" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">  Alerts</text>
+  <!-- Sidebar -->
+  <rect x="0" y="0" width="220" height="675" fill="#0c1524"/>
+  <rect x="219" y="0" width="1" height="675" fill="#1e293b"/>
+
+  <!-- Logo -->
+  <rect x="18" y="20" width="10" height="10" rx="2" fill="#3b82f6"/>
+  <rect x="32" y="20" width="10" height="10" rx="2" fill="#22c55e"/>
+  <text x="48" y="31" font-family="system-ui,sans-serif" font-size="15" font-weight="700" fill="#f1f5f9">WhatIsUp</text>
+  <rect x="12" y="52" width="196" height="1" fill="#1e293b"/>
+
+  <!-- Nav -->
+  <circle cx="26" cy="80" r="4" fill="#475569"/>
+  <text x="40" y="85" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">Dashboard</text>
+  <rect x="8" y="100" width="204" height="36" rx="8" fill="#3b82f6" opacity="0.15"/>
+  <rect x="8" y="100" width="3" height="36" rx="1" fill="#3b82f6"/>
+  <circle cx="26" cy="118" r="4" fill="#3b82f6"/>
+  <text x="40" y="123" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#3b82f6">Monitors</text>
+  <circle cx="26" cy="154" r="4" fill="#475569"/>
+  <text x="40" y="159" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">Probes</text>
+  <circle cx="26" cy="188" r="4" fill="#475569"/>
+  <text x="40" y="193" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">Alerts</text>
+  <circle cx="26" cy="222" r="4" fill="#475569"/>
+  <text x="40" y="227" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">Maintenance</text>
+  <circle cx="26" cy="256" r="4" fill="#475569"/>
+  <text x="40" y="261" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">Audit</text>
+  <rect x="12" y="630" width="196" height="1" fill="#1e293b"/>
+  <circle cx="28" cy="653" r="13" fill="#1e40af"/>
+  <text x="28" y="657" font-family="system-ui,sans-serif" font-size="11" font-weight="700" fill="#fff" text-anchor="middle">A</text>
+  <text x="48" y="649" font-family="system-ui,sans-serif" font-size="12" fill="#94a3b8">admin@local</text>
+  <text x="48" y="663" font-family="system-ui,sans-serif" font-size="10" fill="#475569">Superadmin</text>
 
   <!-- Main content -->
-  <rect x="220" y="0" width="980" height="720" fill="#0f172a"/>
+  <rect x="220" y="0" width="980" height="675" fill="#0f172a"/>
 
   <!-- Breadcrumb -->
-  <text x="248" y="36" font-family="system-ui,sans-serif" font-size="13" fill="#3b82f6">← Monitors</text>
+  <text x="244" y="30" font-family="system-ui,sans-serif" font-size="12" fill="#3b82f6">← Monitors</text>
+  <rect x="220" y="38" width="980" height="1" fill="#1e293b"/>
 
-  <!-- Title -->
-  <circle cx="268" cy="66" r="8" fill="#10b981"/>
-  <text x="286" y="72" font-family="system-ui,sans-serif" font-size="20" font-weight="700" fill="#f1f5f9">API Production</text>
-  <text x="286" y="92" font-family="system-ui,sans-serif" font-size="12" fill="#64748b" font-family="monospace">https://api.example.com</text>
+  <!-- Title row -->
+  <circle cx="260" cy="66" r="9" fill="#22c55e"/>
+  <circle cx="260" cy="66" r="14" fill="#22c55e" opacity="0.15"/>
+  <text x="282" y="58" font-family="system-ui,sans-serif" font-size="22" font-weight="700" fill="#f1f5f9">korben.info</text>
+  <!-- UP badge -->
+  <rect x="456" y="46" width="40" height="22" rx="11" fill="#14532d"/>
+  <text x="476" y="62" font-family="system-ui,sans-serif" font-size="11" font-weight="700" fill="#22c55e" text-anchor="middle">UP</text>
+
+  <text x="282" y="78" font-family="monospace,system-ui" font-size="12" fill="#64748b">https://korben.info</text>
+
+  <!-- Buttons -->
+  <rect x="970" y="48" width="90" height="30" rx="6" fill="#3b82f6"/>
+  <text x="1015" y="68" font-family="system-ui,sans-serif" font-size="12" font-weight="600" fill="#fff" text-anchor="middle">▶ Test now</text>
+  <rect x="872" y="48" width="90" height="30" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="917" y="68" font-family="system-ui,sans-serif" font-size="12" fill="#94a3b8" text-anchor="middle">✎ Edit</text>
 
   <!-- Tabs -->
-  <text x="248" y="124" font-family="system-ui,sans-serif" font-size="14" font-weight="600" fill="#3b82f6">Disponibilité</text>
-  <rect x="248" y="128" width="94" height="2" rx="1" fill="#3b82f6"/>
-  <text x="360" y="124" font-family="system-ui,sans-serif" font-size="14" fill="#64748b">Carte</text>
-  <rect x="248" y="130" width="932" height="1" fill="#1e293b"/>
+  <rect x="220" y="90" width="980" height="1" fill="#1e293b"/>
+  <text x="244" y="112" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#3b82f6">Overview</text>
+  <rect x="244" y="116" width="68" height="2" rx="1" fill="#3b82f6"/>
+  <text x="330" y="112" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">Incidents</text>
+  <text x="410" y="112" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">Probes</text>
+  <text x="480" y="112" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">Settings</text>
+  <rect x="220" y="120" width="980" height="1" fill="#1e293b"/>
 
-  <!-- Stats cards -->
-  <rect x="248" y="145" width="218" height="80" rx="10" fill="#1e293b"/>
-  <text x="268" y="170" font-family="system-ui,sans-serif" font-size="11" fill="#64748b">Uptime 24h</text>
-  <text x="268" y="205" font-family="system-ui,sans-serif" font-size="28" font-weight="700" fill="#10b981">99.97%</text>
+  <!-- 3 stat cards -->
+  <rect x="244" y="130" width="290" height="82" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1" filter="url(#shadow)"/>
+  <text x="266" y="152" font-family="system-ui,sans-serif" font-size="11" fill="#94a3b8">UPTIME (24H)</text>
+  <text x="266" y="188" font-family="system-ui,sans-serif" font-size="34" font-weight="700" fill="#22c55e">99.8%</text>
+  <text x="266" y="204" font-family="system-ui,sans-serif" font-size="10" fill="#475569">1 check failed in last 24h</text>
 
-  <rect x="478" y="145" width="218" height="80" rx="10" fill="#1e293b"/>
-  <text x="498" y="170" font-family="system-ui,sans-serif" font-size="11" fill="#64748b">Uptime 7j</text>
-  <text x="498" y="205" font-family="system-ui,sans-serif" font-size="28" font-weight="700" fill="#3b82f6">99.91%</text>
+  <rect x="546" y="130" width="290" height="82" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1" filter="url(#shadow)"/>
+  <text x="568" y="152" font-family="system-ui,sans-serif" font-size="11" fill="#94a3b8">AVG RESPONSE TIME</text>
+  <text x="568" y="188" font-family="system-ui,sans-serif" font-size="34" font-weight="700" fill="#f1f5f9">142<tspan font-size="16" fill="#94a3b8">ms</tspan></text>
+  <text x="568" y="204" font-family="system-ui,sans-serif" font-size="10" fill="#475569">p95: 280ms · p99: 410ms</text>
 
-  <rect x="708" y="145" width="218" height="80" rx="10" fill="#1e293b"/>
-  <text x="728" y="170" font-family="system-ui,sans-serif" font-size="11" fill="#64748b">Réponse moy.</text>
-  <text x="728" y="205" font-family="system-ui,sans-serif" font-size="28" font-weight="700" fill="#94a3b8">142 ms</text>
+  <rect x="848" y="130" width="296" height="82" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1" filter="url(#shadow)"/>
+  <text x="870" y="152" font-family="system-ui,sans-serif" font-size="11" fill="#94a3b8">UPTIME (7D)</text>
+  <text x="870" y="188" font-family="system-ui,sans-serif" font-size="34" font-weight="700" fill="#22c55e">99.2%</text>
+  <text x="870" y="204" font-family="system-ui,sans-serif" font-size="10" fill="#475569">3 incidents · 12min total downtime</text>
 
-  <rect x="938" y="145" width="242" height="80" rx="10" fill="#1e293b"/>
-  <text x="958" y="170" font-family="system-ui,sans-serif" font-size="11" fill="#64748b">p95 réponse</text>
-  <text x="958" y="205" font-family="system-ui,sans-serif" font-size="28" font-weight="700" fill="#94a3b8">287 ms</text>
+  <!-- Response time chart -->
+  <rect x="244" y="224" width="636" height="220" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="264" y="246" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#f1f5f9">Response Time (24h)</text>
+  <text x="820" y="246" font-family="system-ui,sans-serif" font-size="11" fill="#3b82f6" text-anchor="end">Last 24 hours</text>
 
-  <!-- SSL Card -->
-  <rect x="248" y="240" width="932" height="60" rx="10" fill="#1e293b"/>
-  <text x="274" y="262" font-family="system-ui,sans-serif" font-size="13" fill="#10b981">🛡</text>
-  <text x="294" y="264" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#94a3b8">Certificat SSL</text>
-  <text x="480" y="264" font-family="system-ui,sans-serif" font-size="12" fill="#64748b">Statut</text>
-  <rect x="480" y="271" width="52" height="18" rx="9" fill="#064e3b"/>
-  <text x="506" y="284" font-family="system-ui,sans-serif" font-size="11" fill="#10b981" text-anchor="middle">Valide</text>
-  <text x="700" y="264" font-family="system-ui,sans-serif" font-size="12" fill="#64748b">Expire le</text>
-  <text x="700" y="284" font-family="system-ui,sans-serif" font-size="13" fill="#94a3b8" font-family="monospace">15/02/2027</text>
-  <text x="900" y="264" font-family="system-ui,sans-serif" font-size="12" fill="#64748b">Jours restants</text>
-  <text x="900" y="284" font-family="system-ui,sans-serif" font-size="16" font-weight="700" fill="#10b981">351</text>
+  <!-- Chart grid lines -->
+  <line x1="264" y1="260" x2="860" y2="260" stroke="#1e293b" stroke-width="1"/>
+  <line x1="264" y1="294" x2="860" y2="294" stroke="#1e293b" stroke-width="1"/>
+  <line x1="264" y1="328" x2="860" y2="328" stroke="#1e293b" stroke-width="1"/>
+  <line x1="264" y1="362" x2="860" y2="362" stroke="#1e293b" stroke-width="1"/>
+  <line x1="264" y1="396" x2="860" y2="396" stroke="#1e293b" stroke-width="1"/>
+  <line x1="264" y1="426" x2="860" y2="426" stroke="#334155" stroke-width="1"/>
 
-  <!-- Availability chart -->
-  <rect x="248" y="316" width="932" height="140" rx="10" fill="#1e293b"/>
-  <text x="268" y="340" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#94a3b8">Disponibilité globale — 24h</text>
-  <text x="1080" y="340" font-family="system-ui,sans-serif" font-size="11" fill="#475569" text-anchor="end">buckets de 30 min · toutes sondes</text>
-  <!-- Bar chart simulation: 48 bars -->
-  <g transform="translate(268, 355)">
-    <!-- Draw availability bars -->
-    <rect x="0"   y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="19"  y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="38"  y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="57"  y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="76"  y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="95"  y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="114" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="133" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="152" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="171" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="190" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="209" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="228" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="247" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="266" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="285" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="304" y="68" width="16" height="52" rx="2" fill="#f59e0b"/>
-    <rect x="323" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="342" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="361" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="380" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="399" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="418" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="437" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="456" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="475" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="494" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="513" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="532" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="551" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="570" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="589" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="608" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="627" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="646" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="665" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="684" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="703" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="722" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="741" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="760" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="779" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="798" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="817" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="836" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="855" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="874" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <rect x="893" y="62" width="16" height="58" rx="2" fill="url(#barUp)"/>
-    <!-- Time labels -->
-    <text x="0"   y="135" font-family="system-ui,sans-serif" font-size="10" fill="#475569">00:00</text>
-    <text x="228" y="135" font-family="system-ui,sans-serif" font-size="10" fill="#475569">12:00</text>
-    <text x="874" y="135" font-family="system-ui,sans-serif" font-size="10" fill="#475569">maintenant</text>
+  <!-- Y-axis labels -->
+  <text x="260" y="264" font-family="monospace,system-ui" font-size="9" fill="#475569" text-anchor="end">500ms</text>
+  <text x="260" y="298" font-family="monospace,system-ui" font-size="9" fill="#475569" text-anchor="end">400ms</text>
+  <text x="260" y="332" font-family="monospace,system-ui" font-size="9" fill="#475569" text-anchor="end">300ms</text>
+  <text x="260" y="366" font-family="monospace,system-ui" font-size="9" fill="#475569" text-anchor="end">200ms</text>
+  <text x="260" y="400" font-family="monospace,system-ui" font-size="9" fill="#475569" text-anchor="end">100ms</text>
+  <text x="260" y="430" font-family="monospace,system-ui" font-size="9" fill="#475569" text-anchor="end">0</text>
+
+  <!-- X-axis labels -->
+  <text x="264" y="442" font-family="system-ui,sans-serif" font-size="9" fill="#475569">00:00</text>
+  <text x="364" y="442" font-family="system-ui,sans-serif" font-size="9" fill="#475569">04:00</text>
+  <text x="464" y="442" font-family="system-ui,sans-serif" font-size="9" fill="#475569">08:00</text>
+  <text x="564" y="442" font-family="system-ui,sans-serif" font-size="9" fill="#475569">12:00</text>
+  <text x="664" y="442" font-family="system-ui,sans-serif" font-size="9" fill="#475569">16:00</text>
+  <text x="764" y="442" font-family="system-ui,sans-serif" font-size="9" fill="#475569">20:00</text>
+  <text x="840" y="442" font-family="system-ui,sans-serif" font-size="9" fill="#475569">now</text>
+
+  <!-- Chart area fill -->
+  <path d="M264,390 C290,382 310,375 340,370 C370,365 380,360 410,355 C440,350 450,345 470,348 C490,351 500,375 520,380 C540,385 550,362 570,355 C590,348 610,342 640,340 C670,338 690,336 720,335 C750,334 770,332 800,330 C820,328 840,327 860,326 L860,426 L264,426 Z" fill="url(#chartArea)"/>
+
+  <!-- Chart line -->
+  <path d="M264,390 C290,382 310,375 340,370 C370,365 380,360 410,355 C440,350 450,345 470,348 C490,351 500,375 520,380 C540,385 550,362 570,355 C590,348 610,342 640,340 C670,338 690,336 720,335 C750,334 770,332 800,330 C820,328 840,327 860,326" fill="none" stroke="#22c55e" stroke-width="2" stroke-linejoin="round"/>
+
+  <!-- Current value tooltip -->
+  <rect x="830" y="308" width="56" height="22" rx="4" fill="#22c55e"/>
+  <text x="858" y="323" font-family="monospace,system-ui" font-size="11" font-weight="700" fill="#fff" text-anchor="middle">138ms</text>
+  <circle cx="860" cy="326" r="4" fill="#22c55e" stroke="#0f172a" stroke-width="2"/>
+
+  <!-- SLO / Error Budget card -->
+  <rect x="892" y="224" width="252" height="220" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="912" y="246" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#f1f5f9">SLO / Error Budget</text>
+
+  <text x="912" y="272" font-family="system-ui,sans-serif" font-size="11" fill="#94a3b8">Target SLO</text>
+  <text x="1130" y="272" font-family="system-ui,sans-serif" font-size="11" font-weight="600" fill="#f1f5f9" text-anchor="end">99.5%</text>
+
+  <text x="912" y="292" font-family="system-ui,sans-serif" font-size="11" fill="#94a3b8">Current (30d)</text>
+  <text x="1130" y="292" font-family="system-ui,sans-serif" font-size="11" font-weight="600" fill="#22c55e" text-anchor="end">99.8%</text>
+
+  <!-- Progress bar -->
+  <rect x="912" y="302" width="220" height="8" rx="4" fill="#334155"/>
+  <rect x="912" y="302" width="218" height="8" rx="4" fill="#22c55e"/>
+
+  <text x="912" y="328" font-family="system-ui,sans-serif" font-size="11" fill="#94a3b8">Budget used</text>
+  <text x="1130" y="328" font-family="system-ui,sans-serif" font-size="11" font-weight="600" fill="#f1f5f9" text-anchor="end">12min / 2h 10min</text>
+
+  <!-- Remaining budget bar -->
+  <rect x="912" y="338" width="220" height="8" rx="4" fill="#334155"/>
+  <rect x="912" y="338" width="198" height="8" rx="4" fill="#3b82f6"/>
+  <text x="912" y="360" font-family="system-ui,sans-serif" font-size="10" fill="#475569">90.8% budget remaining</text>
+
+  <rect x="912" y="375" width="220" height="1" fill="#334155"/>
+
+  <text x="912" y="396" font-family="system-ui,sans-serif" font-size="11" fill="#94a3b8">Period</text>
+  <text x="1130" y="396" font-family="system-ui,sans-serif" font-size="11" fill="#64748b" text-anchor="end">Last 30 days</text>
+  <text x="912" y="416" font-family="system-ui,sans-serif" font-size="11" fill="#94a3b8">Window</text>
+  <text x="1130" y="416" font-family="system-ui,sans-serif" font-size="11" fill="#64748b" text-anchor="end">Rolling</text>
+  <text x="912" y="436" font-family="system-ui,sans-serif" font-size="11" fill="#94a3b8">Status</text>
+  <rect x="1068" y="424" width="62" height="18" rx="9" fill="#14532d"/>
+  <text x="1099" y="437" font-family="system-ui,sans-serif" font-size="10" font-weight="700" fill="#22c55e" text-anchor="middle">Healthy</text>
+
+  <!-- 90-day uptime bar -->
+  <rect x="244" y="456" width="900" height="80" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="264" y="476" font-family="system-ui,sans-serif" font-size="12" font-weight="600" fill="#f1f5f9">90-day uptime history</text>
+  <text x="1130" y="476" font-family="system-ui,sans-serif" font-size="11" fill="#22c55e" text-anchor="end">99.1% over 90 days</text>
+
+  <!-- Mini bars (90 days) -->
+  <g transform="translate(264, 486)">
+    <!-- Generate 90 mini bars, mostly green with 2 red ones -->
+    <rect x="0" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="10" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="20" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="30" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="40" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="50" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="60" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="70" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="80" y="5" width="8" height="25" rx="1" fill="#f59e0b" opacity="0.9"/>
+    <rect x="90" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="100" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="110" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="120" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="130" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="140" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="150" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="160" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="170" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="180" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="190" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="200" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="210" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="220" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="230" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="240" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="250" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="260" y="0" width="8" height="30" rx="1" fill="#ef4444" opacity="0.9"/>
+    <rect x="270" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="280" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="290" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="300" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="310" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="320" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="330" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="340" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="350" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="360" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="370" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="380" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="390" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="400" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="410" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="420" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="430" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="440" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="450" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="460" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="470" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="480" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="490" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="500" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="510" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="520" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="530" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="540" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="550" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="560" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="570" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="580" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="590" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="600" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="610" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="620" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="630" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="640" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="650" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="660" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="670" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="680" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="690" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="700" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="710" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="720" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="730" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="740" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="750" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="760" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="770" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="780" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="790" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="800" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="810" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="820" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="830" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="840" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="850" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <rect x="860" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
+    <text x="0" y="46" font-family="system-ui,sans-serif" font-size="10" fill="#475569">90 days ago</text>
+    <text x="880" y="46" font-family="system-ui,sans-serif" font-size="10" fill="#475569" text-anchor="end">Today</text>
   </g>
 
-  <!-- Response time chart (line) -->
-  <rect x="248" y="470" width="932" height="130" rx="10" fill="#1e293b"/>
-  <text x="268" y="494" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#94a3b8">Temps de réponse par sonde — 24h</text>
-  <!-- Legend -->
-  <rect x="880" y="484" width="12" height="4" rx="2" fill="#3b82f6"/>
-  <text x="896" y="492" font-family="system-ui,sans-serif" font-size="11" fill="#94a3b8">Central-Probe</text>
-  <rect x="990" y="484" width="12" height="4" rx="2" fill="#f59e0b"/>
-  <text x="1006" y="492" font-family="system-ui,sans-serif" font-size="11" fill="#94a3b8">Paris-2</text>
-  <!-- Line chart area -->
-  <path d="M268,560 C300,545 330,552 360,540 C390,530 420,548 450,535 C480,525 510,538 540,528 C570,520 600,542 630,530 C660,518 690,535 720,525 C750,515 780,530 810,520 C840,512 870,528 900,518 C930,510 960,525 990,515 C1020,508 1050,520 1080,515 C1100,512 1120,518 1140,514 C1160,512 1172,510 1180,510"
-        fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"/>
-  <path d="M268,572 C300,560 330,565 360,555 C390,548 420,560 450,550 C480,542 510,555 540,545 C570,538 600,552 630,542 C660,532 690,548 720,538 C750,530 780,542 810,535 C840,528 870,540 900,532 C930,525 960,538 990,530 C1020,524 1050,535 1080,528 C1100,524 1120,530 1140,525 C1160,522 1172,520 1180,520"
-        fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/>
-  <!-- Y axis labels -->
-  <text x="248" y="518" font-family="system-ui,sans-serif" font-size="10" fill="#475569" text-anchor="end">400ms</text>
-  <text x="248" y="543" font-family="system-ui,sans-serif" font-size="10" fill="#475569" text-anchor="end">300ms</text>
-  <text x="248" y="568" font-family="system-ui,sans-serif" font-size="10" fill="#475569" text-anchor="end">200ms</text>
-  <text x="248" y="593" font-family="system-ui,sans-serif" font-size="10" fill="#475569" text-anchor="end">100ms</text>
-  <!-- Gridlines -->
-  <line x1="260" y1="515" x2="1180" y2="515" stroke="#1e293b" stroke-width="1"/>
-  <line x1="260" y1="540" x2="1180" y2="540" stroke="#1e293b" stroke-width="1"/>
-  <line x1="260" y1="565" x2="1180" y2="565" stroke="#1e293b" stroke-width="1"/>
-  <line x1="260" y1="590" x2="1180" y2="590" stroke="#1e293b" stroke-width="1"/>
+  <!-- Recent incidents section -->
+  <rect x="244" y="548" width="900" height="112" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="264" y="568" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#f1f5f9">Recent Incidents</text>
 
-  <!-- Recent checks mini table header -->
-  <rect x="248" y="616" width="932" height="96" rx="10" fill="#1e293b"/>
-  <text x="268" y="638" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#94a3b8">Checks récents</text>
-  <!-- Row 1 -->
-  <text x="268" y="660" font-family="system-ui,sans-serif" font-size="11" fill="#64748b">14:32:15</text>
-  <text x="380" y="660" font-family="system-ui,sans-serif" font-size="11" fill="#3b82f6">Central-Probe</text>
-  <rect x="500" y="649" width="28" height="16" rx="8" fill="#064e3b"/>
-  <text x="514" y="661" font-family="system-ui,sans-serif" font-size="10" fill="#10b981" text-anchor="middle">up</text>
-  <text x="580" y="660" font-family="system-ui,sans-serif" font-size="11" fill="#94a3b8">200</text>
-  <text x="650" y="660" font-family="system-ui,sans-serif" font-size="11" fill="#94a3b8">138 ms</text>
-  <!-- Row 2 -->
-  <text x="268" y="680" font-family="system-ui,sans-serif" font-size="11" fill="#64748b">14:32:12</text>
-  <text x="380" y="680" font-family="system-ui,sans-serif" font-size="11" fill="#f59e0b">Paris-2</text>
-  <rect x="500" y="669" width="28" height="16" rx="8" fill="#064e3b"/>
-  <text x="514" y="681" font-family="system-ui,sans-serif" font-size="10" fill="#10b981" text-anchor="middle">up</text>
-  <text x="580" y="680" font-family="system-ui,sans-serif" font-size="11" fill="#94a3b8">200</text>
-  <text x="650" y="680" font-family="system-ui,sans-serif" font-size="11" fill="#94a3b8">152 ms</text>
-  <!-- Row 3 -->
-  <text x="268" y="700" font-family="system-ui,sans-serif" font-size="11" fill="#64748b">14:31:45</text>
-  <text x="380" y="700" font-family="system-ui,sans-serif" font-size="11" fill="#3b82f6">Central-Probe</text>
-  <rect x="500" y="689" width="28" height="16" rx="8" fill="#064e3b"/>
-  <text x="514" y="701" font-family="system-ui,sans-serif" font-size="10" fill="#10b981" text-anchor="middle">up</text>
-  <text x="580" y="700" font-family="system-ui,sans-serif" font-size="11" fill="#94a3b8">200</text>
-  <text x="650" y="700" font-family="system-ui,sans-serif" font-size="11" fill="#94a3b8">141 ms</text>
+  <!-- incident row -->
+  <rect x="264" y="580" width="860" height="36" rx="6" fill="#0f172a"/>
+  <rect x="264" y="580" width="3" height="36" rx="1" fill="#f59e0b"/>
+  <circle cx="280" cy="598" r="4" fill="#f59e0b"/>
+  <text x="294" y="594" font-family="system-ui,sans-serif" font-size="12" font-weight="600" fill="#fcd34d">Slow response detected</text>
+  <text x="294" y="610" font-family="system-ui,sans-serif" font-size="11" fill="#64748b">Duration: 4 min 30s  ·  HTTP 200 but p95 > 2s threshold</text>
+  <text x="1110" y="602" font-family="system-ui,sans-serif" font-size="11" fill="#475569" text-anchor="end">2 days ago</text>
+
+  <!-- No more incidents message -->
+  <text x="694" y="642" font-family="system-ui,sans-serif" font-size="12" fill="#475569" text-anchor="middle">No other incidents in the last 30 days</text>
 </svg>

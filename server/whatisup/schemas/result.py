@@ -24,6 +24,7 @@ class CheckResultOut(BaseModel):
     ssl_expires_at: datetime | None
     ssl_days_remaining: int | None
     error_message: str | None
+    scenario_result: dict | None = None
 
     model_config = {"from_attributes": True}
 

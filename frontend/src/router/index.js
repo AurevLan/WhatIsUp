@@ -28,6 +28,11 @@ const routes = [
         component: () => import('../views/MonitorDetailView.vue'),
       },
       {
+        path: 'groups/:id',
+        name: 'GroupDetail',
+        component: () => import('../views/GroupDetailView.vue'),
+      },
+      {
         path: 'groups',
         name: 'Groups',
         component: () => import('../views/GroupsView.vue'),
@@ -46,6 +51,16 @@ const routes = [
         path: 'settings',
         name: 'Settings',
         component: () => import('../views/SettingsView.vue'),
+      },
+      {
+        path: 'maintenance',
+        name: 'Maintenance',
+        component: () => import('../views/MaintenanceView.vue'),
+      },
+      {
+        path: 'audit',
+        name: 'Audit',
+        component: () => import('../views/AuditView.vue'),
       },
     ],
   },

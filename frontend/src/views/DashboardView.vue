@@ -3,22 +3,22 @@
 
     <!-- Header -->
     <div style="margin-bottom:28px;">
-      <h1 style="font-size:22px;font-weight:700;color:#f1f5f9;margin:0 0 4px;">Dashboard</h1>
+      <h1 style="font-size:22px;font-weight:700;color:#f1f5f9;margin:0 0 4px;">{{ t('dashboard.title') }}</h1>
       <p style="font-size:13px;color:#475569;margin:0;">Real-time overview of your monitored services</p>
     </div>
 
     <!-- Summary cards -->
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:28px;">
-      <StatCard label="Total Monitors" :value="monitors.length"  color="#60a5fa" bg="rgba(59,130,246,.1)"   :icon="Monitor" />
-      <StatCard label="Operational"    :value="upCount"          color="#34d399" bg="rgba(16,185,129,.1)"  :icon="CheckCircle2" />
-      <StatCard label="Incidents"      :value="downCount"        color="#f87171" bg="rgba(239,68,68,.1)"   :icon="XCircle" />
-      <StatCard label="Open Incidents" :value="incidentCount"    color="#fbbf24" bg="rgba(245,158,11,.1)"  :icon="AlertTriangle" />
+      <StatCard :label="t('dashboard.total_monitors')" :value="monitors.length"  color="#60a5fa" bg="rgba(59,130,246,.1)"   :icon="Monitor" />
+      <StatCard :label="t('dashboard.monitors_up')"    :value="upCount"          color="#34d399" bg="rgba(16,185,129,.1)"  :icon="CheckCircle2" />
+      <StatCard :label="t('dashboard.monitors_down')"  :value="downCount"        color="#f87171" bg="rgba(239,68,68,.1)"   :icon="XCircle" />
+      <StatCard :label="t('dashboard.active_incidents')" :value="incidentCount"  color="#fbbf24" bg="rgba(245,158,11,.1)"  :icon="AlertTriangle" />
     </div>
 
     <!-- Monitor list -->
     <div style="background:#0a0f1e;border:1px solid #1e293b;border-radius:16px;overflow:hidden;">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid #1e293b;">
-        <h2 style="font-size:15px;font-weight:600;color:#f1f5f9;margin:0;">Monitors</h2>
+        <h2 style="font-size:15px;font-weight:600;color:#f1f5f9;margin:0;">{{ t('monitors.title') }}</h2>
         <router-link to="/monitors" style="font-size:13px;color:#60a5fa;text-decoration:none;display:flex;align-items:center;gap:4px;">
           View all <ArrowRight :size="13" />
         </router-link>
@@ -34,11 +34,11 @@
         <div style="width:56px;height:56px;background:#1e293b;border-radius:16px;display:flex;align-items:center;justify-content:center;margin-bottom:16px;">
           <Monitor :size="28" color="#334155" />
         </div>
-        <p style="font-size:14px;font-weight:500;color:#64748b;margin:0 0 6px;">No monitors yet</p>
+        <p style="font-size:14px;font-weight:500;color:#64748b;margin:0 0 6px;">{{ t('monitors.no_monitors') }}</p>
         <p style="font-size:13px;color:#334155;margin:0 0 20px;">Add your first URL to start monitoring</p>
         <router-link to="/monitors" class="btn-primary" style="text-decoration:none;">
           <Plus :size="14" />
-          Add a monitor
+          {{ t('monitors.add') }}
         </router-link>
       </div>
 
@@ -56,6 +56,7 @@
 
 <script setup>
 import { computed, defineComponent, h, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { AlertTriangle, ArrowRight, CheckCircle2, Monitor, Plus, XCircle } from 'lucide-vue-next'
 import { useMonitorStore } from '../stores/monitors'
 import MonitorRow from '../components/monitors/MonitorRow.vue'
@@ -77,6 +78,8 @@ const StatCard = defineComponent({
     ])
   }
 })
+
+const { t } = useI18n()
 
 const monitorStore = useMonitorStore()
 const monitors = computed(() => monitorStore.monitors)

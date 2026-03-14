@@ -50,6 +50,9 @@ dependencies = [
 
     # Structured logging
     "structlog>=25.1.0,<26",
+
+    # Observability
+    "prometheus-fastapi-instrumentator>=7.0.0,<8",
 ]
 
 [project.optional-dependencies]
@@ -77,6 +80,10 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# Alembic migrations use Union[...] and typing imports from autogenerate template
+"alembic/versions/*.py" = ["UP007", "UP035", "F401", "I001"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

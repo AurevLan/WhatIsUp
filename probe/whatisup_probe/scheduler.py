@@ -36,6 +36,19 @@ class ProbeScheduler:
                 follow_redirects=monitor["follow_redirects"],
                 expected_status_codes=monitor["expected_status_codes"],
                 ssl_check_enabled=monitor["ssl_check_enabled"],
+                check_type=monitor.get("check_type", "http"),
+                tcp_port=monitor.get("tcp_port"),
+                dns_record_type=monitor.get("dns_record_type"),
+                dns_expected_value=monitor.get("dns_expected_value"),
+                keyword=monitor.get("keyword"),
+                keyword_negate=monitor.get("keyword_negate", False),
+                expected_json_path=monitor.get("expected_json_path"),
+                expected_json_value=monitor.get("expected_json_value"),
+                steps=monitor.get("scenario_steps") or monitor.get("steps"),
+                variables=monitor.get("scenario_variables") or monitor.get("variables"),
+                body_regex=monitor.get("body_regex"),
+                expected_headers=monitor.get("expected_headers"),
+                json_schema=monitor.get("json_schema"),
             )
             logger.debug(
                 "check_done",
@@ -67,7 +80,7 @@ class ProbeScheduler:
         for monitor in monitors:
             mid = str(monitor["id"])
             old = self._monitors.get(mid)
-            if old and old.get("interval_seconds") == monitor["interval_seconds"]:
+            if old and old == monitor:
                 continue  # No change needed
 
             self._monitors[mid] = monitor
@@ -88,6 +101,20 @@ class ProbeScheduler:
                     replace_existing=True,
                 )
                 logger.info("monitor_added", monitor_id=mid, interval=monitor["interval_seconds"])
+
+        # Trigger immediate checks for monitors flagged by the server
+        for monitor in monitors:
+            if monitor.get("trigger_now"):
+                logger.info("trigger_check_immediate", monitor_id=str(monitor["id"]))
+                task = asyncio.ensure_future(self._run_check(monitor))
+                task.add_done_callback(
+                    lambda t: logger.error(
+                        "trigger_check_failed",
+                        error=str(t.exception()),
+                    )
+                    if not t.cancelled() and t.exception()
+                    else None
+                )
 
     async def start(self) -> None:
         """Start the scheduler and heartbeat loop."""

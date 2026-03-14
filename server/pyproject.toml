@@ -20,7 +20,7 @@ dependencies = [
     # Database
     "sqlalchemy[asyncio]>=2.0.36,<2.1",
     "asyncpg>=0.30.0,<0.31",
-    "alembic>=1.14.0,<1.15",
+    "alembic>=1.14.0,<1.19",
 
     # Cache / pub-sub
     "redis[hiredis]>=5.2.0,<6",

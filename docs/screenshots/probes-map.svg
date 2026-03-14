@@ -1,143 +1,182 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720">
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675">
   <defs>
-    <filter id="glow-green">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#00000066"/>
     </filter>
-    <filter id="glow-red">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    <filter id="markerGlow">
+      <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#22c55e" flood-opacity="0.6"/>
+    </filter>
+    <filter id="markerGlowRed">
+      <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#ef4444" flood-opacity="0.6"/>
     </filter>
   </defs>
 
   <!-- Background -->
-  <rect width="1200" height="720" fill="#0f172a"/>
+  <rect width="1200" height="675" fill="#0f172a"/>
 
   <!-- Sidebar -->
-  <rect x="0" y="0" width="220" height="720" fill="#0f172a"/>
-  <rect x="0" y="0" width="220" height="720" fill="#1e293b" opacity="0.5"/>
-  <text x="50" y="33" font-family="system-ui,sans-serif" font-size="15" font-weight="700" fill="#f1f5f9">WhatIsUp</text>
-  <rect x="20" y="22" width="10" height="10" rx="2" fill="#3b82f6"/>
-  <rect x="34" y="22" width="10" height="10" rx="2" fill="#10b981"/>
-  <text x="32" y="84" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">  Dashboard</text>
-  <text x="32" y="116" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">  Monitors</text>
-  <rect x="8" y="128" width="204" height="36" rx="8" fill="#3b82f6" opacity="0.2"/>
-  <text x="32" y="152" font-family="system-ui,sans-serif" font-size="13" fill="#3b82f6">● Probes</text>
-  <text x="32" y="184" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">  Alerts</text>
+  <rect x="0" y="0" width="220" height="675" fill="#0c1524"/>
+  <rect x="219" y="0" width="1" height="675" fill="#1e293b"/>
 
-  <!-- Main -->
-  <rect x="220" y="0" width="980" height="720" fill="#0f172a"/>
+  <!-- Logo -->
+  <rect x="18" y="20" width="10" height="10" rx="2" fill="#3b82f6"/>
+  <rect x="32" y="20" width="10" height="10" rx="2" fill="#22c55e"/>
+  <text x="48" y="31" font-family="system-ui,sans-serif" font-size="15" font-weight="700" fill="#f1f5f9">WhatIsUp</text>
+  <rect x="12" y="52" width="196" height="1" fill="#1e293b"/>
+
+  <!-- Nav -->
+  <circle cx="26" cy="80" r="4" fill="#475569"/>
+  <text x="40" y="85" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">Dashboard</text>
+  <circle cx="26" cy="118" r="4" fill="#475569"/>
+  <text x="40" y="123" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">Monitors</text>
+  <rect x="8" y="136" width="204" height="36" rx="8" fill="#3b82f6" opacity="0.15"/>
+  <rect x="8" y="136" width="3" height="36" rx="1" fill="#3b82f6"/>
+  <circle cx="26" cy="154" r="4" fill="#3b82f6"/>
+  <text x="40" y="159" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#3b82f6">Probes</text>
+  <circle cx="26" cy="188" r="4" fill="#475569"/>
+  <text x="40" y="193" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">Alerts</text>
+  <circle cx="26" cy="222" r="4" fill="#475569"/>
+  <text x="40" y="227" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">Maintenance</text>
+  <circle cx="26" cy="256" r="4" fill="#475569"/>
+  <text x="40" y="261" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">Audit</text>
+  <rect x="12" y="630" width="196" height="1" fill="#1e293b"/>
+  <circle cx="28" cy="653" r="13" fill="#1e40af"/>
+  <text x="28" y="657" font-family="system-ui,sans-serif" font-size="11" font-weight="700" fill="#fff" text-anchor="middle">A</text>
+  <text x="48" y="649" font-family="system-ui,sans-serif" font-size="12" fill="#94a3b8">admin@local</text>
+  <text x="48" y="663" font-family="system-ui,sans-serif" font-size="10" fill="#475569">Superadmin</text>
+
+  <!-- Main content -->
+  <rect x="220" y="0" width="980" height="675" fill="#0f172a"/>
 
   <!-- Header -->
-  <text x="248" y="48" font-family="system-ui,sans-serif" font-size="22" font-weight="700" fill="#f1f5f9">Probes</text>
-  <text x="248" y="68" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">Remote monitoring agents</text>
-  <rect x="1060" y="34" width="120" height="32" rx="8" fill="#3b82f6"/>
-  <text x="1120" y="55" font-family="system-ui,sans-serif" font-size="13" fill="#fff" text-anchor="middle">+ Register</text>
+  <rect x="220" y="0" width="980" height="56" fill="#0c1524"/>
+  <rect x="220" y="55" width="980" height="1" fill="#1e293b"/>
+  <text x="244" y="33" font-family="system-ui,sans-serif" font-size="20" font-weight="700" fill="#f1f5f9">Probes</text>
+  <text x="244" y="50" font-family="system-ui,sans-serif" font-size="12" fill="#475569">Geographic monitoring nodes</text>
+  <rect x="1050" y="14" width="130" height="30" rx="6" fill="#3b82f6"/>
+  <text x="1115" y="33" font-family="system-ui,sans-serif" font-size="12" font-weight="600" fill="#fff" text-anchor="middle">+ Register probe</text>
 
   <!-- Tabs -->
-  <text x="248" y="108" font-family="system-ui,sans-serif" font-size="14" fill="#64748b">Liste</text>
-  <text x="300" y="108" font-family="system-ui,sans-serif" font-size="14" font-weight="600" fill="#3b82f6">Carte</text>
-  <rect x="300" y="112" width="36" height="2" rx="1" fill="#3b82f6"/>
-  <rect x="248" y="114" width="932" height="1" fill="#1e293b"/>
+  <rect x="244" y="64" width="68" height="30" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="278" y="83" font-family="system-ui,sans-serif" font-size="13" fill="#64748b" text-anchor="middle">List</text>
+  <rect x="320" y="64" width="68" height="30" rx="6" fill="#3b82f6"/>
+  <text x="354" y="83" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#fff" text-anchor="middle">Map</text>
 
-  <!-- Map area -->
-  <rect x="248" y="126" width="932" height="440" rx="12" fill="#1e3a5f"/>
+  <!-- Stats strip -->
+  <rect x="244" y="104" width="900" height="52" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <circle cx="290" cy="130" r="6" fill="#22c55e"/>
+  <text x="306" y="126" font-family="system-ui,sans-serif" font-size="12" fill="#f1f5f9" font-weight="600">3 Online</text>
+  <text x="306" y="142" font-family="system-ui,sans-serif" font-size="10" fill="#64748b">All healthy</text>
+  <rect x="380" y="114" width="1" height="24" fill="#334155"/>
+  <circle cx="430" cy="130" r="6" fill="#ef4444"/>
+  <text x="446" y="126" font-family="system-ui,sans-serif" font-size="12" fill="#f1f5f9" font-weight="600">1 Offline</text>
+  <text x="446" y="142" font-family="system-ui,sans-serif" font-size="10" fill="#64748b">Check connection</text>
+  <rect x="540" y="114" width="1" height="24" fill="#334155"/>
+  <text x="560" y="126" font-family="system-ui,sans-serif" font-size="12" fill="#f1f5f9" font-weight="600">4 Total probes</text>
+  <text x="560" y="142" font-family="system-ui,sans-serif" font-size="10" fill="#64748b">2 external · 2 internal</text>
 
-  <!-- Simplified world map outlines (Europe + Americas contours) -->
-  <!-- Europe -->
-  <path d="M620,160 L640,155 L660,160 L670,175 L665,195 L650,205 L640,210 L630,200 L615,195 L610,180 Z"
-        fill="#1e4d7b" stroke="#2563eb" stroke-width="0.5"/>
-  <!-- Scandinavia -->
-  <path d="M640,130 L650,125 L660,130 L658,150 L645,155 L638,145 Z"
-        fill="#1e4d7b" stroke="#2563eb" stroke-width="0.5"/>
-  <!-- UK -->
-  <path d="M600,160 L612,155 L614,170 L606,178 L597,172 Z"
-        fill="#1e4d7b" stroke="#2563eb" stroke-width="0.5"/>
-  <!-- Simplified North America -->
-  <path d="M230,160 L340,145 L380,160 L390,200 L370,240 L340,260 L300,270 L260,260 L230,240 L215,210 L220,180 Z"
-        fill="#1e4d7b" stroke="#2563eb" stroke-width="0.5"/>
-  <!-- Simplified Africa -->
-  <path d="M620,230 L660,220 L690,240 L700,290 L680,340 L650,360 L620,350 L600,320 L598,270 L610,240 Z"
-        fill="#1e4d7b" stroke="#2563eb" stroke-width="0.5"/>
-  <!-- Asia simplified -->
-  <path d="M720,140 L820,130 L920,145 L950,180 L940,220 L900,230 L840,225 L780,220 L740,205 L710,185 L715,160 Z"
-        fill="#1e4d7b" stroke="#2563eb" stroke-width="0.5"/>
-  <!-- Japan -->
-  <path d="M970,160 L985,155 L990,168 L980,178 L968,172 Z"
-        fill="#1e4d7b" stroke="#2563eb" stroke-width="0.5"/>
+  <!-- World map background -->
+  <rect x="244" y="166" width="900" height="480" rx="10" fill="#0d1f35" stroke="#334155" stroke-width="1"/>
+
+  <!-- Map grid lines -->
+  <g opacity="0.1" stroke="#94a3b8" stroke-width="0.5">
+    <line x1="244" y1="246" x2="1144" y2="246"/>
+    <line x1="244" y1="326" x2="1144" y2="326"/>
+    <line x1="244" y1="406" x2="1144" y2="406"/>
+    <line x1="244" y1="486" x2="1144" y2="486"/>
+    <line x1="244" y1="566" x2="1144" y2="566"/>
+    <line x1="394" y1="166" x2="394" y2="646"/>
+    <line x1="544" y1="166" x2="544" y2="646"/>
+    <line x1="694" y1="166" x2="694" y2="646"/>
+    <line x1="844" y1="166" x2="844" y2="646"/>
+    <line x1="994" y1="166" x2="994" y2="646"/>
+  </g>
+
+  <!-- Continents -->
+  <!-- North America -->
+  <path d="M280,200 C295,196 320,192 345,196 C370,200 385,210 390,225 C395,240 388,260 380,272 C372,284 358,290 345,295 C332,300 318,302 305,298 C292,294 280,285 275,270 C270,255 268,238 270,224 Z" fill="#1e3a5f" opacity="0.7"/>
+  <path d="M310,300 C318,302 325,306 328,315 C331,324 326,332 320,338 C314,344 306,346 300,342 C294,338 290,330 292,320 Z" fill="#1e3a5f" opacity="0.6"/>
   <!-- South America -->
-  <path d="M310,290 L360,280 L390,300 L395,360 L370,420 L340,450 L310,440 L285,400 L280,340 L290,300 Z"
-        fill="#1e4d7b" stroke="#2563eb" stroke-width="0.5"/>
+  <path d="M335,355 C350,350 365,352 375,362 C385,372 388,390 384,410 C380,430 368,448 354,458 C340,468 324,470 312,462 C300,454 294,436 296,416 C298,396 306,378 320,366 Z" fill="#1e3a5f" opacity="0.7"/>
+  <!-- Greenland -->
+  <path d="M432,182 C444,178 456,180 462,188 C468,196 464,208 455,213 C446,218 434,216 428,208 C422,200 422,190 428,185 Z" fill="#1e3a5f" opacity="0.5"/>
+  <!-- Europe -->
+  <path d="M555,200 C568,195 584,197 595,206 C606,215 608,228 602,238 C596,248 582,253 568,250 C554,247 545,236 546,223 Z" fill="#1e3a5f" opacity="0.75"/>
+  <!-- Africa -->
+  <path d="M568,258 C584,252 600,255 610,268 C620,281 622,302 618,325 C614,348 602,368 588,378 C574,388 558,390 546,382 C534,374 528,354 530,332 C532,310 542,288 552,272 Z" fill="#1e3a5f" opacity="0.75"/>
+  <!-- Russia / North Asia -->
+  <path d="M612,185 C670,178 750,175 820,180 C890,185 950,200 985,220 C1020,240 1030,262 1018,282 C1006,302 978,315 944,320 C910,325 872,318 838,304 C804,290 778,272 750,262 C722,252 692,252 668,260 C644,268 628,282 620,298" fill="#1e3a5f" opacity="0.75" stroke="none"/>
+  <!-- Middle East -->
+  <path d="M630,268 C640,263 652,265 658,275 C664,285 660,298 650,304 C640,310 628,306 622,296 Z" fill="#1e3a5f" opacity="0.65"/>
+  <!-- India -->
+  <path d="M682,275 C692,270 702,274 706,286 C710,298 704,314 694,322 C684,330 672,328 666,316 C660,304 662,288 670,278 Z" fill="#1e3a5f" opacity="0.7"/>
+  <!-- Southeast Asia -->
+  <path d="M780,272 C792,268 802,272 806,284 C810,296 804,310 794,314 C784,318 774,312 770,300 Z" fill="#1e3a5f" opacity="0.65"/>
   <!-- Australia -->
-  <path d="M890,320 L960,310 L990,335 L985,380 L950,400 L900,395 L875,370 L878,340 Z"
-        fill="#1e4d7b" stroke="#2563eb" stroke-width="0.5"/>
-
-  <!-- Latitude/longitude grid -->
-  <line x1="248" y1="246" x2="1180" y2="246" stroke="#2563eb" stroke-width="0.3" opacity="0.4"/>
-  <line x1="248" y1="346" x2="1180" y2="346" stroke="#2563eb" stroke-width="0.3" opacity="0.4"/>
-  <line x1="248" y1="446" x2="1180" y2="446" stroke="#2563eb" stroke-width="0.3" opacity="0.4"/>
-  <line x1="448" y1="126" x2="448" y2="566" stroke="#2563eb" stroke-width="0.3" opacity="0.4"/>
-  <line x1="714" y1="126" x2="714" y2="566" stroke="#2563eb" stroke-width="0.3" opacity="0.4"/>
-  <line x1="980" y1="126" x2="980" y2="566" stroke="#2563eb" stroke-width="0.3" opacity="0.4"/>
-
-  <!-- OpenStreetMap attribution -->
-  <text x="1150" y="558" font-family="system-ui,sans-serif" font-size="9" fill="#475569" text-anchor="end">© OpenStreetMap</text>
+  <path d="M820,382 C840,376 862,378 876,390 C890,402 892,422 882,438 C872,454 852,460 832,456 C812,452 800,434 802,414 C804,394 814,384 826,380 Z" fill="#1e3a5f" opacity="0.7"/>
+  <!-- Japan -->
+  <path d="M892,230 C898,226 906,228 908,236 C910,244 906,252 900,254 C894,256 888,252 886,244 Z" fill="#1e3a5f" opacity="0.6"/>
 
   <!-- Probe markers -->
-  <!-- Paris (online) -->
-  <circle cx="630" cy="178" r="14" fill="#10b981" opacity="0.2" filter="url(#glow-green)"/>
-  <circle cx="630" cy="178" r="8" fill="#10b981" stroke="#6ee7b7" stroke-width="2"/>
-  <!-- Popup Paris -->
-  <rect x="642" y="148" width="160" height="74" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-  <rect x="642" y="148" width="160" height="4" rx="2" fill="#10b981"/>
-  <text x="652" y="166" font-family="system-ui,sans-serif" font-size="12" font-weight="700" fill="#f1f5f9">Central-Probe</text>
-  <text x="652" y="181" font-family="system-ui,sans-serif" font-size="11" fill="#94a3b8">Central Server</text>
-  <circle cx="652" cy="194" r="4" fill="#10b981"/>
-  <text x="661" y="197" font-family="system-ui,sans-serif" font-size="11" fill="#10b981">Online</text>
-  <text x="652" y="211" font-family="system-ui,sans-serif" font-size="10" fill="#64748b">Vu il y a 8 s</text>
-  <!-- Caret -->
-  <polygon points="642,178 650,174 650,182" fill="#1e293b"/>
+  <!-- Paris - online/external -->
+  <circle cx="572" cy="232" r="22" fill="#22c55e" opacity="0.1"/>
+  <circle cx="572" cy="232" r="12" fill="#22c55e" opacity="0.2"/>
+  <circle cx="572" cy="232" r="7" fill="#22c55e" filter="url(#markerGlow)"/>
+  <!-- Paris tooltip -->
+  <rect x="586" y="204" width="144" height="58" rx="6" fill="#0f172a" stroke="#334155" stroke-width="1" filter="url(#shadow)"/>
+  <rect x="586" y="204" width="3" height="58" rx="1" fill="#22c55e"/>
+  <text x="598" y="220" font-family="system-ui,sans-serif" font-size="12" font-weight="700" fill="#f1f5f9">Paris-FR</text>
+  <rect x="664" y="208" width="58" height="16" rx="8" fill="#14532d"/>
+  <text x="693" y="220" font-family="system-ui,sans-serif" font-size="9" font-weight="600" fill="#22c55e" text-anchor="middle">● Online</text>
+  <text x="598" y="236" font-family="system-ui,sans-serif" font-size="10" fill="#64748b">External · v0.3.0</text>
+  <text x="598" y="252" font-family="system-ui,sans-serif" font-size="10" fill="#475569">Last seen: 12s ago</text>
 
-  <!-- New York (online) -->
-  <circle cx="320" cy="195" r="12" fill="#10b981" opacity="0.15" filter="url(#glow-green)"/>
-  <circle cx="320" cy="195" r="7" fill="#10b981" stroke="#6ee7b7" stroke-width="2"/>
-  <text x="332" y="191" font-family="system-ui,sans-serif" font-size="10" fill="#f1f5f9" font-weight="600">New York</text>
-  <text x="332" y="203" font-family="system-ui,sans-serif" font-size="10" fill="#10b981">● Online</text>
+  <!-- Frankfurt - online/external -->
+  <circle cx="598" cy="220" r="20" fill="#22c55e" opacity="0.08"/>
+  <circle cx="598" cy="220" r="10" fill="#22c55e" opacity="0.18"/>
+  <circle cx="598" cy="220" r="6" fill="#22c55e" filter="url(#markerGlow)"/>
 
-  <!-- Tokyo (online) -->
-  <circle cx="960" cy="185" r="12" fill="#10b981" opacity="0.15" filter="url(#glow-green)"/>
-  <circle cx="960" cy="185" r="7" fill="#10b981" stroke="#6ee7b7" stroke-width="2"/>
-  <text x="972" y="181" font-family="system-ui,sans-serif" font-size="10" fill="#f1f5f9" font-weight="600">Tokyo</text>
-  <text x="972" y="193" font-family="system-ui,sans-serif" font-size="10" fill="#10b981">● Online</text>
+  <!-- New York - online/internal -->
+  <circle cx="342" cy="238" r="20" fill="#22c55e" opacity="0.1"/>
+  <circle cx="342" cy="238" r="11" fill="#22c55e" opacity="0.2"/>
+  <circle cx="342" cy="238" r="6" fill="#22c55e" filter="url(#markerGlow)"/>
+  <!-- NY tooltip -->
+  <rect x="356" y="210" width="154" height="58" rx="6" fill="#0f172a" stroke="#334155" stroke-width="1" filter="url(#shadow)"/>
+  <rect x="356" y="210" width="3" height="58" rx="1" fill="#22c55e"/>
+  <text x="368" y="226" font-family="system-ui,sans-serif" font-size="12" font-weight="700" fill="#f1f5f9">New York-US</text>
+  <rect x="482" y="214" width="20" height="16" rx="8" fill="#14532d"/>
+  <text x="492" y="226" font-family="system-ui,sans-serif" font-size="9" fill="#22c55e" text-anchor="middle">✓</text>
+  <text x="368" y="242" font-family="system-ui,sans-serif" font-size="10" fill="#64748b">External · v0.3.0</text>
+  <text x="368" y="258" font-family="system-ui,sans-serif" font-size="10" fill="#475569">Last seen: 28s ago</text>
 
-  <!-- São Paulo (offline) -->
-  <circle cx="355" cy="370" r="12" fill="#ef4444" opacity="0.15" filter="url(#glow-red)"/>
-  <circle cx="355" cy="370" r="7" fill="#ef4444" stroke="#fca5a5" stroke-width="2"/>
-  <text x="367" y="366" font-family="system-ui,sans-serif" font-size="10" fill="#f1f5f9" font-weight="600">São Paulo</text>
-  <text x="367" y="378" font-family="system-ui,sans-serif" font-size="10" fill="#ef4444">● Offline</text>
+  <!-- Singapore - online/internal -->
+  <circle cx="808" cy="328" r="18" fill="#22c55e" opacity="0.08"/>
+  <circle cx="808" cy="328" r="9" fill="#22c55e" opacity="0.18"/>
+  <circle cx="808" cy="328" r="5" fill="#22c55e" filter="url(#markerGlow)"/>
 
-  <!-- Sydney (online) -->
-  <circle cx="935" cy="380" r="12" fill="#10b981" opacity="0.15" filter="url(#glow-green)"/>
-  <circle cx="935" cy="380" r="7" fill="#10b981" stroke="#6ee7b7" stroke-width="2"/>
-  <text x="947" y="376" font-family="system-ui,sans-serif" font-size="10" fill="#f1f5f9" font-weight="600">Sydney</text>
-  <text x="947" y="388" font-family="system-ui,sans-serif" font-size="10" fill="#10b981">● Online</text>
+  <!-- Brussels - offline/internal (red) -->
+  <circle cx="556" cy="248" r="18" fill="#ef4444" opacity="0.12"/>
+  <circle cx="556" cy="248" r="9" fill="#ef4444" opacity="0.22"/>
+  <circle cx="556" cy="248" r="5" fill="#ef4444" filter="url(#markerGlowRed)"/>
+  <!-- Offline tooltip -->
+  <rect x="570" y="256" width="152" height="58" rx="6" fill="#0f172a" stroke="#ef4444" stroke-width="1" filter="url(#shadow)"/>
+  <rect x="570" y="256" width="3" height="58" rx="1" fill="#ef4444"/>
+  <text x="582" y="272" font-family="system-ui,sans-serif" font-size="12" font-weight="700" fill="#f1f5f9">Brussels-BE</text>
+  <rect x="666" y="260" width="48" height="16" rx="8" fill="#7f1d1d"/>
+  <text x="690" y="272" font-family="system-ui,sans-serif" font-size="9" font-weight="600" fill="#ef4444" text-anchor="middle">Offline</text>
+  <text x="582" y="288" font-family="system-ui,sans-serif" font-size="10" fill="#64748b">Internal · v0.2.9</text>
+  <text x="582" y="304" font-family="system-ui,sans-serif" font-size="10" fill="#ef4444">Last seen: 14min ago</text>
 
-  <!-- Probes without coords -->
-  <rect x="248" y="582" width="932" height="52" rx="10" fill="#1e293b"/>
-  <text x="268" y="604" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#94a3b8">Sondes non localisées</text>
-  <circle cx="276" cy="626" r="5" fill="#10b981"/>
-  <text x="290" y="630" font-family="system-ui,sans-serif" font-size="13" font-weight="500" fill="#f1f5f9">probe-backup-1</text>
-  <text x="410" y="630" font-family="system-ui,sans-serif" font-size="12" fill="#64748b">Backup Server — </text>
-  <text x="510" y="630" font-family="system-ui,sans-serif" font-size="11" fill="#64748b">Coordonnées non renseignées</text>
-  <rect x="1080" y="614" width="90" height="24" rx="6" fill="#1e40af" opacity="0.6"/>
-  <text x="1125" y="631" font-family="system-ui,sans-serif" font-size="11" fill="#93c5fd" text-anchor="middle">✏️ Edit</text>
+  <!-- Legend -->
+  <rect x="264" y="602" width="340" height="36" rx="8" fill="#0f172a" stroke="#1e293b" stroke-width="1" opacity="0.95"/>
+  <circle cx="290" cy="620" r="6" fill="#22c55e"/>
+  <text x="304" y="625" font-family="system-ui,sans-serif" font-size="12" fill="#94a3b8">Online (3)</text>
+  <circle cx="390" cy="620" r="6" fill="#ef4444"/>
+  <text x="404" y="625" font-family="system-ui,sans-serif" font-size="12" fill="#94a3b8">Offline (1)</text>
 
-  <!-- Probe stats bar -->
-  <rect x="248" y="650" width="932" height="56" rx="10" fill="#1e293b"/>
-  <text x="268" y="676" font-family="system-ui,sans-serif" font-size="12" fill="#64748b">6 sondes au total</text>
-  <circle cx="395" cy="673" r="5" fill="#10b981"/>
-  <text x="406" y="677" font-family="system-ui,sans-serif" font-size="12" fill="#10b981">5 en ligne</text>
-  <circle cx="480" cy="673" r="5" fill="#ef4444"/>
-  <text x="491" y="677" font-family="system-ui,sans-serif" font-size="12" fill="#ef4444">1 hors ligne</text>
-  <text x="268" y="696" font-family="system-ui,sans-serif" font-size="11" fill="#475569">Rafraîchissement automatique · Cliquez sur un marker pour les détails</text>
+  <!-- Type badges -->
+  <rect x="264" y="643" width="112" height="18" rx="9" fill="#1e3a5f" stroke="#3b82f6" stroke-width="1" opacity="0.8"/>
+  <text x="320" y="656" font-family="system-ui,sans-serif" font-size="10" fill="#3b82f6" text-anchor="middle">External probe</text>
+  <rect x="384" y="643" width="106" height="18" rx="9" fill="#2d1b69" stroke="#a78bfa" stroke-width="1" opacity="0.8"/>
+  <text x="437" y="656" font-family="system-ui,sans-serif" font-size="10" fill="#a78bfa" text-anchor="middle">Internal probe</text>
 </svg>

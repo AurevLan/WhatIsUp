@@ -17,7 +17,7 @@ jobs:
     outputs:
       notes: ${{ steps.extract.outputs.notes }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Extract section from CHANGELOG.md
         id: extract
@@ -49,7 +49,7 @@ jobs:
           - image_name: whatisup-probe
             dockerfile: probe/Dockerfile
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -88,7 +88,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [release-notes, docker]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Create Release
         uses: softprops/action-gh-release@v2

@@ -221,7 +221,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docker Compose (dev + prod with Nginx + TLS)
 - Security: rate limiting, security headers, JWT validation, probe API key bcrypt hashing
 
-[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v0.3.0...HEAD
-[0.3.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.2.0...v0.3.0
+[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.2.0...v0.4.0
+[0.3.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.2.0...v0.4.0
 [0.2.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/AurevLan/WhatIsUp/releases/tag/v0.1.0

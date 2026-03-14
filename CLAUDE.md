@@ -125,6 +125,29 @@ setLocale('fr')            // persiste dans localStorage('whatisup_lang')
 - Fichiers de traduction : `frontend/src/i18n/en.js` et `fr.js`
 - Toute nouvelle string UI → ajouter dans `en.js` ET `fr.js`
 
+## Processus de release (SemVer)
+
+```bash
+# 1. Mettre à jour CHANGELOG.md (section [X.Y.Z] + liens en bas)
+# 2. Commiter sur main (après merge de la PR)
+git checkout main && git pull
+
+# 3. Créer le tag annoté (déclenche le workflow release.yml)
+git tag -a vX.Y.Z -m "vX.Y.Z — Titre court"
+git push origin vX.Y.Z
+```
+
+Le workflow `.github/workflows/release.yml` fait automatiquement :
+- Extraction des notes de release depuis `CHANGELOG.md`
+- Build et push des images Docker sur GHCR (`ghcr.io/aurevlan/whatisup-server:X.Y.Z` + `latest`)
+- Création de la GitHub Release avec les notes
+
+**Règles SemVer :**
+- `MAJOR` : breaking change API ou DB incompatible
+- `MINOR` : nouvelle feature rétrocompatible
+- `PATCH` : bugfix / sécurité (release immédiate)
+- Pre-releases : suffixe `-alpha`, `-beta`, `-rc1` → marquées comme pre-release sur GitHub
+
 ## Services clés
 
 - `services/stats.py` : `compute_uptime()`, `compute_daily_history()`, `latest_results_subq()`

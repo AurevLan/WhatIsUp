@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     DateTime,
     Enum,
@@ -64,6 +65,9 @@ class CheckResult(Base):
 
     # Error info
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Scenario result
+    scenario_result: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     # Relationships
     monitor: Mapped[Monitor] = relationship("Monitor", back_populates="check_results")

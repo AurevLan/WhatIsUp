@@ -11,7 +11,10 @@
       <!-- Name + URL -->
       <div style="flex:1;min-width:0;">
         <div style="font-size:13px;font-weight:600;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ monitor.name }}</div>
-        <div style="font-size:11px;color:#334155;font-family:monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px;">{{ monitor.url }}</div>
+        <div style="display:flex;align-items:center;gap:5px;margin-top:1px;">
+          <span style="font-size:10px;font-weight:700;color:#475569;background:#1e293b;padding:1px 5px;border-radius:4px;font-family:monospace;text-transform:uppercase;flex-shrink:0;">{{ monitor.check_type }}</span>
+          <span style="font-size:11px;color:#334155;font-family:monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ target }}</span>
+        </div>
       </div>
 
       <!-- Badge -->
@@ -64,5 +67,12 @@ const uptimeColor = computed(() => {
 const intervalLabel = computed(() => {
   const s = props.monitor.interval_seconds
   return s < 60 ? s + 's' : Math.round(s/60) + 'm'
+})
+
+const target = computed(() => {
+  const m = props.monitor
+  const raw = m.url?.replace(/^https?:\/\//, '') || ''
+  if (m.check_type === 'tcp') return m.tcp_port ? `${raw}:${m.tcp_port}` : raw
+  return raw
 })
 </script>

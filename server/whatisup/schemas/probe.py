@@ -7,6 +7,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from whatisup.models.probe import NetworkType
 from whatisup.models.result import CheckStatus
 
 
@@ -15,12 +16,15 @@ class ProbeCreate(BaseModel):
     location_name: str = Field(min_length=1, max_length=255)
     latitude: float | None = Field(default=None, ge=-90.0, le=90.0)
     longitude: float | None = Field(default=None, ge=-180.0, le=180.0)
+    network_type: NetworkType = NetworkType.external
 
 
 class ProbeUpdate(BaseModel):
     location_name: str | None = Field(default=None, min_length=1, max_length=255)
     latitude: float | None = Field(default=None, ge=-90.0, le=90.0)
     longitude: float | None = Field(default=None, ge=-180.0, le=180.0)
+    is_active: bool | None = None
+    network_type: NetworkType | None = None
 
 
 class ProbeOut(BaseModel):
@@ -31,6 +35,7 @@ class ProbeOut(BaseModel):
     longitude: float | None
     is_active: bool
     last_seen_at: datetime | None
+    network_type: NetworkType = NetworkType.external
 
     model_config = {"from_attributes": True}
 
@@ -45,14 +50,15 @@ class ProbeCheckResultIn(BaseModel):
     monitor_id: uuid.UUID
     checked_at: datetime
     status: CheckStatus
-    http_status: int | None = None
-    response_time_ms: float | None = None
-    redirect_count: int = 0
-    final_url: str | None = None
+    http_status: int | None = Field(default=None, ge=100, le=599)
+    response_time_ms: float | None = Field(default=None, ge=0)
+    redirect_count: int = Field(default=0, ge=0, le=50)
+    final_url: str | None = Field(default=None, max_length=2048)
     ssl_valid: bool | None = None
     ssl_expires_at: datetime | None = None
     ssl_days_remaining: int | None = None
     error_message: str | None = Field(default=None, max_length=1000)
+    scenario_result: dict | None = None
 
 
 class ProbeHeartbeatResponse(BaseModel):
@@ -69,6 +75,21 @@ class ProbeMonitorConfig(BaseModel):
     expected_status_codes: list[int]
     ssl_check_enabled: bool
     ssl_expiry_warn_days: int
+    check_type: str = "http"
+    tcp_port: int | None = None
+    dns_record_type: str | None = None
+    dns_expected_value: str | None = None
+    keyword: str | None = None
+    keyword_negate: bool = False
+    expected_json_path: str | None = None
+    expected_json_value: str | None = None
+    scenario_steps: list | None = None
+    scenario_variables: list | None = None
+    trigger_now: bool = False
+    # Advanced HTTP assertions
+    body_regex: str | None = None
+    expected_headers: dict[str, str] | None = None
+    json_schema: dict | None = None
 
 
 class ProbeMonitorStatus(BaseModel):

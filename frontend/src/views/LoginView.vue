@@ -8,7 +8,7 @@
           <Activity :size="24" color="white" :stroke-width="2.5" />
         </div>
         <h1 style="font-size:22px;font-weight:700;color:#f1f5f9;margin:0 0 6px;">WhatIsUp</h1>
-        <p style="font-size:13px;color:#475569;margin:0;">Sign in to your monitoring dashboard</p>
+        <p style="font-size:13px;color:#475569;margin:0;">{{ t('auth.subtitle') }}</p>
       </div>
 
       <!-- Card -->
@@ -16,12 +16,12 @@
         <form @submit.prevent="handleLogin">
 
           <div style="margin-bottom:18px;">
-            <label style="display:block;font-size:13px;font-weight:500;color:#94a3b8;margin-bottom:6px;">Email address</label>
+            <label style="display:block;font-size:13px;font-weight:500;color:#94a3b8;margin-bottom:6px;">{{ t('auth.email') }}</label>
             <input v-model="email" type="email" placeholder="you@example.com" required autocomplete="email" class="input" />
           </div>
 
           <div style="margin-bottom:20px;">
-            <label style="display:block;font-size:13px;font-weight:500;color:#94a3b8;margin-bottom:6px;">Password</label>
+            <label style="display:block;font-size:13px;font-weight:500;color:#94a3b8;margin-bottom:6px;">{{ t('auth.password') }}</label>
             <input v-model="password" type="password" placeholder="••••••••" required autocomplete="current-password" class="input" />
           </div>
 
@@ -34,7 +34,7 @@
           <button type="submit" :disabled="loading" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,#2563eb,#3b82f6);color:white;font-size:14px;font-weight:600;padding:11px;border-radius:10px;border:none;cursor:pointer;box-shadow:0 4px 14px rgba(37,99,235,.4);transition:opacity .15s;" :style="{opacity: loading ? .6 : 1}">
             <span v-if="loading" style="width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin 1s linear infinite;" />
             <LogIn v-else :size="15" />
-            {{ loading ? 'Signing in…' : 'Sign in' }}
+            {{ loading ? t('auth.signing_in') : t('auth.sign_in') }}
           </button>
         </form>
       </div>
@@ -45,10 +45,12 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { Activity, AlertCircle, LogIn } from 'lucide-vue-next'
 import { useAuthStore } from '../stores/auth'
 import { useWebSocketStore } from '../stores/websocket'
 
+const { t } = useI18n()
 const router = useRouter()
 const route  = useRoute()
 const auth   = useAuthStore()
@@ -67,7 +69,7 @@ async function handleLogin() {
     ws.connect()
     router.push(route.query.redirect || '/')
   } catch (err) {
-    error.value = err.response?.data?.detail || 'Invalid email or password.'
+    error.value = err.response?.data?.detail || t('auth.invalid_credentials')
   } finally {
     loading.value = false
   }

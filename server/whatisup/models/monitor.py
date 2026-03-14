@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import enum
 import uuid
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     JSON,
     Boolean,
     Column,
+    DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -17,9 +21,21 @@ from sqlalchemy import (
     Text,
     Uuid,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from whatisup.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
+
+
+class CheckType(enum.StrEnum):
+    http = "http"
+    tcp = "tcp"
+    dns = "dns"
+    keyword = "keyword"
+    json_path = "json_path"
+    scenario = "scenario"
+    heartbeat = "heartbeat"
+
 
 if TYPE_CHECKING:
     from whatisup.models.alert import AlertRule
@@ -100,6 +116,43 @@ class Monitor(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # SSL monitoring
     ssl_check_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     ssl_expiry_warn_days: Mapped[int] = mapped_column(Integer, default=30, nullable=False)
+
+    # Check type
+    check_type: Mapped[str] = mapped_column(String(20), default="http", nullable=False)
+
+    # TCP checks
+    tcp_port: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    # DNS checks
+    dns_record_type: Mapped[str | None] = mapped_column(String(10), nullable=True)  # A, AAAA, CNAME, MX, TXT
+    dns_expected_value: Mapped[str | None] = mapped_column(String(512), nullable=True)
+
+    # Keyword / body checks
+    keyword: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    keyword_negate: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    # JSON path checks
+    expected_json_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    expected_json_value: Mapped[str | None] = mapped_column(String(512), nullable=True)
+
+    # Scenario checks
+    scenario_steps: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    scenario_variables: Mapped[list | None] = mapped_column(JSON, nullable=True)
+
+    # Advanced HTTP assertions
+    body_regex: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    expected_headers: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    json_schema: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
+    # SLO / Error Budget
+    slo_target: Mapped[float | None] = mapped_column(Float, nullable=True)  # ex: 99.9
+    slo_window_days: Mapped[int] = mapped_column(Integer, nullable=False, server_default="30", default=30)
+
+    # Heartbeat / cron check type
+    heartbeat_slug: Mapped[str | None] = mapped_column(String(80), nullable=True, unique=True)
+    heartbeat_interval_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    heartbeat_grace_seconds: Mapped[int] = mapped_column(Integer, nullable=False, server_default="60", default=60)
+    last_heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     tags: Mapped[list[Tag]] = relationship("Tag", secondary=monitor_tags, lazy="selectin")

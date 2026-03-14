@@ -12,7 +12,7 @@ from whatisup.models.incident import Incident
 from whatisup.models.monitor import Monitor
 from whatisup.models.result import CheckResult
 from whatisup.models.user import User
-from whatisup.services.stats import compute_uptime
+from whatisup.services.stats import compute_uptime, latest_results_subq
 
 router = APIRouter(prefix="/status", tags=["status"])
 
@@ -22,27 +22,44 @@ async def status_all_monitors(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[dict]:
-    query = select(Monitor).where(Monitor.enabled is True)
+    query = select(Monitor).where(Monitor.enabled.is_(True))
     if not current_user.is_superadmin:
         query = query.where(Monitor.owner_id == current_user.id)
 
     monitors = (await db.execute(query)).scalars().all()
+    if not monitors:
+        return []
+
+    monitor_ids = [m.id for m in monitors]
+
+    # Batch: latest CheckResult per monitor
+    latest_subq = latest_results_subq(
+        CheckResult.monitor_id.in_(monitor_ids),
+        group_col=CheckResult.monitor_id,
+    )
+    latest_results = (await db.execute(
+        select(CheckResult)
+        .join(
+            latest_subq,
+            (CheckResult.monitor_id == latest_subq.c.monitor_id)
+            & (CheckResult.checked_at == latest_subq.c.max_at),
+        )
+    )).scalars().all()
+    latest_by_monitor = {r.monitor_id: r for r in latest_results}
+
+    # Batch: open incidents per monitor
+    open_incidents = (await db.execute(
+        select(Incident).where(
+            Incident.monitor_id.in_(monitor_ids),
+            Incident.resolved_at.is_(None),
+        )
+    )).scalars().all()
+    incident_by_monitor = {inc.monitor_id: inc for inc in open_incidents}
+
     results = []
     for m in monitors:
-        latest = (await db.execute(
-            select(CheckResult)
-            .where(CheckResult.monitor_id == m.id)
-            .order_by(CheckResult.checked_at.desc())
-            .limit(1)
-        )).scalar_one_or_none()
-
-        open_incident = (await db.execute(
-            select(Incident).where(
-                Incident.monitor_id == m.id,
-                Incident.resolved_at.is_(None),
-            )
-        )).scalar_one_or_none()
-
+        latest = latest_by_monitor.get(m.id)
+        open_incident = incident_by_monitor.get(m.id)
         results.append({
             "id": str(m.id),
             "name": m.name,

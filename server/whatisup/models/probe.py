@@ -2,16 +2,22 @@
 
 from __future__ import annotations
 
+import enum
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, Double, String, Text
+from sqlalchemy import Boolean, DateTime, Double, Enum as SQLEnum, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from whatisup.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 
 if TYPE_CHECKING:
     from whatisup.models.result import CheckResult
+
+
+class NetworkType(str, enum.Enum):
+    internal = "internal"  # Réseau d'entreprise / LAN privé
+    external = "external"  # Internet public
 
 
 class Probe(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -25,6 +31,11 @@ class Probe(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
     last_seen_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+    network_type: Mapped[NetworkType] = mapped_column(
+        SQLEnum(NetworkType, name="networktype"),
+        default=NetworkType.external,
+        server_default="external",
     )
 
     check_results: Mapped[list[CheckResult]] = relationship(

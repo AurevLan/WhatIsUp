@@ -7,11 +7,13 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
+import sqlalchemy
 from sqlalchemy import (
     JSON,
     Column,
     DateTime,
     Enum,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -34,12 +36,17 @@ class AlertChannelType(enum.StrEnum):
     email = "email"
     webhook = "webhook"
     telegram = "telegram"
+    slack = "slack"
+    pagerduty = "pagerduty"
+    opsgenie = "opsgenie"
 
 
 class AlertCondition(enum.StrEnum):
     all_down = "all_down"        # All probes report down (global outage)
     any_down = "any_down"        # Any probe reports down
     ssl_expiry = "ssl_expiry"    # SSL cert expires within warn window
+    response_time_above = "response_time_above"
+    uptime_below = "uptime_below"
 
 
 class AlertEventStatus(enum.StrEnum):
@@ -101,6 +108,9 @@ class AlertRule(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Enum(AlertCondition, name="alert_condition"), nullable=False
     )
     min_duration_seconds: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    renotify_after_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    threshold_value: Mapped[float | None] = mapped_column(sqlalchemy.Float, nullable=True)
+    digest_minutes: Mapped[int] = mapped_column(Integer, default=0, nullable=False, server_default="0")
 
     monitor: Mapped[Monitor | None] = relationship(
         "Monitor", back_populates="alert_rules", foreign_keys=[monitor_id]

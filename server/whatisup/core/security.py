@@ -96,3 +96,57 @@ def verify_api_key(api_key: str, hashed: str) -> bool:
 
 def refresh_token_redis_key(jti_or_subject: str) -> str:
     return f"whatisup:refresh:{jti_or_subject}"
+
+
+# ---------------------------------------------------------------------------
+# Alert channel config encryption (Fernet symmetric)
+# ---------------------------------------------------------------------------
+
+def _get_fernet():
+    """Return a Fernet instance using FERNET_KEY from settings, or None if not configured."""
+    from cryptography.fernet import Fernet
+    settings = get_settings()
+    if not settings.fernet_key:
+        return None
+    return Fernet(settings.fernet_key.encode() if isinstance(settings.fernet_key, str) else settings.fernet_key)
+
+
+# Fields in alert channel config that contain secrets and must be encrypted
+_SECRET_FIELDS = {"secret", "bot_token", "password", "integration_key", "api_key"}
+
+
+def encrypt_channel_config(config: dict) -> dict:
+    """Encrypt sensitive fields in an alert channel config dict.
+
+    Only fields listed in _SECRET_FIELDS are encrypted.
+    Returns the config unchanged if FERNET_KEY is not configured.
+    """
+    fernet = _get_fernet()
+    if fernet is None:
+        return config
+    return {
+        k: fernet.encrypt(v.encode()).decode() if k in _SECRET_FIELDS and isinstance(v, str) and v else v
+        for k, v in config.items()
+    }
+
+
+def decrypt_channel_config(config: dict) -> dict:
+    """Decrypt sensitive fields in an alert channel config dict.
+
+    Returns the config unchanged if FERNET_KEY is not configured.
+    Silently skips fields that cannot be decrypted (e.g. plaintext legacy values).
+    """
+    from cryptography.fernet import InvalidToken
+    fernet = _get_fernet()
+    if fernet is None:
+        return config
+    result = {}
+    for k, v in config.items():
+        if k in _SECRET_FIELDS and isinstance(v, str) and v:
+            try:
+                result[k] = fernet.decrypt(v.encode()).decode()
+            except (InvalidToken, Exception):
+                result[k] = v  # fallback: return as-is (legacy plaintext)
+        else:
+            result[k] = v
+    return result

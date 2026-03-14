@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime, timedelta
 
 import structlog
 from fastapi import FastAPI
@@ -19,6 +20,25 @@ from whatisup.core.redis import close_redis
 logger = structlog.get_logger(__name__)
 
 
+async def _retention_job() -> None:
+    """Run nightly data retention purge at 03:00 UTC."""
+    from whatisup.services.retention import purge_old_results
+    settings = get_settings()
+
+    while True:
+        now = datetime.now(UTC)
+        # Next 03:00 UTC
+        next_run = now.replace(hour=3, minute=0, second=0, microsecond=0)
+        if next_run <= now:
+            next_run += timedelta(days=1)
+        wait_seconds = (next_run - now).total_seconds()
+        await asyncio.sleep(wait_seconds)
+        try:
+            await purge_old_results(settings.data_retention_days)
+        except Exception as exc:
+            logger.error("retention_job_failed", error=str(exc))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
@@ -28,11 +48,38 @@ async def lifespan(app: FastAPI):
     from whatisup.api.v1.ws import _redis_subscriber
     subscriber_task = asyncio.create_task(_redis_subscriber())
 
+    # Start nightly data retention job
+    retention_task = asyncio.create_task(_retention_job())
+
+    # Heartbeat monitor checker (every 30s)
+    async def _heartbeat_checker():
+        from whatisup.services.heartbeat import check_heartbeats
+        while True:
+            try:
+                await check_heartbeats()
+            except Exception as exc:
+                logger.error("heartbeat_checker_error", error=str(exc))
+            await asyncio.sleep(30)
+
+    heartbeat_task = asyncio.create_task(_heartbeat_checker())
+
     yield
 
     subscriber_task.cancel()
     try:
         await subscriber_task
+    except asyncio.CancelledError:
+        pass
+
+    retention_task.cancel()
+    try:
+        await retention_task
+    except asyncio.CancelledError:
+        pass
+
+    heartbeat_task.cancel()
+    try:
+        await heartbeat_task
     except asyncio.CancelledError:
         pass
 
@@ -69,7 +116,7 @@ def create_app() -> FastAPI:
     )
 
     # Routers
-    from whatisup.api.v1 import alerts, auth, groups, monitors, probes, public, status, ws
+    from whatisup.api.v1 import alerts, audit, auth, groups, maintenance, metrics, monitors, ping, probes, public, status, ws
 
     app.include_router(auth.router, prefix="/api/v1")
     app.include_router(monitors.router, prefix="/api/v1")
@@ -79,6 +126,17 @@ def create_app() -> FastAPI:
     app.include_router(public.router, prefix="/api/v1")
     app.include_router(status.router, prefix="/api/v1")
     app.include_router(ws.router)
+    app.include_router(audit.router, prefix="/api/v1")
+    app.include_router(maintenance.router, prefix="/api/v1")
+    app.include_router(ping.router, prefix="/api/v1")
+    app.include_router(metrics.router, prefix="/api/v1")
+
+    # Prometheus metrics (optional dependency)
+    try:
+        from prometheus_fastapi_instrumentator import Instrumentator
+        Instrumentator().instrument(app).expose(app, endpoint="/api/metrics")
+    except ImportError:
+        logger.warning("prometheus_fastapi_instrumentator not installed, /api/metrics unavailable")
 
     @app.get("/api/health", tags=["health"])
     async def health() -> dict:

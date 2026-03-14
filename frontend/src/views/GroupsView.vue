@@ -24,7 +24,7 @@
         <div class="mt-4 pt-4 border-t border-gray-800 flex items-center justify-between">
           <span v-if="group.public_slug" class="text-xs text-gray-500 font-mono">/status/{{ group.public_slug }}</span>
           <span v-else class="text-xs text-gray-600">Private</span>
-          <router-link :to="`/groups`" class="text-xs text-blue-400 hover:underline">Manage →</router-link>
+          <router-link :to="`/groups/${group.id}`" class="text-xs text-blue-400 hover:underline">Manage →</router-link>
         </div>
       </div>
 

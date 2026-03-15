@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WhatIsUp Recorder — Options</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        font-size: 14px;
+        background: #111827;
+        color: #f3f4f6;
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        padding: 48px 16px;
+      }
+
+      .container {
+        width: 100%;
+        max-width: 560px;
+      }
+
+      h1 {
+        font-size: 20px;
+        font-weight: 700;
+        color: #60a5fa;
+        margin-bottom: 6px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .subtitle {
+        color: #6b7280;
+        font-size: 13px;
+        margin-bottom: 32px;
+      }
+
+      .card {
+        background: #1f2937;
+        border: 1px solid #374151;
+        border-radius: 10px;
+        padding: 24px;
+        margin-bottom: 20px;
+      }
+
+      .card h2 {
+        font-size: 14px;
+        font-weight: 600;
+        color: #e5e7eb;
+        margin-bottom: 16px;
+      }
+
+      label {
+        display: block;
+        font-size: 12px;
+        color: #9ca3af;
+        margin-bottom: 5px;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      input[type='text'],
+      input[type='url'],
+      input[type='password'] {
+        width: 100%;
+        padding: 9px 12px;
+        background: #111827;
+        border: 1px solid #374151;
+        border-radius: 6px;
+        color: #f3f4f6;
+        font-size: 13px;
+        outline: none;
+        font-family: monospace;
+        margin-bottom: 14px;
+        transition: border-color 0.15s;
+      }
+
+      input:focus {
+        border-color: #3b82f6;
+      }
+
+      .hint {
+        font-size: 11px;
+        color: #6b7280;
+        margin-top: -10px;
+        margin-bottom: 14px;
+        line-height: 1.5;
+      }
+
+      .btn-row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        margin-top: 4px;
+      }
+
+      button {
+        padding: 9px 20px;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 500;
+        transition: background 0.15s;
+      }
+
+      .btn-primary {
+        background: #2563eb;
+        color: #fff;
+      }
+
+      .btn-primary:hover {
+        background: #1d4ed8;
+      }
+
+      .btn-secondary {
+        background: #374151;
+        color: #d1d5db;
+      }
+
+      .btn-secondary:hover {
+        background: #4b5563;
+      }
+
+      .status {
+        font-size: 12px;
+        margin-left: 4px;
+      }
+
+      .ok {
+        color: #34d399;
+      }
+
+      .err {
+        color: #f87171;
+      }
+
+      .info-box {
+        background: #1e3a5f;
+        border: 1px solid #1d4ed8;
+        border-radius: 8px;
+        padding: 14px 16px;
+        font-size: 12px;
+        color: #93c5fd;
+        line-height: 1.6;
+      }
+
+      .info-box a {
+        color: #60a5fa;
+      }
+
+      code {
+        font-family: monospace;
+        font-size: 11px;
+        background: #0f172a;
+        padding: 1px 5px;
+        border-radius: 3px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#3b82f6"
+          stroke-width="2"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <polyline points="12 6 12 12 16 14" />
+        </svg>
+        WhatIsUp Recorder — Options
+      </h1>
+      <p class="subtitle">Configure the connection to your WhatIsUp instance.</p>
+
+      <!-- Connection settings -->
+      <div class="card">
+        <h2>Connection</h2>
+
+        <label for="serverUrl">WhatIsUp Server URL</label>
+        <input
+          type="url"
+          id="serverUrl"
+          placeholder="https://whatisup.example.com"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <p class="hint">The base URL of your WhatIsUp server (no trailing slash needed).</p>
+
+        <label for="apiKey">API Key</label>
+        <input
+          type="password"
+          id="apiKey"
+          placeholder="wiu_u_…"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <p class="hint">
+          Generate a key in WhatIsUp → <strong>API Keys</strong> section. The key must start with
+          <code>wiu_u_</code>.
+        </p>
+
+        <div class="btn-row">
+          <button class="btn-primary" id="saveBtn">Save</button>
+          <button class="btn-secondary" id="testBtn">Test connection</button>
+          <span class="status" id="statusMsg"></span>
+        </div>
+      </div>
+
+      <!-- Help -->
+      <div class="info-box">
+        <strong>How to get an API key</strong><br />
+        1. Log in to your WhatIsUp instance.<br />
+        2. Go to <strong>Settings → API Keys</strong>.<br />
+        3. Click <strong>New key</strong>, give it a name (e.g. "Recorder extension").<br />
+        4. Copy the generated key and paste it above.<br /><br />
+        The key is sent as <code>Authorization: Bearer wiu_u_…</code> and only creates monitors on
+        your behalf.
+      </div>
+    </div>
+
+    <script src="options.js"></script>
+  </body>
+</html>

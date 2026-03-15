@@ -11,6 +11,7 @@ from whatisup.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 
 if TYPE_CHECKING:
     from whatisup.models.alert import AlertChannel
+    from whatisup.models.api_key import UserApiKey
     from whatisup.models.tag import UserTagPermission
 
 
@@ -30,6 +31,9 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     alert_channels: Mapped[list[AlertChannel]] = relationship(
         "AlertChannel", back_populates="owner"
+    )
+    api_keys: Mapped[list[UserApiKey]] = relationship(
+        "UserApiKey", back_populates="user", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:

@@ -83,6 +83,15 @@ def generate_probe_api_key() -> str:
     return f"wiu_{secrets.token_urlsafe(32)}"
 
 
+def generate_user_api_key() -> str:
+    """Generate a cryptographically secure user API key (displayed once).
+
+    Format: ``wiu_u_<43 URL-safe base64 chars>``
+    Prefix ``wiu_u_`` distinguishes user keys from probe keys (``wiu_``).
+    """
+    return f"wiu_u_{secrets.token_urlsafe(32)}"
+
+
 def hash_api_key(api_key: str) -> str:
     """Hash a probe API key for storage."""
     return bcrypt.hashpw(api_key.encode(), bcrypt.gensalt(rounds=12)).decode()

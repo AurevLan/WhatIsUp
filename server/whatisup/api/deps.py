@@ -2,6 +2,7 @@
 
 import hashlib
 import uuid
+from datetime import UTC, datetime
 
 import structlog
 from fastapi import Depends, Header, HTTPException, Security, status
@@ -12,19 +13,108 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.core.database import get_db
 from whatisup.core.security import decode_token, verify_api_key
+from whatisup.models.api_key import UserApiKey
 from whatisup.models.probe import Probe
 from whatisup.models.user import User
 
 logger = structlog.get_logger(__name__)
 
-bearer_scheme = HTTPBearer(auto_error=True)
+# auto_error=False so we can fall back to X-Api-Key when no Bearer token is present
+bearer_scheme = HTTPBearer(auto_error=False)
+
+_USER_KEY_PREFIX = "wiu_u_"
+
+
+async def _auth_via_user_api_key(raw_key: str, db: AsyncSession) -> User:
+    """Authenticate using a user API key (fast Redis cache + slow bcrypt fallback)."""
+    from whatisup.core.redis import get_redis
+
+    redis = get_redis()
+    cache_key = (
+        f"whatisup:user_api:{hashlib.sha256(raw_key.encode()).hexdigest()[:32]}"
+    )
+
+    cached_id = await redis.get(cache_key)
+    if cached_id:
+        user = (
+            await db.execute(select(User).where(User.id == uuid.UUID(cached_id), User.is_active))
+        ).scalar_one_or_none()
+        if user is not None:
+            return user
+        await redis.delete(cache_key)
+
+    # Slow path — find the matching key row
+    now = datetime.now(UTC)
+    api_key_row = None
+    rows = (
+        await db.execute(
+            select(UserApiKey).where(
+                UserApiKey.is_revoked.is_(False),
+            )
+        )
+    ).scalars().all()
+
+    for row in rows:
+        if row.expires_at and row.expires_at < now:
+            continue
+        if verify_api_key(raw_key, row.key_hash):
+            api_key_row = row
+            break
+
+    if api_key_row is None:
+        logger.warning("user_api_key_auth_failed", key_prefix=raw_key[:12])
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired API key",
+        )
+
+    user = (
+        await db.execute(
+            select(User).where(User.id == api_key_row.user_id, User.is_active)
+        )
+    ).scalar_one_or_none()
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found or inactive",
+        )
+
+    # Update last_used_at and populate cache
+    api_key_row.last_used_at = now
+    await redis.setex(cache_key, 300, str(user.id))
+    logger.info("user_api_key_auth_ok", user_id=str(user.id), key_name=api_key_row.name)
+    return user
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Security(bearer_scheme),
+    credentials: HTTPAuthorizationCredentials | None = Security(bearer_scheme),
+    x_api_key: str | None = Header(default=None, alias="X-Api-Key"),
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    token = credentials.credentials
+    """Authenticate via JWT Bearer token **or** user API key.
+
+    Priority:
+    1. ``Authorization: Bearer <jwt>``
+    2. ``Authorization: Bearer wiu_u_<key>``  (API key as Bearer)
+    3. ``X-Api-Key: wiu_u_<key>``
+    """
+    token: str | None = credentials.credentials if credentials else None
+
+    # --- API key paths ---
+    if token and token.startswith(_USER_KEY_PREFIX):
+        return await _auth_via_user_api_key(token, db)
+
+    if x_api_key and x_api_key.startswith(_USER_KEY_PREFIX):
+        return await _auth_via_user_api_key(x_api_key, db)
+
+    # --- JWT path ---
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     try:
         payload = decode_token(token, "access")
         user_id = uuid.UUID(payload["sub"])

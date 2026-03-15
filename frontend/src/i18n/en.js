@@ -267,6 +267,30 @@ export default {
     administration: 'Administration',
   },
 
+  // API Keys
+  apiKeys: {
+    title: 'API Keys',
+    new: 'New key',
+    create: 'Create',
+    empty: 'No API keys yet. Create one to authenticate scripts or the recorder extension.',
+    info_title: 'API keys allow external access without a JWT session.',
+    info_body: 'Use them in scripts, CI pipelines, or the WhatIsUp Recorder browser extension.',
+    key_name: 'Key name',
+    key_name_placeholder: 'e.g. WhatIsUp Recorder, CI pipeline…',
+    expires_at: 'Expires at',
+    created: 'API key created',
+    show_once_warning: '⚠ Copy this key now — it will never be shown again.',
+    usage_hint: 'Use it in your requests:',
+    i_saved_it: 'I saved it',
+    last_used: 'Last used',
+    never_used: 'Never used',
+    expires: 'Expires',
+    active: 'Active',
+    revoked: 'Revoked',
+    revoke: 'Revoke key',
+    revoke_confirm: 'Revoke the key "{name}"? This cannot be undone.',
+  },
+
   // Maintenance
   maintenance: {
     title: 'Maintenance windows',

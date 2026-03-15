@@ -53,6 +53,11 @@ const routes = [
         component: () => import('../views/SettingsView.vue'),
       },
       {
+        path: 'api-keys',
+        name: 'ApiKeys',
+        component: () => import('../views/ApiKeysView.vue'),
+      },
+      {
         path: 'maintenance',
         name: 'Maintenance',
         component: () => import('../views/MaintenanceView.vue'),

@@ -115,12 +115,13 @@ def create_app() -> FastAPI:
         allow_origins=settings.cors_allowed_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type", "X-Probe-Api-Key"],
+        allow_headers=["Authorization", "Content-Type", "X-Probe-Api-Key", "X-Api-Key"],
     )
 
     # Routers
     from whatisup.api.v1 import (
         alerts,
+        api_keys,
         audit,
         auth,
         groups,
@@ -135,6 +136,7 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(auth.router, prefix="/api/v1")
+    app.include_router(api_keys.router, prefix="/api/v1")
     app.include_router(monitors.router, prefix="/api/v1")
     app.include_router(groups.router, prefix="/api/v1")
     app.include_router(probes.router, prefix="/api/v1")

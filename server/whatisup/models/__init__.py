@@ -9,6 +9,7 @@ from whatisup.models.alert import (
     AlertRule,
 )
 from whatisup.models.annotation import MonitorAnnotation
+from whatisup.models.api_key import UserApiKey
 from whatisup.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 from whatisup.models.custom_metric import CustomMetric
 from whatisup.models.incident import Incident, IncidentScope
@@ -44,4 +45,5 @@ __all__ = [
     "AlertRule",
     "MonitorAnnotation",
     "StatusSubscription",
+    "UserApiKey",
 ]

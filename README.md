@@ -86,7 +86,7 @@
 ### Development (local)
 
 ```bash
-git clone https://github.com/your-org/whatisup.git
+git clone https://github.com/AurevLan/WhatIsUp.git
 cd whatisup
 
 # Start all services (PostgreSQL, Redis, API, frontend, local probe)

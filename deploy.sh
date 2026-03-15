@@ -44,15 +44,15 @@ check_deps() {
   local missing=()
   command -v docker  &>/dev/null || missing+=("docker")
   command -v curl    &>/dev/null || missing+=("curl")
-  command -v python3 &>/dev/null || missing+=("python3")
+  command -v openssl &>/dev/null || missing+=("openssl")
   [[ ${#missing[@]} -gt 0 ]] && die "Dépendances manquantes : ${missing[*]}"
-  docker info &>/dev/null        || die "Docker daemon non disponible. Lancez Docker d'abord."
+  docker info &>/dev/null        || die "Docker daemon non disponible. Lancez Docker d'abord (ou ajoutez votre user au groupe docker : sudo usermod -aG docker \$USER)."
   detect_compose
 }
 
 # ── Génération de secrets ────────────────────────────────────────────────────
-gen_hex()    { python3 -c "import secrets; print(secrets.token_hex($1))"; }
-gen_fernet() { python3 -c "import base64,os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())"; }
+gen_hex()    { openssl rand -hex "$1"; }
+gen_fernet() { openssl rand 32 | base64 -w0 | tr '+/' '-_' | tr -d '='; }
 
 # ── Saisies interactives ─────────────────────────────────────────────────────
 # prompt <variable> <texte> [défaut]
@@ -171,8 +171,10 @@ collect_server_config() {
   [[ -z "$DOMAIN_URL" ]] && die "L'URL est obligatoire."
   DOMAIN_URL="${DOMAIN_URL%/}"   # supprimer le / final
 
-  # Extraire le hostname pour le certificat
-  DOMAIN_HOST=$(python3 -c "from urllib.parse import urlparse; print(urlparse('${DOMAIN_URL}').hostname)")
+  # Extraire le hostname pour le certificat (supprimer scheme, path, port)
+  DOMAIN_HOST="${DOMAIN_URL#*://}"
+  DOMAIN_HOST="${DOMAIN_HOST%%/*}"
+  DOMAIN_HOST="${DOMAIN_HOST%%:*}"
 
   step "Secrets (générés automatiquement)"
   POSTGRES_PASSWORD=$(gen_hex 16)
@@ -248,11 +250,8 @@ enroll_probe() {
   [[ "$_http_code" == "200" ]] || die "Authentification échouée (HTTP ${_http_code}). Vérifiez vos credentials."
 
   local _token
-  _token=$(python3 -c "
-import sys, json
-data = json.loads(sys.stdin.read())
-print(data['access_token'])
-" <<< "$_login_resp" 2>/dev/null) || die "Impossible d'extraire le token de la réponse."
+  _token=$(grep -o '"access_token":"[^"]*"' <<< "$_login_resp" | cut -d'"' -f4)
+  [[ -n "$_token" ]] || die "Impossible d'extraire le token de la réponse."
 
   ok "Authentification réussie"
 
@@ -265,12 +264,9 @@ print(data['access_token'])
     "${CENTRAL_API_URL}/api/v1/auth/me" 2>/dev/null) || die "Impossible de vérifier les droits."
 
   local _is_admin
-  _is_admin=$(python3 -c "
-import sys, json
-print(json.loads(sys.stdin.read()).get('is_superadmin', False))
-" <<< "$_me_resp" 2>/dev/null) || true
+  _is_admin=$(grep -o '"is_superadmin":[^,}]*' <<< "$_me_resp" | cut -d: -f2 | tr -d ' ')
 
-  [[ "$_is_admin" == "True" ]] || die "Le compte ${ADMIN_EMAIL} n'est pas superadmin."
+  [[ "$_is_admin" == "true" ]] || die "Le compte ${ADMIN_EMAIL} n'est pas superadmin."
 
   log "Enregistrement de la sonde '${PROBE_NAME}'…"
 
@@ -293,10 +289,8 @@ print(json.loads(sys.stdin.read()).get('is_superadmin', False))
   fi
   [[ "$_reg_code" == "201" ]] || die "Enregistrement échoué (HTTP ${_reg_code})."
 
-  PROBE_API_KEY=$(python3 -c "
-import sys, json
-print(json.loads(sys.stdin.read())['api_key'])
-" <<< "$_reg_resp" 2>/dev/null) || die "Impossible d'extraire la clé API."
+  PROBE_API_KEY=$(grep -o '"api_key":"[^"]*"' <<< "$_reg_resp" | cut -d'"' -f4)
+  [[ -n "$PROBE_API_KEY" ]] || die "Impossible d'extraire la clé API."
 
   ok "Sonde '${PROBE_NAME}' enregistrée avec succès"
 }
@@ -312,25 +306,22 @@ deploy_server_with_probe() {
   step "Sonde centrale"
   prompt PROBE_LOCATION "Localisation de la sonde centrale" "Central Server"
 
-  COMPOSE_FILES=(-f docker-compose.prod.yml -f docker-compose.central-probe.yml)
-
   if check_overwrite .env; then
     write_server_env .env
-    # Ajouter PROBE_LOCATION pour l'override
     echo "PROBE_LOCATION=${PROBE_LOCATION}" >> .env
     ok ".env écrit"
   fi
 
   step "Construction des images"
-  "${DC[@]}" "${COMPOSE_FILES[@]}" --env-file .env build
+  "${DC[@]}" --env-file .env --profile central-probe build
 
   step "Démarrage des services"
-  "${DC[@]}" "${COMPOSE_FILES[@]}" --env-file .env up -d
+  "${DC[@]}" --env-file .env --profile central-probe up -d
 
-  _post_server_info "${COMPOSE_FILES[@]}"
+  _post_server_info
   blank
   log "Sonde centrale : logs disponibles via :"
-  log "  docker compose -f docker-compose.prod.yml -f docker-compose.central-probe.yml logs -f probe-central"
+  log "  docker compose --env-file .env logs -f probe-local"
 }
 
 # 2) Serveur seul ─────────────────────────────────────────────────────────────
@@ -339,20 +330,18 @@ deploy_server_only() {
 
   collect_server_config
 
-  COMPOSE_FILES=(-f docker-compose.prod.yml)
-
   if check_overwrite .env; then
     write_server_env .env
     ok ".env écrit"
   fi
 
   step "Construction des images"
-  "${DC[@]}" "${COMPOSE_FILES[@]}" --env-file .env build
+  "${DC[@]}" --env-file .env build
 
   step "Démarrage des services"
-  "${DC[@]}" "${COMPOSE_FILES[@]}" --env-file .env up -d
+  "${DC[@]}" --env-file .env up -d
 
-  _post_server_info "${COMPOSE_FILES[@]}"
+  _post_server_info
   blank
   log "Pour ajouter une sonde distante plus tard, utilisez :"
   log "  ./deploy.sh  →  option 3"
@@ -397,7 +386,16 @@ _post_server_info() {
   ok "API docs : ${DOMAIN_URL}/api/docs"
   blank
   echo -e "  ${W}Credentials admin (premier démarrage) :${X}"
-  log "Consultez : ${DC[*]} $* logs server | grep '\\[WhatIsUp\\]'"
+  local _admin_line
+  _admin_line=$("${DC[@]}" --env-file .env logs server 2>/dev/null | grep "Admin créé" | tail -1)
+  if [[ -n "$_admin_line" ]]; then
+    local _admin_pwd
+    _admin_pwd=$(grep -o 'password: .*' <<< "$_admin_line" | cut -d' ' -f2-)
+    ok "Email    : admin@local"
+    ok "Password : ${_admin_pwd}"
+  else
+    log "Consultez : ${DC[*]} --env-file .env logs server | grep '\\[WhatIsUp\\]'"
+  fi
   blank
   warn "Actions post-déploiement :"
   warn "  • Changez le mot de passe admin dès la première connexion"

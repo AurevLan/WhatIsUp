@@ -31,7 +31,8 @@ COPY alembic.ini .
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh \
     && useradd -m -u 1000 whatisup \
-    && chown -R whatisup:whatisup /app
+    && chown -R whatisup:whatisup /app \
+    && mkdir -p /shared && chown whatisup:whatisup /shared
 
 USER whatisup
 

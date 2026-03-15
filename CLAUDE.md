@@ -26,10 +26,10 @@ cd frontend && npm run lint
 cd frontend && npm audit
 
 # Docker
-docker compose up -d                         # démarrer la stack complète
-docker compose build server                  # rebuild après modif pyproject.toml
-docker compose build probe                   # rebuild probe
-docker compose logs server | grep -E "admin|api_key|created"  # credentials premier boot
+docker compose --env-file .env up -d         # démarrer la stack complète
+docker compose --env-file .env build server  # rebuild après modif pyproject.toml
+docker compose --env-file .env build probe   # rebuild probe
+docker compose --env-file .env logs server | grep -E "admin|api_key|created"  # credentials premier boot
 
 # Migration Alembic
 cd server && alembic revision --autogenerate -m "description"

@@ -12,7 +12,7 @@ from sqlalchemy.orm import selectinload
 from whatisup.api.deps import get_current_user
 from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
-from whatisup.models.incident import Incident, IncidentGroup
+from whatisup.models.incident import IncidentGroup
 from whatisup.models.monitor import Monitor
 from whatisup.models.user import User
 from whatisup.schemas.incident import IncidentGroupOut

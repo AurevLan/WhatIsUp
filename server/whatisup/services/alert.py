@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import hmac
 import json
+import uuid
 from datetime import UTC, datetime
 from email.message import EmailMessage
 from typing import Any
@@ -27,8 +27,6 @@ logger = structlog.get_logger(__name__)
 
 async def _flush_digest(rule_id: str, channels: list[AlertChannel], ctx: dict) -> None:
     """Lit les événements en attente dans Redis pour rule_id et envoie un message groupé."""
-    import uuid as _uuid
-
     from whatisup.core.database import get_session_factory
     from whatisup.core.redis import get_redis
     from whatisup.models.alert import AlertEvent as AE
@@ -131,7 +129,7 @@ async def _flush_digest(rule_id: str, channels: list[AlertChannel], ctx: dict) -
                         resp.raise_for_status()
 
                 digest_event = AE(
-                    incident_id=_uuid.UUID(events_data[0].get("incident_id", str(_uuid.uuid4()))),
+                    incident_id=uuid.UUID(events_data[0].get("incident_id", str(uuid.uuid4()))),
                     channel_id=channel.id,
                     sent_at=datetime.now(UTC),
                     status=AES.sent,
@@ -155,7 +153,6 @@ async def flush_pending_digests() -> None:
     Called every 30 s from the lifespan loop. Survives server restarts because
     the schedule is stored in a Redis sorted set (not in-memory call_later).
     """
-    import uuid as _uuid
     from sqlalchemy import select
 
     from whatisup.core.database import get_session_factory
@@ -187,7 +184,7 @@ async def flush_pending_digests() -> None:
             except Exception:
                 continue
 
-            channel_ids = [_uuid.UUID(cid) for cid in ctx_data.get("channel_ids", [])]
+            channel_ids = [uuid.UUID(cid) for cid in ctx_data.get("channel_ids", [])]
             if not channel_ids:
                 continue
 

@@ -905,7 +905,7 @@ async def _check_ping(
                 checked_at=checked_at,
                 status="down",
                 response_time_ms=round(elapsed_ms, 2),
-                error_message=f"Ping failed: host unreachable",
+                error_message="Ping failed: host unreachable",
             )
 
     except TimeoutError:
@@ -1075,7 +1075,9 @@ async def perform_check(
         return await _check_ping(monitor_id, host, timeout_seconds)
 
     elif check_type == "domain_expiry":
-        return await _check_domain_expiry(monitor_id, host, domain_expiry_warn_days, timeout_seconds)
+        return await _check_domain_expiry(  # noqa: E501
+            monitor_id, host, domain_expiry_warn_days, timeout_seconds
+        )
 
     elif check_type == "dns":  # noqa: SIM114
         return await _check_dns(

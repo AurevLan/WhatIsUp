@@ -1,4 +1,4 @@
-"""Add monitor_dependencies table and incident_groups with group_id/dependency_suppressed on incidents
+"""Add monitor_dependencies and incident_groups tables; group_id/dependency_suppressed on incidents
 
 Revision ID: c1d2e3f4a5b6
 Revises: e1f2a3b4c5d6

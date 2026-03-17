@@ -178,10 +178,14 @@ class Monitor(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     # SMTP checks
     smtp_port: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    smtp_starttls: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="false")
+    smtp_starttls: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False, server_default="false"
+    )
 
     # Domain expiry checks
-    domain_expiry_warn_days: Mapped[int] = mapped_column(Integer, default=30, nullable=False, server_default="30")
+    domain_expiry_warn_days: Mapped[int] = mapped_column(
+        Integer, default=30, nullable=False, server_default="30"
+    )
 
     # DNS checks
     dns_record_type: Mapped[str | None] = mapped_column(
@@ -242,7 +246,7 @@ class Monitor(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     alert_rules: Mapped[list[AlertRule]] = relationship(
         "AlertRule", back_populates="monitor", foreign_keys="AlertRule.monitor_id"
     )
-    # Dependencies: monitors this monitor depends on (parents), and monitors that depend on it (children)
+    # Dependencies: parent monitors (this depends on) and child monitors (depend on this)
     parent_dependencies: Mapped[list[MonitorDependency]] = relationship(
         "MonitorDependency",
         foreign_keys="MonitorDependency.child_id",

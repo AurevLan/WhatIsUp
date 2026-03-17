@@ -6,11 +6,9 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 import structlog
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-
-from sqlalchemy import func
 
 from whatisup.models.alert import AlertCondition, AlertEvent, AlertEventStatus, AlertRule
 from whatisup.models.incident import Incident, IncidentGroup, IncidentScope

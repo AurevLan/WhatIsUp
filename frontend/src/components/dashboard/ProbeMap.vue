@@ -113,12 +113,6 @@ function markerColor(probe) {
   return                            { fill: '#ef4444', glow: 'rgba(239,68,68,.5)' }
 }
 
-function escapeHtml(s) {
-  return String(s)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
-
 // ── data ──────────────────────────────────────────────────────────────────────
 async function load() {
   loading.value = true
@@ -179,18 +173,46 @@ function renderMarkers(L) {
     const checks = p.check_count_24h > 0 ? `${p.check_count_24h} checks / 24h` : 'no data'
     const online = !p.is_active ? 'inactive' : isOnline(p) ? '● online' : '● offline'
 
+    // Build popup via DOM (avoids XSS — no innerHTML with user data)
+    const popup = document.createElement('div')
+    popup.style.cssText = 'font-family:system-ui;min-width:140px;'
+
+    const nameEl = document.createElement('b')
+    nameEl.style.fontSize = '13px'
+    nameEl.textContent = p.name
+    popup.appendChild(nameEl)
+    popup.appendChild(document.createElement('br'))
+
+    const locEl = document.createElement('span')
+    locEl.style.cssText = 'color:#94a3b8;font-size:11px;'
+    locEl.textContent = p.location_name
+    popup.appendChild(locEl)
+    popup.appendChild(document.createElement('br'))
+
+    const hr = document.createElement('hr')
+    hr.style.cssText = 'border-color:#334155;margin:6px 0;'
+    popup.appendChild(hr)
+
+    const uptimeEl = document.createElement('span')
+    uptimeEl.style.cssText = `font-size:12px;font-weight:700;color:${fill};`
+    uptimeEl.textContent = `Uptime 24h: ${uptime}`
+    popup.appendChild(uptimeEl)
+    popup.appendChild(document.createElement('br'))
+
+    const checksEl = document.createElement('span')
+    checksEl.style.cssText = 'font-size:11px;color:#64748b;'
+    checksEl.textContent = checks
+    popup.appendChild(checksEl)
+    popup.appendChild(document.createElement('br'))
+
+    const onlineEl = document.createElement('span')
+    onlineEl.style.cssText = 'font-size:11px;color:#64748b;'
+    onlineEl.textContent = online
+    popup.appendChild(onlineEl)
+
     const marker = L.marker([p.latitude, p.longitude], { icon })
       .addTo(leafletMap)
-      .bindPopup(`
-        <div style="font-family:system-ui;min-width:140px;">
-          <b style="font-size:13px;">${escapeHtml(p.name)}</b><br>
-          <span style="color:#94a3b8;font-size:11px;">${escapeHtml(p.location_name)}</span><br>
-          <hr style="border-color:#334155;margin:6px 0;">
-          <span style="font-size:12px;font-weight:700;color:${fill};">Uptime 24h: ${escapeHtml(uptime)}</span><br>
-          <span style="font-size:11px;color:#64748b;">${escapeHtml(checks)}</span><br>
-          <span style="font-size:11px;color:#64748b;">${escapeHtml(online)}</span>
-        </div>
-      `, { className: 'probe-popup' })
+      .bindPopup(popup, { className: 'probe-popup' })
     leafletMarkers.push(marker)
   }
 }

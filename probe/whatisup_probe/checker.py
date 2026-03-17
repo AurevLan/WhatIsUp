@@ -868,6 +868,9 @@ async def _check_smtp(
         )
 
 
+_SAFE_HOST_RE = re.compile(r"^[A-Za-z0-9.\-]{1,253}$")
+
+
 async def _check_ping(
     monitor_id: str,
     host: str,
@@ -875,6 +878,16 @@ async def _check_ping(
 ) -> CheckResult:
     """ICMP ping check via subprocess."""
     checked_at = datetime.now(UTC)
+
+    # Validate host to prevent command injection (only hostname/IP chars allowed)
+    if not _SAFE_HOST_RE.match(host):
+        return CheckResult(
+            monitor_id=monitor_id,
+            checked_at=checked_at,
+            status="error",
+            error_message="Invalid host for ping check",
+        )
+
     t0 = time.perf_counter()
 
     try:

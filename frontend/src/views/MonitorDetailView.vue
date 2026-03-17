@@ -737,12 +737,12 @@
             <th class="pb-2 text-left">Time</th>
             <th class="pb-2 text-left">Probe</th>
             <th class="pb-2 text-left">{{ t('common.status') }}</th>
-            <th v-if="monitor.check_type !== 'tcp'" class="pb-2 text-left">HTTP</th>
+            <th v-if="!noHttpTypes.includes(monitor.check_type)" class="pb-2 text-left">HTTP</th>
             <th class="pb-2 text-left">Réponse</th>
             <th v-if="monitor.check_type === 'scenario'" class="pb-2 text-left">Étapes</th>
-            <th v-if="monitor.check_type !== 'tcp'" class="pb-2 text-left hidden md:table-cell">Redirections</th>
+            <th v-if="!noHttpTypes.includes(monitor.check_type)" class="pb-2 text-left hidden md:table-cell">Redirections</th>
             <th v-if="monitor.ssl_check_enabled" class="pb-2 text-left hidden lg:table-cell">SSL</th>
-            <th v-if="monitor.check_type === 'tcp'" class="pb-2 text-left hidden md:table-cell">Erreur</th>
+            <th v-if="noHttpTypes.includes(monitor.check_type)" class="pb-2 text-left hidden md:table-cell">Erreur</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-800">
@@ -764,7 +764,7 @@
                 {{ r.status }}
               </span>
             </td>
-            <td v-if="monitor.check_type !== 'tcp'" class="py-2 text-gray-300">{{ r.http_status ?? '—' }}</td>
+            <td v-if="!noHttpTypes.includes(monitor.check_type)" class="py-2 text-gray-300">{{ r.http_status ?? '—' }}</td>
             <td class="py-2 text-gray-300">{{ r.response_time_ms ? Math.round(r.response_time_ms) + 'ms' : '—' }}</td>
             <td v-if="monitor.check_type === 'scenario'" class="py-2 text-xs">
               <span v-if="r.scenario_result">
@@ -777,13 +777,13 @@
               </span>
               <span v-else class="text-gray-600">—</span>
             </td>
-            <td v-if="monitor.check_type !== 'tcp'" class="py-2 text-gray-400 hidden md:table-cell">{{ r.redirect_count }}</td>
+            <td v-if="!noHttpTypes.includes(monitor.check_type)" class="py-2 text-gray-400 hidden md:table-cell">{{ r.redirect_count }}</td>
             <td v-if="monitor.ssl_check_enabled" class="py-2 hidden lg:table-cell">
               <span v-if="r.ssl_valid === null || r.ssl_valid === undefined" class="text-gray-600 text-xs">—</span>
               <span v-else-if="r.ssl_valid" class="text-xs text-emerald-400">✓ {{ r.ssl_days_remaining }}j</span>
               <span v-else class="text-xs text-red-400">✗ expired</span>
             </td>
-            <td v-if="monitor.check_type === 'tcp'" class="py-2 text-xs text-red-300 hidden md:table-cell truncate max-w-xs">
+            <td v-if="noHttpTypes.includes(monitor.check_type)" class="py-2 text-xs text-red-300 hidden md:table-cell truncate max-w-xs">
               {{ r.error_message || '—' }}
             </td>
           </tr>
@@ -856,6 +856,14 @@
       </div>
     </div>
 
+    <!-- ── Dépendances (section commune, tous onglets) ──────────────────────── -->
+    <div class="mt-8 card">
+      <MonitorDependencies
+        :monitor-id="String(monitor.id)"
+        :all-monitors="allMonitors"
+      />
+    </div>
+
     <!-- ── Onglet Carte ─────────────────────────────────────────────────────── -->
     <div v-if="activeTab === 'Carte'">
       <div ref="probeMapEl" class="rounded-xl overflow-hidden" style="height: 480px;"></div>
@@ -900,6 +908,7 @@ import { Shield, ShieldAlert, ShieldCheck } from 'lucide-vue-next'
 import { monitorsApi, triggerCheck, getSlaReport, listAnnotations, createAnnotation, deleteAnnotation, getSlo } from '../api/monitors'
 import { probesApi } from '../api/probes'
 import { metricsApi } from '../api/metrics'
+import MonitorDependencies from '../components/monitors/MonitorDependencies.vue'
 
 const { t } = useI18n()
 
@@ -910,6 +919,7 @@ const results   = ref([])
 const uptime24  = ref(null)
 const uptime7d  = ref(null)
 const probeMap  = ref({})   // probeId → { name, location_name }
+const allMonitors = ref([]) // for dependency picker
 
 // ── Incidents & Post-mortem ───────────────────────────────────────────────────
 const incidents = ref([])
@@ -1478,9 +1488,13 @@ const availOptions = {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+const noHttpTypes = ['tcp', 'udp', 'smtp', 'ping', 'domain_expiry', 'heartbeat']
+
 function formatTarget(m) {
   const raw = m.url?.replace(/^https?:\/\//, '') || ''
   if (m.check_type === 'tcp') return m.tcp_port ? `${raw}:${m.tcp_port}` : raw
+  if (m.check_type === 'udp') return m.udp_port ? `${raw}:${m.udp_port}` : raw
+  if (m.check_type === 'smtp') return m.smtp_port ? `${raw}:${m.smtp_port}` : raw
   if (m.check_type === 'scenario') {
     const firstNav = m.scenario_steps?.find(s => s.type === 'navigate')
     return firstNav?.params?.url?.replace(/^https?:\/\//, '') || 'scenario'
@@ -1534,6 +1548,12 @@ onMounted(async () => {
   loadIncidents()
   loadSlo()
   loadCustomMetrics()
+
+  // Load all monitors for dependency picker
+  try {
+    const { data } = await monitorsApi.list()
+    allMonitors.value = data
+  } catch {}
 
   // Fetch probe names (graceful fallback if not superadmin)
   try {

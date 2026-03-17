@@ -67,6 +67,16 @@ const routes = [
         name: 'Audit',
         component: () => import('../views/AuditView.vue'),
       },
+      {
+        path: 'incident-groups',
+        name: 'IncidentGroups',
+        component: () => import('../views/IncidentGroupsView.vue'),
+      },
+      {
+        path: 'probes/:id/timeline',
+        name: 'ProbeTimeline',
+        component: () => import('../views/ProbeTimelineView.vue'),
+      },
     ],
   },
   {

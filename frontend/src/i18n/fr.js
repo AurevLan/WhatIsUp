@@ -4,6 +4,7 @@ export default {
     monitors: 'Moniteurs',
     probes: 'Sondes',
     alerts: 'Alertes',
+    apiKeys: 'Clés API',
     audit: "Journal d'audit",
     maintenance: 'Maintenance',
     settings: 'Paramètres',
@@ -12,6 +13,7 @@ export default {
     overview: 'Vue générale',
     infrastructure: 'Infrastructure',
     account: 'Compte',
+    incidentGroups: "Groupes d'incidents",
   },
   common: {
     save: 'Enregistrer',
@@ -91,12 +93,20 @@ export default {
     check_type: {
       http: 'HTTP',
       tcp: 'TCP',
+      udp: 'UDP',
       dns: 'DNS',
       keyword: 'Mot-clé',
       json_path: 'JSON Path',
       scenario: 'Scénario',
       heartbeat: 'Heartbeat',
+      smtp: 'SMTP',
+      ping: 'Ping',
+      domain_expiry: 'Domaine',
     },
+    flapping_settings: 'Détection de flapping',
+    flapping_desc: 'Remplace les seuils globaux de détection de flapping pour ce moniteur.',
+    flap_threshold: 'Seuil de transitions',
+    flap_window_minutes: 'Fenêtre (minutes)',
   },
   monitor_detail: {
     test_now: 'Tester maintenant',
@@ -294,5 +304,51 @@ export default {
   },
   ws: {
     reconnecting: 'Reconnexion aux mises à jour en temps réel…',
+  },
+
+  // Divers
+  common: {
+    day: 'jour',
+    days: 'jours',
+  },
+
+  // Timeline probe
+  probeTimeline: {
+    title: "Timeline d'incidents",
+    subtitle: 'Moniteurs affectés par cette sonde — utile pour diagnostiquer une panne réseau localisée',
+    empty: 'Aucun incident enregistré pour cette sonde dans la fenêtre sélectionnée.',
+    ongoing: 'En cours',
+    more: "incidents supplémentaires",
+  },
+
+  // Dépendances entre moniteurs
+  dependencies: {
+    title: 'Dépendances',
+    description: 'Quand un moniteur parent est en panne, les incidents de ce moniteur seront supprimés.',
+    parent_monitor: 'Moniteur parent',
+    suppress_on_parent_down: 'Supprimer les alertes quand le parent est en panne',
+    add: 'Ajouter une dépendance',
+    remove: 'Supprimer',
+    empty: 'Aucune dépendance configurée.',
+    added: 'Dépendance ajoutée.',
+    removed: 'Dépendance supprimée.',
+    error_self: 'Un moniteur ne peut pas dépendre de lui-même.',
+    error_duplicate: 'Cette dépendance existe déjà.',
+    suppressed_badge: 'Supprimé (parent en panne)',
+  },
+
+  // Groupes d'incidents
+  incidentGroups: {
+    title: "Groupes d'incidents",
+    subtitle: 'Incidents corrélés causés par les mêmes sondes défaillantes',
+    id: 'ID Groupe',
+    triggered_at: 'Déclenché',
+    resolved_at: 'Résolu',
+    status: 'Statut',
+    status_open: 'Ouvert',
+    status_resolved: 'Résolu',
+    cause_probes: 'Sondes affectées',
+    incidents: 'Incidents',
+    empty: "Aucun groupe d'incidents corrélés.",
   },
 }

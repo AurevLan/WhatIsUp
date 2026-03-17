@@ -31,9 +31,13 @@
 ### Monitoring
 - **HTTP / HTTPS** — status codes, redirect following, response time, SSL certificate expiry
 - **TCP** — port reachability (databases, SSH, SMTP, custom services)
+- **UDP** — datagram probe; ICMP port-unreachable = down, timeout = filtered/open
 - **DNS** — record resolution with optional value assertion (A, AAAA, CNAME, MX, TXT, NS)
 - **Keyword** — response body scan with optional negate mode
 - **JSON Path** — structured response validation (e.g. `$.status == "ok"`)
+- **SMTP** — banner + EHLO handshake with optional STARTTLS; measures banner-to-ready time
+- **Ping** — ICMP round-trip time via system `ping`
+- **Domain expiry** — WHOIS lookup; configurable warning days before domain expiration
 - **Browser scenarios** — multi-step Playwright automation (navigate, click, fill, assert, extract, screenshot) with Core Web Vitals (LCP, CLS, INP)
 - **Heartbeat / cron monitoring** — dead-man's switch for scheduled jobs; unique ping URL per monitor
 - **Advanced assertions** — regex body check, response header validation (exact or `/regex/`), JSON Schema validation
@@ -41,7 +45,7 @@
 ### Infrastructure
 - **Multi-probe architecture** — deploy lightweight probe agents in any location; correlate outages geographically
 - **Network type** — tag each probe as `external` (public internet) or `internal` (corporate LAN) to distinguish internal vs external failures
-- **Geographic map** — Leaflet world map with real-time probe status
+- **Probe map on dashboard** — Leaflet world map with per-probe 24h uptime (🟢 ≥ 99 % / 🟡 ≥ 90 % / 🔴 < 90 %) and online/offline status; auto-refreshes every 60 s
 - **City / address geocoding** — type any address or city to auto-resolve GPS coordinates (Nominatim, no API key)
 
 ### Observability
@@ -53,11 +57,15 @@
 - **Response time trend** — 6-hour rolling comparison with colour-coded indicator
 
 ### Incidents & alerting
-- **Automatic incident lifecycle** — open on failure, resolve on recovery, flapping detection
+- **Automatic incident lifecycle** — open on failure, resolve on recovery, flapping detection with per-monitor thresholds
+- **Incident groups** — monitors sharing the same failing probes within a 90 s window are grouped into one persistent incident group; one notification instead of N
+- **Monitor dependencies** — when a parent monitor is down, child incidents are automatically suppressed; eliminates cascade alert storms
+- **Alert storm protection** — per-rule rate cap (`storm_max_alerts` within `storm_window_seconds`); forced digest when threshold is exceeded
+- **Performance baseline alerting** — alert when response time exceeds a configurable multiple of the 7-day rolling hourly baseline
 - **Auto post-mortem** — Markdown report generated on incident resolution (timeline, alerts, metrics)
 - **Alert channels** — Email (SMTP), Webhook (HMAC-SHA256), Telegram Bot, Slack, PagerDuty, Opsgenie
-- **Digest notifications** — batch cascading alerts within a configurable time window
-- **Maintenance windows** — suppress alerts during planned downtime
+- **Persistent digest** — digest scheduling stored in Redis; survives server restarts
+- **Maintenance windows** — suppress alerts during planned downtime; group-level suppression support
 
 ### Public status pages
 - **Shareable URL** — `/status/{slug}`, no login required

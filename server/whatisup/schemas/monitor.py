@@ -24,9 +24,14 @@ class MonitorCreate(BaseModel):
     ssl_expiry_warn_days: int = Field(default=30, ge=1, le=365)
     tag_ids: list[uuid.UUID] = Field(default=[])
     check_type: str = Field(
-        default="http", pattern=r"^(http|tcp|dns|keyword|json_path|scenario|heartbeat)$"
+        default="http",
+        pattern=r"^(http|tcp|udp|dns|keyword|json_path|scenario|heartbeat|smtp|ping|domain_expiry)$",
     )
     tcp_port: int | None = Field(default=None, ge=1, le=65535)
+    udp_port: int | None = Field(default=None, ge=1, le=65535)
+    smtp_port: int | None = Field(default=None, ge=1, le=65535)
+    smtp_starttls: bool = False
+    domain_expiry_warn_days: int = Field(default=30, ge=1, le=365)
     dns_record_type: str | None = Field(default=None, pattern=r"^(A|AAAA|CNAME|MX|TXT|NS)$")
     dns_expected_value: str | None = Field(default=None, max_length=512)
     keyword: str | None = Field(default=None, max_length=512)
@@ -46,6 +51,9 @@ class MonitorCreate(BaseModel):
     # SLO / Error Budget
     slo_target: float | None = Field(None, ge=0.0, le=100.0)
     slo_window_days: int = Field(30, ge=1, le=365)
+    # Flapping detection — per-monitor overrides
+    flap_threshold: int = Field(default=5, ge=2, le=50)
+    flap_window_minutes: int = Field(default=10, ge=1, le=60)
 
     @field_validator("expected_status_codes")
     @classmethod
@@ -83,9 +91,14 @@ class MonitorUpdate(BaseModel):
     ssl_expiry_warn_days: int | None = Field(default=None, ge=1, le=365)
     tag_ids: list[uuid.UUID] | None = None
     check_type: str | None = Field(
-        default=None, pattern=r"^(http|tcp|dns|keyword|json_path|scenario|heartbeat)$"
+        default=None,
+        pattern=r"^(http|tcp|udp|dns|keyword|json_path|scenario|heartbeat|smtp|ping|domain_expiry)$",
     )
     tcp_port: int | None = Field(default=None, ge=1, le=65535)
+    udp_port: int | None = Field(default=None, ge=1, le=65535)
+    smtp_port: int | None = Field(default=None, ge=1, le=65535)
+    smtp_starttls: bool | None = None
+    domain_expiry_warn_days: int | None = Field(default=None, ge=1, le=365)
     dns_record_type: str | None = Field(default=None, pattern=r"^(A|AAAA|CNAME|MX|TXT|NS)$")
     dns_expected_value: str | None = Field(default=None, max_length=512)
     keyword: str | None = Field(default=None, max_length=512)
@@ -105,6 +118,9 @@ class MonitorUpdate(BaseModel):
     # SLO / Error Budget
     slo_target: float | None = Field(None, ge=0.0, le=100.0)
     slo_window_days: int | None = Field(None, ge=1, le=365)
+    # Flapping
+    flap_threshold: int | None = Field(default=None, ge=2, le=50)
+    flap_window_minutes: int | None = Field(default=None, ge=1, le=60)
 
 
 class MonitorOut(BaseModel):
@@ -123,6 +139,10 @@ class MonitorOut(BaseModel):
     tags: list[TagOut]
     check_type: str
     tcp_port: int | None
+    udp_port: int | None = None
+    smtp_port: int | None = None
+    smtp_starttls: bool = False
+    domain_expiry_warn_days: int = 30
     dns_record_type: str | None
     dns_expected_value: str | None
     keyword: str | None
@@ -142,6 +162,9 @@ class MonitorOut(BaseModel):
     # SLO / Error Budget
     slo_target: float | None = None
     slo_window_days: int = 30
+    # Flapping
+    flap_threshold: int = 5
+    flap_window_minutes: int = 10
     # Runtime fields — populated by list_monitors, not stored in the DB row
     last_status: str | None = None
     uptime_24h: float | None = None
@@ -174,6 +197,20 @@ class MonitorGroupOut(BaseModel):
     public_slug: str | None
     owner_id: uuid.UUID
     tags: list[TagOut]
+
+    model_config = {"from_attributes": True}
+
+
+class MonitorDependencyCreate(BaseModel):
+    parent_id: uuid.UUID
+    suppress_on_parent_down: bool = True
+
+
+class MonitorDependencyOut(BaseModel):
+    id: uuid.UUID
+    parent_id: uuid.UUID
+    child_id: uuid.UUID
+    suppress_on_parent_down: bool
 
     model_config = {"from_attributes": True}
 

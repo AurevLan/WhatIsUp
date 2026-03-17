@@ -1,54 +1,63 @@
 <template>
-  <div style="padding:32px;max-width:1100px;margin:0 auto;">
+  <div class="p-8 max-w-6xl mx-auto space-y-6">
 
     <!-- Header -->
-    <div style="margin-bottom:28px;">
-      <h1 style="font-size:22px;font-weight:700;color:#f1f5f9;margin:0 0 4px;">{{ t('dashboard.title') }}</h1>
-      <p style="font-size:13px;color:#475569;margin:0;">Real-time overview of your monitored services</p>
+    <div>
+      <h1 class="text-2xl font-bold text-gray-100">{{ t('dashboard.title') }}</h1>
+      <p class="text-sm text-gray-600 mt-1">Real-time overview of your monitored services</p>
     </div>
 
     <!-- Summary cards -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:28px;">
-      <StatCard :label="t('dashboard.total_monitors')" :value="monitors.length"  color="#60a5fa" bg="rgba(59,130,246,.1)"   :icon="Monitor" />
-      <StatCard :label="t('dashboard.monitors_up')"    :value="upCount"          color="#34d399" bg="rgba(16,185,129,.1)"  :icon="CheckCircle2" />
-      <StatCard :label="t('dashboard.monitors_down')"  :value="downCount"        color="#f87171" bg="rgba(239,68,68,.1)"   :icon="XCircle" />
-      <StatCard :label="t('dashboard.active_incidents')" :value="incidentCount"  color="#fbbf24" bg="rgba(245,158,11,.1)"  :icon="AlertTriangle" />
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <StatCard :label="t('dashboard.total_monitors')" :value="monitors.length"  color="#60a5fa" bg="rgba(59,130,246,.1)"  :icon="Monitor" />
+      <StatCard :label="t('dashboard.monitors_up')"    :value="upCount"          color="#34d399" bg="rgba(16,185,129,.1)" :icon="CheckCircle2" />
+      <StatCard :label="t('dashboard.monitors_down')"  :value="downCount"        color="#f87171" bg="rgba(239,68,68,.1)"  :icon="XCircle" />
+      <StatCard :label="t('dashboard.active_incidents')" :value="incidentCount"  color="#fbbf24" bg="rgba(245,158,11,.1)" :icon="AlertTriangle" />
     </div>
 
-    <!-- Monitor list -->
-    <div style="background:#0a0f1e;border:1px solid #1e293b;border-radius:16px;overflow:hidden;">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid #1e293b;">
-        <h2 style="font-size:15px;font-weight:600;color:#f1f5f9;margin:0;">{{ t('monitors.title') }}</h2>
-        <router-link to="/monitors" style="font-size:13px;color:#60a5fa;text-decoration:none;display:flex;align-items:center;gap:4px;">
-          View all <ArrowRight :size="13" />
-        </router-link>
-      </div>
+    <!-- Two-column layout on large screens -->
+    <div class="grid grid-cols-1 xl:grid-cols-5 gap-6">
 
-      <!-- Loading skeleton -->
-      <div v-if="loading" style="padding:20px 24px;display:flex;flex-direction:column;gap:12px;">
-        <div v-for="i in 5" :key="i" style="height:48px;background:#1e293b;border-radius:10px;animation:pulse 1.5s ease infinite;" />
-      </div>
-
-      <!-- Empty state -->
-      <div v-else-if="monitors.length === 0" style="display:flex;flex-direction:column;align-items:center;padding:64px 24px;text-align:center;">
-        <div style="width:56px;height:56px;background:#1e293b;border-radius:16px;display:flex;align-items:center;justify-content:center;margin-bottom:16px;">
-          <Monitor :size="28" color="#334155" />
+      <!-- Monitor list (3/5) -->
+      <div class="xl:col-span-3 card p-0 overflow-hidden">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-800/80">
+          <h2 class="text-sm font-semibold text-gray-100">{{ t('monitors.title') }}</h2>
+          <router-link to="/monitors" class="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors">
+            View all <ArrowRight class="w-3 h-3" />
+          </router-link>
         </div>
-        <p style="font-size:14px;font-weight:500;color:#64748b;margin:0 0 6px;">{{ t('monitors.no_monitors') }}</p>
-        <p style="font-size:13px;color:#334155;margin:0 0 20px;">Add your first URL to start monitoring</p>
-        <router-link to="/monitors" class="btn-primary" style="text-decoration:none;">
-          <Plus :size="14" />
-          {{ t('monitors.add') }}
-        </router-link>
+
+        <!-- Loading -->
+        <div v-if="loading" class="p-5 space-y-3">
+          <div v-for="i in 5" :key="i" class="h-12 bg-gray-800/50 rounded-xl animate-pulse" />
+        </div>
+
+        <!-- Empty -->
+        <div v-else-if="monitors.length === 0" class="flex flex-col items-center py-16 text-center px-6">
+          <div class="w-14 h-14 bg-gray-800 rounded-2xl flex items-center justify-center mb-4">
+            <Monitor class="w-7 h-7 text-gray-700" />
+          </div>
+          <p class="text-sm font-medium text-gray-600 mb-1">{{ t('monitors.no_monitors') }}</p>
+          <p class="text-xs text-gray-700 mb-5">Add your first URL to start monitoring</p>
+          <router-link to="/monitors" class="btn-primary text-sm">
+            <Plus class="w-4 h-4" />
+            {{ t('monitors.add') }}
+          </router-link>
+        </div>
+
+        <!-- List -->
+        <div v-else class="px-3 py-2">
+          <MonitorRow v-for="m in monitors.slice(0, 10)" :key="m.id" :monitor="m" />
+          <p v-if="monitors.length > 10" class="text-center text-xs text-gray-700 py-3">
+            +{{ monitors.length - 10 }} more —
+            <router-link to="/monitors" class="text-blue-400 hover:text-blue-300">view all</router-link>
+          </p>
+        </div>
       </div>
 
-      <!-- List -->
-      <div v-else style="padding:8px 16px;">
-        <MonitorRow v-for="m in monitors.slice(0,10)" :key="m.id" :monitor="m" />
-        <p v-if="monitors.length > 10" style="text-align:center;font-size:12px;color:#334155;padding:12px 0 8px;">
-          +{{ monitors.length - 10 }} more —
-          <router-link to="/monitors" style="color:#60a5fa;">view all</router-link>
-        </p>
+      <!-- Probe map (2/5) -->
+      <div class="xl:col-span-2">
+        <ProbeMap />
       </div>
     </div>
   </div>
@@ -60,10 +69,10 @@ import { useI18n } from 'vue-i18n'
 import { AlertTriangle, ArrowRight, CheckCircle2, Monitor, Plus, XCircle } from 'lucide-vue-next'
 import { useMonitorStore } from '../stores/monitors'
 import MonitorRow from '../components/monitors/MonitorRow.vue'
+import ProbeMap from '../components/dashboard/ProbeMap.vue'
 
-// Inline StatCard to avoid extra file
 const StatCard = defineComponent({
-  props: { label: String, value: [Number,String], color: String, bg: String, icon: [Object, Function] },
+  props: { label: String, value: [Number, String], color: String, bg: String, icon: [Object, Function] },
   setup(p) {
     return () => h('div', {
       style: `background:#0a0f1e;border:1px solid #1e293b;border-radius:14px;padding:18px 20px;display:flex;align-items:center;gap:14px;`
@@ -73,25 +82,20 @@ const StatCard = defineComponent({
       ),
       h('div', [
         h('div', { style: `font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;` }, p.label),
-        h('div', { style: `font-size:26px;font-weight:700;color:${p.color};line-height:1;` }, p.value),
-      ])
+        h('div', { style: `font-size:26px;font-weight:700;color:${p.color};line-height:1;` }, String(p.value)),
+      ]),
     ])
-  }
+  },
 })
 
 const { t } = useI18n()
-
 const monitorStore = useMonitorStore()
 const monitors = computed(() => monitorStore.monitors)
 const loading  = computed(() => monitorStore.loading)
 
 const upCount       = computed(() => monitors.value.filter(m => m._lastStatus === 'up').length)
-const downCount     = computed(() => monitors.value.filter(m => ['down','error','timeout'].includes(m._lastStatus)).length)
+const downCount     = computed(() => monitors.value.filter(m => ['down', 'error', 'timeout'].includes(m._lastStatus)).length)
 const incidentCount = computed(() => monitors.value.filter(m => m._hasOpenIncident).length)
 
 onMounted(() => monitorStore.fetchAll())
 </script>
-
-<style>
-@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
-</style>

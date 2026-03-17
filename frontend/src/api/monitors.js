@@ -12,6 +12,10 @@ export const monitorsApi = {
   probeStatus: (id) => api.get(`/monitors/${id}/probes`),
   bulkAction: (payload) => api.post('/monitors/bulk', payload),
   getPostmortem: (monitorId, incidentId) => api.get(`/monitors/${monitorId}/incidents/${incidentId}/postmortem`),
+  // Dependencies
+  listDependencies: (id) => api.get(`/monitors/${id}/dependencies`),
+  addDependency: (id, data) => api.post(`/monitors/${id}/dependencies`, data),
+  removeDependency: (id, depId) => api.delete(`/monitors/${id}/dependencies/${depId}`),
 }
 
 export async function triggerCheck(monitorId) {

@@ -111,7 +111,7 @@ async function _sendToWhatIsUp(monitorName, scenarioSteps) {
     throw new Error('WhatIsUp server URL and API key are required. Go to Extension Options.')
   }
 
-  const url = `${serverUrl.replace(/\/$/, '')}/api/v1/monitors`
+  const url = `${serverUrl.replace(/\/$/, '')}/api/v1/monitors/`
 
   const body = {
     name: monitorName,

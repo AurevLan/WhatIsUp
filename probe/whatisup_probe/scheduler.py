@@ -38,6 +38,7 @@ class ProbeScheduler:
                 ssl_check_enabled=monitor["ssl_check_enabled"],
                 check_type=monitor.get("check_type", "http"),
                 tcp_port=monitor.get("tcp_port"),
+                udp_port=monitor.get("udp_port"),
                 dns_record_type=monitor.get("dns_record_type"),
                 dns_expected_value=monitor.get("dns_expected_value"),
                 keyword=monitor.get("keyword"),
@@ -49,6 +50,9 @@ class ProbeScheduler:
                 body_regex=monitor.get("body_regex"),
                 expected_headers=monitor.get("expected_headers"),
                 json_schema=monitor.get("json_schema"),
+                smtp_port=monitor.get("smtp_port"),
+                smtp_starttls=monitor.get("smtp_starttls", False),
+                domain_expiry_warn_days=monitor.get("domain_expiry_warn_days", 30),
             )
             logger.debug(
                 "check_done",

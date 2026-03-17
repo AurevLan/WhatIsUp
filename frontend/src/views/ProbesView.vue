@@ -74,6 +74,10 @@
           </div>
 
           <div v-if="auth.isSuperadmin" class="mt-4 pt-4 border-t border-gray-800 flex gap-4">
+            <router-link
+              :to="`/probes/${probe.id}/timeline`"
+              class="text-xs text-purple-400 hover:text-purple-300"
+            >📊 {{ t('probeTimeline.title') }}</router-link>
             <button @click="startEdit(probe)" class="text-xs text-blue-400 hover:text-blue-300">
               ✏️ {{ t('common.edit') }}
             </button>

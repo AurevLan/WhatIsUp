@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import JSON, DateTime, Enum, ForeignKey, Index, Integer, Uuid
+from sqlalchemy import JSON, Boolean, DateTime, Enum, ForeignKey, Index, Integer, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from whatisup.models.base import Base
@@ -20,6 +20,22 @@ if TYPE_CHECKING:
 class IncidentScope(enum.StrEnum):
     global_ = "global"  # All probes report down
     geographic = "geographic"  # Only some probes report down
+
+
+class IncidentGroup(Base):
+    """Groups correlated incidents triggered by the same root cause (common probes)."""
+
+    __tablename__ = "incident_groups"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    triggered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    cause_probe_ids: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="open", nullable=False)
+
+    incidents: Mapped[list[Incident]] = relationship("Incident", back_populates="group")
+
+    __table_args__ = (Index("ix_incident_groups_status", "status"),)
 
 
 class Incident(Base):
@@ -38,11 +54,25 @@ class Incident(Base):
     )
     affected_probe_ids: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
 
+    # Set to True when a parent monitor is down and suppresses this incident's alerts
+    dependency_suppressed: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False, server_default="false"
+    )
+
+    # FK to correlation group (nullable — not all incidents are part of a group)
+    group_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("incident_groups.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
     # Relationships
     monitor: Mapped[Monitor] = relationship("Monitor", back_populates="incidents")
     alert_events: Mapped[list[AlertEvent]] = relationship(
         "AlertEvent", back_populates="incident", cascade="all, delete-orphan"
     )
+    group: Mapped[IncidentGroup | None] = relationship("IncidentGroup", back_populates="incidents")
 
     __table_args__ = (
         Index("ix_incidents_monitor_started", "monitor_id", "started_at"),

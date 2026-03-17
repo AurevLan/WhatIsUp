@@ -159,6 +159,10 @@ PROBE_LOCATION=${PROBE_LOCATION}
 HEARTBEAT_INTERVAL=${HEARTBEAT_INTERVAL}
 MAX_CONCURRENT_CHECKS=${MAX_CONCURRENT_CHECKS}
 LOG_LEVEL=INFO
+
+# DNS utilisés par le container probe pour résoudre les cibles monitorées
+PROBE_DNS_1=${PROBE_DNS_1:-8.8.8.8}
+PROBE_DNS_2=${PROBE_DNS_2:-8.8.4.4}
 EOF
   chmod 600 "$_file"
 }
@@ -217,6 +221,12 @@ collect_probe_config() {
   prompt PROBE_LOCATION         "Localisation (ex: Paris, FR)" "Serveur distant"
   prompt HEARTBEAT_INTERVAL     "Intervalle heartbeat (s)"     "30"
   prompt MAX_CONCURRENT_CHECKS  "Checks simultanés max"        "10"
+
+  step "DNS de la sonde"
+  log "Serveurs DNS utilisés par le container probe pour résoudre les cibles monitorées."
+  log "Laissez les valeurs par défaut pour utiliser les DNS publics Google."
+  prompt PROBE_DNS_1 "DNS primaire"   "8.8.8.8"
+  prompt PROBE_DNS_2 "DNS secondaire" "8.8.4.4"
 }
 
 # ── Enrôlement automatique via API ───────────────────────────────────────────
@@ -306,9 +316,17 @@ deploy_server_with_probe() {
   step "Sonde centrale"
   prompt PROBE_LOCATION "Localisation de la sonde centrale" "Central Server"
 
+  step "DNS de la sonde"
+  log "Serveurs DNS utilisés par le container probe pour résoudre les cibles monitorées."
+  log "Laissez les valeurs par défaut pour utiliser les DNS publics Google."
+  prompt PROBE_DNS_1 "DNS primaire"   "8.8.8.8"
+  prompt PROBE_DNS_2 "DNS secondaire" "8.8.4.4"
+
   if check_overwrite .env; then
     write_server_env .env
     echo "PROBE_LOCATION=${PROBE_LOCATION}" >> .env
+    echo "PROBE_DNS_1=${PROBE_DNS_1}" >> .env
+    echo "PROBE_DNS_2=${PROBE_DNS_2}" >> .env
     ok ".env écrit"
   fi
 

@@ -24,10 +24,12 @@
         <NavLink to="/monitors" :icon="Activity"        :label="t('nav.monitors')" />
         <NavLink to="/groups"   :icon="Layers"          :label="t('nav.groups')" />
         <div style="font-size:10px;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:.08em;padding:0 8px;margin:12px 0 6px;">{{ t('nav.infrastructure') }}</div>
-        <NavLink to="/probes"      :icon="MapPin"          :label="t('nav.probes')" />
-        <NavLink to="/alerts"      :icon="Bell"            :label="t('nav.alerts')" />
-        <NavLink to="/maintenance" :icon="CalendarClock"   :label="t('nav.maintenance')" />
+        <NavLink to="/probes"           :icon="MapPin"          :label="t('nav.probes')" />
+        <NavLink to="/alerts"           :icon="Bell"            :label="t('nav.alerts')" />
+        <NavLink to="/maintenance"      :icon="CalendarClock"   :label="t('nav.maintenance')" />
+        <NavLink to="/incident-groups"  :icon="GitMerge"        :label="t('nav.incidentGroups')" />
         <div style="font-size:10px;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:.08em;padding:0 8px;margin:12px 0 6px;">{{ t('nav.account') }}</div>
+        <NavLink to="/api-keys" :icon="KeyRound"        :label="t('nav.apiKeys')" />
         <NavLink to="/audit"    :icon="ClipboardList"   :label="t('nav.audit')" />
         <NavLink to="/settings" :icon="Settings"        :label="t('nav.settings')" />
       </div>
@@ -81,7 +83,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { Activity, Bell, CalendarClock, ClipboardList, LayoutDashboard, Layers, LogOut, MapPin, Settings, WifiOff } from 'lucide-vue-next'
+import { Activity, Bell, CalendarClock, ClipboardList, GitMerge, KeyRound, LayoutDashboard, Layers, LogOut, MapPin, Settings, WifiOff } from 'lucide-vue-next'
 import { useAuthStore } from '../../stores/auth'
 import { useWebSocketStore } from '../../stores/websocket'
 import NavLink from '../../components/NavLink.vue'

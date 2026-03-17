@@ -10,38 +10,41 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from sqlalchemy import func
+
 from whatisup.models.alert import AlertCondition, AlertEvent, AlertEventStatus, AlertRule
-from whatisup.models.incident import Incident, IncidentScope
-from whatisup.models.monitor import Monitor
+from whatisup.models.incident import Incident, IncidentGroup, IncidentScope
+from whatisup.models.monitor import Monitor, MonitorDependency
 from whatisup.models.probe import Probe
 from whatisup.models.result import CheckResult, CheckStatus
 from whatisup.services.alert import dispatch_alert, maybe_digest_or_dispatch
-from whatisup.services.maintenance import is_in_maintenance
+from whatisup.services.maintenance import is_group_maintenance_suppressed, is_in_maintenance
 from whatisup.services.stats import invalidate_uptime_cache, latest_results_subq
 
 logger = structlog.get_logger(__name__)
 
-# A monitor is considered "flapping" if it toggles state more than this many times
-# within the flapping window
-FLAP_THRESHOLD = 5
-FLAP_WINDOW_MINUTES = 10
+# Global defaults — overridden per-monitor by flap_threshold / flap_window_minutes
+_DEFAULT_FLAP_THRESHOLD = 5
+_DEFAULT_FLAP_WINDOW_MINUTES = 10
 
 
-async def _is_flapping(db: AsyncSession, monitor_id: uuid.UUID) -> bool:
-    """Detect rapid up/down oscillation within FLAP_WINDOW_MINUTES."""
-    cutoff = datetime.now(UTC) - timedelta(minutes=FLAP_WINDOW_MINUTES)
+async def _is_flapping(db: AsyncSession, monitor: Monitor) -> bool:
+    """Detect rapid up/down oscillation within the monitor's flap window."""
+    threshold = monitor.flap_threshold or _DEFAULT_FLAP_THRESHOLD
+    window = monitor.flap_window_minutes or _DEFAULT_FLAP_WINDOW_MINUTES
+    cutoff = datetime.now(UTC) - timedelta(minutes=window)
     rows = (
         await db.execute(
             select(CheckResult.status, CheckResult.checked_at)
             .where(
-                CheckResult.monitor_id == monitor_id,
+                CheckResult.monitor_id == monitor.id,
                 CheckResult.checked_at >= cutoff,
             )
             .order_by(CheckResult.checked_at.asc())
         )
     ).all()
 
-    if len(rows) < FLAP_THRESHOLD:
+    if len(rows) < threshold:
         return False
 
     transitions = sum(
@@ -49,25 +52,55 @@ async def _is_flapping(db: AsyncSession, monitor_id: uuid.UUID) -> bool:
         for i in range(1, len(rows))
         if (rows[i].status == CheckStatus.up) != (rows[i - 1].status == CheckStatus.up)
     )
-    return transitions >= FLAP_THRESHOLD
+    return transitions >= threshold
+
+
+async def _is_suppressed_by_dependency(
+    db: AsyncSession, monitor_id: uuid.UUID
+) -> bool:
+    """Return True if any active parent monitor has an open incident with suppress enabled."""
+    deps = (
+        await db.execute(
+            select(MonitorDependency).where(
+                MonitorDependency.child_id == monitor_id,
+                MonitorDependency.suppress_on_parent_down.is_(True),
+            )
+        )
+    ).scalars().all()
+
+    if not deps:
+        return False
+
+    parent_ids = [d.parent_id for d in deps]
+    open_parent = (
+        await db.execute(
+            select(Incident.id).where(
+                Incident.monitor_id.in_(parent_ids),
+                Incident.resolved_at.is_(None),
+            ).limit(1)
+        )
+    ).scalar_one_or_none()
+
+    return open_parent is not None
 
 
 async def _correlate_common_cause(
     db: AsyncSession,
-    monitor_id: uuid.UUID,
+    incident: Incident,
     affected_probe_ids: list[str],
     publish_event,
 ) -> None:
     """
     If multiple monitors became down at the same time via the same probes,
-    emit a correlation event for dashboard visibility.
+    persist a correlation group and emit a WebSocket event.
     """
     if not affected_probe_ids:
         return
 
+    monitor_id = incident.monitor_id
     window_start = datetime.now(UTC) - timedelta(seconds=90)
 
-    # Find monitors that recently opened an incident with overlapping affected probes
+    # Find open incidents started recently with overlapping affected probes
     open_incidents = (
         (
             await db.execute(
@@ -82,27 +115,64 @@ async def _correlate_common_cause(
         .all()
     )
 
-    correlated = []
-    for inc in open_incidents:
-        overlap = set(inc.affected_probe_ids) & set(affected_probe_ids)
-        if overlap:
-            correlated.append(str(inc.monitor_id))
+    correlated_incidents = [
+        inc for inc in open_incidents
+        if set(inc.affected_probe_ids) & set(affected_probe_ids)
+    ]
 
-    if correlated:
-        logger.info(
-            "common_cause_detected",
-            monitor_id=str(monitor_id),
-            correlated_monitors=correlated,
-            shared_probes=affected_probe_ids,
+    if not correlated_incidents:
+        return
+
+    # Find if any correlated incident already belongs to a group
+    existing_group_id: uuid.UUID | None = next(
+        (inc.group_id for inc in correlated_incidents if inc.group_id is not None),
+        None,
+    )
+
+    now = datetime.now(UTC)
+
+    group: IncidentGroup | None = None
+    if existing_group_id:
+        group = await db.get(IncidentGroup, existing_group_id)
+        if group:
+            # Merge probe IDs
+            merged = list(set(group.cause_probe_ids) | set(affected_probe_ids))
+            group.cause_probe_ids = merged
+
+    if group is None:
+        group = IncidentGroup(
+            triggered_at=now,
+            cause_probe_ids=list(set(affected_probe_ids)),
+            status="open",
         )
-        await publish_event(
-            {
-                "type": "common_cause_detected",
-                "monitor_id": str(monitor_id),
-                "correlated_monitor_ids": correlated,
-                "shared_probe_ids": affected_probe_ids,
-            }
-        )
+        db.add(group)
+        await db.flush()  # generate group.id
+        # Attach all correlated incidents to the new group
+        for inc in correlated_incidents:
+            if inc.group_id is None:
+                inc.group_id = group.id
+
+    # Attach the new incident to the group
+    incident.group_id = group.id
+    await db.flush()
+
+    correlated_monitor_ids = [str(inc.monitor_id) for inc in correlated_incidents]
+    logger.info(
+        "common_cause_detected",
+        monitor_id=str(monitor_id),
+        group_id=str(group.id),
+        correlated_monitors=correlated_monitor_ids,
+        shared_probes=affected_probe_ids,
+    )
+    await publish_event(
+        {
+            "type": "common_cause_detected",
+            "group_id": str(group.id),
+            "monitor_id": str(monitor_id),
+            "correlated_monitor_ids": correlated_monitor_ids,
+            "shared_probe_ids": affected_probe_ids,
+        }
+    )
 
 
 async def _fire_alerts(
@@ -200,6 +270,33 @@ async def _fire_alerts(
                 await dispatch_alert(db, incident, channel, "incident_opened", ctx=ctx)
             continue
 
+        # Storm protection: skip if too many alerts sent recently for this rule
+        if (
+            rule.storm_window_seconds
+            and rule.storm_max_alerts
+            and event_type == "incident_opened"
+        ):
+            storm_cutoff = now - timedelta(seconds=rule.storm_window_seconds)
+            channel_ids = [c.id for c in rule.channels]
+            if channel_ids:
+                recent_count = (
+                    await db.execute(
+                        select(func.count(AlertEvent.id)).where(
+                            AlertEvent.channel_id.in_(channel_ids),
+                            AlertEvent.sent_at >= storm_cutoff,
+                            AlertEvent.status == AlertEventStatus.sent,
+                        )
+                    )
+                ).scalar_one()
+                if recent_count >= rule.storm_max_alerts:
+                    logger.info(
+                        "alert_storm_throttled",
+                        rule_id=str(rule.id),
+                        recent_count=recent_count,
+                        storm_max=rule.storm_max_alerts,
+                    )
+                    continue
+
         # Standard condition evaluation for opened/resolved
         if rule.condition == AlertCondition.any_down:
             if event_type not in ("incident_opened", "incident_resolved"):
@@ -231,6 +328,26 @@ async def _fire_alerts(
         elif rule.condition == AlertCondition.uptime_below:
             if event_type != "incident_opened":
                 continue
+        elif rule.condition == AlertCondition.response_time_above_baseline:
+            if event_type != "incident_opened":
+                continue
+            if rule.baseline_factor is None or result.response_time_ms is None:
+                continue
+            # Compute 7-day rolling average for the same hour-of-week
+            baseline_cutoff = now - timedelta(days=7)
+            baseline_row = (
+                await db.execute(
+                    select(func.avg(CheckResult.response_time_ms)).where(
+                        CheckResult.monitor_id == monitor.id,
+                        CheckResult.checked_at >= baseline_cutoff,
+                        CheckResult.response_time_ms.isnot(None),
+                    )
+                )
+            ).scalar_one_or_none()
+            if not baseline_row or baseline_row <= 0:
+                continue
+            if result.response_time_ms <= baseline_row * rule.baseline_factor:
+                continue
 
         for channel in rule.channels:
             await maybe_digest_or_dispatch(db, incident, channel, rule, event_type, ctx=ctx)
@@ -259,6 +376,39 @@ async def process_check_result(
     if in_maintenance:
         logger.info("check_suppressed_maintenance", monitor_id=str(monitor_id))
         return
+
+    # Item 7: group-level maintenance suppression when all monitors in group are down
+    if group_id is not None:
+        group_maintenance = await is_group_maintenance_suppressed(db, group_id)
+        if group_maintenance:
+            # Check if all other monitors in the group are also down
+            from whatisup.models.incident import Incident as _Incident
+            from whatisup.models.monitor import Monitor as _Monitor
+            all_in_group = (
+                await db.execute(
+                    select(_Monitor.id).where(
+                        _Monitor.group_id == group_id,
+                        _Monitor.enabled.is_(True),
+                    )
+                )
+            ).scalars().all()
+            if all_in_group:
+                open_incidents_count = (
+                    await db.execute(
+                        select(func.count(_Incident.id)).where(
+                            _Incident.monitor_id.in_(all_in_group),
+                            _Incident.resolved_at.is_(None),
+                        )
+                    )
+                ).scalar_one()
+                # All monitors in group are down (open incident count == group size or close)
+                if open_incidents_count >= len(all_in_group) - 1:
+                    logger.info(
+                        "check_suppressed_group_maintenance",
+                        monitor_id=str(monitor_id),
+                        group_id=str(group_id),
+                    )
+                    return
 
     # Invalidate uptime cache — a new result arrived, cached stats are stale
     await invalidate_uptime_cache(monitor_id)
@@ -321,7 +471,7 @@ async def process_check_result(
 
     # Flapping detection — don't open new incidents if flapping
     if scope is not None:
-        flapping = await _is_flapping(db, monitor_id)
+        flapping = await _is_flapping(db, monitor)
         if flapping:
             logger.info(
                 "flapping_detected",
@@ -351,12 +501,16 @@ async def process_check_result(
     now = datetime.now(UTC)
 
     if scope is not None and open_incident is None:
-        # Open a new incident
+        # Check if a parent monitor is down — suppress alerts if so
+        suppressed = await _is_suppressed_by_dependency(db, monitor_id)
+
+        # Open a new incident (still created for tracking, even if suppressed)
         incident = Incident(
             monitor_id=monitor_id,
             started_at=now,
             scope=scope,
             affected_probe_ids=affected_probe_ids,
+            dependency_suppressed=suppressed,
         )
         db.add(incident)
         await db.flush()
@@ -367,6 +521,7 @@ async def process_check_result(
             scope=scope.value,
             probes_down=probes_down,
             probes_total=probes_total,
+            dependency_suppressed=suppressed,
         )
 
         await publish_event(
@@ -377,14 +532,25 @@ async def process_check_result(
                 "scope": scope.value,
                 "affected_probes": affected_probe_ids,
                 "started_at": now.isoformat(),
+                "dependency_suppressed": suppressed,
             }
         )
 
-        # Fire alerts for incident open
-        await _fire_alerts(db, incident, monitor, result, "incident_opened")
+        # Fire alerts only when not suppressed by a parent dependency
+        if not suppressed:
+            # Detect common cause and group the incident BEFORE firing alerts,
+            # so grouped incidents skip individual notifications.
+            await _correlate_common_cause(db, incident, affected_probe_ids, publish_event)
 
-        # Detect common cause across monitors
-        await _correlate_common_cause(db, monitor_id, affected_probe_ids, publish_event)
+            # Only fire individual alert if NOT part of a group that already notified
+            if incident.group_id is None:
+                await _fire_alerts(db, incident, monitor, result, "incident_opened")
+        else:
+            logger.info(
+                "incident_alerts_suppressed_by_dependency",
+                monitor_id=str(monitor_id),
+                incident_id=str(incident.id),
+            )
 
     elif scope is not None and open_incident is not None:
         # Update scope/affected probes if changed
@@ -417,6 +583,7 @@ async def process_check_result(
         duration = int((now - open_incident.started_at).total_seconds())
         open_incident.resolved_at = now
         open_incident.duration_seconds = duration
+        await db.flush()
 
         logger.info(
             "incident_resolved",
@@ -435,5 +602,24 @@ async def process_check_result(
             }
         )
 
-        # Fire alerts for incident resolve
-        await _fire_alerts(db, open_incident, monitor, result, "incident_resolved")
+        # Fire resolve alerts only when incident was not suppressed
+        if not open_incident.dependency_suppressed:
+            await _fire_alerts(db, open_incident, monitor, result, "incident_resolved")
+
+        # Auto-resolve the group when all its incidents are resolved
+        if open_incident.group_id is not None:
+            group = await db.get(IncidentGroup, open_incident.group_id)
+            if group and group.status == "open":
+                siblings = (
+                    await db.execute(
+                        select(Incident).where(
+                            Incident.group_id == group.id,
+                            Incident.resolved_at.is_(None),
+                        ).limit(1)
+                    )
+                ).scalar_one_or_none()
+                if siblings is None:
+                    # All incidents in group are resolved
+                    group.status = "resolved"
+                    group.resolved_at = now
+                    logger.info("incident_group_resolved", group_id=str(group.id))

@@ -11,7 +11,7 @@
         <!-- Check type selector -->
         <div>
           <label class="block text-sm font-medium text-gray-300 mb-2">Check type</label>
-          <div class="grid grid-cols-4 sm:grid-cols-7 gap-1">
+          <div class="grid grid-cols-4 sm:grid-cols-6 gap-1">
             <button
               v-for="t in checkTypes" :key="t.value" type="button"
               @click="form.check_type = t.value"
@@ -40,7 +40,7 @@
             v-model="form.url"
             class="input w-full"
             :placeholder="currentType.urlPlaceholder"
-            :type="form.check_type === 'http' || form.check_type === 'keyword' || form.check_type === 'json_path' ? 'url' : 'text'"
+            :type="['http', 'keyword', 'json_path'].includes(form.check_type) ? 'url' : 'text'"
             :required="form.check_type !== 'scenario' && form.check_type !== 'heartbeat'"
           />
         </div>
@@ -75,6 +75,36 @@
         <div v-if="form.check_type === 'tcp'">
           <label class="block text-sm font-medium text-gray-300 mb-1">Port *</label>
           <input v-model.number="form.tcp_port" class="input w-full" type="number" min="1" max="65535" placeholder="e.g. 443, 22, 5432" required />
+        </div>
+
+        <!-- UDP port -->
+        <div v-if="form.check_type === 'udp'">
+          <label class="block text-sm font-medium text-gray-300 mb-1">Port *</label>
+          <input v-model.number="form.udp_port" class="input w-full" type="number" min="1" max="65535" placeholder="e.g. 53, 123, 161" required />
+          <p class="text-xs text-gray-500 mt-1">Sends an empty datagram — no ICMP unreachable = port open/filtered → up.</p>
+        </div>
+
+        <!-- SMTP options -->
+        <div v-if="form.check_type === 'smtp'" class="space-y-3">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-300 mb-1">Port</label>
+              <input v-model.number="form.smtp_port" class="input w-full" type="number" min="1" max="65535" placeholder="25" />
+            </div>
+            <div class="flex items-end pb-1">
+              <div class="flex items-center gap-2">
+                <input v-model="form.smtp_starttls" type="checkbox" id="smtp_starttls" />
+                <label for="smtp_starttls" class="text-sm text-gray-300">STARTTLS</label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Domain expiry options -->
+        <div v-if="form.check_type === 'domain_expiry'">
+          <label class="block text-sm font-medium text-gray-300 mb-1">Alert threshold (days)</label>
+          <input v-model.number="form.domain_expiry_warn_days" class="input w-full" type="number" min="1" max="365" placeholder="30" />
+          <p class="text-xs text-gray-500 mt-1">Alert when domain expires in ≤ N days.</p>
         </div>
 
         <!-- DNS options -->
@@ -221,6 +251,31 @@
           </div>
         </template>
 
+        <!-- Flapping detection overrides -->
+        <div v-if="form.check_type !== 'heartbeat'" class="border border-gray-700 rounded-lg overflow-hidden">
+          <button
+            type="button"
+            @click="showFlapping = !showFlapping"
+            class="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-800/50 transition-colors"
+          >
+            <span>{{ t('monitors.flapping_settings') }}</span>
+            <span class="text-xs transition-transform" :class="showFlapping ? 'rotate-180' : ''">▼</span>
+          </button>
+          <div v-if="showFlapping" class="px-4 pb-4 pt-2 space-y-3 border-t border-gray-700 bg-gray-800/20">
+            <p class="text-xs text-gray-500">{{ t('monitors.flapping_desc') }}</p>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs text-gray-400 mb-1">{{ t('monitors.flap_threshold') }}</label>
+                <input v-model.number="form.flap_threshold" type="number" min="2" max="50" class="input w-full" />
+              </div>
+              <div>
+                <label class="block text-xs text-gray-400 mb-1">{{ t('monitors.flap_window_minutes') }}</label>
+                <input v-model.number="form.flap_window_minutes" type="number" min="1" max="60" class="input w-full" />
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div v-if="error" class="bg-red-900/40 border border-red-700 rounded p-3 text-sm text-red-300">
           {{ error }}
         </div>
@@ -251,6 +306,7 @@ const emit = defineEmits(['close', 'created'])
 const monitorStore = useMonitorStore()
 
 const showAdvanced = ref(false)
+const showFlapping = ref(false)
 
 const checkTypes = [
   {
@@ -316,6 +372,42 @@ const checkTypes = [
     urlPlaceholder: '',
     namePlaceholder: 'Backup quotidien',
   },
+  {
+    value: 'udp',
+    label: 'UDP',
+    icon: '📦',
+    description: 'Check that a UDP port is reachable (DNS, NTP, SNMP, game servers…).',
+    urlLabel: 'Host',
+    urlPlaceholder: 'dns.example.com',
+    namePlaceholder: 'DNS UDP 53',
+  },
+  {
+    value: 'smtp',
+    label: 'SMTP',
+    icon: '✉️',
+    description: 'Connect to an SMTP server, verify the banner and EHLO response.',
+    urlLabel: 'Mail server',
+    urlPlaceholder: 'mail.example.com',
+    namePlaceholder: 'SMTP Mail Server',
+  },
+  {
+    value: 'ping',
+    label: 'Ping',
+    icon: '🏓',
+    description: 'ICMP ping check — measures round-trip time and reachability.',
+    urlLabel: 'Host',
+    urlPlaceholder: 'router.internal',
+    namePlaceholder: 'Gateway Ping',
+  },
+  {
+    value: 'domain_expiry',
+    label: 'Domain',
+    icon: '🔑',
+    description: 'Monitor domain expiry via WHOIS — alerts before your domain expires.',
+    urlLabel: 'Domain',
+    urlPlaceholder: 'example.com',
+    namePlaceholder: 'example.com expiry',
+  },
 ]
 
 const dnsRecordTypes = ['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS']
@@ -332,6 +424,10 @@ const form = ref({
   ssl_check_enabled: true,
   expected_status_codes: [200],
   tcp_port: null,
+  udp_port: null,
+  smtp_port: null,
+  smtp_starttls: false,
+  domain_expiry_warn_days: 30,
   dns_record_type: 'A',
   dns_expected_value: '',
   keyword: '',
@@ -347,6 +443,9 @@ const form = ref({
   body_regex: '',
   expected_headers_list: [],  // [{key, value}]
   json_schema_text: '',
+  // Flapping
+  flap_threshold: 5,
+  flap_window_minutes: 10,
 })
 
 const loading = ref(false)
@@ -370,9 +469,10 @@ function buildPayload() {
     expected_status_codes: form.value.expected_status_codes,
   }
 
-  // Normalize URL: TCP/DNS inputs may be bare hostnames — wrap in http:// for server schema
+  // Normalize URL: non-HTTP types may receive bare hostnames — wrap in http:// for server schema
+  const bareHostTypes = ['tcp', 'udp', 'dns', 'smtp', 'ping', 'domain_expiry']
   let url = form.value.url.trim()
-  if (form.value.check_type === 'tcp' || form.value.check_type === 'dns') {
+  if (bareHostTypes.includes(form.value.check_type)) {
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
       url = 'http://' + url
     }
@@ -386,6 +486,19 @@ function buildPayload() {
 
   if (form.value.check_type === 'tcp') {
     p.tcp_port = form.value.tcp_port
+  }
+
+  if (form.value.check_type === 'udp') {
+    p.udp_port = form.value.udp_port
+  }
+
+  if (form.value.check_type === 'smtp') {
+    if (form.value.smtp_port) p.smtp_port = form.value.smtp_port
+    p.smtp_starttls = form.value.smtp_starttls
+  }
+
+  if (form.value.check_type === 'domain_expiry') {
+    p.domain_expiry_warn_days = form.value.domain_expiry_warn_days
   }
 
   if (form.value.check_type === 'dns') {
@@ -435,6 +548,12 @@ function buildPayload() {
         throw new Error('JSON Schema invalide')
       }
     }
+  }
+
+  // Flapping overrides
+  if (form.value.check_type !== 'heartbeat') {
+    p.flap_threshold = form.value.flap_threshold
+    p.flap_window_minutes = form.value.flap_window_minutes
   }
 
   return p

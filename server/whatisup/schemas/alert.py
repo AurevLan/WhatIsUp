@@ -122,6 +122,11 @@ class AlertRuleCreate(BaseModel):
     renotify_after_minutes: int | None = Field(default=None, ge=1, le=10080)
     threshold_value: float | None = Field(default=None, ge=0)
     digest_minutes: int = Field(default=0, ge=0, le=1440)
+    # Storm protection
+    storm_window_seconds: int | None = Field(default=None, ge=10, le=3600)
+    storm_max_alerts: int | None = Field(default=None, ge=1, le=1000)
+    # Baseline
+    baseline_factor: float | None = Field(default=None, ge=1.1, le=100.0)
 
 
 class AlertRuleOut(BaseModel):
@@ -134,6 +139,9 @@ class AlertRuleOut(BaseModel):
     renotify_after_minutes: int | None
     threshold_value: float | None
     digest_minutes: int = 0
+    storm_window_seconds: int | None = None
+    storm_max_alerts: int | None = None
+    baseline_factor: float | None = None
 
     model_config = {"from_attributes": True}
 

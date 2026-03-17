@@ -108,3 +108,20 @@ class ProbeMonitorStatus(BaseModel):
     last_status: CheckStatus | None
     last_checked_at: datetime | None
     response_time_ms: float | None
+
+
+class ProbeStatsOut(BaseModel):
+    """Probe with 24h availability stats — used for dashboard map."""
+
+    id: uuid.UUID
+    name: str
+    location_name: str
+    latitude: float | None
+    longitude: float | None
+    is_active: bool
+    last_seen_at: datetime | None
+    network_type: NetworkType
+    uptime_24h: float | None
+    check_count_24h: int
+
+    model_config = {"from_attributes": True}

@@ -1,11 +1,11 @@
 """Probe registration, heartbeat, and result push endpoints."""
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import structlog
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
-from sqlalchemy import select
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.api.deps import get_current_probe, require_superadmin
@@ -23,6 +23,7 @@ from whatisup.schemas.probe import (
     ProbeMonitorConfig,
     ProbeOut,
     ProbeRegistered,
+    ProbeStatsOut,
     ProbeUpdate,
 )
 from whatisup.services.incident import process_check_result
@@ -38,6 +39,54 @@ async def list_probes(
 ) -> list[Probe]:
     result = await db.execute(select(Probe).order_by(Probe.created_at.desc()))
     return list(result.scalars().all())
+
+
+@router.get("/stats", response_model=list[ProbeStatsOut])
+async def probe_stats(
+    _user: User = Depends(require_superadmin),
+    db: AsyncSession = Depends(get_db),
+) -> list[dict]:
+    """Return all probes with their 24h uptime percentage — used for dashboard map."""
+    since = datetime.now(UTC) - timedelta(hours=24)
+
+    probes = (
+        await db.execute(select(Probe).order_by(Probe.created_at.desc()))
+    ).scalars().all()
+
+    # Single aggregation query: up checks / total checks per probe in last 24h
+    agg = (
+        await db.execute(
+            select(
+                CheckResult.probe_id,
+                func.count().label("total"),
+                func.sum(case((CheckResult.status == "up", 1), else_=0)).label("up_count"),
+            )
+            .where(CheckResult.checked_at >= since)
+            .group_by(CheckResult.probe_id)
+        )
+    ).all()
+
+    stats_map = {row.probe_id: row for row in agg}
+
+    out = []
+    for probe in probes:
+        row = stats_map.get(probe.id)
+        total = int(row.total) if row else 0
+        up = int(row.up_count) if row else 0
+        uptime = round(up / total * 100, 2) if total > 0 else None
+        out.append({
+            "id": probe.id,
+            "name": probe.name,
+            "location_name": probe.location_name,
+            "latitude": probe.latitude,
+            "longitude": probe.longitude,
+            "is_active": probe.is_active,
+            "last_seen_at": probe.last_seen_at,
+            "network_type": probe.network_type,
+            "uptime_24h": uptime,
+            "check_count_24h": total,
+        })
+    return out
 
 
 @router.post("/register", response_model=ProbeRegistered, status_code=status.HTTP_201_CREATED)
@@ -246,3 +295,76 @@ async def delete_probe(
     # will return None and the stale cache entry will be evicted. The maximum stale window
     # is the cache TTL (300 seconds).
     logger.info("probe_deleted", probe_id=str(probe_id))
+
+
+@router.get("/{probe_id}/incident-timeline")
+@limiter.limit("30/minute")
+async def get_probe_incident_timeline(
+    request: Request,
+    probe_id: uuid.UUID,
+    days: int = Query(default=7, ge=1, le=90),
+    _user: User = Depends(require_superadmin),
+    db: AsyncSession = Depends(get_db),
+) -> list[dict]:
+    """Timeline of all monitors put into incident by this probe within the last N days.
+
+    Returns a list of monitors with their incidents during the window, sorted
+    by most recent incident first — useful for diagnosing network-localized outages.
+    """
+    from whatisup.models.incident import Incident
+    from whatisup.models.monitor import Monitor
+
+    probe = (await db.execute(select(Probe).where(Probe.id == probe_id))).scalar_one_or_none()
+    if probe is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Probe not found")
+
+    cutoff = datetime.now(UTC) - timedelta(days=days)
+
+    # Find all incidents that had this probe in their affected_probe_ids
+    # (JSON contains check via LIKE is approximate but works for UUID strings)
+    probe_id_str = str(probe_id)
+    all_incidents = (
+        await db.execute(
+            select(Incident, Monitor.name, Monitor.url, Monitor.check_type)
+            .join(Monitor, Incident.monitor_id == Monitor.id)
+            .where(Incident.started_at >= cutoff)
+            .order_by(Incident.started_at.desc())
+        )
+    ).all()
+
+    # Filter in Python for probe membership (JSON array contains probe_id)
+    relevant = [
+        row for row in all_incidents
+        if probe_id_str in (row.Incident.affected_probe_ids or [])
+    ]
+
+    # Group by monitor
+    monitors_map: dict[str, dict] = {}
+    for row in relevant:
+        inc = row.Incident
+        mid = str(inc.monitor_id)
+        if mid not in monitors_map:
+            monitors_map[mid] = {
+                "monitor_id": mid,
+                "monitor_name": row.name,
+                "monitor_url": row.url,
+                "check_type": row.check_type,
+                "incidents": [],
+            }
+        monitors_map[mid]["incidents"].append(
+            {
+                "id": str(inc.id),
+                "started_at": inc.started_at.isoformat(),
+                "resolved_at": inc.resolved_at.isoformat() if inc.resolved_at else None,
+                "duration_seconds": inc.duration_seconds,
+                "scope": inc.scope.value,
+            }
+        )
+
+    # Sort monitors by most recent incident
+    result = sorted(
+        monitors_map.values(),
+        key=lambda m: m["incidents"][0]["started_at"] if m["incidents"] else "",
+        reverse=True,
+    )
+    return result

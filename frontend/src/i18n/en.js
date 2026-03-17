@@ -5,6 +5,7 @@ export default {
     monitors: 'Monitors',
     probes: 'Probes',
     alerts: 'Alerts',
+    apiKeys: 'API Keys',
     audit: 'Audit Log',
     maintenance: 'Maintenance',
     settings: 'Settings',
@@ -13,6 +14,7 @@ export default {
     overview: 'Overview',
     infrastructure: 'Infrastructure',
     account: 'Account',
+    incidentGroups: 'Incident Groups',
   },
 
   // Common
@@ -100,12 +102,20 @@ export default {
     check_type: {
       http: 'HTTP',
       tcp: 'TCP',
+      udp: 'UDP',
       dns: 'DNS',
       keyword: 'Keyword',
       json_path: 'JSON Path',
       scenario: 'Scenario',
       heartbeat: 'Heartbeat',
+      smtp: 'SMTP',
+      ping: 'Ping',
+      domain_expiry: 'Domain',
     },
+    flapping_settings: 'Flapping detection',
+    flapping_desc: 'Override the global flapping detection thresholds for this monitor.',
+    flap_threshold: 'Transitions threshold',
+    flap_window_minutes: 'Window (minutes)',
   },
 
   // Monitor detail
@@ -323,5 +333,51 @@ export default {
   // WebSocket banner
   ws: {
     reconnecting: 'Reconnecting to real-time updates…',
+  },
+
+  // Misc
+  common: {
+    day: 'day',
+    days: 'days',
+  },
+
+  // Probe timeline
+  probeTimeline: {
+    title: 'Incident Timeline',
+    subtitle: 'Monitors affected by this probe — useful for diagnosing localized network outages',
+    empty: 'No incidents recorded for this probe in the selected window.',
+    ongoing: 'Ongoing',
+    more: 'more incidents',
+  },
+
+  // Monitor dependencies
+  dependencies: {
+    title: 'Dependencies',
+    description: 'When a parent monitor is down, incidents on this monitor will be suppressed.',
+    parent_monitor: 'Parent monitor',
+    suppress_on_parent_down: 'Suppress alerts when parent is down',
+    add: 'Add dependency',
+    remove: 'Remove',
+    empty: 'No dependencies configured.',
+    added: 'Dependency added.',
+    removed: 'Dependency removed.',
+    error_self: 'A monitor cannot depend on itself.',
+    error_duplicate: 'This dependency already exists.',
+    suppressed_badge: 'Suppressed (parent down)',
+  },
+
+  // Incident groups
+  incidentGroups: {
+    title: 'Incident Groups',
+    subtitle: 'Correlated incidents caused by the same probe failures',
+    id: 'Group ID',
+    triggered_at: 'Triggered',
+    resolved_at: 'Resolved',
+    status: 'Status',
+    status_open: 'Open',
+    status_resolved: 'Resolved',
+    cause_probes: 'Affected probes',
+    incidents: 'Incidents',
+    empty: 'No correlated incident groups.',
   },
 }

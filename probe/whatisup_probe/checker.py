@@ -713,6 +713,318 @@ async def _check_scenario(
         )
 
 
+async def _check_udp(
+    monitor_id: str,
+    host: str,
+    port: int,
+    timeout_seconds: int,
+) -> CheckResult:
+    """UDP port check — sends an empty datagram and interprets ICMP unreachable as down."""
+    checked_at = datetime.now(UTC)
+    t0 = time.perf_counter()
+
+    def _udp_probe() -> tuple[str, str | None]:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.settimeout(timeout_seconds)
+        try:
+            sock.connect((host, port))
+            sock.send(b"")
+            try:
+                sock.recv(1024)
+                return "up", None
+            except TimeoutError:
+                # No ICMP unreachable received → port is open or filtered
+                return "up", None
+        except ConnectionRefusedError:
+            return "down", f"UDP port {port} unreachable (ICMP port unreachable)"
+        except TimeoutError:
+            return "timeout", f"UDP timeout after {timeout_seconds}s"
+        except OSError as exc:
+            return "error", str(exc)
+        finally:
+            sock.close()
+
+    try:
+        loop = asyncio.get_event_loop()
+        status, error_message = await asyncio.wait_for(
+            loop.run_in_executor(None, _udp_probe),
+            timeout=timeout_seconds + 2,
+        )
+        elapsed_ms = (time.perf_counter() - t0) * 1000
+        return CheckResult(
+            monitor_id=monitor_id,
+            checked_at=checked_at,
+            status=status,
+            response_time_ms=round(elapsed_ms, 2),
+            error_message=error_message,
+        )
+    except TimeoutError:
+        return CheckResult(
+            monitor_id=monitor_id,
+            checked_at=checked_at,
+            status="timeout",
+            response_time_ms=(time.perf_counter() - t0) * 1000,
+            error_message=f"UDP timeout after {timeout_seconds}s",
+        )
+    except Exception as exc:
+        return CheckResult(
+            monitor_id=monitor_id,
+            checked_at=checked_at,
+            status="error",
+            error_message=f"{type(exc).__name__}: {str(exc)[:200]}",
+        )
+
+
+async def _check_smtp(
+    monitor_id: str,
+    host: str,
+    port: int,
+    timeout_seconds: int,
+    starttls: bool = False,
+) -> CheckResult:
+    """SMTP server check — connects, reads banner, sends EHLO, optionally STARTTLS."""
+    checked_at = datetime.now(UTC)
+    t0 = time.perf_counter()
+
+    try:
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_connection(host, port),
+            timeout=timeout_seconds,
+        )
+
+        # Read SMTP banner (220 …)
+        banner_line = await asyncio.wait_for(reader.readline(), timeout=timeout_seconds)
+        banner = banner_line.decode(errors="replace").strip()
+        if not banner.startswith("220"):
+            writer.close()
+            return CheckResult(
+                monitor_id=monitor_id,
+                checked_at=checked_at,
+                status="down",
+                response_time_ms=round((time.perf_counter() - t0) * 1000, 2),
+                error_message=f"Unexpected SMTP banner: {banner[:200]}",
+            )
+
+        # EHLO
+        writer.write(b"EHLO whatisup-monitor\r\n")
+        await writer.drain()
+        # Read multi-line EHLO response (lines ending with "250 " signal end)
+        while True:
+            line = await asyncio.wait_for(reader.readline(), timeout=timeout_seconds)
+            decoded = line.decode(errors="replace")
+            if decoded.startswith("250 ") or not decoded.startswith("250"):
+                break
+
+        if starttls:
+            writer.write(b"STARTTLS\r\n")
+            await writer.drain()
+            starttls_line = await asyncio.wait_for(reader.readline(), timeout=timeout_seconds)
+            starttls_resp = starttls_line.decode(errors="replace").strip()
+            if not starttls_resp.startswith("220"):
+                writer.close()
+                return CheckResult(
+                    monitor_id=monitor_id,
+                    checked_at=checked_at,
+                    status="down",
+                    response_time_ms=round((time.perf_counter() - t0) * 1000, 2),
+                    error_message=f"STARTTLS rejected: {starttls_resp[:200]}",
+                )
+
+        writer.write(b"QUIT\r\n")
+        await writer.drain()
+        writer.close()
+        await writer.wait_closed()
+
+        elapsed_ms = (time.perf_counter() - t0) * 1000
+        return CheckResult(
+            monitor_id=monitor_id,
+            checked_at=checked_at,
+            status="up",
+            response_time_ms=round(elapsed_ms, 2),
+        )
+
+    except TimeoutError:
+        return CheckResult(
+            monitor_id=monitor_id,
+            checked_at=checked_at,
+            status="timeout",
+            response_time_ms=(time.perf_counter() - t0) * 1000,
+            error_message=f"SMTP timeout after {timeout_seconds}s",
+        )
+    except (ConnectionRefusedError, OSError) as exc:
+        return CheckResult(
+            monitor_id=monitor_id,
+            checked_at=checked_at,
+            status="down",
+            response_time_ms=(time.perf_counter() - t0) * 1000,
+            error_message=f"SMTP connection refused: {exc}",
+        )
+    except Exception as exc:
+        return CheckResult(
+            monitor_id=monitor_id,
+            checked_at=checked_at,
+            status="error",
+            error_message=f"{type(exc).__name__}: {str(exc)[:200]}",
+        )
+
+
+async def _check_ping(
+    monitor_id: str,
+    host: str,
+    timeout_seconds: int,
+) -> CheckResult:
+    """ICMP ping check via subprocess."""
+    checked_at = datetime.now(UTC)
+    t0 = time.perf_counter()
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "ping",
+            "-c", "1",
+            "-W", str(timeout_seconds),
+            host,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout_seconds + 5)
+        elapsed_ms = (time.perf_counter() - t0) * 1000
+
+        if proc.returncode == 0:
+            # Parse RTT from ping output: "time=X.X ms"
+            match = re.search(r"time=(\d+\.?\d*)", stdout.decode(errors="replace"))
+            rtt_ms = float(match.group(1)) if match else round(elapsed_ms, 2)
+            return CheckResult(
+                monitor_id=monitor_id,
+                checked_at=checked_at,
+                status="up",
+                response_time_ms=round(rtt_ms, 2),
+            )
+        else:
+            return CheckResult(
+                monitor_id=monitor_id,
+                checked_at=checked_at,
+                status="down",
+                response_time_ms=round(elapsed_ms, 2),
+                error_message=f"Ping failed: host unreachable",
+            )
+
+    except TimeoutError:
+        return CheckResult(
+            monitor_id=monitor_id,
+            checked_at=checked_at,
+            status="timeout",
+            response_time_ms=(time.perf_counter() - t0) * 1000,
+            error_message=f"Ping timeout after {timeout_seconds}s",
+        )
+    except FileNotFoundError:
+        return CheckResult(
+            monitor_id=monitor_id,
+            checked_at=checked_at,
+            status="error",
+            error_message="ping binary not found",
+        )
+    except Exception as exc:
+        return CheckResult(
+            monitor_id=monitor_id,
+            checked_at=checked_at,
+            status="error",
+            error_message=f"{type(exc).__name__}: {str(exc)[:200]}",
+        )
+
+
+async def _check_domain_expiry(
+    monitor_id: str,
+    host: str,
+    warn_days: int,
+    timeout_seconds: int,
+) -> CheckResult:
+    """Domain WHOIS expiry check — alerts when expiry is within warn_days."""
+    checked_at = datetime.now(UTC)
+    t0 = time.perf_counter()
+
+    try:
+        import whois  # type: ignore[import]
+    except ImportError:
+        return CheckResult(
+            monitor_id=monitor_id,
+            checked_at=checked_at,
+            status="error",
+            error_message="python-whois not installed — add it to probe dependencies",
+        )
+
+    try:
+        loop = asyncio.get_event_loop()
+        w = await asyncio.wait_for(
+            loop.run_in_executor(None, whois.whois, host),
+            timeout=timeout_seconds,
+        )
+        elapsed_ms = (time.perf_counter() - t0) * 1000
+
+        expiry = w.expiration_date
+        if isinstance(expiry, list):
+            expiry = expiry[0]
+
+        if expiry is None:
+            return CheckResult(
+                monitor_id=monitor_id,
+                checked_at=checked_at,
+                status="error",
+                response_time_ms=round(elapsed_ms, 2),
+                error_message="Could not determine domain expiry date from WHOIS",
+            )
+
+        if expiry.tzinfo is None:
+            expiry = expiry.replace(tzinfo=UTC)
+
+        days_remaining = (expiry - datetime.now(UTC)).days
+
+        if days_remaining <= 0:
+            return CheckResult(
+                monitor_id=monitor_id,
+                checked_at=checked_at,
+                status="down",
+                response_time_ms=round(elapsed_ms, 2),
+                ssl_expires_at=expiry,
+                ssl_days_remaining=days_remaining,
+                error_message=f"Domain expired {-days_remaining} day(s) ago",
+            )
+        elif days_remaining <= warn_days:
+            return CheckResult(
+                monitor_id=monitor_id,
+                checked_at=checked_at,
+                status="down",
+                response_time_ms=round(elapsed_ms, 2),
+                ssl_expires_at=expiry,
+                ssl_days_remaining=days_remaining,
+                error_message=f"Domain expires in {days_remaining}d (threshold: {warn_days}d)",
+            )
+        else:
+            return CheckResult(
+                monitor_id=monitor_id,
+                checked_at=checked_at,
+                status="up",
+                response_time_ms=round(elapsed_ms, 2),
+                ssl_expires_at=expiry,
+                ssl_days_remaining=days_remaining,
+            )
+
+    except TimeoutError:
+        return CheckResult(
+            monitor_id=monitor_id,
+            checked_at=checked_at,
+            status="timeout",
+            response_time_ms=(time.perf_counter() - t0) * 1000,
+            error_message=f"WHOIS timeout after {timeout_seconds}s",
+        )
+    except Exception as exc:
+        return CheckResult(
+            monitor_id=monitor_id,
+            checked_at=checked_at,
+            status="error",
+            error_message=f"WHOIS error: {type(exc).__name__}: {str(exc)[:200]}",
+        )
+
+
 async def perform_check(
     monitor_id: str,
     url: str,
@@ -722,6 +1034,7 @@ async def perform_check(
     ssl_check_enabled: bool,
     check_type: str = "http",
     tcp_port: int | None = None,
+    udp_port: int | None = None,
     dns_record_type: str | None = None,
     dns_expected_value: str | None = None,
     keyword: str | None = None,
@@ -733,24 +1046,38 @@ async def perform_check(
     body_regex: str | None = None,
     expected_headers: dict[str, str] | None = None,
     json_schema: dict | None = None,
+    smtp_port: int | None = None,
+    smtp_starttls: bool = False,
+    domain_expiry_warn_days: int = 30,
 ) -> CheckResult:
     """
     Dispatch to the appropriate check engine based on check_type.
-    Supported types: http, tcp, dns, keyword, json_path
+    Supported types: http, tcp, udp, dns, keyword, json_path, smtp, ping, domain_expiry
     """
-    if check_type == "tcp":
-        from urllib.parse import urlparse
+    from urllib.parse import urlparse
 
-        parsed = urlparse(url)
-        host = parsed.hostname or url
+    parsed = urlparse(url)
+    host = parsed.hostname or url
+
+    if check_type == "tcp":
         port = tcp_port or parsed.port or 80
         return await _check_tcp(monitor_id, host, port, timeout_seconds)
 
-    elif check_type == "dns":
-        from urllib.parse import urlparse
+    elif check_type == "udp":
+        port = udp_port or parsed.port or 80
+        return await _check_udp(monitor_id, host, port, timeout_seconds)
 
-        parsed = urlparse(url)
-        host = parsed.hostname or url
+    elif check_type == "smtp":
+        port = smtp_port or parsed.port or 25
+        return await _check_smtp(monitor_id, host, port, timeout_seconds, starttls=smtp_starttls)
+
+    elif check_type == "ping":
+        return await _check_ping(monitor_id, host, timeout_seconds)
+
+    elif check_type == "domain_expiry":
+        return await _check_domain_expiry(monitor_id, host, domain_expiry_warn_days, timeout_seconds)
+
+    elif check_type == "dns":  # noqa: SIM114
         return await _check_dns(
             monitor_id,
             host,

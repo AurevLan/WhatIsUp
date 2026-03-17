@@ -11,6 +11,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.5.0] - 2026-03-17
+
+### Added
+
+#### Incident correlation & alert quality
+
+- **Monitor dependencies** — new `MonitorDependency(parent_id, child_id, suppress_on_parent_down)` model; when a parent monitor has an open incident, child incidents are automatically suppressed or tagged `dependency_suppressed`; eliminates cascade alert storms; full CRUD via `GET/POST/DELETE /api/v1/monitors/{id}/dependencies`; dependency panel in monitor detail view
+- **Persistent incident groups** — new `IncidentGroup` model backed by PostgreSQL; monitors sharing the same failing probes within a 90 s window are grouped into a single persistent incident group with one notification instead of N; `GET /api/v1/incident-groups/` with ownership filtering; `IncidentGroupsView.vue` with status filter (open / resolved)
+- **Per-monitor flapping thresholds** — `flap_threshold` (default: 5) and `flap_window_minutes` (default: 10) columns on `Monitor`; override global defaults per monitor; exposed in the create/edit form under a collapsible section
+- **Alert storm protection** — `storm_window_seconds` and `storm_max_alerts` columns on `AlertRule`; when > N alerts fire on the same rule within the window, further alerts are throttled and a forced digest is sent instead
+- **Performance baseline alerting** — new `AlertCondition.response_time_above_baseline` condition; baseline = 7-day rolling average at the same hour; `baseline_factor` column on `AlertRule` (e.g. `3.0` = alert if current response time > 3× the baseline); detects slowdowns without a static threshold
+- **Persistent alert digest** — digest scheduling migrated from `asyncio.call_later` (lost on restart) to a Redis sorted set (`whatisup:digest_schedule`); a background task flushes due digests every 30 s; survives server restarts and is observable via Redis CLI
+- **Group-level maintenance suppression** — when all monitors in a group are down and the group has an active maintenance window with `suppress_alerts=True`, individual alerts are suppressed
+- **Probe incident timeline** — `GET /api/v1/probes/{probe_id}/incident-timeline?days=7` returns all incidents in the window grouped by monitor; `ProbeTimelineView.vue` renders proportional timeline bars per monitor; day selector (1 / 7 / 14 / 30 / 90)
+
+#### New check types (probe + UI)
+
+- **UDP** — sends an empty datagram; interprets ICMP port-unreachable as down, timeout as filtered/open
+- **SMTP** — connects, reads the `220` banner, sends `EHLO`, optional `STARTTLS`; measures banner-to-ready time
+- **Ping** — ICMP ping via subprocess; parses RTT from output; falls back gracefully if `ping` binary is absent
+- **Domain expiry** — WHOIS lookup via `python-whois`; warns `N` days before expiry (configurable `domain_expiry_warn_days`); `probe/pyproject.toml` adds `python-whois>=0.9.4`
+
+#### Dashboard & UI
+
+- **Probe map on dashboard** — new `ProbeMap.vue` component in the dashboard alongside the monitor list; Leaflet map with per-probe coloured markers (🟢 ≥ 99 % / 🟡 ≥ 90 % / 🔴 < 90 % / ⚫ no data) with glow effect; popup shows uptime, check count, online status; compact probe list below the map; auto-refreshes every 60 s
+- **`GET /api/v1/probes/stats`** — returns all probes with `uptime_24h` and `check_count_24h` in a single aggregated query (no N+1); new `ProbeStatsOut` schema
+- **Monitors view — filter bar redesign** — 12 overflowing type chips replaced by a compact `<select>` dropdown; status chips now use semantic colours (green/red/orange); paused toggle replaces 3-button enabled filter; view toggle reduced to icon-only buttons with tooltips
+- **`MonitorRow.vue` rewrite** — replaced all JavaScript inline styles with Tailwind classes; status badge, dot, uptime colour now use design-system tokens; hover handled via CSS
+
+#### Infrastructure
+
+- **Probe DNS configuration** — `dns: [${PROBE_DNS_1}, ${PROBE_DNS_2}]` added to `probe-local` and `probe` services in `docker-compose.yml` and `docker-compose.probe.yml`; defaults to `8.8.8.8` / `8.8.4.4`; fixes DNS resolution failures when the Docker daemon's embedded resolver has no external nameservers
+- **`deploy.sh` — DNS prompt** — interactive wizard now asks for primary and secondary DNS servers (default: Google DNS) in probe deployment modes (mode 1 and mode 3); values written to `.env` / `.env.probe`
+
+### Fixed
+
+- `MonitorDependencies.vue` — import used `@/api/monitors` (alias unsupported in this Vite config); fixed to relative path `../../api/monitors`
+- Migration revision collision — `a1b2c3d4e5f6_monitor_dependencies_incident_groups.py` conflicted with existing `a1b2c3d4e5f6_v020_enrichment.py`; new migration renamed to `c1d2e3f4a5b6`
+
+### Database migrations (in order)
+
+| Revision | Description |
+|----------|-------------|
+| `e1f2a3b4c5d6` | Add `udp_port`, `smtp_port`, `smtp_starttls`, `ping_*`, `domain_expiry_warn_days` to `monitors` |
+| `c1d2e3f4a5b6` | Create `incident_groups` and `monitor_dependencies` tables; add `group_id` FK and `dependency_suppressed` to `incidents` |
+| `b2c3d4e5f6g7` | Add `flap_threshold`, `flap_window_minutes` to `monitors`; add `storm_window_seconds`, `storm_max_alerts`, `baseline_factor` to `alert_rules`; extend `alert_condition` enum |
+
+---
+
 ## [0.4.0] - 2026-03-14
 
 ### Added
@@ -221,7 +270,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docker Compose (dev + prod with Nginx + TLS)
 - Security: rate limiting, security headers, JWT validation, probe API key bcrypt hashing
 
-[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.2.0...v0.4.0
 [0.3.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.2.0...v0.4.0
 [0.2.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.1.0...v0.2.0

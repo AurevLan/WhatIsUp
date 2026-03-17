@@ -12,8 +12,8 @@ from whatisup.models.annotation import MonitorAnnotation
 from whatisup.models.api_key import UserApiKey
 from whatisup.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 from whatisup.models.custom_metric import CustomMetric
-from whatisup.models.incident import Incident, IncidentScope
-from whatisup.models.monitor import Monitor, MonitorGroup, PublicPage
+from whatisup.models.incident import Incident, IncidentGroup, IncidentScope
+from whatisup.models.monitor import Monitor, MonitorDependency, MonitorGroup, PublicPage
 from whatisup.models.probe import Probe
 from whatisup.models.result import CheckResult, CheckStatus
 from whatisup.models.status_subscription import StatusSubscription
@@ -29,6 +29,7 @@ __all__ = [
     "UserTagPermission",
     "PermissionLevel",
     "Monitor",
+    "MonitorDependency",
     "MonitorGroup",
     "PublicPage",
     "Probe",
@@ -36,6 +37,7 @@ __all__ = [
     "CheckStatus",
     "CustomMetric",
     "Incident",
+    "IncidentGroup",
     "IncidentScope",
     "AlertChannel",
     "AlertChannelType",

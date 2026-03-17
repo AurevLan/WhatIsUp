@@ -18,5 +18,18 @@ class IncidentOut(BaseModel):
     duration_seconds: int | None
     scope: IncidentScope
     affected_probe_ids: list[str]
+    dependency_suppressed: bool = False
+    group_id: uuid.UUID | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class IncidentGroupOut(BaseModel):
+    id: uuid.UUID
+    triggered_at: datetime
+    resolved_at: datetime | None
+    cause_probe_ids: list[str]
+    status: str
+    incident_ids: list[uuid.UUID] = []
 
     model_config = {"from_attributes": True}

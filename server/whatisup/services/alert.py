@@ -35,10 +35,11 @@ async def _flush_digest(rule_id: str, channels: list[AlertChannel], ctx: dict) -
     from whatisup.models.alert import AlertEventStatus as AES
 
     redis = get_redis()
-    redis_key = f"whatisup:digest:{rule_id}"
+    events_key = f"whatisup:digest:{rule_id}"
 
-    raw_events = await redis.lrange(redis_key, 0, -1)
-    await redis.delete(redis_key)
+    raw_events = await redis.lrange(events_key, 0, -1)
+    await redis.delete(events_key)
+    await redis.delete(f"whatisup:digest_ctx:{rule_id}")
 
     if not raw_events:
         return
@@ -57,7 +58,6 @@ async def _flush_digest(rule_id: str, channels: list[AlertChannel], ctx: dict) -
     monitor_name = ctx.get("monitor_name", "Monitor inconnu")
     check_type = ctx.get("check_type", "?").upper()
 
-    # Résumé textuel (multi-canal)
     summary_lines = [
         f"📦 **Digest WhatIsUp — {count} alerte(s) groupée(s)**",
         f"Monitor : {monitor_name} ({check_type})",
@@ -70,13 +70,10 @@ async def _flush_digest(rule_id: str, channels: list[AlertChannel], ctx: dict) -
         )
     summary_text = "\n".join(summary_lines)
 
-    # Envoyer sur chaque canal via une session DB fraîche
     async with get_session_factory()() as db:
         for channel in channels:
             try:
                 decrypted_config = decrypt_channel_config(channel.config)
-                # Envoi simplifié via les fonctions existantes — on crée un faux incident digest
-                # Pour chaque canal on utilise directement httpx/smtp selon le type
                 if channel.type == AlertChannelType.email:
                     settings = get_settings()
                     msg = EmailMessage()
@@ -152,6 +149,54 @@ async def _flush_digest(rule_id: str, channels: list[AlertChannel], ctx: dict) -
         await db.commit()
 
 
+async def flush_pending_digests() -> None:
+    """Background task: flush all digest windows whose scheduled time has passed.
+
+    Called every 30 s from the lifespan loop. Survives server restarts because
+    the schedule is stored in a Redis sorted set (not in-memory call_later).
+    """
+    import uuid as _uuid
+    from sqlalchemy import select
+
+    from whatisup.core.database import get_session_factory
+    from whatisup.core.redis import get_redis
+    from whatisup.models.alert import AlertChannel as AC
+
+    redis = get_redis()
+    schedule_key = "whatisup:digest_schedule"
+    now_ts = datetime.now(UTC).timestamp()
+
+    # Atomically pop all entries whose flush time has passed
+    due_rule_ids: list[str] = await redis.zrangebyscore(schedule_key, "-inf", now_ts)
+    if not due_rule_ids:
+        return
+
+    await redis.zremrangebyscore(schedule_key, "-inf", now_ts)
+
+    async with get_session_factory()() as db:
+        for rule_id_str in due_rule_ids:
+            ctx_key = f"whatisup:digest_ctx:{rule_id_str}"
+            raw_ctx = await redis.get(ctx_key)
+            if not raw_ctx:
+                # Context expired — nothing to send, clean up events list too
+                await redis.delete(f"whatisup:digest:{rule_id_str}")
+                continue
+
+            try:
+                ctx_data = json.loads(raw_ctx)
+            except Exception:
+                continue
+
+            channel_ids = [_uuid.UUID(cid) for cid in ctx_data.get("channel_ids", [])]
+            if not channel_ids:
+                continue
+
+            channels = (
+                (await db.execute(select(AC).where(AC.id.in_(channel_ids)))).scalars().all()
+            )
+            await _flush_digest(rule_id_str, list(channels), ctx_data.get("ctx", {}))
+
+
 async def maybe_digest_or_dispatch(
     db: AsyncSession,
     incident: Incident,
@@ -160,7 +205,11 @@ async def maybe_digest_or_dispatch(
     event_type: str,
     ctx: dict[str, Any],
 ) -> None:
-    """Gère la logique digest : accumule dans Redis ou envoie immédiatement."""
+    """Gère la logique digest : accumule dans Redis ou envoie immédiatement.
+
+    Le flush est géré par le background flusher (_digest_flusher_loop) qui
+    survit aux redémarrages — contrairement à asyncio.call_later (in-memory).
+    """
     from whatisup.core.redis import get_redis
 
     if not rule.digest_minutes or rule.digest_minutes <= 0:
@@ -168,7 +217,11 @@ async def maybe_digest_or_dispatch(
         return
 
     redis = get_redis()
-    redis_key = f"whatisup:digest:{rule.id}"
+    rule_id_str = str(rule.id)
+    events_key = f"whatisup:digest:{rule_id_str}"
+    ctx_key = f"whatisup:digest_ctx:{rule_id_str}"
+    schedule_key = "whatisup:digest_schedule"
+    ttl = rule.digest_minutes * 60
 
     event_payload = json.dumps(
         {
@@ -181,27 +234,29 @@ async def maybe_digest_or_dispatch(
         }
     )
 
-    count = await redis.lpush(redis_key, event_payload)
-    await redis.expire(redis_key, rule.digest_minutes * 60)
+    count = await redis.lpush(events_key, event_payload)
+    await redis.expire(events_key, ttl + 300)  # +5 min de marge pour le flusher
 
     if count == 1:
-        # Premier événement dans la fenêtre — programmer le flush différé
-        channels_snapshot = list(rule.channels)
-        ctx_snapshot = dict(ctx)
-        rule_id_str = str(rule.id)
-        loop = asyncio.get_event_loop()
-        loop.call_later(
-            rule.digest_minutes * 60,
-            lambda: asyncio.ensure_future(
-                _flush_digest(rule_id_str, channels_snapshot, ctx_snapshot)
-            ),
+        # Premier événement : enregistrer la fenêtre dans le sorted set
+        flush_at = datetime.now(UTC).timestamp() + ttl
+        await redis.zadd(schedule_key, {rule_id_str: flush_at})
+
+        # Stocker le contexte (channel_ids + monitor ctx) pour le flusher
+        ctx_payload = json.dumps(
+            {
+                "channel_ids": [str(c.id) for c in rule.channels],
+                "ctx": ctx,
+            }
         )
+        await redis.setex(ctx_key, ttl + 300, ctx_payload)
+
         logger.info(
             "digest_scheduled",
             rule_id=rule_id_str,
             digest_minutes=rule.digest_minutes,
         )
-    # count > 1 → la fenêtre est déjà ouverte, ne pas envoyer maintenant
+    # count > 1 → la fenêtre est déjà ouverte, accumuler sans reprogrammer
 
 
 async def dispatch_alert(

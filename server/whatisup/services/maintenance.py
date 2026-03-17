@@ -35,3 +35,28 @@ async def is_in_maintenance(
     ).scalar_one_or_none()
 
     return result is not None
+
+
+async def is_group_maintenance_suppressed(
+    db: AsyncSession,
+    group_id: uuid.UUID,
+) -> bool:
+    """Return True if there is an active maintenance window on the group.
+
+    This is used to suppress individual alerts when the entire group is down
+    and a group-level maintenance window is active.
+    """
+    now = datetime.now(UTC)
+    result = (
+        await db.execute(
+            select(MaintenanceWindow)
+            .where(
+                MaintenanceWindow.group_id == group_id,
+                MaintenanceWindow.starts_at <= now,
+                MaintenanceWindow.ends_at >= now,
+                MaintenanceWindow.suppress_alerts.is_(True),
+            )
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    return result is not None

@@ -31,82 +31,67 @@
     </div>
 
     <!-- Filter bar -->
-    <div class="space-y-3 mb-6">
-      <!-- Row 1: search + view toggle -->
-      <div class="flex gap-3 items-center">
-        <div class="relative flex-1 max-w-sm">
+    <div class="space-y-2 mb-6">
+      <!-- Row 1: search + view toggle + add -->
+      <div class="flex gap-2 items-center">
+        <div class="relative flex-1">
           <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
-          <input v-model="search" class="input pl-9" :placeholder="t('common.search') + '…'" />
+          <input v-model="search" class="input pl-9 h-9 text-sm" :placeholder="t('common.search') + '…'" />
         </div>
-        <!-- View mode toggle -->
-        <div class="flex gap-1 bg-gray-800/60 p-1 rounded-lg border border-gray-700">
+        <div class="flex gap-0.5 bg-gray-800/60 p-0.5 rounded-lg border border-gray-700/80">
           <button @click="viewMode = 'list'"
             :class="viewMode === 'list' ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-300'"
-            class="px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5">
-            <List class="w-3.5 h-3.5" /> {{ t('monitors.view_list') }}
+            class="px-2.5 py-1.5 rounded-md transition-colors" :title="t('monitors.view_list')">
+            <List class="w-4 h-4" />
           </button>
           <button @click="viewMode = 'board'"
             :class="viewMode === 'board' ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-300'"
-            class="px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5">
-            <LayoutGrid class="w-3.5 h-3.5" /> {{ t('monitors.view_board') }}
+            class="px-2.5 py-1.5 rounded-md transition-colors" :title="t('monitors.view_board')">
+            <LayoutGrid class="w-4 h-4" />
           </button>
         </div>
-        <button @click="showCreate = true" class="btn-primary">
+        <button @click="showCreate = true" class="btn-primary h-9">
           <Plus class="w-4 h-4" />
           {{ t('monitors.add') }}
         </button>
       </div>
 
-      <!-- Row 2: filter chips -->
+      <!-- Row 2: filters -->
       <div class="flex flex-wrap gap-2 items-center">
         <!-- Status chips -->
         <div class="flex gap-1">
-          <button v-for="s in ['', 'up', 'down', 'error']" :key="s"
-            @click="filterStatus = s"
-            :class="filterStatus === s
-              ? 'bg-blue-600/30 border-blue-500 text-blue-300'
-              : 'border-gray-700 text-gray-500 hover:border-gray-600'"
-            class="px-2.5 py-1 rounded-lg text-xs border transition-colors">
-            <span v-if="s === ''">{{ t('monitors.all_statuses') }}</span>
-            <span v-else class="flex items-center gap-1">
-              <span class="w-1.5 h-1.5 rounded-full inline-block"
-                :class="{'bg-emerald-400': s==='up','bg-red-500': s==='down','bg-orange-500': s==='error'}"/>
-              {{ s }}
-            </span>
+          <button v-for="s in statusFilters" :key="s.val"
+            @click="filterStatus = s.val"
+            :class="filterStatus === s.val ? s.active : 'border-gray-700/80 text-gray-500 hover:border-gray-600 hover:text-gray-400'"
+            class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs border transition-colors font-medium">
+            <span v-if="s.dot" class="w-1.5 h-1.5 rounded-full flex-shrink-0" :class="s.dot" />
+            {{ s.label }}
           </button>
         </div>
 
-        <div class="w-px h-4 bg-gray-700" />
+        <div class="w-px h-4 bg-gray-700/60" />
 
-        <!-- Type chips -->
-        <div class="flex flex-wrap gap-1">
-          <button v-for="typ in ['', 'http', 'tcp', 'dns', 'keyword', 'json_path', 'scenario', 'heartbeat']" :key="typ"
-            @click="filterType = typ"
-            :class="filterType === typ
-              ? 'bg-blue-600/30 border-blue-500 text-blue-300'
-              : 'border-gray-700 text-gray-500 hover:border-gray-600'"
-            class="px-2.5 py-1 rounded-lg text-xs border transition-colors font-mono">
-            {{ typ || t('monitors.all_types') }}
-          </button>
-        </div>
+        <!-- Type dropdown -->
+        <select v-model="filterType"
+          class="h-7 px-2 pr-6 rounded-lg border border-gray-700/80 bg-gray-900 text-xs text-gray-400 focus:outline-none focus:border-blue-600 transition-colors appearance-none cursor-pointer"
+          :class="filterType ? 'border-blue-600/60 text-blue-300' : ''">
+          <option value="">{{ t('monitors.all_types') }}</option>
+          <option v-for="typ in checkTypes" :key="typ" :value="typ">{{ typ }}</option>
+        </select>
 
-        <!-- Enabled filter -->
-        <div class="w-px h-4 bg-gray-700" />
-        <div class="flex gap-1">
-          <button v-for="e in [{ val: '', label: t('monitors.all_statuses') }, { val: 'true', label: t('common.enabled') }, { val: 'false', label: t('common.disabled') }]" :key="e.val"
-            @click="filterEnabled = e.val"
-            :class="filterEnabled === e.val
-              ? 'bg-blue-600/30 border-blue-500 text-blue-300'
-              : 'border-gray-700 text-gray-500 hover:border-gray-600'"
-            class="px-2.5 py-1 rounded-lg text-xs border transition-colors">
-            {{ e.label }}
-          </button>
-        </div>
+        <!-- Paused toggle -->
+        <button
+          @click="filterEnabled = filterEnabled === 'false' ? '' : 'false'"
+          :class="filterEnabled === 'false' ? 'bg-gray-700/60 border-gray-500 text-gray-300' : 'border-gray-700/80 text-gray-500 hover:border-gray-600 hover:text-gray-400'"
+          class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs border transition-colors">
+          <PauseCircle class="w-3 h-3" />
+          {{ t('status.paused') }}
+        </button>
 
-        <!-- Clear filters -->
-        <button v-if="filterStatus || filterType || filterEnabled || filterGroup"
-          @click="filterStatus=''; filterType=''; filterEnabled=''; filterGroup=''"
-          class="text-xs text-gray-600 hover:text-gray-400 ml-auto flex items-center gap-1">
+        <!-- Clear -->
+        <button v-if="hasActiveFilters"
+          @click="clearFilters"
+          class="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-400 ml-auto transition-colors">
           <X class="w-3 h-3" /> {{ t('monitors.clear_filters') }}
         </button>
       </div>
@@ -285,7 +270,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Download, Eye, LayoutGrid, List, Monitor, Pause, Play, Plus, Search, Trash2, X } from 'lucide-vue-next'
+import { Download, Eye, LayoutGrid, List, Monitor, Pause, PauseCircle, Play, Plus, Search, Trash2, X } from 'lucide-vue-next'
 import { useMonitorStore } from '../stores/monitors'
 import { monitorsApi } from '../api/monitors'
 import CreateMonitorModal from '../components/monitors/CreateMonitorModal.vue'
@@ -303,6 +288,24 @@ const filterType    = ref('')
 const filterGroup   = ref('')
 const viewMode      = ref('list')
 const showCreate    = ref(false)
+
+const checkTypes = ['http', 'tcp', 'udp', 'dns', 'smtp', 'ping', 'keyword', 'json_path', 'scenario', 'heartbeat', 'domain_expiry']
+
+const statusFilters = computed(() => [
+  { val: '',      label: t('monitors.all_statuses'), dot: null,               active: 'bg-blue-600/20 border-blue-500/60 text-blue-300' },
+  { val: 'up',    label: 'Up',                       dot: 'bg-emerald-400',   active: 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400' },
+  { val: 'down',  label: 'Down',                     dot: 'bg-red-500',       active: 'bg-red-500/10 border-red-500/40 text-red-400' },
+  { val: 'error', label: 'Error',                    dot: 'bg-orange-500',    active: 'bg-orange-500/10 border-orange-500/40 text-orange-400' },
+])
+
+const hasActiveFilters = computed(() => filterStatus.value || filterType.value || filterEnabled.value || filterGroup.value)
+
+function clearFilters() {
+  filterStatus.value = ''
+  filterType.value   = ''
+  filterEnabled.value = ''
+  filterGroup.value  = ''
+}
 
 // ── Sélection bulk ────────────────────────────────────────────────────────────
 let selectedIds = ref(new Set())
@@ -409,6 +412,12 @@ function formatTarget(monitor) {
   const raw = monitor.url?.replace(/^https?:\/\//, '') || ''
   if (monitor.check_type === 'tcp') {
     return monitor.tcp_port ? `${raw}:${monitor.tcp_port}` : raw
+  }
+  if (monitor.check_type === 'udp') {
+    return monitor.udp_port ? `${raw}:${monitor.udp_port}` : raw
+  }
+  if (monitor.check_type === 'smtp') {
+    return monitor.smtp_port ? `${raw}:${monitor.smtp_port}` : raw
   }
   return raw
 }

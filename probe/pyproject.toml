@@ -37,6 +37,9 @@ dependencies = [
 
     # JSON Schema validation (advanced HTTP assertions)
     "jsonschema>=4.21,<5",
+
+    # Domain WHOIS expiry checks
+    "python-whois>=0.9.4,<1",
 ]
 
 [project.optional-dependencies]

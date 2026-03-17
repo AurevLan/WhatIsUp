@@ -19,6 +19,7 @@ from sqlalchemy import (
     String,
     Table,
     Text,
+    UniqueConstraint,
     Uuid,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -33,11 +34,15 @@ _JSON = JSON().with_variant(JSONB(), "postgresql")
 class CheckType(enum.StrEnum):
     http = "http"
     tcp = "tcp"
+    udp = "udp"
     dns = "dns"
     keyword = "keyword"
     json_path = "json_path"
     scenario = "scenario"
     heartbeat = "heartbeat"
+    smtp = "smtp"
+    ping = "ping"
+    domain_expiry = "domain_expiry"
 
 
 if TYPE_CHECKING:
@@ -45,6 +50,42 @@ if TYPE_CHECKING:
     from whatisup.models.incident import Incident
     from whatisup.models.result import CheckResult
     from whatisup.models.tag import Tag
+
+
+class MonitorDependency(Base):
+    """Parent → child dependency: when parent is down, suppress child incidents."""
+
+    __tablename__ = "monitor_dependencies"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    parent_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("monitors.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    child_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("monitors.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    suppress_on_parent_down: Mapped[bool] = mapped_column(
+        Boolean, default=True, nullable=False
+    )
+
+    parent: Mapped[Monitor] = relationship(
+        "Monitor", foreign_keys=[parent_id], back_populates="child_dependencies"
+    )
+    child: Mapped[Monitor] = relationship(
+        "Monitor", foreign_keys=[child_id], back_populates="parent_dependencies"
+    )
+
+    __table_args__ = (
+        UniqueConstraint("parent_id", "child_id", name="uq_monitor_dependency"),
+        Index("ix_dep_parent", "parent_id"),
+        Index("ix_dep_child", "child_id"),
+    )
 
 
 # Many-to-many: monitor_groups <-> tags
@@ -132,6 +173,16 @@ class Monitor(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # TCP checks
     tcp_port: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
+    # UDP checks
+    udp_port: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    # SMTP checks
+    smtp_port: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    smtp_starttls: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="false")
+
+    # Domain expiry checks
+    domain_expiry_warn_days: Mapped[int] = mapped_column(Integer, default=30, nullable=False, server_default="30")
+
     # DNS checks
     dns_record_type: Mapped[str | None] = mapped_column(
         String(10), nullable=True
@@ -161,6 +212,14 @@ class Monitor(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Integer, nullable=False, server_default="30", default=30
     )
 
+    # Flapping detection — per-monitor thresholds (override global defaults)
+    flap_threshold: Mapped[int] = mapped_column(
+        Integer, default=5, nullable=False, server_default="5"
+    )
+    flap_window_minutes: Mapped[int] = mapped_column(
+        Integer, default=10, nullable=False, server_default="10"
+    )
+
     # Heartbeat / cron check type
     heartbeat_slug: Mapped[str | None] = mapped_column(String(80), nullable=True, unique=True)
     heartbeat_interval_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -182,6 +241,19 @@ class Monitor(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     alert_rules: Mapped[list[AlertRule]] = relationship(
         "AlertRule", back_populates="monitor", foreign_keys="AlertRule.monitor_id"
+    )
+    # Dependencies: monitors this monitor depends on (parents), and monitors that depend on it (children)
+    parent_dependencies: Mapped[list[MonitorDependency]] = relationship(
+        "MonitorDependency",
+        foreign_keys="MonitorDependency.child_id",
+        back_populates="child",
+        cascade="all, delete-orphan",
+    )
+    child_dependencies: Mapped[list[MonitorDependency]] = relationship(
+        "MonitorDependency",
+        foreign_keys="MonitorDependency.parent_id",
+        back_populates="parent",
+        cascade="all, delete-orphan",
     )
 
     __table_args__ = (Index("ix_monitors_enabled_owner", "enabled", "owner_id"),)

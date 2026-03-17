@@ -22,6 +22,8 @@ from whatisup.schemas.monitor import (
     BulkActionRequest,
     BulkActionResponse,
     MonitorCreate,
+    MonitorDependencyCreate,
+    MonitorDependencyOut,
     MonitorOut,
     MonitorUpdate,
 )
@@ -159,6 +161,10 @@ async def create_monitor(
         tags=tags,
         check_type=payload.check_type,
         tcp_port=payload.tcp_port,
+        udp_port=payload.udp_port,
+        smtp_port=payload.smtp_port,
+        smtp_starttls=payload.smtp_starttls,
+        domain_expiry_warn_days=payload.domain_expiry_warn_days,
         dns_record_type=payload.dns_record_type,
         dns_expected_value=payload.dns_expected_value,
         keyword=payload.keyword,
@@ -775,3 +781,114 @@ async def get_slo(
         "burn_rate": round(burn_rate, 4),
         "status": slo_status,
     }
+
+
+# ---------------------------------------------------------------------------
+# Monitor dependencies
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/{monitor_id}/dependencies",
+    response_model=list[MonitorDependencyOut],
+)
+@limiter.limit("60/minute")
+async def list_dependencies(
+    request: Request,
+    monitor_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list:
+    """List all parent monitors this monitor depends on."""
+    from whatisup.models.monitor import MonitorDependency
+
+    await _get_monitor_or_404(monitor_id, current_user, db)
+    rows = (
+        await db.execute(
+            select(MonitorDependency).where(MonitorDependency.child_id == monitor_id)
+        )
+    ).scalars().all()
+    return list(rows)
+
+
+@router.post(
+    "/{monitor_id}/dependencies",
+    response_model=MonitorDependencyOut,
+    status_code=status.HTTP_201_CREATED,
+)
+@limiter.limit("30/minute")
+async def add_dependency(
+    request: Request,
+    monitor_id: uuid.UUID,
+    payload: MonitorDependencyCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> object:
+    """Declare that this monitor depends on a parent monitor.
+
+    When the parent has an open incident and ``suppress_on_parent_down`` is
+    ``true``, incidents on this (child) monitor will be suppressed.
+    """
+    from whatisup.models.monitor import MonitorDependency
+
+    child = await _get_monitor_or_404(monitor_id, current_user, db)
+    parent = await _get_monitor_or_404(payload.parent_id, current_user, db)
+
+    if parent.id == child.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A monitor cannot depend on itself",
+        )
+
+    # Check for duplicates
+    existing = (
+        await db.execute(
+            select(MonitorDependency).where(
+                MonitorDependency.parent_id == parent.id,
+                MonitorDependency.child_id == child.id,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Dependency already exists",
+        )
+
+    dep = MonitorDependency(
+        parent_id=parent.id,
+        child_id=child.id,
+        suppress_on_parent_down=payload.suppress_on_parent_down,
+    )
+    db.add(dep)
+    await db.flush()
+    return dep
+
+
+@router.delete(
+    "/{monitor_id}/dependencies/{dependency_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def remove_dependency(
+    monitor_id: uuid.UUID,
+    dependency_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Remove a parent dependency from this monitor."""
+    from whatisup.models.monitor import MonitorDependency
+
+    await _get_monitor_or_404(monitor_id, current_user, db)
+    dep = (
+        await db.execute(
+            select(MonitorDependency).where(
+                MonitorDependency.id == dependency_id,
+                MonitorDependency.child_id == monitor_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if dep is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Dependency not found"
+        )
+    await db.delete(dep)

@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
@@ -66,6 +67,19 @@ async def lifespan(app: FastAPI):
 
     heartbeat_task = asyncio.create_task(_heartbeat_checker())
 
+    # Digest flusher (every 30s) — survives restarts via Redis sorted set
+    async def _digest_flusher():
+        from whatisup.services.alert import flush_pending_digests
+
+        while True:
+            try:
+                await flush_pending_digests()
+            except Exception as exc:
+                logger.error("digest_flusher_error", error=str(exc))
+            await asyncio.sleep(30)
+
+    digest_flusher_task = asyncio.create_task(_digest_flusher())
+
     yield
 
     subscriber_task.cancel()
@@ -83,6 +97,12 @@ async def lifespan(app: FastAPI):
     heartbeat_task.cancel()
     try:
         await heartbeat_task
+    except asyncio.CancelledError:
+        pass
+
+    digest_flusher_task.cancel()
+    try:
+        await digest_flusher_task
     except asyncio.CancelledError:
         pass
 
@@ -106,6 +126,9 @@ def create_app() -> FastAPI:
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+    # Trust proxy headers from nginx (fixes https:// in redirects behind reverse proxy)
+    app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
+
     # Security headers
     app.add_middleware(SecurityHeadersMiddleware)
 
@@ -125,6 +148,7 @@ def create_app() -> FastAPI:
         audit,
         auth,
         groups,
+        incidents,
         maintenance,
         metrics,
         monitors,
@@ -148,6 +172,7 @@ def create_app() -> FastAPI:
     app.include_router(maintenance.router, prefix="/api/v1")
     app.include_router(ping.router, prefix="/api/v1")
     app.include_router(metrics.router, prefix="/api/v1")
+    app.include_router(incidents.router, prefix="/api/v1")
 
     # Prometheus metrics (optional dependency)
     try:

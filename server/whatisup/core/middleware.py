@@ -1,10 +1,26 @@
-"""Security headers middleware (ANSSI recommendations)."""
+"""Security headers and request size middleware."""
 
 from __future__ import annotations
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.responses import JSONResponse, Response
+
+
+_MAX_BODY = 5 * 1024 * 1024  # 5 MB
+
+
+class MaxRequestSizeMiddleware(BaseHTTPMiddleware):
+    """Reject requests whose Content-Length exceeds _MAX_BODY (5 MB)."""
+
+    async def dispatch(self, request: Request, call_next) -> Response:
+        content_length = request.headers.get("content-length")
+        if content_length and int(content_length) > _MAX_BODY:
+            return JSONResponse(
+                {"detail": "Request body too large (max 5 MB)"},
+                status_code=413,
+            )
+        return await call_next(request)
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):

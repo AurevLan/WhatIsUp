@@ -17,7 +17,7 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from whatisup.core.config import get_settings
 from whatisup.core.database import get_db as get_db_dep
 from whatisup.core.limiter import limiter
-from whatisup.core.middleware import SecurityHeadersMiddleware
+from whatisup.core.middleware import MaxRequestSizeMiddleware, SecurityHeadersMiddleware
 from whatisup.core.redis import close_redis
 
 logger = structlog.get_logger(__name__)
@@ -130,6 +130,9 @@ def create_app() -> FastAPI:
 
     # Trust proxy headers from nginx (fixes https:// in redirects behind reverse proxy)
     app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
+
+    # Request size limit (5 MB)
+    app.add_middleware(MaxRequestSizeMiddleware)
 
     # Security headers
     app.add_middleware(SecurityHeadersMiddleware)

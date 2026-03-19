@@ -13,7 +13,7 @@ from typing import Any
 import aiosmtplib
 import httpx
 import structlog
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.core.config import get_settings
@@ -198,8 +198,6 @@ async def simulate_rule(db: AsyncSession, rule) -> dict:
     monitors_by_id = {m.id: m for m in monitors}
 
     # Get latest CheckResult per monitor
-    from sqlalchemy import func
-
     subq = (
         select(
             CheckResult.monitor_id,

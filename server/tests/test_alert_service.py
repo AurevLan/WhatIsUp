@@ -14,7 +14,6 @@ from whatisup.models.result import CheckResult, CheckStatus
 from whatisup.models.user import User
 from whatisup.services.alert import _validate_webhook_url, simulate_rule
 
-
 # ── _validate_webhook_url (SSRF guard) ────────────────────────────────────────
 
 

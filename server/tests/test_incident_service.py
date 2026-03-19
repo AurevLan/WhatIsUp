@@ -19,7 +19,6 @@ from whatisup.services.incident import (
     process_check_result,
 )
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 

@@ -11,7 +11,6 @@ from whatisup.api.deps import get_current_user
 from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
 from whatisup.core.security import encrypt_channel_config
-
 from whatisup.models.alert import AlertChannel, AlertEvent, AlertRule
 from whatisup.models.incident import Incident
 from whatisup.models.monitor import Monitor, MonitorGroup

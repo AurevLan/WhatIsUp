@@ -10,16 +10,39 @@
           <button @click="showAddChannel = true" class="text-sm btn-primary">+ {{ t('alerts.add_channel') }}</button>
         </div>
         <div class="space-y-3">
-          <div v-for="channel in channels" :key="channel.id" class="card flex items-center gap-4">
-            <div class="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
-              :class="channelIcon(channel.type).bg">
-              {{ channelIcon(channel.type).emoji }}
+          <div v-for="channel in channels" :key="channel.id" class="card">
+            <div class="flex items-center gap-4">
+              <div class="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
+                :class="channelIcon(channel.type).bg">
+                {{ channelIcon(channel.type).emoji }}
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="font-medium text-white truncate">{{ channel.name }}</p>
+                <p class="text-xs text-gray-500 capitalize">{{ channel.type }}</p>
+              </div>
+              <!-- Last activity badge -->
+              <div v-if="lastActivityByChannel[channel.id]" class="text-right flex-shrink-0 hidden sm:block">
+                <span class="text-xs" :class="lastActivityByChannel[channel.id].status === 'sent' ? 'text-emerald-500' : 'text-red-400'">
+                  {{ lastActivityByChannel[channel.id].status === 'sent' ? '✓' : '✗' }}
+                  {{ formatRelative(lastActivityByChannel[channel.id].sent_at) }}
+                </span>
+              </div>
+              <!-- Test button -->
+              <button
+                @click="testChannel(channel)"
+                :disabled="testingChannel === channel.id"
+                class="text-xs px-2 py-1 rounded-lg border border-gray-700 text-gray-400 hover:border-blue-500 hover:text-blue-400 transition-colors flex-shrink-0 disabled:opacity-50"
+              >
+                {{ testingChannel === channel.id ? t('alerts.test_channel_running') : t('alerts.test_channel') }}
+              </button>
+              <button @click="confirmDeleteChannel(channel)" class="text-gray-600 hover:text-red-400 transition-colors flex-shrink-0">✕</button>
             </div>
-            <div class="flex-1 min-w-0">
-              <p class="font-medium text-white truncate">{{ channel.name }}</p>
-              <p class="text-xs text-gray-500 capitalize">{{ channel.type }}</p>
+            <!-- Test result inline -->
+            <div v-if="testResults[channel.id]" class="mt-2 text-xs px-3 py-1.5 rounded-lg"
+              :class="testResults[channel.id].success ? 'bg-emerald-900/30 text-emerald-400 border border-emerald-800' : 'bg-red-900/30 text-red-400 border border-red-800'">
+              {{ testResults[channel.id].success ? t('alerts.test_channel_success') : t('alerts.test_channel_failed') }}
+              — {{ testResults[channel.id].detail }}
             </div>
-            <button @click="deleteChannel(channel)" class="text-gray-600 hover:text-red-400 transition-colors flex-shrink-0">✕</button>
           </div>
           <p v-if="!channels.length" class="text-gray-500 text-sm text-center py-8">
             {{ t('alerts.no_channels') }}
@@ -29,23 +52,40 @@
 
       <!-- Recent Alert Events -->
       <div>
-        <h2 class="text-lg font-semibold text-white mb-4">Recent events</h2>
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold text-white">{{ t('alerts.recent_events') }}</h2>
+          <!-- Filter tabs -->
+          <div class="flex gap-1 bg-gray-800 rounded-lg p-0.5">
+            <button v-for="f in eventFilters" :key="f.value"
+              @click="eventsFilter = f.value"
+              class="text-xs px-2.5 py-1 rounded-md transition-colors"
+              :class="eventsFilter === f.value ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-300'">
+              {{ f.label }}
+            </button>
+          </div>
+        </div>
         <div class="space-y-2">
-          <div v-for="event in events" :key="event.id" class="card">
+          <div v-for="event in filteredEvents" :key="event.id" class="card py-2.5">
             <div class="flex items-center gap-3">
               <span class="text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0"
                 :class="event.status === 'sent' ? 'bg-emerald-900/50 text-emerald-400' : 'bg-red-900/50 text-red-400'">
                 {{ event.status }}
               </span>
-              <span class="text-xs text-gray-400">{{ formatDate(event.sent_at) }}</span>
+              <span class="text-xs text-gray-400 flex-shrink-0">{{ formatDate(event.sent_at) }}</span>
               <span class="text-xs text-gray-500 truncate font-mono">{{ channelName(event.channel_id) }}</span>
             </div>
-            <p class="text-xs text-gray-500 mt-1 font-mono truncate">
-              Incident {{ event.incident_id.slice(0, 8) }}…
-            </p>
+            <div class="flex items-center gap-2 mt-1">
+              <p v-if="event.monitor_name" class="text-xs text-gray-300 font-medium truncate">
+                {{ event.monitor_name }}
+              </p>
+              <p v-else class="text-xs text-gray-600 font-mono">Incident {{ event.incident_id.slice(0, 8) }}…</p>
+              <span v-if="event.response_body && event.response_body !== 'null'" class="text-xs text-gray-600 truncate">
+                · {{ event.response_body }}
+              </span>
+            </div>
           </div>
-          <p v-if="!events.length" class="text-gray-500 text-sm text-center py-8">
-            No events yet.
+          <p v-if="!filteredEvents.length" class="text-gray-500 text-sm text-center py-8">
+            {{ t('alerts.no_events') }}
           </p>
         </div>
       </div>
@@ -55,7 +95,7 @@
     <div>
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-lg font-semibold text-white">{{ t('alerts.title') }}</h2>
-        <button @click="showAddRule = true" :disabled="!channels.length" class="text-sm btn-primary disabled:opacity-40 disabled:cursor-not-allowed">
+        <button @click="openCreateRule" :disabled="!channels.length" class="text-sm btn-primary disabled:opacity-40 disabled:cursor-not-allowed">
           + {{ t('alerts.add_rule') }}
         </button>
       </div>
@@ -68,7 +108,7 @@
       </div>
 
       <div class="space-y-3">
-        <div v-for="rule in rules" :key="rule.id" class="card">
+        <div v-for="rule in rules" :key="rule.id" class="card" :class="!rule.enabled ? 'opacity-60' : ''">
           <div class="flex items-start justify-between gap-4">
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-2 flex-wrap">
@@ -76,6 +116,9 @@
                 <span class="text-xs px-2 py-0.5 rounded-full font-mono"
                   :class="rule.monitor_id ? 'bg-blue-900/40 text-blue-300' : 'bg-purple-900/40 text-purple-300'">
                   {{ rule.monitor_id ? 'monitor' : 'groupe' }}
+                </span>
+                <span v-if="!rule.enabled" class="text-xs px-2 py-0.5 rounded-full bg-gray-800 text-gray-500">
+                  {{ t('alerts.rule_disabled') }}
                 </span>
               </div>
               <div class="mt-2 flex items-center gap-2 flex-wrap">
@@ -94,26 +137,59 @@
                 </span>
               </div>
             </div>
-            <button @click="deleteRule(rule)" class="text-gray-600 hover:text-red-400 transition-colors flex-shrink-0">✕</button>
+            <div class="flex items-center gap-2 flex-shrink-0">
+              <!-- Simulate -->
+              <button @click="runSimulate(rule)"
+                :disabled="simulatingRule === rule.id"
+                class="text-xs px-2 py-1 rounded-lg border border-gray-700 text-gray-400 hover:border-purple-500 hover:text-purple-400 transition-colors disabled:opacity-50">
+                {{ simulatingRule === rule.id ? t('alerts.simulate_running') : t('alerts.simulate') }}
+              </button>
+              <!-- Enable/disable toggle -->
+              <button @click="toggleRule(rule)"
+                :title="rule.enabled ? t('alerts.rule_enabled') : t('alerts.rule_disabled')"
+                class="text-xs px-2 py-1 rounded-lg border transition-colors"
+                :class="rule.enabled
+                  ? 'border-emerald-700 text-emerald-500 hover:border-red-600 hover:text-red-400'
+                  : 'border-gray-700 text-gray-600 hover:border-emerald-700 hover:text-emerald-400'">
+                {{ rule.enabled ? '●' : '○' }}
+              </button>
+              <!-- Edit -->
+              <button @click="openEditRule(rule)"
+                class="text-xs px-2 py-1 rounded-lg border border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white transition-colors">
+                {{ t('common.edit') }}
+              </button>
+              <!-- Delete -->
+              <button @click="confirmDeleteRule(rule)" class="text-gray-600 hover:text-red-400 transition-colors">✕</button>
+            </div>
+          </div>
+
+          <!-- Simulate result -->
+          <div v-if="simulateResults[rule.id]" class="mt-3 text-xs px-3 py-2 rounded-lg border"
+            :class="simulateResults[rule.id].would_fire
+              ? 'bg-red-900/20 border-red-800 text-red-300'
+              : 'bg-gray-800/60 border-gray-700 text-gray-400'">
+            <span class="font-medium">
+              {{ simulateResults[rule.id].would_fire ? t('alerts.simulate_would_fire') : t('alerts.simulate_would_not_fire') }}
+            </span>
+            — {{ simulateResults[rule.id].reason }}
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Add Channel Modal -->
-    <AddChannelModal v-if="showAddChannel" @close="showAddChannel = false" @created="loadData" />
-
-    <!-- Add Rule Modal -->
-    <div v-if="showAddRule" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+    <!-- Add/Edit Rule Modal -->
+    <div v-if="showRuleModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
       <div class="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between mb-6">
-          <h2 class="text-lg font-semibold text-white">{{ t('alerts.add_rule') }}</h2>
-          <button @click="showAddRule = false" class="text-gray-400 hover:text-white">✕</button>
+          <h2 class="text-lg font-semibold text-white">
+            {{ editingRule ? t('alerts.edit_rule') : t('alerts.add_rule') }}
+          </h2>
+          <button @click="closeRuleModal" class="text-gray-400 hover:text-white">✕</button>
         </div>
 
-        <form @submit.prevent="createRule" class="space-y-4">
-          <!-- Target type -->
-          <div>
+        <form @submit.prevent="saveRule" class="space-y-4">
+          <!-- Target type (only for create) -->
+          <div v-if="!editingRule">
             <label class="block text-sm font-medium text-gray-300 mb-2">Cible *</label>
             <div class="grid grid-cols-2 gap-2 mb-2">
               <button type="button" @click="ruleForm.target_type = 'monitor'; ruleForm.target_id = ''"
@@ -142,6 +218,14 @@
                 <option v-for="g in allGroups" :key="g.id" :value="g.id">{{ g.name }}</option>
               </template>
             </select>
+          </div>
+          <!-- Show current target for edit -->
+          <div v-else>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Cible</label>
+            <p class="text-sm text-gray-400 px-3 py-2 bg-gray-800 rounded-lg">
+              {{ targetName(editingRule) }}
+              <span class="text-gray-600 ml-2 text-xs">(non modifiable)</span>
+            </p>
           </div>
 
           <!-- Condition -->
@@ -188,7 +272,7 @@
           <div>
             <label class="block text-sm font-medium text-gray-300 mb-1">
               Digest — regrouper les alertes (min)
-              <span class="text-gray-500 font-normal">— 0 = désactivé, sinon regroupe sur N minutes</span>
+              <span class="text-gray-500 font-normal">— 0 = désactivé</span>
             </label>
             <input v-model.number="ruleForm.digest_minutes" class="input w-full" type="number" min="0" max="1440" placeholder="ex: 30" />
           </div>
@@ -207,28 +291,54 @@
             </div>
           </div>
 
+          <!-- Message preview -->
+          <div v-if="ruleForm.condition && ruleForm.channel_ids.length" class="bg-gray-800/60 border border-gray-700 rounded-lg p-3">
+            <p class="text-xs text-gray-500 mb-1.5 font-medium uppercase tracking-wide">Aperçu du message</p>
+            <p class="text-xs text-gray-300 font-mono whitespace-pre-wrap">{{ messagePreview }}</p>
+          </div>
+
           <div v-if="ruleError" class="bg-red-900/40 border border-red-700 rounded p-3 text-sm text-red-300">
             {{ ruleError }}
           </div>
 
           <div class="flex gap-3 pt-2">
-            <button type="button" @click="showAddRule = false"
+            <button type="button" @click="closeRuleModal"
               class="flex-1 px-4 py-2 border border-gray-700 text-gray-300 rounded-lg hover:bg-gray-800">
               {{ t('common.cancel') }}
             </button>
-            <button type="submit" :disabled="ruleLoading || !ruleForm.target_id || !ruleForm.channel_ids.length"
+            <button type="submit"
+              :disabled="ruleLoading || (!editingRule && (!ruleForm.target_id || !ruleForm.channel_ids.length)) || (editingRule && !ruleForm.channel_ids.length)"
               class="flex-1 btn-primary disabled:opacity-40 disabled:cursor-not-allowed">
-              {{ ruleLoading ? t('common.loading') : t('alerts.add_rule') }}
+              {{ ruleLoading ? t('common.loading') : (editingRule ? t('common.save') : t('alerts.add_rule')) }}
             </button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <!-- Add Channel Modal -->
+    <AddChannelModal v-if="showAddChannel" @close="showAddChannel = false" @created="loadData" />
+
+    <!-- Confirm delete modal -->
+    <div v-if="confirmModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+      <div class="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-sm p-6">
+        <h3 class="text-base font-semibold text-white mb-2">{{ confirmModal.title }}</h3>
+        <p class="text-sm text-gray-400 mb-6">{{ t('alerts.confirm_delete_detail') }}</p>
+        <div class="flex gap-3">
+          <button @click="confirmModal = null" class="flex-1 px-4 py-2 border border-gray-700 text-gray-300 rounded-lg hover:bg-gray-800">
+            {{ t('common.cancel') }}
+          </button>
+          <button @click="confirmModal.action(); confirmModal = null" class="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg">
+            {{ t('common.delete') }}
+          </button>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../api/client'
 import { monitorsApi, groupsApi } from '../api/monitors'
@@ -242,19 +352,64 @@ const rules = ref([])
 const allMonitors = ref([])
 const allGroups = ref([])
 const showAddChannel = ref(false)
-const showAddRule = ref(false)
+const showRuleModal = ref(false)
+const editingRule = ref(null)
 const ruleLoading = ref(false)
 const ruleError = ref('')
+const testingChannel = ref(null)
+const testResults = ref({})
+const simulatingRule = ref(null)
+const simulateResults = ref({})
+const eventsFilter = ref('all')
+const confirmModal = ref(null)
 
-const ruleForm = ref({
-  target_type: 'monitor',
-  target_id: '',
-  condition: 'any_down',
-  threshold_value: null,
-  min_duration_seconds: 0,
-  renotify_after_minutes: null,
-  digest_minutes: 0,
-  channel_ids: [],
+const ruleForm = ref(defaultRuleForm())
+
+function defaultRuleForm() {
+  return {
+    target_type: 'monitor',
+    target_id: '',
+    condition: 'any_down',
+    threshold_value: null,
+    min_duration_seconds: 0,
+    renotify_after_minutes: null,
+    digest_minutes: 0,
+    channel_ids: [],
+  }
+}
+
+const eventFilters = computed(() => [
+  { value: 'all', label: t('alerts.events_filter_all') },
+  { value: 'sent', label: t('alerts.events_filter_sent') },
+  { value: 'failed', label: t('alerts.events_filter_failed') },
+])
+
+const filteredEvents = computed(() => {
+  if (eventsFilter.value === 'all') return events.value
+  return events.value.filter(e => e.status === eventsFilter.value)
+})
+
+const lastActivityByChannel = computed(() => {
+  const map = {}
+  for (const event of events.value) {
+    if (!map[event.channel_id]) {
+      map[event.channel_id] = event
+    }
+  }
+  return map
+})
+
+const messagePreview = computed(() => {
+  const cond = ruleForm.value.condition
+  const threshold = ruleForm.value.threshold_value
+  const lines = ['[WhatIsUp] 🔴 ALERTE : <Monitor Name>']
+  if (cond === 'any_down') lines.push('Panne détectée sur au moins une sonde')
+  else if (cond === 'all_down') lines.push('Panne globale — toutes les sondes détectent une panne')
+  else if (cond === 'ssl_expiry') lines.push('Expiration du certificat SSL imminente')
+  else if (cond === 'response_time_above') lines.push(`Temps de réponse > ${threshold || '…'}ms`)
+  else if (cond === 'uptime_below') lines.push(`Uptime < ${threshold || '…'}%`)
+  lines.push('Début : 2026-01-01 12:00 UTC')
+  return lines.join('\n')
 })
 
 function channelIcon(type) {
@@ -301,9 +456,18 @@ function formatDate(dt) {
   return new Date(dt).toLocaleString('fr-FR')
 }
 
+function formatRelative(dt) {
+  const diff = Date.now() - new Date(dt).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'à l\'instant'
+  if (mins < 60) return `il y a ${mins}min`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `il y a ${hours}h`
+  return `il y a ${Math.floor(hours / 24)}j`
+}
+
 async function loadData() {
   showAddChannel.value = false
-  showAddRule.value = false
   const [chResp, evResp, rulesResp] = await Promise.all([
     api.get('/alerts/channels'),
     api.get('/alerts/events'),
@@ -314,52 +478,126 @@ async function loadData() {
   rules.value = rulesResp.data
 }
 
-async function deleteChannel(channel) {
-  if (confirm(`Supprimer le canal "${channel.name}" ?`)) {
-    await api.delete(`/alerts/channels/${channel.id}`)
-    await loadData()
+function confirmDeleteChannel(channel) {
+  confirmModal.value = {
+    title: t('alerts.confirm_delete_channel', { name: channel.name }),
+    action: async () => {
+      await api.delete(`/alerts/channels/${channel.id}`)
+      await loadData()
+    },
   }
 }
 
-async function deleteRule(rule) {
-  if (confirm('Supprimer cette règle ?')) {
-    await api.delete(`/alerts/rules/${rule.id}`)
-    await loadData()
+function confirmDeleteRule(rule) {
+  confirmModal.value = {
+    title: t('alerts.confirm_delete_rule'),
+    action: async () => {
+      await api.delete(`/alerts/rules/${rule.id}`)
+      await loadData()
+    },
   }
 }
 
-async function createRule() {
+async function testChannel(channel) {
+  testingChannel.value = channel.id
+  delete testResults.value[channel.id]
+  try {
+    const resp = await api.post(`/alerts/channels/${channel.id}/test`)
+    testResults.value = { ...testResults.value, [channel.id]: resp.data }
+  } catch (err) {
+    testResults.value = {
+      ...testResults.value,
+      [channel.id]: { success: false, detail: err.response?.data?.detail || 'Erreur réseau' },
+    }
+  } finally {
+    testingChannel.value = null
+  }
+}
+
+async function toggleRule(rule) {
+  await api.patch(`/alerts/rules/${rule.id}`, { enabled: !rule.enabled })
+  rule.enabled = !rule.enabled
+}
+
+async function runSimulate(rule) {
+  simulatingRule.value = rule.id
+  delete simulateResults.value[rule.id]
+  try {
+    const resp = await api.post(`/alerts/rules/${rule.id}/simulate`)
+    simulateResults.value = { ...simulateResults.value, [rule.id]: resp.data }
+  } catch (err) {
+    simulateResults.value = {
+      ...simulateResults.value,
+      [rule.id]: { would_fire: false, reason: err.response?.data?.detail || 'Erreur', affected_monitors: [] },
+    }
+  } finally {
+    simulatingRule.value = null
+  }
+}
+
+function openCreateRule() {
+  editingRule.value = null
+  ruleForm.value = defaultRuleForm()
+  ruleError.value = ''
+  showRuleModal.value = true
+}
+
+function openEditRule(rule) {
+  editingRule.value = rule
+  ruleForm.value = {
+    target_type: rule.monitor_id ? 'monitor' : 'group',
+    target_id: rule.monitor_id || rule.group_id || '',
+    condition: rule.condition,
+    threshold_value: rule.threshold_value,
+    min_duration_seconds: rule.min_duration_seconds,
+    renotify_after_minutes: rule.renotify_after_minutes,
+    digest_minutes: rule.digest_minutes,
+    channel_ids: rule.channels.map(c => c.id),
+  }
+  ruleError.value = ''
+  showRuleModal.value = true
+}
+
+function closeRuleModal() {
+  showRuleModal.value = false
+  editingRule.value = null
+  ruleError.value = ''
+}
+
+async function saveRule() {
   ruleLoading.value = true
   ruleError.value = ''
   try {
-    const payload = {
-      condition: ruleForm.value.condition,
-      min_duration_seconds: ruleForm.value.min_duration_seconds || 0,
-      channel_ids: ruleForm.value.channel_ids,
-    }
-    if (ruleForm.value.target_type === 'monitor') {
-      payload.monitor_id = ruleForm.value.target_id
+    if (editingRule.value) {
+      const payload = {
+        condition: ruleForm.value.condition,
+        min_duration_seconds: ruleForm.value.min_duration_seconds || 0,
+        channel_ids: ruleForm.value.channel_ids,
+        threshold_value: ruleForm.value.threshold_value || undefined,
+        renotify_after_minutes: ruleForm.value.renotify_after_minutes || undefined,
+        digest_minutes: ruleForm.value.digest_minutes || 0,
+      }
+      await api.patch(`/alerts/rules/${editingRule.value.id}`, payload)
     } else {
-      payload.group_id = ruleForm.value.target_id
+      const payload = {
+        condition: ruleForm.value.condition,
+        min_duration_seconds: ruleForm.value.min_duration_seconds || 0,
+        channel_ids: ruleForm.value.channel_ids,
+      }
+      if (ruleForm.value.target_type === 'monitor') {
+        payload.monitor_id = ruleForm.value.target_id
+      } else {
+        payload.group_id = ruleForm.value.target_id
+      }
+      if (ruleForm.value.threshold_value != null) payload.threshold_value = ruleForm.value.threshold_value
+      if (ruleForm.value.renotify_after_minutes) payload.renotify_after_minutes = ruleForm.value.renotify_after_minutes
+      if (ruleForm.value.digest_minutes) payload.digest_minutes = ruleForm.value.digest_minutes
+      await api.post('/alerts/rules', payload)
     }
-    if (ruleForm.value.threshold_value != null) {
-      payload.threshold_value = ruleForm.value.threshold_value
-    }
-    if (ruleForm.value.renotify_after_minutes) {
-      payload.renotify_after_minutes = ruleForm.value.renotify_after_minutes
-    }
-    if (ruleForm.value.digest_minutes) {
-      payload.digest_minutes = ruleForm.value.digest_minutes
-    }
-    await api.post('/alerts/rules', payload)
-    ruleForm.value = {
-      target_type: 'monitor', target_id: '', condition: 'any_down',
-      threshold_value: null, min_duration_seconds: 0,
-      renotify_after_minutes: null, digest_minutes: 0, channel_ids: [],
-    }
+    closeRuleModal()
     await loadData()
   } catch (err) {
-    ruleError.value = err.response?.data?.detail || 'Erreur lors de la création de la règle'
+    ruleError.value = err.response?.data?.detail || 'Erreur lors de la sauvegarde de la règle'
   } finally {
     ruleLoading.value = false
   }

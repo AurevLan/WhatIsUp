@@ -2,6 +2,15 @@
   <div class="min-h-screen bg-gray-950 p-8">
     <div class="max-w-4xl mx-auto">
 
+      <!-- Erreur de chargement (404 ou réseau) -->
+      <div v-if="loadError" class="text-center py-32">
+        <p class="text-4xl mb-4">🔍</p>
+        <h1 class="text-2xl font-bold text-white mb-2">Status page introuvable</h1>
+        <p class="text-gray-500 text-sm">Aucune page publique ne correspond à cette URL.</p>
+      </div>
+
+      <template v-else>
+
       <!-- Header / Statut global -->
       <div class="text-center mb-10">
         <h1 class="text-3xl font-bold text-white">{{ page?.name || 'Status Page' }}</h1>
@@ -35,6 +44,11 @@
       <!-- Composants (moniteurs) -->
       <section class="space-y-4 mb-10">
         <h2 class="text-lg font-semibold text-gray-300 mb-3">{{ t('public.component_status') }}</h2>
+
+        <div v-if="!loading && monitors.length === 0"
+          class="bg-gray-900 border border-gray-800 rounded-xl p-8 text-center text-gray-500 text-sm">
+          Aucun monitor dans ce groupe pour le moment.
+        </div>
 
         <div v-for="m in monitors" :key="m.id"
           class="bg-gray-900 border border-gray-800 rounded-xl p-5">
@@ -195,6 +209,8 @@
         Powered by <span class="text-gray-500">WhatIsUp</span> ·
         Last updated: {{ lastUpdated }}
       </div>
+
+      </template>
     </div>
   </div>
 </template>
@@ -213,6 +229,9 @@ const monitors = ref([])
 const incidents30d = ref([])
 const loading = ref(true)
 const lastUpdated = ref(new Date().toLocaleTimeString('fr-FR'))
+
+// Abonnement
+const loadError = ref(false)
 
 // Abonnement
 const subEmail = ref('')
@@ -324,6 +343,8 @@ onMounted(async () => {
     page.value = pageResp.data
     monitors.value = monResp.data
     incidents30d.value = statusResp.data.incidents_30d ?? []
+  } catch {
+    loadError.value = true
   } finally {
     loading.value = false
     lastUpdated.value = new Date().toLocaleTimeString('fr-FR')

@@ -117,6 +117,8 @@ const STEP_ICONS = {
   navigate: '🌐',
   click: '👆',
   fill: '✏️',
+  press: '⌨️',
+  type: '⌨️',
   select: '🔽',
   submit: '📤',
   wait_element: '⏳',

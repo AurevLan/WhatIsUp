@@ -2,12 +2,13 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.api.deps import get_current_user
 from whatisup.core.database import get_db
+from whatisup.core.limiter import limiter
 from whatisup.models.incident import Incident
 from whatisup.models.monitor import Monitor
 from whatisup.models.result import CheckResult
@@ -18,7 +19,11 @@ router = APIRouter(prefix="/status", tags=["status"])
 
 
 @router.get("/monitors")
+@limiter.limit("60/minute")
 async def status_all_monitors(
+    request: Request,
+    limit: int = Query(default=100, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[dict]:
@@ -26,7 +31,7 @@ async def status_all_monitors(
     if not current_user.is_superadmin:
         query = query.where(Monitor.owner_id == current_user.id)
 
-    monitors = (await db.execute(query)).scalars().all()
+    monitors = (await db.execute(query.offset(offset).limit(limit))).scalars().all()
     if not monitors:
         return []
 

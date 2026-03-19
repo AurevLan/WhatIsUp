@@ -11,7 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from whatisup.api.deps import get_current_probe, require_superadmin
 from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
-from whatisup.core.security import generate_probe_api_key, hash_api_key
+from whatisup.core.security import (
+    decrypt_scenario_variables,
+    generate_probe_api_key,
+    hash_api_key,
+)
 from whatisup.models.monitor import Monitor
 from whatisup.models.probe import Probe
 from whatisup.models.result import CheckResult
@@ -146,7 +150,14 @@ async def heartbeat(
     probe.last_seen_at = datetime.now(UTC)
 
     monitors = list(
-        (await db.execute(select(Monitor).where(Monitor.enabled.is_(True)))).scalars().all()
+        (
+            await db.execute(
+                select(Monitor).where(
+                    Monitor.enabled.is_(True),
+                    Monitor.check_type != "composite",  # composite monitors have no physical check
+                )
+            )
+        ).scalars().all()
     )
 
     # Check for immediate trigger requests set via the trigger-check endpoint
@@ -180,7 +191,11 @@ async def heartbeat(
             expected_json_path=m.expected_json_path,
             expected_json_value=m.expected_json_value,
             scenario_steps=m.scenario_steps,
-            scenario_variables=m.scenario_variables,
+            scenario_variables=(
+                decrypt_scenario_variables(m.scenario_variables)
+                if m.scenario_variables
+                else None
+            ),
             trigger_now=trigger_map.get(str(m.id), False),
         )
         for m in monitors
@@ -222,10 +237,17 @@ async def push_result(
         ssl_days_remaining=payload.ssl_days_remaining,
         error_message=payload.error_message,
         scenario_result=payload.scenario_result,
+        dns_resolved_values=payload.dns_resolved_values,
     )
     db.add(result)
     probe.last_seen_at = datetime.now(UTC)
     await db.flush()
+
+    # DNS semantic checks (drift + cross-probe consistency) — modifies result in-place if needed
+    from whatisup.services.dns import apply_dns_semantic_check
+
+    await apply_dns_semantic_check(db, monitor, result)
+
     result_id = result.id
     await db.commit()  # commit before background task so the result is visible in a new session
 

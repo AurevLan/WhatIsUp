@@ -368,6 +368,113 @@
       <p v-else class="text-gray-500 text-sm text-center py-4">No changes detected in the loaded period</p>
     </div>
 
+    <!-- DNS drift card (always visible for DNS monitors) -->
+    <div v-if="monitor.check_type === 'dns'" class="card mb-6">
+      <h2 class="text-sm font-semibold text-gray-300 mb-4">{{ t('monitors.dns_drift.label') }}</h2>
+
+      <!-- Toggles -->
+      <div class="space-y-3 mb-4">
+        <label class="flex items-center justify-between cursor-pointer gap-4">
+          <div>
+            <p class="text-sm text-gray-300">{{ t('monitors.dns_drift.label') }}</p>
+            <p class="text-xs text-gray-500">{{ t('monitors.dns_drift.desc') }}</p>
+          </div>
+          <button type="button" @click="toggleDnsSetting('dns_drift_alert')"
+            :class="monitor.dns_drift_alert ? 'bg-emerald-600' : 'bg-gray-700'"
+            class="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full transition-colors focus:outline-none">
+            <span :class="monitor.dns_drift_alert ? 'translate-x-4' : 'translate-x-0.5'"
+              class="inline-block h-4 w-4 mt-0.5 transform rounded-full bg-white transition-transform" />
+          </button>
+        </label>
+        <label class="flex items-center justify-between cursor-pointer gap-4">
+          <div>
+            <p class="text-sm text-gray-300">{{ t('monitors.dns_drift.consistency') }}</p>
+            <p class="text-xs text-gray-500">{{ t('monitors.dns_drift.consistency_desc') }}</p>
+          </div>
+          <button type="button" @click="toggleDnsSetting('dns_consistency_check')"
+            :class="monitor.dns_consistency_check ? 'bg-emerald-600' : 'bg-gray-700'"
+            class="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full transition-colors focus:outline-none">
+            <span :class="monitor.dns_consistency_check ? 'translate-x-4' : 'translate-x-0.5'"
+              class="inline-block h-4 w-4 mt-0.5 transform rounded-full bg-white transition-transform" />
+          </button>
+        </label>
+        <label v-if="monitor.dns_consistency_check" class="flex items-center justify-between cursor-pointer gap-4">
+          <div>
+            <p class="text-sm text-gray-300">{{ t('monitors.dns_drift.split_horizon') }}</p>
+            <p class="text-xs text-gray-500">{{ t('monitors.dns_drift.split_horizon_desc') }}</p>
+          </div>
+          <button type="button" @click="toggleDnsSetting('dns_allow_split_horizon')"
+            :class="monitor.dns_allow_split_horizon ? 'bg-emerald-600' : 'bg-gray-700'"
+            class="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full transition-colors focus:outline-none">
+            <span :class="monitor.dns_allow_split_horizon ? 'translate-x-4' : 'translate-x-0.5'"
+              class="inline-block h-4 w-4 mt-0.5 transform rounded-full bg-white transition-transform" />
+          </button>
+        </label>
+      </div>
+
+      <!-- Baseline section (only when drift alert enabled) -->
+      <template v-if="monitor.dns_drift_alert">
+        <hr class="border-gray-700 mb-4" />
+        <div class="flex items-start justify-between gap-4">
+          <div class="flex-1">
+            <p class="text-xs text-gray-500 mb-1">{{ t('monitors.dns_drift.baseline_current') }}</p>
+            <div v-if="monitor.dns_baseline_ips && monitor.dns_baseline_ips.length" class="flex flex-wrap gap-1">
+              <span v-for="ip in monitor.dns_baseline_ips" :key="ip"
+                class="font-mono text-xs bg-gray-800 text-emerald-400 px-2 py-0.5 rounded">{{ ip }}</span>
+            </div>
+            <p v-else class="text-xs text-gray-400 italic">{{ t('monitors.dns_drift.baseline_none') }}</p>
+          </div>
+          <div class="flex gap-2 flex-shrink-0">
+            <button @click="acceptDnsBaseline" :disabled="dnsBaselineLoading"
+              class="btn-primary text-xs disabled:opacity-50">
+              {{ t('monitors.dns_drift.accept_baseline') }}
+            </button>
+            <button @click="resetDnsBaseline" :disabled="dnsBaselineLoading || !monitor.dns_baseline_ips"
+              class="btn-ghost text-xs text-red-400 hover:text-red-300 disabled:opacity-50">
+              {{ t('monitors.dns_drift.reset_baseline') }}
+            </button>
+          </div>
+        </div>
+        <div v-if="dnsBaselineMsg" class="mt-2 text-xs text-emerald-400">{{ dnsBaselineMsg }}</div>
+      </template>
+    </div>
+
+    <!-- Composite members card -->
+    <div v-if="monitor.check_type === 'composite'" class="card mb-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-sm font-semibold text-gray-300">{{ t('monitors.composite.members') }}</h2>
+      </div>
+      <div v-if="compositeMembers.length" class="space-y-2 mb-4">
+        <div v-for="m in compositeMembers" :key="m.id"
+          class="flex items-center gap-3 px-3 py-2 rounded-lg bg-gray-800/50">
+          <span class="flex-1 text-sm text-gray-300 font-mono">{{ memberName(m.monitor_id) }}</span>
+          <span v-if="m.role" class="text-xs text-blue-400 bg-blue-950/50 px-2 py-0.5 rounded">{{ m.role }}</span>
+          <span class="text-xs text-gray-500">×{{ m.weight }}</span>
+          <button @click="removeCompositeMember(m.id)"
+            class="text-red-500 hover:text-red-400 text-xs ml-2">✕</button>
+        </div>
+      </div>
+      <p v-else class="text-gray-500 text-sm mb-4">{{ t('monitors.composite.no_members') }}</p>
+      <div class="flex gap-2 items-end flex-wrap">
+        <div class="flex-1 min-w-40">
+          <label class="text-xs text-gray-500 block mb-1">{{ t('monitors.composite.add_member') }}</label>
+          <select v-model="newMember.monitor_id" class="input w-full text-sm">
+            <option value="">— select a monitor —</option>
+            <option v-for="m in availableMonitors" :key="m.id" :value="m.id">{{ m.name }}</option>
+          </select>
+        </div>
+        <div class="w-32">
+          <label class="text-xs text-gray-500 block mb-1">{{ t('monitors.composite.role_placeholder') }}</label>
+          <input v-model="newMember.role" class="input w-full text-sm" placeholder="internal" />
+        </div>
+        <div class="w-20">
+          <label class="text-xs text-gray-500 block mb-1">{{ t('monitors.composite.weight') }}</label>
+          <input v-model.number="newMember.weight" type="number" min="1" max="100" class="input w-full text-sm" />
+        </div>
+        <button @click="addCompositeMember" :disabled="!newMember.monitor_id" class="btn-primary text-sm h-9 disabled:opacity-50">+</button>
+      </div>
+    </div>
+
     <!-- SSL card (HTTP checks only) -->
     <div v-if="['http', 'keyword', 'json_path'].includes(monitor.check_type) && monitor.ssl_check_enabled && latestSsl" class="card mb-6">
       <div class="flex items-center gap-3 mb-3">
@@ -406,11 +513,49 @@
       </div>
     </div>
 
+    <!-- Domain expiry card -->
+    <div v-if="monitor.check_type === 'domain_expiry'" class="card mb-6">
+      <div class="flex items-center gap-3 mb-3">
+        <ShieldCheck v-if="latestDomainExpiry && latestDomainExpiry.ssl_days_remaining > 0" class="w-5 h-5 text-emerald-400" />
+        <ShieldAlert v-else class="w-5 h-5 text-red-400" />
+        <h2 class="text-sm font-semibold text-gray-300">Domain expiry</h2>
+      </div>
+      <div v-if="latestDomainExpiry" class="grid grid-cols-2 gap-4 text-center">
+        <div>
+          <p class="text-xs text-gray-500 mb-1">Expires on</p>
+          <p class="text-sm font-mono text-gray-300">
+            {{ latestDomainExpiry.ssl_expires_at ? formatDateShort(latestDomainExpiry.ssl_expires_at) : '—' }}
+          </p>
+        </div>
+        <div>
+          <p class="text-xs text-gray-500 mb-1">Days remaining</p>
+          <p class="text-sm font-bold"
+            :class="latestDomainExpiry.ssl_days_remaining > 30 ? 'text-emerald-400'
+                  : latestDomainExpiry.ssl_days_remaining > 7 ? 'text-amber-400' : 'text-red-400'">
+            {{ latestDomainExpiry.ssl_days_remaining ?? '—' }}
+          </p>
+        </div>
+      </div>
+      <div v-else class="flex items-center gap-2 text-gray-500 text-sm">
+        <Shield class="w-4 h-4" />
+        Waiting for first check result
+      </div>
+    </div>
+
     <!-- Incidents récents -->
     <div class="card mb-6">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-sm font-semibold text-gray-300">{{ t('monitor_detail.incidents') }}</h2>
-        <button @click="loadIncidents" class="text-xs text-gray-500 hover:text-gray-300">Refresh</button>
+        <div class="flex items-center gap-3">
+          <button @click="downloadIncidentsCsv" :disabled="incidents.length === 0"
+            class="text-xs text-gray-500 hover:text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed">
+            {{ t('monitor_detail.export_csv') }}
+          </button>
+          <button @click="loadIncidents" class="text-xs text-gray-500 hover:text-gray-300">Refresh</button>
+        </div>
+      </div>
+      <div v-if="incidentError" class="mb-3 px-3 py-2 rounded-lg bg-red-900/50 border border-red-700 text-red-300 text-xs">
+        {{ incidentError }}
       </div>
       <div v-if="incidents.length === 0" class="text-gray-600 text-sm text-center py-4">{{ t('monitor_detail.no_incidents') }}</div>
       <div v-else class="divide-y divide-gray-800">
@@ -923,12 +1068,39 @@ const allMonitors = ref([]) // for dependency picker
 
 // ── Incidents & Post-mortem ───────────────────────────────────────────────────
 const incidents = ref([])
+const incidentError = ref(null)
 
 async function loadIncidents() {
+  incidentError.value = null
   try {
     const { data } = await monitorsApi.incidents(route.params.id, { limit: 20 })
     incidents.value = data
-  } catch { incidents.value = [] }
+  } catch {
+    incidents.value = []
+    incidentError.value = t('common.error')
+    setTimeout(() => { incidentError.value = null }, 5000)
+  }
+}
+
+function downloadIncidentsCsv() {
+  if (!incidents.value.length) return
+  const headers = ['id', 'started_at', 'resolved_at', 'duration_seconds', 'scope', 'affected_probe_ids', 'dependency_suppressed', 'group_id']
+  const rows = incidents.value.map(inc =>
+    headers.map(h => {
+      const v = inc[h]
+      if (v === null || v === undefined) return ''
+      if (Array.isArray(v)) return `"${v.join(';')}"`
+      return `"${String(v).replace(/"/g, '""')}"`
+    }).join(',')
+  )
+  const csv = [headers.join(','), ...rows].join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `incidents-${route.params.id}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 const postmortem = ref({ open: false, loading: false, content: '', incidentId: null })
@@ -1218,6 +1390,10 @@ const latestSsl = computed(() =>
   results.value.find(r => r.ssl_valid !== null && r.ssl_valid !== undefined) ?? null
 )
 
+const latestDomainExpiry = computed(() =>
+  results.value.find(r => r.ssl_expires_at !== null && r.ssl_expires_at !== undefined) ?? null
+)
+
 const latestScenarioResult = computed(() =>
   results.value.find(r => r.scenario_result != null)?.scenario_result ?? null
 )
@@ -1488,7 +1664,7 @@ const availOptions = {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-const noHttpTypes = ['tcp', 'udp', 'smtp', 'ping', 'domain_expiry', 'heartbeat']
+const noHttpTypes = ['tcp', 'udp', 'smtp', 'ping', 'domain_expiry', 'heartbeat', 'composite']
 
 function formatTarget(m) {
   const raw = m.url?.replace(/^https?:\/\//, '') || ''
@@ -1499,6 +1675,8 @@ function formatTarget(m) {
     const firstNav = m.scenario_steps?.find(s => s.type === 'navigate')
     return firstNav?.params?.url?.replace(/^https?:\/\//, '') || 'scenario'
   }
+  if (m.check_type === 'composite') return 'composite'
+  if (m.check_type === 'heartbeat') return m.heartbeat_slug || 'heartbeat'
   return raw
 }
 
@@ -1511,6 +1689,100 @@ function formatDate(dt) {
 
 function formatDateShort(dt) {
   return new Date(dt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
+// ── DNS Baseline ──────────────────────────────────────────────────────────────
+const dnsBaselineLoading = ref(false)
+const dnsBaselineMsg = ref('')
+
+async function acceptDnsBaseline() {
+  dnsBaselineLoading.value = true
+  dnsBaselineMsg.value = ''
+  try {
+    const { data } = await monitorsApi.acceptDnsBaseline(monitor.value.id)
+    monitor.value.dns_baseline_ips = data.baseline
+    dnsBaselineMsg.value = `Baseline updated: ${data.baseline.join(', ')}`
+    setTimeout(() => { dnsBaselineMsg.value = '' }, 4000)
+  } catch (e) {
+    dnsBaselineMsg.value = e.response?.data?.detail || 'Error'
+  } finally {
+    dnsBaselineLoading.value = false
+  }
+}
+
+async function resetDnsBaseline() {
+  dnsBaselineLoading.value = true
+  dnsBaselineMsg.value = ''
+  try {
+    await monitorsApi.resetDnsBaseline(monitor.value.id)
+    monitor.value.dns_baseline_ips = null
+    dnsBaselineMsg.value = 'Baseline cleared — will re-learn on next check.'
+    setTimeout(() => { dnsBaselineMsg.value = '' }, 4000)
+  } catch (e) {
+    dnsBaselineMsg.value = e.response?.data?.detail || 'Error'
+  } finally {
+    dnsBaselineLoading.value = false
+  }
+}
+
+async function toggleDnsSetting(field) {
+  const newVal = !monitor.value[field]
+  monitor.value[field] = newVal
+  try {
+    await monitorsApi.update(monitor.value.id, { [field]: newVal })
+  } catch (e) {
+    // revert on error
+    monitor.value[field] = !newVal
+  }
+}
+
+// ── Composite members ─────────────────────────────────────────────────────────
+const compositeMembers = ref([])
+const newMember = ref({ monitor_id: '', role: '', weight: 1 })
+
+function memberName(monitorId) {
+  const m = allMonitors.value.find(m => m.id === monitorId)
+  return m ? m.name : monitorId.slice(0, 8)
+}
+
+const availableMonitors = computed(() =>
+  allMonitors.value.filter(m =>
+    m.id !== monitor.value?.id &&
+    m.check_type !== 'composite' &&
+    !compositeMembers.value.some(cm => cm.monitor_id === m.id)
+  )
+)
+
+async function loadCompositeMembers() {
+  if (monitor.value?.check_type !== 'composite') return
+  try {
+    const { data } = await monitorsApi.listCompositeMembers(monitor.value.id)
+    compositeMembers.value = data
+  } catch {}
+}
+
+async function addCompositeMember() {
+  if (!newMember.value.monitor_id) return
+  try {
+    const { data } = await monitorsApi.addCompositeMember(monitor.value.id, {
+      monitor_id: newMember.value.monitor_id,
+      role: newMember.value.role || null,
+      weight: newMember.value.weight || 1,
+    })
+    compositeMembers.value.push(data)
+    newMember.value = { monitor_id: '', role: '', weight: 1 }
+  } catch (e) {
+    alert(e.response?.data?.detail || 'Error adding member')
+  }
+}
+
+async function removeCompositeMember(memberId) {
+  try {
+    await monitorsApi.removeCompositeMember(monitor.value.id, memberId)
+    compositeMembers.value = compositeMembers.value.filter(m => m.id !== memberId)
+  } catch (e) {
+    alert(e.response?.data?.detail || 'Error removing member')
+  }
 }
 
 // ── Cleanup ───────────────────────────────────────────────────────────────────
@@ -1543,11 +1815,12 @@ onMounted(async () => {
   sloEditTarget.value = monitor.value.slo_target ?? null
   sloEditDays.value   = monitor.value.slo_window_days ?? 30
 
-  // Load annotations, incidents, SLO & custom metrics non-blocking (parallel, after core data)
+  // Load annotations, incidents, SLO, custom metrics & composite members non-blocking
   loadAnnotations()
   loadIncidents()
   loadSlo()
   loadCustomMetrics()
+  loadCompositeMembers()
 
   // Load all monitors for dependency picker
   try {

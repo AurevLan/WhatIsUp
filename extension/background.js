@@ -5,107 +5,137 @@
  * - Maintain recording state (steps array)
  * - Receive events from content_script via chrome.runtime.onMessage
  * - Send the recorded scenario to the WhatIsUp API
+ *
+ * State is stored in chrome.storage.session so it survives service worker
+ * restarts (MV3 workers are terminated after a few seconds of inactivity).
  */
 
 'use strict'
 
 // ---------------------------------------------------------------------------
-// State
+// State helpers — chrome.storage.session survives SW restarts
 // ---------------------------------------------------------------------------
 
-let recording = false
-let steps = []
-let recordingTabId = null
+async function _getState() {
+  const data = await chrome.storage.session.get(['recording', 'steps', 'recordingTabId', 'secretVars'])
+  return {
+    recording: data.recording ?? false,
+    steps: data.steps ?? [],
+    recordingTabId: data.recordingTabId ?? null,
+    secretVars: data.secretVars ?? [],
+  }
+}
+
+function _setState(patch) {
+  return chrome.storage.session.set(patch)
+}
 
 // ---------------------------------------------------------------------------
 // Message router
 // ---------------------------------------------------------------------------
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  _handleMessage(msg)
+    .then(sendResponse)
+    .catch((err) => sendResponse({ ok: false, error: err.message }))
+  return true // keep channel open for async response
+})
+
+async function _handleMessage(msg) {
+  const state = await _getState()
+
   switch (msg.type) {
     case 'GET_STATE':
-      sendResponse({ recording, steps })
-      break
+      return { recording: state.recording, steps: state.steps }
 
     case 'START_RECORDING': {
-      recording = true
-      steps = []
-      recordingTabId = msg.tabId ?? null
-      // Notify the active tab so content_script activates event listeners
-      _notifyContentScript(recordingTabId, { type: 'RECORDING_STARTED' })
-      sendResponse({ ok: true })
-      break
+      const tabId = msg.tabId ?? null
+      await _setState({ recording: true, steps: [], secretVars: [], recordingTabId: tabId })
+      _notifyContentScript(tabId, { type: 'RECORDING_STARTED' })
+      return { ok: true }
     }
 
     case 'STOP_RECORDING':
-      recording = false
-      if (recordingTabId) {
-        _notifyContentScript(recordingTabId, { type: 'RECORDING_STOPPED' })
+      if (state.recordingTabId) {
+        _notifyContentScript(state.recordingTabId, { type: 'RECORDING_STOPPED' })
       }
-      recordingTabId = null
-      sendResponse({ ok: true, steps })
-      break
+      await _setState({ recording: false, recordingTabId: null })
+      return { ok: true, steps: state.steps }
 
     case 'CLEAR_STEPS':
-      steps = []
-      sendResponse({ ok: true })
-      break
+      await _setState({ steps: [], secretVars: [] })
+      return { ok: true }
 
-    case 'ADD_STEP':
-      if (recording) {
-        steps.push(msg.step)
-        // Broadcast to popup so it updates in real-time
-        chrome.runtime.sendMessage({ type: 'STEPS_UPDATED', steps }).catch(() => {})
-      }
-      sendResponse({ ok: true })
-      break
+    case 'ADD_STEP': {
+      if (!state.recording) return { ok: true }
+      const newSteps = [...state.steps, msg.step]
+      await _setState({ steps: newSteps })
+      chrome.runtime.sendMessage({ type: 'STEPS_UPDATED', steps: newSteps }).catch(() => {})
+      return { ok: true }
+    }
 
     case 'REMOVE_STEP': {
       const idx = msg.index
-      if (idx >= 0 && idx < steps.length) steps.splice(idx, 1)
-      sendResponse({ ok: true, steps })
-      break
+      const newSteps = [...state.steps]
+      if (idx >= 0 && idx < newSteps.length) newSteps.splice(idx, 1)
+      await _setState({ steps: newSteps })
+      return { ok: true, steps: newSteps }
     }
 
-    case 'SEND_TO_WHATISUP':
-      _sendToWhatIsUp(msg.monitorName, msg.steps)
-        .then((result) => sendResponse({ ok: true, result }))
-        .catch((err) => sendResponse({ ok: false, error: err.message }))
-      return true // keep channel open for async response
+    case 'ADD_SECRET_VAR': {
+      if (!state.recording) return { ok: true }
+      // Replace existing var with same name if present (user retyped)
+      const filtered = state.secretVars.filter((v) => v.name !== msg.name)
+      const newSecretVars = [...filtered, { name: msg.name, value: msg.value, secret: true }]
+      await _setState({ secretVars: newSecretVars })
+      return { ok: true }
+    }
+
+    case 'SEND_TO_WHATISUP': {
+      const result = await _sendToWhatIsUp(msg.monitorName, msg.steps, state.secretVars)
+      return { ok: true, result }
+    }
 
     default:
-      sendResponse({ ok: false, error: 'Unknown message type' })
+      return { ok: false, error: 'Unknown message type' }
   }
-  return false
-})
+}
 
 // ---------------------------------------------------------------------------
 // Navigation tracking (adds "navigate" steps automatically)
 // ---------------------------------------------------------------------------
 
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  const { recording, steps, recordingTabId } = await _getState()
   if (!recording || tabId !== recordingTabId) return
   if (changeInfo.status !== 'complete' || !tab.url) return
   if (tab.url.startsWith('chrome://') || tab.url.startsWith('about:')) return
+
+  // Re-activate content script on the newly loaded page
+  _notifyContentScript(tabId, { type: 'RECORDING_STARTED' })
 
   // Avoid duplicate navigate steps for the same URL
   const last = steps[steps.length - 1]
   if (last && last.type === 'navigate' && last.params.url === tab.url) return
 
-  steps.push({
-    type: 'navigate',
-    label: `Navigate to ${tab.url}`,
-    params: { url: tab.url },
-  })
-  chrome.runtime.sendMessage({ type: 'STEPS_UPDATED', steps }).catch(() => {})
+  const newSteps = [
+    ...steps,
+    {
+      type: 'navigate',
+      label: `Navigate to ${tab.url}`,
+      params: { url: tab.url },
+    },
+  ]
+  await _setState({ steps: newSteps })
+  chrome.runtime.sendMessage({ type: 'STEPS_UPDATED', steps: newSteps }).catch(() => {})
 })
 
 // ---------------------------------------------------------------------------
 // WhatIsUp API call
 // ---------------------------------------------------------------------------
 
-async function _sendToWhatIsUp(monitorName, scenarioSteps) {
-  const { serverUrl, apiKey } = await chrome.storage.sync.get(['serverUrl', 'apiKey'])
+async function _sendToWhatIsUp(monitorName, scenarioSteps, secretVars = []) {
+  const { serverUrl, apiKey } = await chrome.storage.local.get(['serverUrl', 'apiKey'])
 
   if (!serverUrl || !apiKey) {
     throw new Error('WhatIsUp server URL and API key are required. Go to Extension Options.')
@@ -118,7 +148,7 @@ async function _sendToWhatIsUp(monitorName, scenarioSteps) {
     url: scenarioSteps.find((s) => s.type === 'navigate')?.params?.url ?? 'https://example.com',
     check_type: 'scenario',
     scenario_steps: scenarioSteps,
-    scenario_variables: [],
+    scenario_variables: secretVars,
     interval_seconds: 300,
     timeout_seconds: 30,
   }

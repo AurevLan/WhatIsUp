@@ -27,6 +27,7 @@ class CheckResult:
     ssl_days_remaining: int | None = None
     error_message: str | None = None
     scenario_result: dict | None = None
+    dns_resolved_values: list[str] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -42,6 +43,7 @@ class CheckResult:
             "ssl_days_remaining": self.ssl_days_remaining,
             "error_message": self.error_message,
             "scenario_result": self.scenario_result,
+            "dns_resolved_values": self.dns_resolved_values,
         }
 
 
@@ -355,7 +357,7 @@ async def _check_dns(
             checked_at=checked_at,
             status="up",
             response_time_ms=round(elapsed_ms, 2),
-            final_url=", ".join(resolved_values),  # reuse final_url to store resolved values
+            dns_resolved_values=resolved_values,
         )
 
     except dns.resolver.NXDOMAIN:
@@ -587,6 +589,22 @@ async def _check_scenario(
                             x = int(params.get("x", 0))
                             y = int(params.get("y", 500))
                             await page.evaluate(f"window.scrollTo({x}, {y})")
+
+                    elif step_type == "press":
+                        key = params["key"]
+                        selector = params.get("selector", "")
+                        if selector:
+                            await page.press(selector, key)
+                        else:
+                            await page.keyboard.press(key)
+
+                    elif step_type == "type":
+                        text = params.get("text", "")
+                        selector = params.get("selector", "")
+                        if selector:
+                            await page.type(selector, text)
+                        else:
+                            await page.keyboard.type(text)
 
                     elif step_type == "extract":
                         selector = params["selector"]

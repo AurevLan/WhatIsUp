@@ -10,8 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from whatisup.api.deps import get_current_user, require_superadmin
 from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
+from whatisup.core.security import encrypt_scenario_variables
 from whatisup.models.annotation import MonitorAnnotation
-from whatisup.models.monitor import Monitor
+from whatisup.models.monitor import CompositeMonitorMember, Monitor
 from whatisup.models.probe import Probe
 from whatisup.models.result import CheckResult, CheckStatus
 from whatisup.models.tag import Tag
@@ -21,6 +22,8 @@ from whatisup.schemas.incident import IncidentOut
 from whatisup.schemas.monitor import (
     BulkActionRequest,
     BulkActionResponse,
+    CompositeMonitorMemberCreate,
+    CompositeMonitorMemberOut,
     MonitorCreate,
     MonitorDependencyCreate,
     MonitorDependencyOut,
@@ -132,7 +135,9 @@ async def list_monitors(
 
 
 @router.post("/", response_model=MonitorOut, status_code=status.HTTP_201_CREATED)
+@limiter.limit("10/minute")
 async def create_monitor(
+    request: Request,
     payload: MonitorCreate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -171,8 +176,10 @@ async def create_monitor(
         keyword_negate=payload.keyword_negate,
         expected_json_path=payload.expected_json_path,
         expected_json_value=payload.expected_json_value,
-        scenario_steps=payload.scenario_steps,
-        scenario_variables=payload.scenario_variables,
+        scenario_steps=[s.model_dump() for s in payload.scenario_steps] if payload.scenario_steps else None,
+        scenario_variables=encrypt_scenario_variables(
+            [v.model_dump() for v in payload.scenario_variables]
+        ) if payload.scenario_variables else None,
         heartbeat_slug=payload.heartbeat_slug,
         heartbeat_interval_seconds=payload.heartbeat_interval_seconds,
         heartbeat_grace_seconds=payload.heartbeat_grace_seconds,
@@ -181,6 +188,10 @@ async def create_monitor(
         json_schema=payload.json_schema,
         slo_target=payload.slo_target,
         slo_window_days=payload.slo_window_days,
+        dns_drift_alert=payload.dns_drift_alert,
+        dns_consistency_check=payload.dns_consistency_check,
+        dns_allow_split_horizon=payload.dns_allow_split_horizon,
+        composite_aggregation=payload.composite_aggregation,
     )
     db.add(monitor)
     await db.flush()
@@ -247,6 +258,11 @@ async def update_monitor(
     for field, value in update_data.items():
         if field == "url" and value is not None:
             value = str(value)
+        elif field == "scenario_variables" and value is not None:
+            # Encrypt secret variables before persisting; skip empty-value entries
+            # (empty value means "unchanged" when the UI re-submits masked data)
+            non_empty = [v for v in value if not (v.get("secret") and not v.get("value"))]
+            value = encrypt_scenario_variables(non_empty)
         setattr(monitor, field, value)
 
     if tag_ids is not None:
@@ -391,7 +407,9 @@ async def get_monitor_probe_status(
 
 
 @router.post("/{monitor_id}/trigger-check", status_code=status.HTTP_202_ACCEPTED)
+@limiter.limit("10/minute")
 async def trigger_check(
+    request: Request,
     monitor_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -573,7 +591,9 @@ async def get_postmortem(
 
 
 @router.get("/{monitor_id}/report")
+@limiter.limit("20/minute")
 async def get_sla_report(
+    request: Request,
     monitor_id: uuid.UUID,
     from_: datetime = Query(alias="from", description="ISO datetime start"),
     to: datetime = Query(default=None, description="ISO datetime end (default: now)"),
@@ -892,3 +912,218 @@ async def remove_dependency(
             status_code=status.HTTP_404_NOT_FOUND, detail="Dependency not found"
         )
     await db.delete(dep)
+
+
+# ---------------------------------------------------------------------------
+# DNS baseline management
+# ---------------------------------------------------------------------------
+
+
+@router.post("/{monitor_id}/dns-baseline/accept", status_code=status.HTTP_200_OK)
+@limiter.limit("20/minute")
+async def accept_dns_baseline(
+    request: Request,
+    monitor_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Accept the current DNS resolved values as the new baseline.
+
+    Fetches the most recent successful DNS check result for this monitor
+    and stores its resolved IPs as the new drift-detection baseline.
+    Clears any existing open incident caused by a drift.
+    """
+    monitor = await _get_monitor_or_404(monitor_id, current_user, db)
+    if monitor.check_type != "dns":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="DNS baseline only applies to dns check_type monitors",
+        )
+
+    latest = (
+        await db.execute(
+            select(CheckResult)
+            .where(
+                CheckResult.monitor_id == monitor_id,
+                CheckResult.dns_resolved_values.isnot(None),
+            )
+            .order_by(CheckResult.checked_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+
+    if latest is None or not latest.dns_resolved_values:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No DNS result available yet — wait for the first check",
+        )
+
+    new_baseline = sorted(latest.dns_resolved_values)
+    monitor.dns_baseline_ips = new_baseline
+    await db.flush()
+
+    return {"baseline": new_baseline, "accepted_at": latest.checked_at.isoformat()}
+
+
+@router.delete("/{monitor_id}/dns-baseline", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("20/minute")
+async def reset_dns_baseline(
+    request: Request,
+    monitor_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Clear the DNS baseline — the next successful check will re-learn it."""
+    monitor = await _get_monitor_or_404(monitor_id, current_user, db)
+    if monitor.check_type != "dns":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="DNS baseline only applies to dns check_type monitors",
+        )
+    monitor.dns_baseline_ips = None
+
+
+# ---------------------------------------------------------------------------
+# Composite monitor members
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/{monitor_id}/composite-members",
+    response_model=list[CompositeMonitorMemberOut],
+)
+@limiter.limit("60/minute")
+async def list_composite_members(
+    request: Request,
+    monitor_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list:
+    """List all source monitors of a composite monitor."""
+    monitor = await _get_monitor_or_404(monitor_id, current_user, db)
+    if monitor.check_type != "composite":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This monitor is not a composite monitor",
+        )
+    rows = (
+        await db.execute(
+            select(CompositeMonitorMember).where(
+                CompositeMonitorMember.composite_id == monitor_id
+            )
+        )
+    ).scalars().all()
+    return list(rows)
+
+
+@router.post(
+    "/{monitor_id}/composite-members",
+    response_model=CompositeMonitorMemberOut,
+    status_code=status.HTTP_201_CREATED,
+)
+@limiter.limit("30/minute")
+async def add_composite_member(
+    request: Request,
+    monitor_id: uuid.UUID,
+    payload: CompositeMonitorMemberCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> object:
+    """Add a source monitor to a composite monitor."""
+    composite = await _get_monitor_or_404(monitor_id, current_user, db)
+    if composite.check_type != "composite":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Target monitor is not a composite monitor",
+        )
+    if payload.monitor_id == monitor_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A composite monitor cannot reference itself",
+        )
+
+    member_monitor = await _get_monitor_or_404(payload.monitor_id, current_user, db)
+    if member_monitor.check_type == "composite":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A composite monitor cannot be a member of another composite",
+        )
+
+    existing = (
+        await db.execute(
+            select(CompositeMonitorMember).where(
+                CompositeMonitorMember.composite_id == monitor_id,
+                CompositeMonitorMember.monitor_id == payload.monitor_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Member already added"
+        )
+
+    member = CompositeMonitorMember(
+        composite_id=monitor_id,
+        monitor_id=payload.monitor_id,
+        weight=payload.weight,
+        role=payload.role,
+    )
+    db.add(member)
+    await db.flush()
+    return member
+
+
+@router.patch(
+    "/{monitor_id}/composite-members/{member_id}",
+    response_model=CompositeMonitorMemberOut,
+)
+@limiter.limit("30/minute")
+async def update_composite_member(
+    request: Request,
+    monitor_id: uuid.UUID,
+    member_id: uuid.UUID,
+    payload: CompositeMonitorMemberCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> object:
+    """Update weight or role of a composite member."""
+    await _get_monitor_or_404(monitor_id, current_user, db)
+    member = (
+        await db.execute(
+            select(CompositeMonitorMember).where(
+                CompositeMonitorMember.id == member_id,
+                CompositeMonitorMember.composite_id == monitor_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if member is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Member not found")
+    member.weight = payload.weight
+    member.role = payload.role
+    await db.flush()
+    return member
+
+
+@router.delete(
+    "/{monitor_id}/composite-members/{member_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def remove_composite_member(
+    monitor_id: uuid.UUID,
+    member_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Remove a source monitor from a composite monitor."""
+    await _get_monitor_or_404(monitor_id, current_user, db)
+    member = (
+        await db.execute(
+            select(CompositeMonitorMember).where(
+                CompositeMonitorMember.id == member_id,
+                CompositeMonitorMember.composite_id == monitor_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if member is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Member not found")
+    await db.delete(member)

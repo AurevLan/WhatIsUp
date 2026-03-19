@@ -229,6 +229,10 @@ async def _fire_alerts(
     now = datetime.now(UTC)
 
     for rule in rules:
+        # Skip disabled rules
+        if not rule.enabled:
+            continue
+
         # H-10: min_duration_seconds — skip if incident too short for "opened" events
         if (
             event_type == "incident_opened"
@@ -353,6 +357,76 @@ async def _fire_alerts(
     await db.flush()
 
 
+async def _process_composite_result(
+    db: AsyncSession,
+    result: CheckResult,
+    monitor: Monitor,
+    publish_event,
+) -> None:
+    """
+    Simplified incident lifecycle for composite monitors.
+    No multi-probe logic — composite state is already aggregated by services/composite.py.
+    """
+    monitor_id = result.monitor_id
+    is_down = result.status in (CheckStatus.down, CheckStatus.timeout, CheckStatus.error)
+    scope = IncidentScope.global_ if is_down else None
+
+    open_incident = (
+        await db.execute(
+            select(Incident).where(
+                Incident.monitor_id == monitor_id,
+                Incident.resolved_at.is_(None),
+            )
+        )
+    ).scalar_one_or_none()
+
+    now = datetime.now(UTC)
+
+    if scope is not None and open_incident is None:
+        incident = Incident(
+            monitor_id=monitor_id,
+            started_at=now,
+            scope=scope,
+            affected_probe_ids=[],
+        )
+        db.add(incident)
+        await db.flush()
+        logger.info("composite_incident_opened", monitor_id=str(monitor_id))
+        await publish_event(
+            {
+                "type": "incident_opened",
+                "monitor_id": str(monitor_id),
+                "incident_id": str(incident.id),
+                "scope": scope.value,
+                "affected_probes": [],
+                "started_at": now.isoformat(),
+                "dependency_suppressed": False,
+            }
+        )
+        await _fire_alerts(db, incident, monitor, result, "incident_opened")
+
+    elif scope is None and open_incident is not None:
+        duration = int((now - open_incident.started_at).total_seconds())
+        open_incident.resolved_at = now
+        open_incident.duration_seconds = duration
+        await db.flush()
+        logger.info(
+            "composite_incident_resolved",
+            monitor_id=str(monitor_id),
+            duration_seconds=duration,
+        )
+        await publish_event(
+            {
+                "type": "incident_resolved",
+                "monitor_id": str(monitor_id),
+                "incident_id": str(open_incident.id),
+                "duration_seconds": duration,
+                "resolved_at": now.isoformat(),
+            }
+        )
+        await _fire_alerts(db, open_incident, monitor, result, "incident_resolved")
+
+
 async def process_check_result(
     db: AsyncSession,
     result: CheckResult,
@@ -368,6 +442,12 @@ async def process_check_result(
     monitor = (
         await db.execute(select(Monitor).where(Monitor.id == monitor_id))
     ).scalar_one_or_none()
+
+    # Composite monitor — skip multi-probe logic, use simplified path
+    if monitor and monitor.check_type == "composite":
+        await _process_composite_result(db, result, monitor, publish_event)
+        return
+
     group_id = monitor.group_id if monitor else None
 
     in_maintenance = await is_in_maintenance(db, monitor_id, group_id)
@@ -621,3 +701,10 @@ async def process_check_result(
                     group.status = "resolved"
                     group.resolved_at = now
                     logger.info("incident_group_resolved", group_id=str(group.id))
+
+    # Propagate state change to any composite monitors that include this monitor
+    # (skip if this monitor itself is composite to avoid infinite recursion)
+    if monitor and monitor.check_type != "composite":
+        from whatisup.services.composite import evaluate_composite_parents
+
+        await evaluate_composite_parents(db, monitor_id, publish_event)

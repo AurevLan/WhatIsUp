@@ -13,6 +13,7 @@ from typing import Any
 import aiosmtplib
 import httpx
 import structlog
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.core.config import get_settings
@@ -21,6 +22,289 @@ from whatisup.models.alert import AlertChannel, AlertChannelType, AlertEvent, Al
 from whatisup.models.incident import Incident, IncidentScope
 
 logger = structlog.get_logger(__name__)
+
+# ── Channel test ───────────────────────────────────────────────────────────────
+
+
+async def test_channel(channel: AlertChannel) -> tuple[bool, str]:
+    """Send a test notification to the channel. Returns (success, detail)."""
+    settings = get_settings()
+    decrypted_config = decrypt_channel_config(channel.config)
+
+    try:
+        if channel.type == AlertChannelType.email:
+            msg = EmailMessage()
+            msg["From"] = str(settings.smtp_from)
+            msg["To"] = ", ".join(decrypted_config["to"])
+            msg["Subject"] = "[WhatIsUp] Test de canal — connexion OK"
+            msg.set_content(
+                "Ceci est un message de test envoyé depuis WhatIsUp.\n"
+                "Si vous recevez ce message, votre canal email est correctement configuré."
+            )
+            await aiosmtplib.send(
+                msg,
+                hostname=settings.smtp_host,
+                port=settings.smtp_port,
+                start_tls=settings.smtp_tls,
+                username=settings.smtp_user or None,
+                password=settings.smtp_password or None,
+                timeout=15,
+            )
+            return True, f"Email envoyé à : {', '.join(decrypted_config['to'])}"
+
+        elif channel.type == AlertChannelType.webhook:
+            _validate_webhook_url(decrypted_config["url"])
+            payload = {
+                "event": "test",
+                "message": "WhatIsUp — test de canal",
+                "timestamp": datetime.now(UTC).isoformat(),
+            }
+            payload_bytes = json.dumps(payload).encode()
+            headers = {"Content-Type": "application/json", "User-Agent": "WhatIsUp/1.0"}
+            if secret := decrypted_config.get("secret"):
+                sig = hmac.new(secret.encode(), payload_bytes, hashlib.sha256).hexdigest()
+                headers["X-WhatIsUp-Signature"] = f"sha256={sig}"
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.post(
+                    decrypted_config["url"], content=payload_bytes, headers=headers
+                )
+                resp.raise_for_status()
+                return True, f"HTTP {resp.status_code}"
+
+        elif channel.type == AlertChannelType.telegram:
+            url = f"https://api.telegram.org/bot{decrypted_config['bot_token']}/sendMessage"
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.post(
+                    url,
+                    json={
+                        "chat_id": decrypted_config["chat_id"],
+                        "text": "✅ <b>WhatIsUp — Test de canal</b>\nConnexion Telegram OK.",
+                        "parse_mode": "HTML",
+                    },
+                )
+                resp.raise_for_status()
+                return True, f"HTTP {resp.status_code}"
+
+        elif channel.type == AlertChannelType.slack:
+            _validate_webhook_url(decrypted_config["webhook_url"])
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.post(
+                    decrypted_config["webhook_url"],
+                    json={
+                        "attachments": [
+                            {
+                                "color": "#36a64f",
+                                "title": "WhatIsUp — Test de canal",
+                                "text": "Connexion Slack OK.",
+                                "footer": "WhatIsUp Monitoring",
+                            }
+                        ]
+                    },
+                )
+                resp.raise_for_status()
+                return True, f"HTTP {resp.status_code}"
+
+        elif channel.type == AlertChannelType.pagerduty:
+            if not settings.is_production:
+                return True, "skipped:non_production (PagerDuty ne s'exécute qu'en production)"
+            url = "https://events.pagerduty.com/v2/enqueue"
+            payload = {
+                "routing_key": decrypted_config["integration_key"],
+                "event_action": "trigger",
+                "dedup_key": f"whatisup-test-{uuid.uuid4()}",
+                "payload": {
+                    "summary": "WhatIsUp — Test de canal PagerDuty",
+                    "severity": decrypted_config.get("severity", "info"),
+                    "source": "WhatIsUp",
+                },
+            }
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.post(url, json=payload)
+                resp.raise_for_status()
+                return True, f"HTTP {resp.status_code}"
+
+        elif channel.type == AlertChannelType.opsgenie:
+            if not settings.is_production:
+                return True, "skipped:non_production (Opsgenie ne s'exécute qu'en production)"
+            region = decrypted_config.get("region", "us")
+            base_url = "https://api.opsgenie.com" if region == "us" else "https://api.eu.opsgenie.com"
+            headers = {"Authorization": f"GenieKey {decrypted_config['api_key']}"}
+            payload = {
+                "message": "WhatIsUp — Test de canal Opsgenie",
+                "alias": f"whatisup-test-{uuid.uuid4()}",
+                "priority": "P5",
+                "source": "WhatIsUp",
+            }
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.post(
+                    f"{base_url}/v2/alerts", json=payload, headers=headers
+                )
+                resp.raise_for_status()
+                return True, f"HTTP {resp.status_code}"
+
+        return False, f"Type de canal non supporté : {channel.type}"
+
+    except Exception as exc:
+        logger.warning("channel_test_failed", channel_id=str(channel.id), error=str(exc))
+        return False, str(exc)
+
+
+# ── Rule simulation ────────────────────────────────────────────────────────────
+
+
+async def simulate_rule(db: AsyncSession, rule) -> dict:
+    """Evaluate a rule against the current state of its monitors.
+
+    Returns a dict with: would_fire, reason, monitor_name, affected_monitors.
+    Does NOT send any alert.
+    """
+    from whatisup.models.monitor import Monitor
+    from whatisup.models.result import CheckResult
+
+    # Collect monitors targeted by this rule
+    if rule.monitor_id:
+        monitors = (
+            (await db.execute(select(Monitor).where(Monitor.id == rule.monitor_id)))
+            .scalars()
+            .all()
+        )
+    elif rule.group_id:
+        monitors = (
+            (
+                await db.execute(
+                    select(Monitor).where(Monitor.group_id == rule.group_id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+    else:
+        return {"would_fire": False, "reason": "Aucun monitor ciblé", "monitor_name": None, "affected_monitors": []}
+
+    if not monitors:
+        return {"would_fire": False, "reason": "Aucun monitor trouvé", "monitor_name": None, "affected_monitors": []}
+
+    monitor_ids = [m.id for m in monitors]
+    monitors_by_id = {m.id: m for m in monitors}
+
+    # Get latest CheckResult per monitor
+    from sqlalchemy import func
+
+    subq = (
+        select(
+            CheckResult.monitor_id,
+            func.max(CheckResult.checked_at).label("max_checked_at"),
+        )
+        .where(CheckResult.monitor_id.in_(monitor_ids))
+        .group_by(CheckResult.monitor_id)
+        .subquery()
+    )
+    latest_results = (
+        (
+            await db.execute(
+                select(CheckResult).join(
+                    subq,
+                    (CheckResult.monitor_id == subq.c.monitor_id)
+                    & (CheckResult.checked_at == subq.c.max_checked_at),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    results_by_monitor: dict[uuid.UUID, list] = {}
+    for r in latest_results:
+        results_by_monitor.setdefault(r.monitor_id, []).append(r)
+
+    condition = rule.condition
+
+    if condition in ("any_down", "all_down"):
+        down_monitors = []
+        for mid in monitor_ids:
+            results = results_by_monitor.get(mid, [])
+            if not results:
+                continue
+            is_down = any(r.status != "up" for r in results)
+            if is_down:
+                down_monitors.append(monitors_by_id[mid].name)
+
+        if condition == "any_down":
+            would_fire = len(down_monitors) > 0
+            reason = (
+                f"{len(down_monitors)} monitor(s) actuellement en panne : {', '.join(down_monitors)}"
+                if would_fire
+                else "Tous les monitors sont UP"
+            )
+        else:  # all_down
+            would_fire = len(down_monitors) == len(monitor_ids)
+            reason = (
+                f"Panne globale — tous les monitors sont down"
+                if would_fire
+                else f"{len(down_monitors)}/{len(monitor_ids)} monitors en panne (pas encore tous)"
+            )
+        return {
+            "would_fire": would_fire,
+            "reason": reason,
+            "monitor_name": monitors[0].name if len(monitors) == 1 else None,
+            "affected_monitors": down_monitors,
+        }
+
+    elif condition == "response_time_above":
+        threshold = rule.threshold_value or 0
+        slow_monitors = []
+        for mid in monitor_ids:
+            results = results_by_monitor.get(mid, [])
+            for r in results:
+                if r.response_time_ms is not None and r.response_time_ms > threshold:
+                    slow_monitors.append(
+                        f"{monitors_by_id[mid].name} ({r.response_time_ms:.0f}ms)"
+                    )
+                    break
+        would_fire = len(slow_monitors) > 0
+        reason = (
+            f"Temps de réponse dépassé sur : {', '.join(slow_monitors)}"
+            if would_fire
+            else f"Tous les monitors sont sous le seuil de {threshold}ms"
+        )
+        return {
+            "would_fire": would_fire,
+            "reason": reason,
+            "monitor_name": monitors[0].name if len(monitors) == 1 else None,
+            "affected_monitors": slow_monitors,
+        }
+
+    elif condition == "ssl_expiry":
+        expiring = []
+        for mid in monitor_ids:
+            results = results_by_monitor.get(mid, [])
+            for r in results:
+                if r.ssl_days_remaining is not None and r.ssl_days_remaining < 30:
+                    expiring.append(
+                        f"{monitors_by_id[mid].name} (expire dans {r.ssl_days_remaining}j)"
+                    )
+                    break
+        would_fire = len(expiring) > 0
+        reason = (
+            f"Certificat(s) SSL expirant bientôt : {', '.join(expiring)}"
+            if would_fire
+            else "Tous les certificats SSL sont valides (> 30 jours)"
+        )
+        return {
+            "would_fire": would_fire,
+            "reason": reason,
+            "monitor_name": monitors[0].name if len(monitors) == 1 else None,
+            "affected_monitors": expiring,
+        }
+
+    else:
+        return {
+            "would_fire": False,
+            "reason": f"Simulation non supportée pour la condition '{condition}' (uptime/baseline nécessitent un historique)",
+            "monitor_name": monitors[0].name if len(monitors) == 1 else None,
+            "affected_monitors": [],
+        }
+
 
 # ── Digest helpers ─────────────────────────────────────────────────────────────
 
@@ -102,6 +386,7 @@ async def _flush_digest(rule_id: str, channels: list[AlertChannel], ctx: dict) -
                             },
                         )
                 elif channel.type == AlertChannelType.slack:
+                    _validate_webhook_url(decrypted_config["webhook_url"])
                     async with httpx.AsyncClient(timeout=10) as client:
                         await client.post(
                             decrypted_config["webhook_url"],
@@ -582,6 +867,7 @@ async def _send_slack(
         ]
     }
 
+    _validate_webhook_url(config["webhook_url"])
     async with httpx.AsyncClient(timeout=10) as client:
         resp = await client.post(config["webhook_url"], json=payload)
         resp.raise_for_status()

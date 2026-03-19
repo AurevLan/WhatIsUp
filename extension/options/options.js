@@ -10,7 +10,7 @@ const statusMsg = document.getElementById('statusMsg')
 // Load saved values
 // ---------------------------------------------------------------------------
 
-chrome.storage.sync.get(['serverUrl', 'apiKey'], ({ serverUrl, apiKey }) => {
+chrome.storage.local.get(['serverUrl', 'apiKey'], ({ serverUrl, apiKey }) => {
   if (serverUrl) serverUrlInput.value = serverUrl
   if (apiKey) apiKeyInput.value = apiKey
 })
@@ -33,7 +33,7 @@ saveBtn.addEventListener('click', () => {
     return
   }
 
-  chrome.storage.sync.set({ serverUrl, apiKey }, () => {
+  chrome.storage.local.set({ serverUrl, apiKey }, () => {
     _status('Saved!', true)
   })
 })

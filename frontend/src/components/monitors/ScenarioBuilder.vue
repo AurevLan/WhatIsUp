@@ -123,6 +123,8 @@
                   <option value="navigate">🌐 Navigate</option>
                   <option value="click">🖱 Click</option>
                   <option value="fill">⌨ Fill</option>
+                  <option value="press">⌨ Press key</option>
+                  <option value="type">⌨ Type text</option>
                   <option value="select">📋 Select</option>
                   <option value="hover">🖱 Hover</option>
                   <option value="scroll">📜 Scroll</option>
@@ -254,6 +256,44 @@
                 </div>
               </template>
 
+              <!-- press -->
+              <template v-else-if="step.type === 'press'">
+                <input v-model="step.params.selector" class="input text-xs w-full font-mono"
+                  placeholder="CSS selector (leave empty to press on focused element)"
+                  @input="updateAutoLabel(step); emitSteps()" />
+                <div class="grid grid-cols-2 gap-2">
+                  <select v-model="step.params.key" class="input text-xs" @change="updateAutoLabel(step); emitSteps()">
+                    <option value="Tab">Tab</option>
+                    <option value="Enter">Enter</option>
+                    <option value="Escape">Escape</option>
+                    <option value="Space">Space</option>
+                    <option value="Backspace">Backspace</option>
+                    <option value="Delete">Delete</option>
+                    <option value="ArrowDown">Arrow ↓</option>
+                    <option value="ArrowUp">Arrow ↑</option>
+                    <option value="ArrowLeft">Arrow ←</option>
+                    <option value="ArrowRight">Arrow →</option>
+                    <option value="Home">Home</option>
+                    <option value="End">End</option>
+                    <option value="PageDown">Page Down</option>
+                    <option value="PageUp">Page Up</option>
+                  </select>
+                  <input v-model="step.params.key" class="input text-xs font-mono"
+                    placeholder="Or custom key e.g. Control+a"
+                    @input="updateAutoLabel(step); emitSteps()" />
+                </div>
+              </template>
+
+              <!-- type -->
+              <template v-else-if="step.type === 'type'">
+                <input v-model="step.params.selector" class="input text-xs w-full font-mono"
+                  placeholder="CSS selector (leave empty to type on focused element)"
+                  @input="updateAutoLabel(step); emitSteps()" />
+                <input v-model="step.params.text" class="input text-xs w-full"
+                  :placeholder="'Text to type — supports {{VARIABLE}}'"
+                  @input="updateAutoLabel(step); emitSteps()" />
+              </template>
+
               <!-- screenshot -->
               <template v-else-if="step.type === 'screenshot'">
                 <input v-model="step.params.name" class="input text-xs w-full"
@@ -355,6 +395,8 @@ function defaultParams(type) {
     assert_text:    { selector: '', expected: '', mode: 'contains' },
     assert_visible: { selector: '' },
     assert_url:     { expected: '', mode: 'contains' },
+    press:          { selector: '', key: 'Tab' },
+    type:           { selector: '', text: '' },
     screenshot:     { name: '' },
     extract:        { selector: '', attribute: 'text', variable: '' },
     group:          {},
@@ -367,6 +409,7 @@ function stepIcon(type) {
     navigate: '🌐', click: '🖱', fill: '⌨', select: '📋', hover: '🖱',
     scroll: '📜', wait_element: '👁', wait_time: '⏱',
     assert_text: '📝', assert_visible: '✅', assert_url: '🔗',
+    press: '⌨', type: '⌨',
     screenshot: '📸', extract: '📤', group: '━━',
   }
   return m[type] || '•'
@@ -394,6 +437,8 @@ function autoLabel(step) {
     case 'assert_visible': return p.selector ? `Visible: ${p.selector}` : ''
     case 'wait_element': return p.selector ? `Wait for ${p.selector}` : ''
     case 'wait_time':    return p.duration_ms ? `Wait ${p.duration_ms}ms` : ''
+    case 'press':        return p.key ? `Press ${p.key}${p.selector ? ` on ${p.selector}` : ''}` : ''
+    case 'type':         return p.text ? `Type '${p.text}'${p.selector ? ` in ${p.selector}` : ''}` : ''
     case 'screenshot':   return `📸 ${p.name || 'capture'}`
     case 'extract':      return p.variable ? `Extract → {{${p.variable}}}` : ''
     default:             return ''
@@ -619,6 +664,8 @@ const paletteTypes = [
   { type: 'navigate',       icon: '🌐', label: 'Navigate'    },
   { type: 'click',          icon: '🖱',  label: 'Click'       },
   { type: 'fill',           icon: '⌨',  label: 'Fill'        },
+  { type: 'press',          icon: '⌨',  label: 'Press key'   },
+  { type: 'type',           icon: '⌨',  label: 'Type text'   },
   { type: 'select',         icon: '📋', label: 'Select'      },
   { type: 'hover',          icon: '🖱',  label: 'Hover'       },
   { type: 'scroll',         icon: '📜', label: 'Scroll'      },

@@ -84,6 +84,13 @@ class Settings(BaseSettings):
                     f"CORS_ALLOWED_ORIGINS contains insecure HTTP origins in production: "
                     f"{http_origins}. Use HTTPS."
                 )
+            if not self.fernet_key:
+                raise ValueError(
+                    "FERNET_KEY is not set — scenario variable secrets and alert channel "
+                    "credentials would be stored in plaintext. "
+                    "Generate one with: python -c \"from cryptography.fernet import Fernet; "
+                    "print(Fernet.generate_key().decode())\""
+                )
         return self
 
     @property

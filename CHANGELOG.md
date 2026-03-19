@@ -11,6 +11,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.0] - 2026-03-19
+
+### Added
+
+#### Browser extension — scenario recorder
+
+- **Service worker state persistence** — all recording state (`recording`, `steps`, `recordingTabId`, `secretVars`) migrated from in-memory `let` variables to `chrome.storage.session`; survives Manifest V3 service worker termination (idle kill after ~5 s), eliminating dropped steps during recording
+- **Password capture with secret variables** — input fields of type `password` are now captured: the real value is stored as `{{password_N}}` placeholder in the step params and the actual secret is kept in a separate `secretVars` store; never written to the step list visible in the popup
+- **Navigation-aware content script reactivation** — after every page navigation (`chrome.tabs.onUpdated status=complete`), the background worker re-sends `RECORDING_STARTED` to the content script so `_active` is set correctly on the new page; cross-page recording now works without user interaction
+- **`ADD_SECRET_VAR` message type** — new background message; idempotent upsert by name (re-typing a password replaces the previous value)
+
+#### Security hardening
+
+- **Fernet encryption for scenario variables** — `encrypt_scenario_variables()` / `decrypt_scenario_variables()` added to `core/security.py`; all `secret: true` scenario variables are encrypted at rest in the database; decrypted only on probe delivery; masked (`value: ""`) in all API responses
+- **`FERNET_KEY` required in production** — `validate_production_settings()` in `config.py` raises `ValueError` at startup if `FERNET_KEY` is empty when `ENVIRONMENT=production`; prevents accidental plaintext secret storage
+- **Typed scenario schemas with validation** — `ScenarioStep` (Pydantic model with `type` regex whitelist) and `ScenarioVariable` (alphanum name, 255-char value limit) replace bare `list[dict]` in `MonitorCreate` / `MonitorOut` / `MonitorUpdate`; `MonitorOut.scenario_variables` auto-decrypts and masks via a field validator
+- **SSRF guard extended to Slack** — `_validate_webhook_url()` added to all 3 Slack call sites in `services/alert.py` (test, digest loop, `_send_slack`); mirrors the existing protection on generic webhooks
+- **WebSocket per-IP limit correctly enforced** — dashboard WebSocket now routes through `manager.connect()` before accepting; on auth failure calls `manager.disconnect()` before closing (was previously bypassing the per-IP limit for the auth window)
+- **Public WebSocket slug validation** — `ws /api/v1/ws/public/{slug}` now validates the slug against the database before accepting the connection; unknown slugs close with code 4004
+- **`AlertRule` delete ownership fix** — cross-user rule deletion was possible when a rule had zero channels (JOIN returned no rows); replaced with `outerjoin(Monitor)` + `outerjoin(MonitorGroup)` + `or_()` ownership check; superadmin bypass preserved
+- **`POST /monitors/` rate limit** — `@limiter.limit("10/minute")` added to `create_monitor`
+- **API key storage hardened** — browser extension options migrated from `chrome.storage.sync` (cloud-synced) to `chrome.storage.local`; prevents API keys from being uploaded to the user's Google account
+
+#### New monitoring capabilities
+
+- **DNS drift detection** — new `services/dns.py`; per-monitor `dns_drift_alert` flag auto-learns the initial A/AAAA answer as a baseline; subsequent deviations set result status to `down` with a descriptive error message
+- **DNS cross-probe consistency** — per-monitor `dns_consistency_check` flag; compares DNS answers from different probes within a `2 × interval` window; inconsistencies flagged as `down` unless `dns_allow_split_horizon` is set
+- **Composite monitors** — new `services/composite.py` with 4 aggregation rules (`all_up`, `any_up`, `majority_up`, `weighted_up`); synthetic `CheckResult` (probe_id=None) drives the normal incident pipeline; recomputed automatically whenever a member monitor result is stored
+- **Alert rule enable/disable** — `enabled` boolean column on `AlertRule`; disabled rules are skipped at dispatch time without deletion; toggle exposed in the alert management UI
+
+### Fixed
+
+- `fr.js` — 3 unescaped apostrophes in single-quoted strings (`l'état`, `Règle d'agrégation`, `l'instant`) caused a Vite/Rollup build failure; switched to double-quoted strings
+- `SEND_TO_WHATISUP` handler — return value was the raw API JSON object instead of `{ ok: true, result }`; popup displayed `undefined` after successful send; wrapped correctly
+- `chrome.storage.sync` in `options.js` — API key and server URL were synced to the user's Google account; migrated to `chrome.storage.local`
+
+### Changed
+
+- `probe/checker.py` — extended to decrypt and use `scenario_variables` received from the server (variables are passed decrypted; the probe never sees Fernet ciphertext)
+- `server/whatisup/api/v1/probes.py` — heartbeat response decrypts `scenario_variables` before delivering to probe
+- `server/whatisup/api/v1/monitors.py` — `create_monitor` and `update_monitor` encrypt incoming secret variables; update skips re-encryption for masked (empty-value) secrets submitted by the UI
+- Dependency updates — `uvicorn` unblocked to `<0.43` (picks up 0.42.0); `@tailwindcss/vite` → 4.2.2, `tailwindcss` → 4.2.2, `vue-router` → 5.0.4, `eslint` → 9.39.4
+
+### Database migrations (in order)
+
+| Revision | Description |
+|----------|-------------|
+| `d2e3f4a5b6c7` | Add `dns_drift_alert`, `dns_baseline_ips`, `dns_consistency_check`, `dns_allow_split_horizon` to `monitors`; create `composite_monitor_members` table; add `composite_aggregation` to `monitors` |
+| `e3f4a5b6c7d8` | Add `enabled` boolean column to `alert_rules` (default `true`) |
+
+---
+
 ## [0.5.0] - 2026-03-17
 
 ### Added
@@ -270,7 +322,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docker Compose (dev + prod with Nginx + TLS)
 - Security: rate limiting, security headers, JWT validation, probe API key bcrypt hashing
 
-[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.2.0...v0.4.0
 [0.3.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.2.0...v0.4.0

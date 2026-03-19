@@ -4,9 +4,12 @@ import asyncio
 import json
 
 import structlog
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from jwt.exceptions import InvalidTokenError
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from whatisup.core.database import get_db
 from whatisup.core.redis import get_redis
 from whatisup.core.security import decode_token
 
@@ -91,8 +94,15 @@ async def websocket_dashboard(websocket: WebSocket) -> None:
     {"type": "auth", "token": "<access_jwt>"} within 5 seconds.
     JWT is validated server-side; failure closes with code 4001.
     This avoids leaking the token in server access logs (ANSSI recommendation).
+
+    Per-IP connection limit is enforced via the shared ConnectionManager.
     """
-    await websocket.accept()
+    client_ip = websocket.client.host if websocket.client else None
+    accepted = await manager.connect(websocket, client_ip=client_ip)
+    if not accepted:
+        await websocket.close(code=4029, reason="Too many connections from this IP")
+        return
+
     try:
         auth_text = await asyncio.wait_for(websocket.receive_text(), timeout=5.0)
         auth_data = json.loads(auth_text)
@@ -100,11 +110,10 @@ async def websocket_dashboard(websocket: WebSocket) -> None:
             raise ValueError("Expected auth frame")
         decode_token(auth_data["token"], "access")
     except (TimeoutError, json.JSONDecodeError, ValueError, InvalidTokenError):
+        await manager.disconnect(websocket)
         await websocket.close(code=4001, reason="Unauthorized")
         return
 
-    async with manager._lock:
-        manager._connections.append(websocket)
     try:
         while True:
             # Keep-alive: receive pings, ignore content
@@ -114,12 +123,26 @@ async def websocket_dashboard(websocket: WebSocket) -> None:
 
 
 @router.websocket("/ws/public/{slug}")
-async def websocket_public(websocket: WebSocket, slug: str) -> None:
+async def websocket_public(
+    websocket: WebSocket,
+    slug: str,
+    db: AsyncSession = Depends(get_db),
+) -> None:
     """Unauthenticated real-time WebSocket for public status pages.
 
-    Limited to MAX_CONNECTIONS_PER_IP concurrent connections per IP address
-    to prevent abuse.
+    Validates that the slug corresponds to an existing public group before
+    accepting the connection. Limited to MAX_CONNECTIONS_PER_IP concurrent
+    connections per IP address to prevent abuse.
     """
+    from whatisup.models.monitor import MonitorGroup
+
+    group = (
+        await db.execute(select(MonitorGroup).where(MonitorGroup.public_slug == slug))
+    ).scalar_one_or_none()
+    if group is None:
+        await websocket.close(code=4004, reason="Not found")
+        return
+
     client_ip = websocket.client.host if websocket.client else None
     accepted = await manager.connect(websocket, client_ip=client_ip)
     if not accepted:

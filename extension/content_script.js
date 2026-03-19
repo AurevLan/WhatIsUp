@@ -8,6 +8,12 @@
 'use strict'
 
 let _active = false
+let _pwCount = 0
+
+// Expose debug state on window for console diagnostics
+Object.defineProperty(window, '__whatisup_recorder', {
+  get: () => ({ active: _active, loaded: true }),
+})
 
 // ---------------------------------------------------------------------------
 // Listen for commands from background.js
@@ -16,10 +22,13 @@ let _active = false
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg.type === 'RECORDING_STARTED') {
     _active = true
+    _pwCount = 0
     _attachListeners()
+    console.debug('[WhatIsUp] recording started — listeners attached')
   } else if (msg.type === 'RECORDING_STOPPED') {
     _active = false
     _detachListeners()
+    console.debug('[WhatIsUp] recording stopped')
   }
 })
 
@@ -81,16 +90,63 @@ function _onClick(e) {
   })
 }
 
-// Debounced fill handler — fires 600ms after the user stops typing
+// Debounced fill/type handler — fires 600ms after the user stops typing
 const _fillDebounceMap = new WeakMap()
 function _onInput(e) {
   if (!_active) return
   const el = e.target
-  if (!['input', 'textarea'].includes(el.tagName.toLowerCase())) return
-  if (['password', 'hidden'].includes(el.type)) return
+  const tag = el.tagName.toLowerCase()
+  const isContentEditable = el.isContentEditable && tag !== 'input' && tag !== 'textarea'
+
+  if (!['input', 'textarea'].includes(tag) && !isContentEditable) return
+  if (el.type === 'hidden') return
+
+  // Password fields: store value as a secret variable, use {{password_N}} placeholder
+  if (el.type === 'password') {
+    const existing = _fillDebounceMap.get(el)
+    if (existing) clearTimeout(existing)
+    const timer = setTimeout(() => {
+      const sel = _selector(el)
+      const value = el.value
+      if (!value) return
+      _pwCount += 1
+      const varName = `password_${_pwCount}`
+      chrome.runtime.sendMessage({ type: 'ADD_SECRET_VAR', name: varName, value }).catch(() => {})
+      _addStep({
+        type: 'fill',
+        label: `Fill password field "${el.name || sel}"`,
+        params: { selector: sel, value: `{{${varName}}}` },
+      })
+    }, 600)
+    _fillDebounceMap.set(el, timer)
+    return
+  }
 
   const existing = _fillDebounceMap.get(el)
   if (existing) clearTimeout(existing)
+
+  if (isContentEditable) {
+    // contenteditable elements (rich-text editors) → type step
+    const timer = setTimeout(() => {
+      const sel = _selector(el)
+      const text = (el.textContent || el.innerText || '').trim()
+      chrome.runtime.sendMessage({ type: 'GET_STATE' }).then(({ steps }) => {
+        const lastSameIdx = steps.findLastIndex(
+          (s) => s.type === 'type' && s.params.selector === sel,
+        )
+        if (lastSameIdx !== -1) {
+          chrome.runtime.sendMessage({ type: 'REMOVE_STEP', index: lastSameIdx })
+        }
+        _addStep({
+          type: 'type',
+          label: `Type "${text.slice(0, 40)}" in "${sel}"`,
+          params: { selector: sel, text },
+        })
+      })
+    }, 600)
+    _fillDebounceMap.set(el, timer)
+    return
+  }
 
   const timer = setTimeout(() => {
     const sel = _selector(el)
@@ -114,6 +170,22 @@ function _onInput(e) {
   }, 600)
 
   _fillDebounceMap.set(el, timer)
+}
+
+// Tab key handler — captures Tab navigation as a press step
+function _onKeydown(e) {
+  if (!_active) return
+  if (e.key !== 'Tab') return
+
+  const el = document.activeElement
+  if (!el || el === document.body || el === document.documentElement) return
+
+  const sel = _selector(el)
+  _addStep({
+    type: 'press',
+    label: `Press Tab on "${sel}"`,
+    params: { selector: sel, key: 'Tab' },
+  })
 }
 
 function _onSelect(e) {
@@ -150,6 +222,7 @@ function _attachListeners() {
   document.addEventListener('input', _onInput, { capture: true, passive: true })
   document.addEventListener('change', _onSelect, { capture: true, passive: true })
   document.addEventListener('submit', _onSubmit, { capture: true, passive: true })
+  document.addEventListener('keydown', _onKeydown, { capture: true, passive: true })
 }
 
 function _detachListeners() {
@@ -157,6 +230,7 @@ function _detachListeners() {
   document.removeEventListener('input', _onInput, { capture: true })
   document.removeEventListener('change', _onSelect, { capture: true })
   document.removeEventListener('submit', _onSubmit, { capture: true })
+  document.removeEventListener('keydown', _onKeydown, { capture: true })
 }
 
 // ---------------------------------------------------------------------------

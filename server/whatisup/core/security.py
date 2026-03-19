@@ -172,3 +172,49 @@ def decrypt_channel_config(config: dict) -> dict:
         else:
             result[k] = v
     return result
+
+
+# ---------------------------------------------------------------------------
+# Scenario variable encryption (Fernet symmetric)
+# ---------------------------------------------------------------------------
+
+
+def encrypt_scenario_variables(variables: list[dict]) -> list[dict]:
+    """Encrypt the ``value`` of variables marked ``secret: true``.
+
+    Non-secret variables and variables with non-string or empty values are
+    left unchanged. Returns the list unchanged if FERNET_KEY is not configured.
+    """
+    fernet = _get_fernet()
+    if fernet is None:
+        return variables
+    return [
+        {**v, "value": fernet.encrypt(v["value"].encode()).decode()}
+        if v.get("secret") and isinstance(v.get("value"), str) and v["value"]
+        else v
+        for v in variables
+    ]
+
+
+def decrypt_scenario_variables(variables: list[dict]) -> list[dict]:
+    """Decrypt the ``value`` of variables marked ``secret: true``.
+
+    Silently falls back to the raw value for entries that cannot be decrypted
+    (e.g. legacy plaintext stored before encryption was enabled).
+    Returns the list unchanged if FERNET_KEY is not configured.
+    """
+    from cryptography.fernet import InvalidToken
+
+    fernet = _get_fernet()
+    if fernet is None:
+        return variables
+    result = []
+    for v in variables:
+        if v.get("secret") and isinstance(v.get("value"), str) and v["value"]:
+            try:
+                result.append({**v, "value": fernet.decrypt(v["value"].encode()).decode()})
+            except (InvalidToken, Exception):
+                result.append(v)  # fallback: return as-is
+        else:
+            result.append(v)
+    return result

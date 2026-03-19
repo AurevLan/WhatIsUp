@@ -2,23 +2,32 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from whatisup.api.deps import get_current_user
 from whatisup.core.database import get_db
+from whatisup.core.limiter import limiter
 from whatisup.core.security import encrypt_channel_config
+from sqlalchemy import or_
+
 from whatisup.models.alert import AlertChannel, AlertEvent, AlertRule
+from whatisup.models.incident import Incident
+from whatisup.models.monitor import Monitor, MonitorGroup
 from whatisup.models.user import User
 from whatisup.schemas.alert import (
     AlertChannelCreate,
     AlertChannelOut,
+    AlertChannelTestOut,
     AlertEventOut,
     AlertRuleCreate,
     AlertRuleOut,
+    AlertRuleSimulateOut,
+    AlertRuleUpdate,
 )
+from whatisup.services.alert import simulate_rule, test_channel
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
 
@@ -50,6 +59,27 @@ async def create_channel(
     db.add(channel)
     await db.flush()
     return channel
+
+
+@router.post("/channels/{channel_id}/test", response_model=AlertChannelTestOut)
+@limiter.limit("10/minute")
+async def test_channel_endpoint(
+    channel_id: uuid.UUID,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> AlertChannelTestOut:
+    channel = (
+        await db.execute(
+            select(AlertChannel).where(
+                AlertChannel.id == channel_id, AlertChannel.owner_id == current_user.id
+            )
+        )
+    ).scalar_one_or_none()
+    if channel is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Channel not found")
+    success, detail = await test_channel(channel)
+    return AlertChannelTestOut(success=success, detail=detail)
 
 
 @router.delete("/channels/{channel_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -120,6 +150,9 @@ async def create_rule(
         renotify_after_minutes=payload.renotify_after_minutes,
         threshold_value=payload.threshold_value,
         digest_minutes=payload.digest_minutes,
+        storm_window_seconds=payload.storm_window_seconds,
+        storm_max_alerts=payload.storm_max_alerts,
+        baseline_factor=payload.baseline_factor,
         channels=channels,
     )
     db.add(rule)
@@ -128,19 +161,106 @@ async def create_rule(
     return rule
 
 
-@router.delete("/rules/{rule_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_rule(
+@router.patch("/rules/{rule_id}", response_model=AlertRuleOut)
+async def update_rule(
     rule_id: uuid.UUID,
+    payload: AlertRuleUpdate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> None:
-    # Verify ownership via channels (a rule belongs to the user if at least one channel is theirs)
+) -> AlertRule:
     rule = (
         await db.execute(
             select(AlertRule)
             .join(AlertRule.channels)
             .where(AlertRule.id == rule_id, AlertChannel.owner_id == current_user.id)
             .options(selectinload(AlertRule.channels))
+        )
+    ).scalar_one_or_none()
+    if rule is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rule not found")
+
+    if payload.enabled is not None:
+        rule.enabled = payload.enabled
+    if payload.condition is not None:
+        rule.condition = payload.condition
+    if payload.min_duration_seconds is not None:
+        rule.min_duration_seconds = payload.min_duration_seconds
+    if payload.renotify_after_minutes is not None:
+        rule.renotify_after_minutes = payload.renotify_after_minutes
+    if payload.threshold_value is not None:
+        rule.threshold_value = payload.threshold_value
+    if payload.digest_minutes is not None:
+        rule.digest_minutes = payload.digest_minutes
+    if payload.storm_window_seconds is not None:
+        rule.storm_window_seconds = payload.storm_window_seconds
+    if payload.storm_max_alerts is not None:
+        rule.storm_max_alerts = payload.storm_max_alerts
+    if payload.baseline_factor is not None:
+        rule.baseline_factor = payload.baseline_factor
+
+    if payload.channel_ids is not None:
+        channels_result = await db.execute(
+            select(AlertChannel).where(
+                AlertChannel.id.in_(payload.channel_ids),
+                AlertChannel.owner_id == current_user.id,
+            )
+        )
+        new_channels = list(channels_result.scalars().all())
+        if len(new_channels) != len(payload.channel_ids):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Some channels not found"
+            )
+        rule.channels = new_channels
+
+    await db.flush()
+    await db.refresh(rule, ["channels"])
+    return rule
+
+
+@router.post("/rules/{rule_id}/simulate", response_model=AlertRuleSimulateOut)
+@limiter.limit("20/minute")
+async def simulate_rule_endpoint(
+    rule_id: uuid.UUID,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> AlertRuleSimulateOut:
+    rule = (
+        await db.execute(
+            select(AlertRule)
+            .join(AlertRule.channels)
+            .where(AlertRule.id == rule_id, AlertChannel.owner_id == current_user.id)
+            .options(selectinload(AlertRule.channels))
+        )
+    ).scalar_one_or_none()
+    if rule is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rule not found")
+    result = await simulate_rule(db, rule)
+    return AlertRuleSimulateOut(**result)
+
+
+@router.delete("/rules/{rule_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_rule(
+    rule_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    # Verify ownership via the associated monitor or group.
+    # Using channel membership was fragile: a rule with zero channels became un-deletable.
+    rule = (
+        await db.execute(
+            select(AlertRule)
+            .outerjoin(Monitor, AlertRule.monitor_id == Monitor.id)
+            .outerjoin(MonitorGroup, AlertRule.group_id == MonitorGroup.id)
+            .where(
+                AlertRule.id == rule_id,
+                or_(
+                    Monitor.owner_id == current_user.id,
+                    MonitorGroup.owner_id == current_user.id,
+                )
+                if not current_user.is_superadmin
+                else AlertRule.id == rule_id,
+            )
         )
     ).scalar_one_or_none()
     if rule is None:
@@ -154,15 +274,36 @@ async def delete_rule(
 @router.get("/events", response_model=list[AlertEventOut])
 async def list_events(
     limit: int = Query(default=50, ge=1, le=500),
+    status_filter: str | None = Query(default=None, alias="status"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> list[AlertEvent]:
-    # Only return events for channels owned by this user
-    result = await db.execute(
-        select(AlertEvent)
+) -> list[AlertEventOut]:
+    from whatisup.models.alert import AlertEventStatus
+
+    stmt = (
+        select(AlertEvent, Monitor.name.label("monitor_name"))
         .join(AlertChannel, AlertEvent.channel_id == AlertChannel.id)
+        .join(Incident, AlertEvent.incident_id == Incident.id)
+        .outerjoin(Monitor, Incident.monitor_id == Monitor.id)
         .where(AlertChannel.owner_id == current_user.id)
         .order_by(AlertEvent.sent_at.desc())
         .limit(limit)
     )
-    return list(result.scalars().all())
+
+    if status_filter in ("sent", "failed"):
+        stmt = stmt.where(AlertEvent.status == AlertEventStatus(status_filter))
+
+    rows = (await db.execute(stmt)).all()
+
+    return [
+        AlertEventOut(
+            id=event.id,
+            incident_id=event.incident_id,
+            channel_id=event.channel_id,
+            sent_at=event.sent_at,
+            status=event.status,
+            monitor_name=monitor_name,
+            response_body=event.response_body,
+        )
+        for event, monitor_name in rows
+    ]

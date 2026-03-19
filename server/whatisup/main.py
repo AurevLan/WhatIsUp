@@ -184,7 +184,37 @@ def create_app() -> FastAPI:
 
     @app.get("/api/health", tags=["health"])
     async def health() -> dict:
-        return {"status": "ok", "version": settings.app_version}
+        from sqlalchemy import text
+
+        from whatisup.core.database import get_db
+        from whatisup.core.redis import get_redis
+
+        db_ok = False
+        redis_ok = False
+
+        try:
+            async for db in get_db():
+                await db.execute(text("SELECT 1"))
+                db_ok = True
+        except Exception:
+            pass
+
+        try:
+            r = get_redis()
+            await r.ping()
+            redis_ok = True
+        except Exception:
+            pass
+
+        overall = "ok" if db_ok and redis_ok else "degraded"
+        return {
+            "status": overall,
+            "version": settings.app_version,
+            "services": {
+                "db": "ok" if db_ok else "error",
+                "redis": "ok" if redis_ok else "error",
+            },
+        }
 
     return app
 

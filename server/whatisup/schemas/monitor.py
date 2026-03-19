@@ -11,6 +11,32 @@ from pydantic import AnyHttpUrl, BaseModel, Field, field_validator, model_valida
 from whatisup.schemas.tag import TagOut
 
 
+# ---------------------------------------------------------------------------
+# Scenario sub-schemas
+# ---------------------------------------------------------------------------
+
+_STEP_TYPES = (
+    "navigate|click|fill|type|press|select|submit|hover|scroll|extract"
+    "|wait_element|wait_time|assert_text|assert_visible|assert_url|screenshot"
+)
+
+
+class ScenarioStep(BaseModel):
+    """A single step in a recorded Playwright scenario."""
+
+    type: str = Field(pattern=rf"^({_STEP_TYPES})$")
+    label: str = Field(min_length=1, max_length=500)
+    params: dict = Field(default_factory=dict)
+
+
+class ScenarioVariable(BaseModel):
+    """A named variable injected into scenario step params via ``{{name}}`` placeholders."""
+
+    name: str = Field(min_length=1, max_length=100, pattern=r"^[a-zA-Z0-9_]+$")
+    value: str = Field(max_length=2000)
+    secret: bool = False
+
+
 class MonitorCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     url: AnyHttpUrl
@@ -25,7 +51,7 @@ class MonitorCreate(BaseModel):
     tag_ids: list[uuid.UUID] = Field(default=[])
     check_type: str = Field(
         default="http",
-        pattern=r"^(http|tcp|udp|dns|keyword|json_path|scenario|heartbeat|smtp|ping|domain_expiry)$",
+        pattern=r"^(http|tcp|udp|dns|keyword|json_path|scenario|heartbeat|smtp|ping|domain_expiry|composite)$",
     )
     tcp_port: int | None = Field(default=None, ge=1, le=65535)
     udp_port: int | None = Field(default=None, ge=1, le=65535)
@@ -34,12 +60,21 @@ class MonitorCreate(BaseModel):
     domain_expiry_warn_days: int = Field(default=30, ge=1, le=365)
     dns_record_type: str | None = Field(default=None, pattern=r"^(A|AAAA|CNAME|MX|TXT|NS)$")
     dns_expected_value: str | None = Field(default=None, max_length=512)
+    # DNS drift / cross-probe consistency
+    dns_drift_alert: bool = False
+    dns_consistency_check: bool = False
+    dns_allow_split_horizon: bool = False
+    # Composite monitor
+    composite_aggregation: str | None = Field(
+        default=None,
+        pattern=r"^(majority_up|all_up|any_up|weighted_up)$",
+    )
     keyword: str | None = Field(default=None, max_length=512)
     keyword_negate: bool = False
     expected_json_path: str | None = Field(default=None, max_length=512)
     expected_json_value: str | None = Field(default=None, max_length=512)
-    scenario_steps: list | None = None
-    scenario_variables: list | None = None
+    scenario_steps: list[ScenarioStep] | None = None
+    scenario_variables: list[ScenarioVariable] | None = None
     heartbeat_slug: str | None = Field(default=None, max_length=80, pattern=r"^[a-z0-9\-]+$")
     heartbeat_interval_seconds: int | None = Field(default=None, ge=60)
     heartbeat_grace_seconds: int = Field(default=60, ge=30)
@@ -92,7 +127,7 @@ class MonitorUpdate(BaseModel):
     tag_ids: list[uuid.UUID] | None = None
     check_type: str | None = Field(
         default=None,
-        pattern=r"^(http|tcp|udp|dns|keyword|json_path|scenario|heartbeat|smtp|ping|domain_expiry)$",
+        pattern=r"^(http|tcp|udp|dns|keyword|json_path|scenario|heartbeat|smtp|ping|domain_expiry|composite)$",
     )
     tcp_port: int | None = Field(default=None, ge=1, le=65535)
     udp_port: int | None = Field(default=None, ge=1, le=65535)
@@ -101,12 +136,19 @@ class MonitorUpdate(BaseModel):
     domain_expiry_warn_days: int | None = Field(default=None, ge=1, le=365)
     dns_record_type: str | None = Field(default=None, pattern=r"^(A|AAAA|CNAME|MX|TXT|NS)$")
     dns_expected_value: str | None = Field(default=None, max_length=512)
+    dns_drift_alert: bool | None = None
+    dns_consistency_check: bool | None = None
+    dns_allow_split_horizon: bool | None = None
+    composite_aggregation: str | None = Field(
+        default=None,
+        pattern=r"^(majority_up|all_up|any_up|weighted_up)$",
+    )
     keyword: str | None = Field(default=None, max_length=512)
     keyword_negate: bool | None = None
     expected_json_path: str | None = Field(default=None, max_length=512)
     expected_json_value: str | None = Field(default=None, max_length=512)
-    scenario_steps: list | None = None
-    scenario_variables: list | None = None
+    scenario_steps: list[ScenarioStep] | None = None
+    scenario_variables: list[ScenarioVariable] | None = None
     heartbeat_slug: str | None = Field(default=None, max_length=80, pattern=r"^[a-z0-9\-]+$")
     heartbeat_interval_seconds: int | None = Field(default=None, ge=60)
     heartbeat_grace_seconds: int | None = Field(default=None, ge=30)
@@ -145,12 +187,17 @@ class MonitorOut(BaseModel):
     domain_expiry_warn_days: int = 30
     dns_record_type: str | None
     dns_expected_value: str | None
+    dns_baseline_ips: list[str] | None = None
+    dns_drift_alert: bool = False
+    dns_consistency_check: bool = False
+    dns_allow_split_horizon: bool = False
+    composite_aggregation: str | None = None
     keyword: str | None
     keyword_negate: bool
     expected_json_path: str | None
     expected_json_value: str | None
     scenario_steps: list | None = None
-    scenario_variables: list | None = None
+    scenario_variables: list | None = None  # secret values are always masked — see validator below
     heartbeat_slug: str | None = None
     heartbeat_interval_seconds: int | None = None
     heartbeat_grace_seconds: int = 60
@@ -168,6 +215,27 @@ class MonitorOut(BaseModel):
     # Runtime fields — populated by list_monitors, not stored in the DB row
     last_status: str | None = None
     uptime_24h: float | None = None
+
+    @field_validator("scenario_variables", mode="before")
+    @classmethod
+    def decrypt_and_mask_secret_variables(cls, v: list | None) -> list | None:
+        """Decrypt Fernet-encrypted values, then strip them from the response.
+
+        Secret variable *values* are never returned by the API. Clients must
+        re-submit them on update. The ``name`` and ``secret`` flag are preserved
+        so the UI can display which variables are configured.
+        """
+        if not v:
+            return v
+        from whatisup.core.security import decrypt_scenario_variables
+
+        decrypted = decrypt_scenario_variables(list(v))
+        return [
+            {**var, "value": ""}  # mask: value exists but is not exposed
+            if var.get("secret")
+            else var
+            for var in decrypted
+        ]
 
     model_config = {"from_attributes": True}
 
@@ -222,6 +290,22 @@ class BulkActionRequest(BaseModel):
 
 class BulkActionResponse(BaseModel):
     affected: int
+
+
+class CompositeMonitorMemberCreate(BaseModel):
+    monitor_id: uuid.UUID
+    weight: int = Field(default=1, ge=1, le=100)
+    role: str | None = Field(default=None, max_length=50)
+
+
+class CompositeMonitorMemberOut(BaseModel):
+    id: uuid.UUID
+    composite_id: uuid.UUID
+    monitor_id: uuid.UUID
+    weight: int
+    role: str | None
+
+    model_config = {"from_attributes": True}
 
 
 class PublicPageCreate(BaseModel):

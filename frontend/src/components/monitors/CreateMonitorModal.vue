@@ -34,7 +34,7 @@
         </div>
 
         <!-- URL / Host field -->
-        <div v-if="form.check_type !== 'scenario' && form.check_type !== 'heartbeat'">
+        <div v-if="form.check_type !== 'scenario' && form.check_type !== 'heartbeat' && form.check_type !== 'composite'">
           <label class="block text-sm font-medium text-gray-300 mb-1">{{ currentType.urlLabel }} *</label>
           <input
             v-model="form.url"
@@ -108,17 +108,60 @@
         </div>
 
         <!-- DNS options -->
-        <div v-if="form.check_type === 'dns'" class="grid grid-cols-2 gap-4">
+        <div v-if="form.check_type === 'dns'" class="space-y-4">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-300 mb-1">Record type</label>
+              <select v-model="form.dns_record_type" class="input w-full">
+                <option v-for="r in dnsRecordTypes" :key="r" :value="r">{{ r }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-300 mb-1">Expected value <span class="text-gray-500">(optional)</span></label>
+              <input v-model="form.dns_expected_value" class="input w-full" placeholder="1.2.3.4" />
+            </div>
+          </div>
+          <div class="rounded-lg border border-gray-700 p-3 space-y-3">
+            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide">{{ t('monitors.dns_drift.label') }}</p>
+            <div class="flex items-start gap-3">
+              <input v-model="form.dns_drift_alert" type="checkbox" id="dns_drift_alert" class="mt-0.5" />
+              <div>
+                <label for="dns_drift_alert" class="text-sm text-gray-300">{{ t('monitors.dns_drift.label') }}</label>
+                <p class="text-xs text-gray-500">{{ t('monitors.dns_drift.desc') }}</p>
+              </div>
+            </div>
+            <div class="flex items-start gap-3">
+              <input v-model="form.dns_consistency_check" type="checkbox" id="dns_consistency" class="mt-0.5" />
+              <div>
+                <label for="dns_consistency" class="text-sm text-gray-300">{{ t('monitors.dns_drift.consistency') }}</label>
+                <p class="text-xs text-gray-500">{{ t('monitors.dns_drift.consistency_desc') }}</p>
+              </div>
+            </div>
+            <div v-if="form.dns_consistency_check" class="flex items-start gap-3 pl-6">
+              <input v-model="form.dns_allow_split_horizon" type="checkbox" id="dns_split" class="mt-0.5" />
+              <div>
+                <label for="dns_split" class="text-sm text-gray-300">{{ t('monitors.dns_drift.split_horizon') }}</label>
+                <p class="text-xs text-gray-500">{{ t('monitors.dns_drift.split_horizon_desc') }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Composite options -->
+        <div v-if="form.check_type === 'composite'" class="space-y-3">
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">Record type</label>
-            <select v-model="form.dns_record_type" class="input w-full">
-              <option v-for="r in dnsRecordTypes" :key="r" :value="r">{{ r }}</option>
+            <label class="block text-sm font-medium text-gray-300 mb-1">{{ t('monitors.composite.aggregation') }}</label>
+            <select v-model="form.composite_aggregation" class="input w-full">
+              <option value="majority_up">{{ t('monitors.composite.aggregation_majority_up') }}</option>
+              <option value="all_up">{{ t('monitors.composite.aggregation_all_up') }}</option>
+              <option value="any_up">{{ t('monitors.composite.aggregation_any_up') }}</option>
+              <option value="weighted_up">{{ t('monitors.composite.aggregation_weighted_up') }}</option>
             </select>
+            <p class="text-xs text-gray-500 mt-1">{{ t('monitors.composite.desc') }}</p>
           </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">Expected value <span class="text-gray-500">(optional)</span></label>
-            <input v-model="form.dns_expected_value" class="input w-full" placeholder="1.2.3.4" />
-          </div>
+          <p class="text-xs text-gray-500 bg-gray-800/50 rounded p-2">
+            Member monitors can be added after creation from the monitor detail page.
+          </p>
         </div>
 
         <!-- Keyword options -->
@@ -153,8 +196,8 @@
           />
         </div>
 
-        <!-- Interval / Timeout (hidden for heartbeat — uses its own interval) -->
-        <div v-if="form.check_type !== 'heartbeat'" class="grid grid-cols-2 gap-4">
+        <!-- Interval / Timeout (hidden for heartbeat and composite — no physical probe) -->
+        <div v-if="form.check_type !== 'heartbeat' && form.check_type !== 'composite'" class="grid grid-cols-2 gap-4">
           <div>
             <label class="block text-sm font-medium text-gray-300 mb-1">Interval (s)</label>
             <input v-model.number="form.interval_seconds" class="input w-full" type="number" min="5" max="86400" />
@@ -408,6 +451,15 @@ const checkTypes = [
     urlPlaceholder: 'example.com',
     namePlaceholder: 'example.com expiry',
   },
+  {
+    value: 'composite',
+    label: 'Composite',
+    icon: '🔗',
+    description: 'Aggregate the state of multiple monitors into a single status (e.g. internal probe + external probe).',
+    urlLabel: '',
+    urlPlaceholder: '',
+    namePlaceholder: 'My Service (aggregated)',
+  },
 ]
 
 const dnsRecordTypes = ['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS']
@@ -446,6 +498,12 @@ const form = ref({
   // Flapping
   flap_threshold: 5,
   flap_window_minutes: 10,
+  // DNS drift
+  dns_drift_alert: false,
+  dns_consistency_check: false,
+  dns_allow_split_horizon: false,
+  // Composite
+  composite_aggregation: 'majority_up',
 })
 
 const loading = ref(false)
@@ -504,6 +562,14 @@ function buildPayload() {
   if (form.value.check_type === 'dns') {
     p.dns_record_type = form.value.dns_record_type
     if (form.value.dns_expected_value) p.dns_expected_value = form.value.dns_expected_value
+    p.dns_drift_alert = form.value.dns_drift_alert
+    p.dns_consistency_check = form.value.dns_consistency_check
+    p.dns_allow_split_horizon = form.value.dns_allow_split_horizon
+  }
+
+  if (form.value.check_type === 'composite') {
+    p.url = 'http://composite'
+    p.composite_aggregation = form.value.composite_aggregation
   }
 
   if (form.value.check_type === 'keyword') {

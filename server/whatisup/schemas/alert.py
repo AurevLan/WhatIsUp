@@ -113,6 +113,11 @@ class AlertChannelOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class AlertChannelTestOut(BaseModel):
+    success: bool
+    detail: str
+
+
 class AlertRuleCreate(BaseModel):
     monitor_id: uuid.UUID | None = None
     group_id: uuid.UUID | None = None
@@ -129,6 +134,19 @@ class AlertRuleCreate(BaseModel):
     baseline_factor: float | None = Field(default=None, ge=1.1, le=100.0)
 
 
+class AlertRuleUpdate(BaseModel):
+    enabled: bool | None = None
+    condition: AlertCondition | None = None
+    min_duration_seconds: int | None = Field(default=None, ge=0)
+    channel_ids: list[uuid.UUID] | None = Field(default=None, min_length=1)
+    renotify_after_minutes: int | None = Field(default=None, ge=1, le=10080)
+    threshold_value: float | None = Field(default=None, ge=0)
+    digest_minutes: int | None = Field(default=None, ge=0, le=1440)
+    storm_window_seconds: int | None = Field(default=None, ge=10, le=3600)
+    storm_max_alerts: int | None = Field(default=None, ge=1, le=1000)
+    baseline_factor: float | None = Field(default=None, ge=1.1, le=100.0)
+
+
 class AlertRuleOut(BaseModel):
     id: uuid.UUID
     monitor_id: uuid.UUID | None
@@ -142,8 +160,16 @@ class AlertRuleOut(BaseModel):
     storm_window_seconds: int | None = None
     storm_max_alerts: int | None = None
     baseline_factor: float | None = None
+    enabled: bool = True
 
     model_config = {"from_attributes": True}
+
+
+class AlertRuleSimulateOut(BaseModel):
+    would_fire: bool
+    reason: str
+    monitor_name: str | None = None
+    affected_monitors: list[str] = []
 
 
 class AlertEventOut(BaseModel):
@@ -152,6 +178,7 @@ class AlertEventOut(BaseModel):
     channel_id: uuid.UUID
     sent_at: datetime
     status: AlertEventStatus
-    # response_body intentionally excluded — internal dispatch detail
+    monitor_name: str | None = None
+    response_body: str | None = None
 
     model_config = {"from_attributes": True}

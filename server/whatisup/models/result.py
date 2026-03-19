@@ -19,9 +19,13 @@ from sqlalchemy import (
     Text,
     Uuid,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from whatisup.models.base import Base
+
+# Use JSONB on PostgreSQL (indexable), fall back to JSON on SQLite (tests)
+_JSON = JSON().with_variant(JSONB(), "postgresql")
 
 if TYPE_CHECKING:
     from whatisup.models.monitor import Monitor
@@ -42,8 +46,8 @@ class CheckResult(Base):
     monitor_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("monitors.id", ondelete="CASCADE"), nullable=False
     )
-    probe_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), ForeignKey("probes.id", ondelete="CASCADE"), nullable=False
+    probe_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("probes.id", ondelete="CASCADE"), nullable=True
     )
     checked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
@@ -66,6 +70,9 @@ class CheckResult(Base):
 
     # Scenario result
     scenario_result: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+    # DNS result — resolved values (replaces final_url abuse for DNS checks)
+    dns_resolved_values: Mapped[list[str] | None] = mapped_column(_JSON, nullable=True)
 
     # Relationships
     monitor: Mapped[Monitor] = relationship("Monitor", back_populates="check_results")

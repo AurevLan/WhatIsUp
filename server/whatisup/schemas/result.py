@@ -25,6 +25,7 @@ class CheckResultOut(BaseModel):
     ssl_days_remaining: int | None
     error_message: str | None
     scenario_result: dict | None = None
+    dns_resolved_values: list[str] | None = None
 
     model_config = {"from_attributes": True}
 

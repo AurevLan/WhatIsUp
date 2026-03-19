@@ -61,6 +61,7 @@ class ProbeCheckResultIn(BaseModel):
     ssl_days_remaining: int | None = None
     error_message: str | None = Field(default=None, max_length=1000)
     scenario_result: dict | None = None
+    dns_resolved_values: list[str] | None = None
 
 
 class ProbeHeartbeatResponse(BaseModel):

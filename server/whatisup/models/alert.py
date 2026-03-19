@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 import sqlalchemy
 from sqlalchemy import (
     JSON,
+    Boolean,
     Column,
     DateTime,
     Enum,
@@ -122,6 +123,10 @@ class AlertRule(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     storm_max_alerts: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # Baseline: alert when response_time > baseline_factor × 7-day rolling average
     baseline_factor: Mapped[float | None] = mapped_column(sqlalchemy.Float, nullable=True)
+    # Enable/disable without deleting the rule
+    enabled: Mapped[bool] = mapped_column(
+        Boolean, default=True, nullable=False, server_default="true"
+    )
 
     monitor: Mapped[Monitor | None] = relationship(
         "Monitor", back_populates="alert_rules", foreign_keys=[monitor_id]

@@ -16,6 +16,14 @@ export const monitorsApi = {
   listDependencies: (id) => api.get(`/monitors/${id}/dependencies`),
   addDependency: (id, data) => api.post(`/monitors/${id}/dependencies`, data),
   removeDependency: (id, depId) => api.delete(`/monitors/${id}/dependencies/${depId}`),
+  // DNS baseline
+  acceptDnsBaseline: (id) => api.post(`/monitors/${id}/dns-baseline/accept`),
+  resetDnsBaseline: (id) => api.delete(`/monitors/${id}/dns-baseline`),
+  // Composite members
+  listCompositeMembers: (id) => api.get(`/monitors/${id}/composite-members`),
+  addCompositeMember: (id, data) => api.post(`/monitors/${id}/composite-members`, data),
+  updateCompositeMember: (id, memberId, data) => api.patch(`/monitors/${id}/composite-members/${memberId}`, data),
+  removeCompositeMember: (id, memberId) => api.delete(`/monitors/${id}/composite-members/${memberId}`),
 }
 
 export async function triggerCheck(monitorId) {

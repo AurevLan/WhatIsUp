@@ -24,6 +24,10 @@
 |-------------------|-----------------|
 | ![Status page](docs/screenshots/public-status.svg) | ![Scenario](docs/screenshots/scenario-builder.svg) |
 
+| Browser extension recorder | |
+|---------------------------|---|
+| ![Extension](docs/screenshots/extension-recorder.svg) | |
+
 ---
 
 ## Features
@@ -32,13 +36,14 @@
 - **HTTP / HTTPS** — status codes, redirect following, response time, SSL certificate expiry
 - **TCP** — port reachability (databases, SSH, SMTP, custom services)
 - **UDP** — datagram probe; ICMP port-unreachable = down, timeout = filtered/open
-- **DNS** — record resolution with optional value assertion (A, AAAA, CNAME, MX, TXT, NS)
+- **DNS** — record resolution with optional value assertion (A, AAAA, CNAME, MX, TXT, NS); drift detection (baseline auto-learn); cross-probe consistency check with split-horizon support
 - **Keyword** — response body scan with optional negate mode
 - **JSON Path** — structured response validation (e.g. `$.status == "ok"`)
 - **SMTP** — banner + EHLO handshake with optional STARTTLS; measures banner-to-ready time
 - **Ping** — ICMP round-trip time via system `ping`
 - **Domain expiry** — WHOIS lookup; configurable warning days before domain expiration
 - **Browser scenarios** — multi-step Playwright automation (navigate, click, fill, assert, extract, screenshot) with Core Web Vitals (LCP, CLS, INP)
+- **Composite monitors** — aggregate multiple monitors with `all_up`, `any_up`, `majority_up`, or `weighted_up` rules; drives the full incident pipeline
 - **Heartbeat / cron monitoring** — dead-man's switch for scheduled jobs; unique ping URL per monitor
 - **Advanced assertions** — regex body check, response header validation (exact or `/regex/`), JSON Schema validation
 
@@ -80,6 +85,18 @@
 - **RBAC** — superadmin + per-resource ownership enforcement
 - **Data retention** — configurable auto-purge of old check results (default: 90 days)
 - **One-command deploy** — interactive wizard generates secrets, `.env`, and starts the stack
+
+### Browser extension — scenario recorder
+
+The WhatIsUp Chrome extension records browser actions and sends them directly to a monitor:
+
+1. Click **Start recording** in the extension popup
+2. Navigate and interact with any website — clicks, form fills (including passwords), and navigations are captured automatically
+3. Click **Stop** then **Send to WhatIsUp** — the scenario is created as a monitor in one click
+
+**Security**: password values are stored as `{{password_N}}` placeholders in the step list; the real values are kept in a separate encrypted store, encrypted at rest with Fernet, and masked in all API responses. They are decrypted only when delivered to the probe at check time.
+
+Install the extension from `extension/` by loading it as an unpacked extension in Chrome (`chrome://extensions → Load unpacked`).
 
 ---
 
@@ -357,11 +374,13 @@ alembic downgrade -1
 - **JWT** — HS256, access 15 min + refresh 7 days, Redis-revocable
 - **Probe auth** — `X-Probe-Api-Key` bcrypt 12 rounds + Redis cache 300 s
 - **WebSocket auth** — JSON message frame (`{"type":"auth","token":"…"}`), never URL parameter
-- **Secrets at rest** — Fernet encryption for alert secrets (SMTP passwords, Telegram tokens, webhook secrets, PagerDuty / Opsgenie API keys)
-- **SSRF protection** — outbound webhook URLs validated against private/loopback ranges via DNS resolution
+- **Secrets at rest** — Fernet encryption for alert channel secrets (SMTP passwords, Telegram tokens, webhook secrets, PagerDuty / Opsgenie keys) **and** scenario variables (`secret: true`); `FERNET_KEY` is required in production (server refuses to start without it)
+- **SSRF protection** — all outbound webhook URLs (generic + Slack) validated against private/loopback ranges before any HTTP request
 - **CORS** — explicit origins only; HTTP origins rejected in production
 - **CSP** — `default-src 'self'; script-src 'self'`
-- **Rate limiting** — login 10/min, register 5/min, heartbeat 30/min, results 60/min
+- **Rate limiting** — login 10/min, register 5/min, heartbeat 30/min, results 60/min, monitor creation 10/min
+- **WebSocket** — per-IP connection limit enforced before the auth handshake; public slug validated against DB before accepting
+- **Ownership enforcement** — all mutating endpoints (including alert rule delete) verify resource ownership via JOIN; superadmin bypass is explicit
 - **Docker** — non-root user in all images; CPU/memory resource limits in production
 
 See [SECURITY.md](SECURITY.md) for the responsible disclosure policy.

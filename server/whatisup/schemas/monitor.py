@@ -10,7 +10,6 @@ from pydantic import AnyHttpUrl, BaseModel, Field, field_validator, model_valida
 
 from whatisup.schemas.tag import TagOut
 
-
 # ---------------------------------------------------------------------------
 # Scenario sub-schemas
 # ---------------------------------------------------------------------------

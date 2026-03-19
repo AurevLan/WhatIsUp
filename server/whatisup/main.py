@@ -7,13 +7,15 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 
 import structlog
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from sqlalchemy.ext.asyncio import AsyncSession
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from whatisup.core.config import get_settings
+from whatisup.core.database import get_db as get_db_dep
 from whatisup.core.limiter import limiter
 from whatisup.core.middleware import SecurityHeadersMiddleware
 from whatisup.core.redis import close_redis
@@ -183,19 +185,17 @@ def create_app() -> FastAPI:
         logger.warning("prometheus_fastapi_instrumentator not installed, /api/metrics unavailable")
 
     @app.get("/api/health", tags=["health"])
-    async def health() -> dict:
+    async def health(db: AsyncSession = Depends(get_db_dep)) -> dict:
         from sqlalchemy import text
 
-        from whatisup.core.database import get_db
         from whatisup.core.redis import get_redis
 
         db_ok = False
         redis_ok = False
 
         try:
-            async for db in get_db():
-                await db.execute(text("SELECT 1"))
-                db_ok = True
+            await db.execute(text("SELECT 1"))
+            db_ok = True
         except Exception:
             pass
 

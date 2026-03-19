@@ -46,8 +46,10 @@ jobs:
         include:
           - image_name: whatisup-server
             dockerfile: server/Dockerfile
+            context: server
           - image_name: whatisup-probe
             dockerfile: probe/Dockerfile
+            context: probe
     steps:
       - uses: actions/checkout@v6
 
@@ -74,7 +76,7 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}

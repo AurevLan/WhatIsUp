@@ -12,6 +12,9 @@ from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
 from whatisup.main import app
 from whatisup.models import Base
+from whatisup.models.monitor import Monitor
+from whatisup.models.probe import Probe
+from whatisup.models.user import User
 
 # SQLite in-memory for fast tests
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
@@ -60,3 +63,38 @@ async def client(db_session: AsyncSession, fake_redis: FakeRedis):
     limiter.enabled = True
     app.dependency_overrides.clear()
     redis_module._redis = None
+
+
+# ── Service-layer fixtures ────────────────────────────────────────────────────
+
+
+@pytest_asyncio.fixture
+async def service_db(db_session: AsyncSession, fake_redis: FakeRedis) -> AsyncSession:
+    """DB session with fake Redis pre-wired — for direct service tests."""
+    redis_module._redis = fake_redis
+    yield db_session
+    redis_module._redis = None
+
+
+@pytest_asyncio.fixture
+async def test_user(service_db: AsyncSession) -> User:
+    u = User(email="svc@example.com", username="svcuser", hashed_password="x")
+    service_db.add(u)
+    await service_db.flush()
+    return u
+
+
+@pytest_asyncio.fixture
+async def test_probe(service_db: AsyncSession) -> Probe:
+    p = Probe(name="probe-test", location_name="Paris", api_key_hash="x")
+    service_db.add(p)
+    await service_db.flush()
+    return p
+
+
+@pytest_asyncio.fixture
+async def test_monitor(service_db: AsyncSession, test_user: User) -> Monitor:
+    m = Monitor(name="mon-test", url="http://example.com", owner_id=test_user.id)
+    service_db.add(m)
+    await service_db.flush()
+    return m

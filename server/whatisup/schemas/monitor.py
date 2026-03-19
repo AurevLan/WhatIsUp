@@ -7,7 +7,6 @@ from datetime import datetime
 from typing import Literal
 
 from pydantic import AnyHttpUrl, BaseModel, Field, field_validator, model_validator
-
 from whatisup.schemas.tag import TagOut
 
 

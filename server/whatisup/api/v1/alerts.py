@@ -3,7 +3,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -11,7 +11,6 @@ from whatisup.api.deps import get_current_user
 from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
 from whatisup.core.security import encrypt_channel_config
-from sqlalchemy import or_
 
 from whatisup.models.alert import AlertChannel, AlertEvent, AlertRule
 from whatisup.models.incident import Incident

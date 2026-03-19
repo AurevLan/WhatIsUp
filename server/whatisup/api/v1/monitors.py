@@ -176,7 +176,11 @@ async def create_monitor(
         keyword_negate=payload.keyword_negate,
         expected_json_path=payload.expected_json_path,
         expected_json_value=payload.expected_json_value,
-        scenario_steps=[s.model_dump() for s in payload.scenario_steps] if payload.scenario_steps else None,
+        scenario_steps=(
+            [s.model_dump() for s in payload.scenario_steps]
+            if payload.scenario_steps
+            else None
+        ),
         scenario_variables=encrypt_scenario_variables(
             [v.model_dump() for v in payload.scenario_variables]
         ) if payload.scenario_variables else None,

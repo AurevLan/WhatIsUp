@@ -179,10 +179,20 @@ async def simulate_rule(db: AsyncSession, rule) -> dict:
             .all()
         )
     else:
-        return {"would_fire": False, "reason": "Aucun monitor ciblé", "monitor_name": None, "affected_monitors": []}
+        return {
+            "would_fire": False,
+            "reason": "Aucun monitor ciblé",
+            "monitor_name": None,
+            "affected_monitors": [],
+        }
 
     if not monitors:
-        return {"would_fire": False, "reason": "Aucun monitor trouvé", "monitor_name": None, "affected_monitors": []}
+        return {
+            "would_fire": False,
+            "reason": "Aucun monitor trouvé",
+            "monitor_name": None,
+            "affected_monitors": [],
+        }
 
     monitor_ids = [m.id for m in monitors]
     monitors_by_id = {m.id: m for m in monitors}
@@ -231,15 +241,16 @@ async def simulate_rule(db: AsyncSession, rule) -> dict:
 
         if condition == "any_down":
             would_fire = len(down_monitors) > 0
+            names = ", ".join(down_monitors)
             reason = (
-                f"{len(down_monitors)} monitor(s) actuellement en panne : {', '.join(down_monitors)}"
+                f"{len(down_monitors)} monitor(s) actuellement en panne : {names}"
                 if would_fire
                 else "Tous les monitors sont UP"
             )
         else:  # all_down
             would_fire = len(down_monitors) == len(monitor_ids)
             reason = (
-                f"Panne globale — tous les monitors sont down"
+                "Panne globale — tous les monitors sont down"
                 if would_fire
                 else f"{len(down_monitors)}/{len(monitor_ids)} monitors en panne (pas encore tous)"
             )
@@ -300,7 +311,10 @@ async def simulate_rule(db: AsyncSession, rule) -> dict:
     else:
         return {
             "would_fire": False,
-            "reason": f"Simulation non supportée pour la condition '{condition}' (uptime/baseline nécessitent un historique)",
+            "reason": (
+                f"Simulation non supportée pour la condition '{condition}'"
+                " (uptime/baseline nécessitent un historique)"
+            ),
             "monitor_name": monitors[0].name if len(monitors) == 1 else None,
             "affected_monitors": [],
         }

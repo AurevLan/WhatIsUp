@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from whatisup.api.deps import get_current_user
 from whatisup.core.database import get_db
 from whatisup.models.maintenance import MaintenanceWindow
+from whatisup.models.monitor import Monitor, MonitorGroup
 from whatisup.models.user import User
 from whatisup.schemas.maintenance import MaintenanceWindowCreate, MaintenanceWindowOut
 
@@ -33,6 +34,30 @@ async def create_window(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> MaintenanceWindow:
+    if payload.monitor_id is not None and not current_user.is_superadmin:
+        monitor = (
+            await db.execute(
+                select(Monitor).where(
+                    Monitor.id == payload.monitor_id,
+                    Monitor.owner_id == current_user.id,
+                )
+            )
+        ).scalar_one_or_none()
+        if monitor is None:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
+    if payload.group_id is not None and not current_user.is_superadmin:
+        group = (
+            await db.execute(
+                select(MonitorGroup).where(
+                    MonitorGroup.id == payload.group_id,
+                    MonitorGroup.owner_id == current_user.id,
+                )
+            )
+        ).scalar_one_or_none()
+        if group is None:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
     window = MaintenanceWindow(
         name=payload.name,
         description=payload.description,

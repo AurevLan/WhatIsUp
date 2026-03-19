@@ -128,6 +128,30 @@ async def create_rule(
             detail="Either monitor_id or group_id must be specified",
         )
 
+    if payload.monitor_id is not None:
+        monitor = (
+            await db.execute(
+                select(Monitor).where(
+                    Monitor.id == payload.monitor_id,
+                    Monitor.owner_id == current_user.id,
+                )
+            )
+        ).scalar_one_or_none()
+        if monitor is None:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
+    if payload.group_id is not None:
+        group = (
+            await db.execute(
+                select(MonitorGroup).where(
+                    MonitorGroup.id == payload.group_id,
+                    MonitorGroup.owner_id == current_user.id,
+                )
+            )
+        ).scalar_one_or_none()
+        if group is None:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
     channels_result = await db.execute(
         select(AlertChannel).where(
             AlertChannel.id.in_(payload.channel_ids),

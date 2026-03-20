@@ -126,7 +126,6 @@ async def _check_http(
     schema_drift_enabled: bool = False,
 ) -> CheckResult:
     """HTTP/HTTPS check with optional keyword and JSON path validation."""
-    import hashlib
     from urllib.parse import urlparse
 
     import httpx

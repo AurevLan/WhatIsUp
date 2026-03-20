@@ -11,6 +11,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.0] - 2026-03-20
+
+### Added
+
+#### HTTP Waterfall Timing
+- Probe captures `dns_resolve_ms`, `ttfb_ms`, `download_ms` via httpx streaming for HTTP monitors
+- Monitor detail view displays a stacked mini-bar with DNS / TTFB / Download breakdown per check
+
+#### Anomaly Detection
+- Z-score based response time analysis per alert rule with configurable threshold (1.0–10.0, default 3.0)
+- Hour-of-day bucket filtering in SQL to compare against same-time-of-day samples (avoids false positives)
+- Z-score computed once per check result, evaluated against each rule's threshold without extra DB queries
+
+#### API Schema Drift Detection
+- Probe computes a SHA256 fingerprint of JSON response structure (keys+types, not values) for HTTP monitors
+- Baseline auto-set on first successful check when `schema_drift_enabled=true`
+- Accept / reset baseline endpoints; drift alerts fire via point-in-time incidents
+
+#### Business Hours Alerting
+- Per-rule schedule: timezone, active days, start/end time
+- Alerts suppressed outside configured hours (`offhours_suppress` flag)
+- UI in AlertsView with day-of-week toggles and timezone selector
+
+#### Incident Status Updates
+- Private timeline per incident: `investigating` → `identified` → `monitoring` → `resolved`
+- Updates marked `is_public=true` replicated to public status page with colored status dots
+- Delete own updates; full CRUD via `/incidents/{id}/updates`
+
+#### Monitor Templates
+- Reusable blueprints with `{{VAR}}` placeholder substitution
+- Public/shared visibility; apply modal with default prefill
+- Full CRUD at `/templates`
+
+### Fixed
+- Ruff E501/I001: line length and import ordering in new files
+
+---
+
 ## [0.6.0] - 2026-03-19
 
 ### Added
@@ -322,7 +360,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docker Compose (dev + prod with Nginx + TLS)
 - Security: rate limiting, security headers, JWT validation, probe API key bcrypt hashing
 
-[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.2.0...v0.4.0

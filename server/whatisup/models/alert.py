@@ -127,7 +127,7 @@ class AlertRule(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     baseline_factor: Mapped[float | None] = mapped_column(sqlalchemy.Float, nullable=True)
     # Anomaly detection: z-score threshold (default 3.0)
     anomaly_zscore_threshold: Mapped[float | None] = mapped_column(sqlalchemy.Float, nullable=True)
-    # Business hours schedule: {timezone, days: [0-6], start: "HH:MM", end: "HH:MM", offhours_suppress: bool}
+    # Business hours schedule: {timezone, days: [0-6], start/end: "HH:MM", offhours_suppress: bool}
     schedule: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     # Enable/disable without deleting the rule
     enabled: Mapped[bool] = mapped_column(

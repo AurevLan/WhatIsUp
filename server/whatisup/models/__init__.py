@@ -14,7 +14,6 @@ from whatisup.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 from whatisup.models.custom_metric import CustomMetric
 from whatisup.models.incident import Incident, IncidentGroup, IncidentScope
 from whatisup.models.incident_update import IncidentUpdate, IncidentUpdateStatus
-from whatisup.models.monitor_template import MonitorTemplate
 from whatisup.models.monitor import (
     CompositeMonitorMember,
     Monitor,
@@ -22,6 +21,7 @@ from whatisup.models.monitor import (
     MonitorGroup,
     PublicPage,
 )
+from whatisup.models.monitor_template import MonitorTemplate
 from whatisup.models.probe import Probe
 from whatisup.models.result import CheckResult, CheckStatus
 from whatisup.models.status_subscription import StatusSubscription

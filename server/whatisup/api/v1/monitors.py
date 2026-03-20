@@ -1020,7 +1020,10 @@ async def accept_schema_baseline(
     if latest is None or not latest.schema_fingerprint:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="No schema fingerprint available yet — enable schema_drift_enabled and wait for a check",
+            detail=(
+                "No schema fingerprint available yet — "
+                "enable schema_drift_enabled and wait for a check"
+            ),
         )
 
     monitor.schema_baseline = latest.schema_fingerprint

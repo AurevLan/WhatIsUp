@@ -31,7 +31,9 @@ def _substitute(value: str, values: dict[str, str]) -> str:
     return re.sub(r"\{\{([^}]+)\}\}", replacer, value)
 
 
-def _substitute_config(config: dict | list | str | int | float | bool | None, values: dict) -> object:
+def _substitute_config(
+    config: dict | list | str | int | float | bool | None, values: dict
+) -> object:
     """Recursively substitute placeholders in a monitor config dict."""
     if isinstance(config, str):
         return _substitute(config, values)
@@ -208,5 +210,7 @@ async def apply_template(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     # Delegate to the monitors create endpoint logic
-    monitor = await create_monitor(request=request, body=monitor_in, current_user=current_user, db=db)
+    monitor = await create_monitor(
+        request=request, body=monitor_in, current_user=current_user, db=db
+    )
     return {"monitor_id": str(monitor.id), "name": monitor.name}

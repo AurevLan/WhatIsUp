@@ -416,6 +416,85 @@ export default {
     suppressed_badge: 'Suppressed (parent down)',
   },
 
+  // Templates
+  templates: {
+    title: 'Monitor Templates',
+    subtitle: 'Reusable blueprints to create monitors quickly',
+    new: 'New template',
+    no_templates: 'No templates yet. Create one to get started.',
+    public_badge: 'Public',
+    shared_badge: 'Shared',
+    variables_label: 'Variables',
+    apply: 'Apply template',
+    edit: 'Edit',
+    delete: 'Delete',
+    delete_confirm: 'Delete template "{name}"?',
+    apply_title: 'Apply: {name}',
+    apply_subtitle: 'Fill in the variables to create a monitor from this template.',
+    no_variables: 'No variables to fill. A monitor will be created immediately.',
+    name_override: 'Name override (optional)',
+    create_monitor: 'Create monitor',
+    form_name: 'Name',
+    form_description: 'Description (optional)',
+    form_public: 'Make this template public (visible to all users)',
+    form_config: 'Monitor config (JSON)',
+    form_config_hint: 'use {placeholder} for substitution',
+    form_add_variable: '+ Add variable',
+    var_name: 'VAR_NAME',
+    var_description: 'Description',
+    var_default: 'Default',
+    created: 'Template created',
+    updated: 'Template updated',
+    deleted: 'Template deleted',
+  },
+
+  // Schema drift detection
+  schema_drift: {
+    label: 'API Schema Drift Detection',
+    desc: 'Alert when the JSON response structure changes from the baseline.',
+    enable: 'Enable schema drift detection',
+    baseline_label: 'Current baseline fingerprint',
+    baseline_none: 'No baseline set yet — will be captured on the next successful check.',
+    baseline_updated: 'Updated',
+    accept: 'Accept as new baseline',
+    reset: 'Reset baseline',
+    accepted: 'Baseline accepted.',
+    reset_done: 'Baseline reset.',
+  },
+
+  // Incident updates (status timeline)
+  incident_updates: {
+    title: 'Status Updates',
+    expand: '▼ Updates',
+    collapse: '▲ Updates',
+    post: 'Post update',
+    status_investigating: 'Investigating',
+    status_identified: 'Identified',
+    status_monitoring: 'Monitoring',
+    status_resolved: 'Resolved',
+    message_placeholder: 'Describe the current situation…',
+    public_label: 'Visible on public status page',
+    posted: 'Update posted.',
+    deleted: 'Update deleted.',
+    no_updates: 'No updates yet.',
+  },
+
+  // Waterfall timing
+  waterfall: {
+    title: 'HTTP Timing',
+    dns: 'DNS',
+    ttfb: 'TTFB',
+    download: 'Download',
+    total: 'Total',
+  },
+
+  // Anomaly detection
+  anomaly: {
+    label: 'Anomaly Detection',
+    zscore_threshold: 'Z-score threshold',
+    zscore_hint: '1.0 = very sensitive, 3.5 = standard',
+  },
+
   // Incident groups
   incidentGroups: {
     title: 'Incident Groups',

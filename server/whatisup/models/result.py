@@ -74,6 +74,14 @@ class CheckResult(Base):
     # DNS result — resolved values (replaces final_url abuse for DNS checks)
     dns_resolved_values: Mapped[list[str] | None] = mapped_column(_JSON, nullable=True)
 
+    # HTTP waterfall timing (milliseconds)
+    dns_resolve_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    ttfb_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    download_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    # API schema fingerprint (JSON structure hash sent by probe)
+    schema_fingerprint: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     # Relationships
     monitor: Mapped[Monitor] = relationship("Monitor", back_populates="check_results")
     probe: Mapped[Probe] = relationship("Probe", back_populates="check_results")

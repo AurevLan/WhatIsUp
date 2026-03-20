@@ -48,6 +48,8 @@ class AlertCondition(enum.StrEnum):
     response_time_above = "response_time_above"
     uptime_below = "uptime_below"
     response_time_above_baseline = "response_time_above_baseline"  # > N× rolling 7-day avg
+    anomaly_detection = "anomaly_detection"  # Z-score based anomaly on response time
+    schema_drift = "schema_drift"  # JSON API structure changed vs baseline
 
 
 class AlertEventStatus(enum.StrEnum):
@@ -123,6 +125,10 @@ class AlertRule(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     storm_max_alerts: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # Baseline: alert when response_time > baseline_factor × 7-day rolling average
     baseline_factor: Mapped[float | None] = mapped_column(sqlalchemy.Float, nullable=True)
+    # Anomaly detection: z-score threshold (default 3.0)
+    anomaly_zscore_threshold: Mapped[float | None] = mapped_column(sqlalchemy.Float, nullable=True)
+    # Business hours schedule: {timezone, days: [0-6], start: "HH:MM", end: "HH:MM", offhours_suppress: bool}
+    schedule: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     # Enable/disable without deleting the rule
     enabled: Mapped[bool] = mapped_column(
         Boolean, default=True, nullable=False, server_default="true"

@@ -163,8 +163,12 @@ import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { CheckCircle, Copy, KeyRound, Loader2, Plus, Trash2 } from 'lucide-vue-next'
 import { apiKeysApi } from '../api/apiKeys.js'
+import { useToast } from '../composables/useToast'
+import { useConfirm } from '../composables/useConfirm'
 
 const { t } = useI18n()
+const { success } = useToast()
+const { confirm } = useConfirm()
 
 const keys = ref([])
 const loading = ref(false)
@@ -200,14 +204,20 @@ async function createKey() {
 }
 
 async function confirmRevoke(k) {
-  if (!confirm(t('apiKeys.revoke_confirm', { name: k.name }))) return
+  const ok = await confirm({
+    title: t('apiKeys.revoke_confirm', { name: k.name }),
+    confirmLabel: t('apiKeys.revoke'),
+  })
+  if (!ok) return
   await apiKeysApi.revoke(k.id)
   await load()
+  success(`Clé "${k.name}" révoquée`)
 }
 
 async function copyKey() {
   if (newKey.value?.key) {
     await navigator.clipboard.writeText(newKey.value.key)
+    success('Clé copiée dans le presse-papiers')
   }
 }
 

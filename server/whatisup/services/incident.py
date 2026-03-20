@@ -16,6 +16,7 @@ from whatisup.models.monitor import Monitor, MonitorDependency
 from whatisup.models.probe import Probe
 from whatisup.models.result import CheckResult, CheckStatus
 from whatisup.services.alert import dispatch_alert, maybe_digest_or_dispatch
+from whatisup.services.anomaly import compute_zscore
 from whatisup.services.maintenance import is_group_maintenance_suppressed, is_in_maintenance
 from whatisup.services.stats import invalidate_uptime_cache, latest_results_subq
 
@@ -179,6 +180,7 @@ async def _fire_alerts(
     monitor: Monitor,
     result: CheckResult,
     event_type: str,
+    extra_ctx: dict | None = None,
 ) -> None:
     """Evaluate alert rules for this monitor/group and dispatch matching ones.
 
@@ -220,10 +222,11 @@ async def _fire_alerts(
             )
             probe_names = {str(p.id): p.name for p in probes}
 
-    ctx = {
+    ctx: dict = {
         "monitor_name": monitor.name,
         "check_type": monitor.check_type,
         "probe_names": probe_names,
+        **(extra_ctx or {}),
     }
 
     now = datetime.now(UTC)
@@ -351,6 +354,36 @@ async def _fire_alerts(
             if result.response_time_ms <= baseline_row * rule.baseline_factor:
                 continue
 
+        elif rule.condition == AlertCondition.anomaly_detection:
+            if event_type != "incident_opened":
+                continue
+            if result.response_time_ms is None:
+                continue
+            # zscore is pre-computed by process_check_result and injected into ctx
+            zscore = ctx.get("zscore")
+            if zscore is None:
+                continue
+            threshold = rule.anomaly_zscore_threshold or 3.0
+            if zscore <= threshold:
+                continue
+            ctx = {**ctx, "response_time_ms": result.response_time_ms}
+
+        elif rule.condition == AlertCondition.schema_drift:
+            if event_type != "incident_opened":
+                continue
+            # schema_drift fires when the fingerprint differs from the stored baseline
+            if not result.schema_fingerprint:
+                continue
+            if not monitor.schema_baseline:
+                continue  # No baseline set yet → no alert
+            if result.schema_fingerprint == monitor.schema_baseline:
+                continue  # No change
+            ctx = {
+                **ctx,
+                "schema_fingerprint": result.schema_fingerprint,
+                "schema_baseline": monitor.schema_baseline,
+            }
+
         for channel in rule.channels:
             await maybe_digest_or_dispatch(db, incident, channel, rule, event_type, ctx=ctx)
 
@@ -425,6 +458,29 @@ async def _process_composite_result(
             }
         )
         await _fire_alerts(db, open_incident, monitor, result, "incident_resolved")
+
+
+async def _create_point_in_time_incident(
+    db: AsyncSession,
+    monitor_id: uuid.UUID,
+    monitor: Monitor,
+    result: CheckResult,
+    extra_ctx: dict | None = None,
+) -> None:
+    """Create a resolved point-in-time incident (duration=0) for synthetic alerts
+    such as schema drift and anomaly detection, then fire alert rules."""
+    now = datetime.now(UTC)
+    incident = Incident(
+        monitor_id=monitor_id,
+        started_at=now,
+        scope=IncidentScope.global_,
+        affected_probe_ids=[str(result.probe_id)] if result.probe_id else [],
+        resolved_at=now,
+        duration_seconds=0,
+    )
+    db.add(incident)
+    await db.flush()
+    await _fire_alerts(db, incident, monitor, result, "incident_opened", extra_ctx=extra_ctx)
 
 
 async def process_check_result(
@@ -708,3 +764,60 @@ async def process_check_result(
         from whatisup.services.composite import evaluate_composite_parents
 
         await evaluate_composite_parents(db, monitor_id, publish_event)
+
+    # Schema drift detection — update baseline on first result, fire alerts on change
+    if (
+        monitor
+        and monitor.schema_drift_enabled
+        and result.schema_fingerprint
+        and result.status == CheckStatus.up
+    ):
+        if not monitor.schema_baseline:
+            # Set initial baseline silently
+            monitor.schema_baseline = result.schema_fingerprint
+            monitor.schema_baseline_updated_at = datetime.now(UTC)
+            logger.info("schema_baseline_set", monitor_id=str(monitor_id))
+        elif result.schema_fingerprint != monitor.schema_baseline:
+            logger.info(
+                "schema_drift_detected",
+                monitor_id=str(monitor_id),
+                old=monitor.schema_baseline,
+                new=result.schema_fingerprint,
+            )
+            await _create_point_in_time_incident(db, monitor_id, monitor, result)
+
+    # Anomaly detection — fire point-in-time alerts when z-score threshold exceeded
+    if (
+        monitor
+        and result.status == CheckStatus.up
+        and result.response_time_ms is not None
+    ):
+        # Check if any anomaly_detection rules exist for this monitor before doing z-score
+        anomaly_conditions = [AlertRule.monitor_id == monitor.id]
+        if monitor.group_id:
+            anomaly_conditions.append(AlertRule.group_id == monitor.group_id)
+        has_anomaly_rule = (
+            await db.execute(
+                select(AlertRule.id)
+                .where(
+                    or_(*anomaly_conditions),
+                    AlertRule.condition == AlertCondition.anomaly_detection,
+                    AlertRule.enabled.is_(True),
+                )
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+
+        if has_anomaly_rule:
+            # Compute z-score once; _fire_alerts will check per-rule threshold from ctx
+            zscore = await compute_zscore(db, monitor_id, result.response_time_ms)
+            if zscore is not None:
+                logger.info(
+                    "anomaly_zscore_computed",
+                    monitor_id=str(monitor_id),
+                    response_time_ms=result.response_time_ms,
+                    zscore=zscore,
+                )
+                await _create_point_in_time_incident(
+                    db, monitor_id, monitor, result, extra_ctx={"zscore": zscore}
+                )

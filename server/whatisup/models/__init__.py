@@ -13,6 +13,8 @@ from whatisup.models.api_key import UserApiKey
 from whatisup.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 from whatisup.models.custom_metric import CustomMetric
 from whatisup.models.incident import Incident, IncidentGroup, IncidentScope
+from whatisup.models.incident_update import IncidentUpdate, IncidentUpdateStatus
+from whatisup.models.monitor_template import MonitorTemplate
 from whatisup.models.monitor import (
     CompositeMonitorMember,
     Monitor,
@@ -55,4 +57,7 @@ __all__ = [
     "MonitorAnnotation",
     "StatusSubscription",
     "UserApiKey",
+    "IncidentUpdate",
+    "IncidentUpdateStatus",
+    "MonitorTemplate",
 ]

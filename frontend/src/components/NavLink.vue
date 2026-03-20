@@ -23,13 +23,22 @@
       :data-active="activeState(isActive, isExactActive) || null"
     >
       <component :is="icon" :size="15" :stroke-width="activeState(isActive, isExactActive) ? 2.5 : 2" />
-      {{ label }}
+      <span style="flex:1;">{{ label }}</span>
+      <span v-if="badge"
+        style="min-width:18px;height:18px;border-radius:9px;background:#ef4444;color:white;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 5px;flex-shrink:0;"
+      >{{ badge > 99 ? '99+' : badge }}</span>
     </button>
   </router-link>
 </template>
 
 <script setup>
-const props = defineProps({ to: String, icon: [Object, Function], label: String, exact: { type: Boolean, default: false } })
+const props = defineProps({
+  to: String,
+  icon: [Object, Function],
+  label: String,
+  exact: { type: Boolean, default: false },
+  badge: { type: Number, default: 0 },
+})
 
 function activeState(isActive, isExactActive) {
   return props.exact ? isExactActive : isActive

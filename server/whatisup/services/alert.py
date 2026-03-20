@@ -6,6 +6,7 @@ import hashlib
 import hmac
 import json
 import uuid
+import zoneinfo
 from datetime import UTC, datetime
 from email.message import EmailMessage
 from typing import Any
@@ -491,6 +492,33 @@ async def flush_pending_digests() -> None:
             await _flush_digest(rule_id_str, list(channels), ctx_data.get("ctx", {}))
 
 
+def _is_within_business_hours(schedule: dict) -> bool:
+    """Return True if the current moment falls within the defined business hours schedule."""
+    tz_name = schedule.get("timezone", "UTC")
+    try:
+        tz = zoneinfo.ZoneInfo(tz_name)
+    except Exception:
+        tz = zoneinfo.ZoneInfo("UTC")
+
+    now_local = datetime.now(tz)
+    weekday = now_local.weekday()  # Monday=0, Sunday=6
+
+    allowed_days: list[int] = schedule.get("days", [0, 1, 2, 3, 4])
+    if weekday not in allowed_days:
+        return False
+
+    start_str = schedule.get("start", "09:00")
+    end_str = schedule.get("end", "18:00")
+    try:
+        sh, sm = int(start_str.split(":")[0]), int(start_str.split(":")[1])
+        eh, em = int(end_str.split(":")[0]), int(end_str.split(":")[1])
+    except Exception:
+        return True
+
+    current_minutes = now_local.hour * 60 + now_local.minute
+    return (sh * 60 + sm) <= current_minutes <= (eh * 60 + em)
+
+
 async def maybe_digest_or_dispatch(
     db: AsyncSession,
     incident: Incident,
@@ -505,6 +533,16 @@ async def maybe_digest_or_dispatch(
     survit aux redémarrages — contrairement à asyncio.call_later (in-memory).
     """
     from whatisup.core.redis import get_redis
+
+    # Business hours check — suppress off-hours alerts if configured
+    if rule.schedule and rule.schedule.get("offhours_suppress"):
+        if not _is_within_business_hours(rule.schedule):
+            logger.info(
+                "alert_suppressed_offhours",
+                rule_id=str(rule.id),
+                incident_id=str(incident.id),
+            )
+            return
 
     if not rule.digest_minutes or rule.digest_minutes <= 0:
         await dispatch_alert(db, incident, channel, event_type, ctx=ctx)

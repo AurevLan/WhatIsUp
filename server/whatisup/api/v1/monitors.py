@@ -988,6 +988,67 @@ async def reset_dns_baseline(
 
 
 # ---------------------------------------------------------------------------
+# Schema drift baseline management
+# ---------------------------------------------------------------------------
+
+
+@router.post("/{monitor_id}/schema-baseline/accept", status_code=status.HTTP_200_OK)
+@limiter.limit("20/minute")
+async def accept_schema_baseline(
+    request: Request,
+    monitor_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Accept the current API schema fingerprint as the new baseline for drift detection."""
+    from datetime import UTC, datetime
+
+    monitor = await _get_monitor_or_404(monitor_id, current_user, db)
+
+    latest = (
+        await db.execute(
+            select(CheckResult)
+            .where(
+                CheckResult.monitor_id == monitor_id,
+                CheckResult.schema_fingerprint.isnot(None),
+            )
+            .order_by(CheckResult.checked_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+
+    if latest is None or not latest.schema_fingerprint:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No schema fingerprint available yet — enable schema_drift_enabled and wait for a check",
+        )
+
+    monitor.schema_baseline = latest.schema_fingerprint
+    monitor.schema_baseline_updated_at = datetime.now(UTC)
+    await db.commit()
+
+    return {
+        "baseline": monitor.schema_baseline,
+        "accepted_at": latest.checked_at.isoformat(),
+    }
+
+
+@router.delete("/{monitor_id}/schema-baseline", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("20/minute")
+async def reset_schema_baseline(
+    request: Request,
+    monitor_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Clear the schema baseline — the next successful check will set a new one."""
+    monitor = await _get_monitor_or_404(monitor_id, current_user, db)
+    monitor.schema_baseline = None
+    monitor.schema_baseline_updated_at = None
+    await db.commit()
+
+
+# ---------------------------------------------------------------------------
 # Composite monitor members
 # ---------------------------------------------------------------------------
 

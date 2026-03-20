@@ -238,6 +238,10 @@ async def push_result(
         error_message=payload.error_message,
         scenario_result=payload.scenario_result,
         dns_resolved_values=payload.dns_resolved_values,
+        dns_resolve_ms=payload.dns_resolve_ms,
+        ttfb_ms=payload.ttfb_ms,
+        download_ms=payload.download_ms,
+        schema_fingerprint=payload.schema_fingerprint,
     )
     db.add(result)
     probe.last_seen_at = datetime.now(UTC)

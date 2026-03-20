@@ -162,6 +162,8 @@ class MonitorUpdate(BaseModel):
     # Flapping
     flap_threshold: int | None = Field(default=None, ge=2, le=50)
     flap_window_minutes: int | None = Field(default=None, ge=1, le=60)
+    # Schema drift
+    schema_drift_enabled: bool | None = None
 
 
 class MonitorOut(BaseModel):
@@ -211,6 +213,10 @@ class MonitorOut(BaseModel):
     # Flapping
     flap_threshold: int = 5
     flap_window_minutes: int = 10
+    # Schema drift
+    schema_drift_enabled: bool = False
+    schema_baseline: str | None = None
+    schema_baseline_updated_at: datetime | None = None
     # Runtime fields — populated by list_monitors, not stored in the DB row
     last_status: str | None = None
     uptime_24h: float | None = None

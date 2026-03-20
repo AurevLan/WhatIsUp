@@ -77,6 +77,11 @@ const routes = [
         name: 'ProbeTimeline',
         component: () => import('../views/ProbeTimelineView.vue'),
       },
+      {
+        path: 'templates',
+        name: 'Templates',
+        component: () => import('../views/TemplatesView.vue'),
+      },
     ],
   },
   {

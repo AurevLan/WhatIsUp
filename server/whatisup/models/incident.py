@@ -14,6 +14,7 @@ from whatisup.models.base import Base
 
 if TYPE_CHECKING:
     from whatisup.models.alert import AlertEvent
+    from whatisup.models.incident_update import IncidentUpdate
     from whatisup.models.monitor import Monitor
 
 
@@ -73,6 +74,10 @@ class Incident(Base):
         "AlertEvent", back_populates="incident", cascade="all, delete-orphan"
     )
     group: Mapped[IncidentGroup | None] = relationship("IncidentGroup", back_populates="incidents")
+    updates: Mapped[list[IncidentUpdate]] = relationship(
+        "IncidentUpdate", back_populates="incident", cascade="all, delete-orphan",
+        order_by="IncidentUpdate.created_at.asc()"
+    )
 
     __table_args__ = (
         Index("ix_incidents_monitor_started", "monitor_id", "started_at"),

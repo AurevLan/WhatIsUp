@@ -28,6 +28,12 @@ class CheckResult:
     error_message: str | None = None
     scenario_result: dict | None = None
     dns_resolved_values: list[str] | None = None
+    # HTTP waterfall timing
+    dns_resolve_ms: int | None = None
+    ttfb_ms: int | None = None
+    download_ms: int | None = None
+    # API schema fingerprint
+    schema_fingerprint: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -44,6 +50,10 @@ class CheckResult:
             "error_message": self.error_message,
             "scenario_result": self.scenario_result,
             "dns_resolved_values": self.dns_resolved_values,
+            "dns_resolve_ms": self.dns_resolve_ms,
+            "ttfb_ms": self.ttfb_ms,
+            "download_ms": self.download_ms,
+            "schema_fingerprint": self.schema_fingerprint,
         }
 
 
@@ -78,6 +88,27 @@ def _extract_ssl_info(url: str) -> tuple[bool, datetime | None, int | None]:
         return False, None, None
 
 
+def _compute_schema_fingerprint(data: Any) -> str:
+    """Compute a structural fingerprint of a JSON value (keys + types, not values)."""
+    import hashlib
+
+    def _structure(obj: Any, depth: int = 0) -> Any:
+        if depth > 8:
+            return "..."
+        if isinstance(obj, dict):
+            return {k: _structure(v, depth + 1) for k, v in sorted(obj.items())}
+        if isinstance(obj, list):
+            if not obj:
+                return []
+            # Sample first element to represent list structure
+            return [_structure(obj[0], depth + 1)]
+        return type(obj).__name__
+
+    structure = _structure(data)
+    canonical = json.dumps(structure, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode()).hexdigest()[:16]
+
+
 async def _check_http(
     monitor_id: str,
     url: str,
@@ -92,12 +123,32 @@ async def _check_http(
     body_regex: str | None = None,
     expected_headers: dict[str, str] | None = None,
     json_schema: dict | None = None,
+    schema_drift_enabled: bool = False,
 ) -> CheckResult:
     """HTTP/HTTPS check with optional keyword and JSON path validation."""
+    import hashlib
+    from urllib.parse import urlparse
+
     import httpx
 
     checked_at = datetime.now(UTC)
     t0 = time.perf_counter()
+
+    # DNS pre-resolution timing
+    dns_resolve_ms: int | None = None
+    try:
+        parsed = urlparse(url)
+        hostname = parsed.hostname or ""
+        if hostname:
+            t_dns = time.perf_counter()
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, socket.getaddrinfo, hostname, None)
+            dns_resolve_ms = int((time.perf_counter() - t_dns) * 1000)
+    except Exception:
+        pass
+
+    ttfb_ms: int | None = None
+    download_ms: int | None = None
 
     try:
         async with httpx.AsyncClient(
@@ -105,12 +156,37 @@ async def _check_http(
             timeout=httpx.Timeout(timeout_seconds),
             verify=True,
         ) as client:
-            response = await client.get(url)
+            # Use streaming to capture TTFB and download time separately
+            async with client.stream("GET", url) as response:
+                ttfb_ms = int((time.perf_counter() - t0) * 1000)
+                body_bytes = await response.aread()
+                download_ms = int((time.perf_counter() - t0) * 1000) - ttfb_ms
 
         elapsed_ms = (time.perf_counter() - t0) * 1000
         http_status = response.status_code
         redirect_count = len(response.history)
         final_url = str(response.url)
+
+        # Decode body for text-based checks
+        try:
+            body_text = body_bytes.decode("utf-8", errors="replace")
+        except Exception:
+            body_text = ""
+
+        # Monkey-patch response.text and response.json() for downstream checks
+        class _FakeResponse:
+            def __init__(self, orig, text_content, raw_bytes):
+                self._orig = orig
+                self.text = text_content
+                self.status_code = orig.status_code
+                self.history = orig.history
+                self.url = orig.url
+                self.headers = orig.headers
+
+            def json(self):
+                return json.loads(self.text)
+
+        response = _FakeResponse(response, body_text, body_bytes)
 
         is_up = http_status in expected_status_codes
         status = "up" if is_up else "down"
@@ -200,6 +276,15 @@ async def _check_http(
         if ssl_check_enabled and url.startswith("https://"):
             ssl_valid, ssl_expires_at, ssl_days_remaining = _extract_ssl_info(final_url or url)
 
+        # Schema fingerprint
+        schema_fingerprint: str | None = None
+        if schema_drift_enabled and status == "up":
+            try:
+                data = json.loads(body_text)
+                schema_fingerprint = _compute_schema_fingerprint(data)
+            except Exception:
+                pass
+
         return CheckResult(
             monitor_id=monitor_id,
             checked_at=checked_at,
@@ -212,6 +297,10 @@ async def _check_http(
             ssl_expires_at=ssl_expires_at,
             ssl_days_remaining=ssl_days_remaining,
             error_message=error_message,
+            dns_resolve_ms=dns_resolve_ms,
+            ttfb_ms=ttfb_ms,
+            download_ms=download_ms,
+            schema_fingerprint=schema_fingerprint,
         )
 
     except httpx.TimeoutException:
@@ -1080,6 +1169,7 @@ async def perform_check(
     smtp_port: int | None = None,
     smtp_starttls: bool = False,
     domain_expiry_warn_days: int = 30,
+    schema_drift_enabled: bool = False,
 ) -> CheckResult:
     """
     Dispatch to the appropriate check engine based on check_type.
@@ -1135,6 +1225,7 @@ async def perform_check(
             body_regex=body_regex,
             expected_headers=expected_headers,
             json_schema=json_schema,
+            schema_drift_enabled=schema_drift_enabled,
         )
 
     elif check_type == "scenario":
@@ -1157,4 +1248,5 @@ async def perform_check(
             body_regex=body_regex,
             expected_headers=expected_headers,
             json_schema=json_schema,
+            schema_drift_enabled=schema_drift_enabled,
         )

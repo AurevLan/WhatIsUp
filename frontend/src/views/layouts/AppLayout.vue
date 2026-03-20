@@ -21,13 +21,14 @@
       <div style="flex:1;padding:12px 8px;display:flex;flex-direction:column;gap:2px;overflow-y:auto;">
         <div style="font-size:10px;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:.08em;padding:0 8px;margin:0 0 6px;">{{ t('nav.overview') }}</div>
         <NavLink to="/"         :icon="LayoutDashboard" :label="t('nav.dashboard')" :exact="true" />
-        <NavLink to="/monitors" :icon="Activity"        :label="t('nav.monitors')" />
+        <NavLink to="/monitors" :icon="Activity"        :label="t('nav.monitors')" :badge="downCount" />
         <NavLink to="/groups"   :icon="Layers"          :label="t('nav.groups')" />
         <div style="font-size:10px;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:.08em;padding:0 8px;margin:12px 0 6px;">{{ t('nav.infrastructure') }}</div>
         <NavLink to="/probes"           :icon="MapPin"          :label="t('nav.probes')" />
         <NavLink to="/alerts"           :icon="Bell"            :label="t('nav.alerts')" />
         <NavLink to="/maintenance"      :icon="CalendarClock"   :label="t('nav.maintenance')" />
-        <NavLink to="/incident-groups"  :icon="GitMerge"        :label="t('nav.incidentGroups')" />
+        <NavLink to="/incident-groups"  :icon="GitMerge"        :label="t('nav.incidentGroups')" :badge="openIncidentCount" />
+        <NavLink to="/templates"        :icon="Copy"            label="Templates" />
         <div style="font-size:10px;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:.08em;padding:0 8px;margin:12px 0 6px;">{{ t('nav.account') }}</div>
         <NavLink to="/api-keys" :icon="KeyRound"        :label="t('nav.apiKeys')" />
         <NavLink to="/audit"    :icon="ClipboardList"   :label="t('nav.audit')" />
@@ -76,25 +77,43 @@
         <router-view />
       </main>
     </div>
+
+    <!-- Global components -->
+    <ToastContainer />
+    <ConfirmModal />
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { Activity, Bell, CalendarClock, ClipboardList, GitMerge, KeyRound, LayoutDashboard, Layers, LogOut, MapPin, Settings, WifiOff } from 'lucide-vue-next'
+import { Activity, Bell, CalendarClock, ClipboardList, Copy, GitMerge, KeyRound, LayoutDashboard, Layers, LogOut, MapPin, Settings, WifiOff } from 'lucide-vue-next'
 import { useAuthStore } from '../../stores/auth'
 import { useWebSocketStore } from '../../stores/websocket'
+import { useMonitorStore } from '../../stores/monitors'
 import NavLink from '../../components/NavLink.vue'
+import ToastContainer from '../../components/ToastContainer.vue'
+import ConfirmModal from '../../components/ConfirmModal.vue'
 import { setLocale, getLocale } from '../../i18n/index.js'
 
 const { t } = useI18n()
 const router = useRouter()
 const auth = useAuthStore()
 const ws = useWebSocketStore()
+const monitorStore = useMonitorStore()
 
 const currentLang = ref(getLocale())
+
+// Badge monitors DOWN
+const downCount = computed(() =>
+  monitorStore.monitors.filter(m => ['down', 'error', 'timeout'].includes(m._lastStatus)).length
+)
+
+// Badge incidents ouverts
+const openIncidentCount = computed(() =>
+  monitorStore.monitors.filter(m => m._hasOpenIncident).length
+)
 
 function toggleLang() {
   const next = currentLang.value === 'en' ? 'fr' : 'en'

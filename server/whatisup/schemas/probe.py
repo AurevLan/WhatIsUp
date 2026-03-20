@@ -62,6 +62,12 @@ class ProbeCheckResultIn(BaseModel):
     error_message: str | None = Field(default=None, max_length=1000)
     scenario_result: dict | None = None
     dns_resolved_values: list[str] | None = None
+    # HTTP waterfall timing
+    dns_resolve_ms: int | None = Field(default=None, ge=0)
+    ttfb_ms: int | None = Field(default=None, ge=0)
+    download_ms: int | None = Field(default=None, ge=0)
+    # API schema fingerprint
+    schema_fingerprint: str | None = Field(default=None, max_length=64)
 
 
 class ProbeHeartbeatResponse(BaseModel):
@@ -94,6 +100,8 @@ class ProbeMonitorConfig(BaseModel):
     body_regex: str | None = None
     expected_headers: dict[str, str] | None = None
     json_schema: dict | None = None
+    # Schema drift detection
+    schema_drift_enabled: bool = False
 
 
 class ProbeMonitorStatus(BaseModel):

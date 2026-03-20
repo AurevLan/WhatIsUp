@@ -39,12 +39,12 @@
           <input v-model="search" class="input pl-9 h-9 text-sm" :placeholder="t('common.search') + '…'" />
         </div>
         <div class="flex gap-0.5 bg-gray-800/60 p-0.5 rounded-lg border border-gray-700/80">
-          <button @click="viewMode = 'list'"
+          <button @click="setViewMode('list')"
             :class="viewMode === 'list' ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-300'"
             class="px-2.5 py-1.5 rounded-md transition-colors" :title="t('monitors.view_list')">
             <List class="w-4 h-4" />
           </button>
-          <button @click="viewMode = 'board'"
+          <button @click="setViewMode('board')"
             :class="viewMode === 'board' ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-300'"
             class="px-2.5 py-1.5 rounded-md transition-colors" :title="t('monitors.view_board')">
             <LayoutGrid class="w-4 h-4" />
@@ -88,6 +88,12 @@
           {{ t('status.paused') }}
         </button>
 
+        <!-- Active filter count badge -->
+        <span v-if="activeFilterCount > 0"
+          class="text-xs px-2 py-0.5 rounded-full bg-blue-600/20 border border-blue-500/40 text-blue-300 font-semibold">
+          {{ activeFilterCount }} filtre{{ activeFilterCount > 1 ? 's' : '' }}
+        </span>
+
         <!-- Clear -->
         <button v-if="hasActiveFilters"
           @click="clearFilters"
@@ -127,6 +133,7 @@
             <th class="th hidden md:table-cell">Target</th>
             <th class="th hidden lg:table-cell">Interval</th>
             <th class="th hidden sm:table-cell">{{ t('monitors.uptime_24h') }}</th>
+            <th class="th hidden lg:table-cell">Réponse</th>
             <th class="th pr-6 text-right">{{ t('common.actions') }}</th>
           </tr>
         </thead>
@@ -183,6 +190,16 @@
               </span>
             </td>
 
+            <!-- Temps de réponse -->
+            <td class="td hidden lg:table-cell">
+              <span v-if="monitor._lastResponseTimeMs != null" class="font-mono text-xs" :class="responseTimeColor(monitor._lastResponseTimeMs)">
+                {{ monitor._lastResponseTimeMs < 1000
+                  ? monitor._lastResponseTimeMs + 'ms'
+                  : (monitor._lastResponseTimeMs / 1000).toFixed(2) + 's' }}
+              </span>
+              <span v-else class="text-gray-700 text-xs">—</span>
+            </td>
+
             <!-- Actions -->
             <td class="td pr-6">
               <div class="flex items-center justify-end gap-1">
@@ -193,7 +210,7 @@
                   <Pause v-if="monitor.enabled" class="w-3.5 h-3.5" />
                   <Play v-else class="w-3.5 h-3.5" />
                 </button>
-                <button @click="confirmDelete(monitor)" class="btn-ghost px-2 py-1 text-xs text-red-500 hover:text-red-400 hover:bg-red-500/10">
+                <button @click="handleDelete(monitor)" class="btn-ghost px-2 py-1 text-xs text-red-500 hover:text-red-400 hover:bg-red-500/10">
                   <Trash2 class="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -243,7 +260,7 @@
           {{ monitor.url?.replace(/^https?:\/\//, '') || '—' }}
         </p>
 
-        <!-- Uptime + paused badge -->
+        <!-- Uptime + réponse + paused badge -->
         <div class="flex items-end justify-between">
           <div>
             <p class="text-xs text-gray-600">{{ t('monitors.uptime_24h') }}</p>
@@ -251,7 +268,14 @@
               {{ monitor._uptime24h != null ? monitor._uptime24h.toFixed(1) + '%' : '—' }}
             </p>
           </div>
-          <p v-if="!monitor.enabled" class="text-xs text-gray-700 bg-gray-800 px-1.5 py-0.5 rounded">{{ t('status.paused') }}</p>
+          <div class="text-right">
+            <p v-if="monitor._lastResponseTimeMs != null" class="text-xs font-mono" :class="responseTimeColor(monitor._lastResponseTimeMs)">
+              {{ monitor._lastResponseTimeMs < 1000
+                ? monitor._lastResponseTimeMs + 'ms'
+                : (monitor._lastResponseTimeMs / 1000).toFixed(1) + 's' }}
+            </p>
+            <p v-if="!monitor.enabled" class="text-xs text-gray-700 bg-gray-800 px-1.5 py-0.5 rounded">{{ t('status.paused') }}</p>
+          </div>
         </div>
       </router-link>
 
@@ -273,11 +297,15 @@ import { useI18n } from 'vue-i18n'
 import { Download, Eye, LayoutGrid, List, Monitor, Pause, PauseCircle, Play, Plus, Search, Trash2, X } from 'lucide-vue-next'
 import { useMonitorStore } from '../stores/monitors'
 import { monitorsApi } from '../api/monitors'
+import { useToast } from '../composables/useToast'
+import { useConfirm } from '../composables/useConfirm'
 import CreateMonitorModal from '../components/monitors/CreateMonitorModal.vue'
 
 const { t } = useI18n()
-
 const monitorStore = useMonitorStore()
+const { success, error: toastError } = useToast()
+const { confirm } = useConfirm()
+
 const monitors = computed(() => monitorStore.monitors)
 const loading  = computed(() => monitorStore.loading)
 
@@ -286,8 +314,15 @@ const filterEnabled = ref('')
 const filterStatus  = ref('')
 const filterType    = ref('')
 const filterGroup   = ref('')
-const viewMode      = ref('list')
 const showCreate    = ref(false)
+
+// Persist view mode
+const STORAGE_KEY = 'whatisup_monitors_view'
+const viewMode = ref(localStorage.getItem(STORAGE_KEY) || 'list')
+function setViewMode(mode) {
+  viewMode.value = mode
+  localStorage.setItem(STORAGE_KEY, mode)
+}
 
 const checkTypes = ['http', 'tcp', 'udp', 'dns', 'smtp', 'ping', 'keyword', 'json_path', 'scenario', 'heartbeat', 'domain_expiry']
 
@@ -300,27 +335,39 @@ const statusFilters = computed(() => [
 
 const hasActiveFilters = computed(() => filterStatus.value || filterType.value || filterEnabled.value || filterGroup.value)
 
+const activeFilterCount = computed(() =>
+  [filterStatus.value, filterType.value, filterEnabled.value, filterGroup.value].filter(Boolean).length
+)
+
 function clearFilters() {
-  filterStatus.value = ''
-  filterType.value   = ''
+  filterStatus.value  = ''
+  filterType.value    = ''
   filterEnabled.value = ''
-  filterGroup.value  = ''
+  filterGroup.value   = ''
 }
 
 // ── Sélection bulk ────────────────────────────────────────────────────────────
 let selectedIds = ref(new Set())
 
-const filteredMonitors = computed(() =>
-  monitors.value.filter(m => {
-    const q = search.value.toLowerCase()
-    const matchSearch  = !q || m.name.toLowerCase().includes(q) || (m.url || '').toLowerCase().includes(q)
-    const matchEnabled = !filterEnabled.value || String(m.enabled) === filterEnabled.value
-    const matchStatus  = !filterStatus.value  || m._lastStatus === filterStatus.value
-    const matchType    = !filterType.value    || m.check_type === filterType.value
-    const matchGroup   = !filterGroup.value   || String(m.group_id) === filterGroup.value
-    return matchSearch && matchEnabled && matchStatus && matchType && matchGroup
-  })
-)
+const STATUS_PRIORITY = { down: 0, error: 1, timeout: 2, up: 3 }
+
+const filteredMonitors = computed(() => {
+  const q = search.value.toLowerCase()
+  return monitors.value
+    .filter(m => {
+      const matchSearch  = !q || m.name.toLowerCase().includes(q) || (m.url || '').toLowerCase().includes(q)
+      const matchEnabled = !filterEnabled.value || String(m.enabled) === filterEnabled.value
+      const matchStatus  = !filterStatus.value  || m._lastStatus === filterStatus.value
+      const matchType    = !filterType.value    || m.check_type === filterType.value
+      const matchGroup   = !filterGroup.value   || String(m.group_id) === filterGroup.value
+      return matchSearch && matchEnabled && matchStatus && matchType && matchGroup
+    })
+    .sort((a, b) => {
+      const pa = STATUS_PRIORITY[a._lastStatus] ?? 4
+      const pb = STATUS_PRIORITY[b._lastStatus] ?? 4
+      return pa - pb
+    })
+})
 
 // Désélectionner tout quand les filtres changent
 watch([search, filterEnabled, filterStatus, filterType, filterGroup], () => {
@@ -353,23 +400,37 @@ function toggleSelectAll() {
 
 async function bulkEnable() {
   const ids = [...selectedIds.value]
-  await monitorsApi.bulkAction({ ids, action: 'enable' })
+  try {
+    await monitorsApi.bulkAction({ ids, action: 'enable' })
+    success(`${ids.length} monitor(s) activé(s)`)
+  } catch { toastError('Erreur lors de l\'activation') }
   selectedIds.value = new Set()
   await monitorStore.fetchAll()
 }
 
 async function bulkPause() {
   const ids = [...selectedIds.value]
-  await monitorsApi.bulkAction({ ids, action: 'pause' })
+  try {
+    await monitorsApi.bulkAction({ ids, action: 'pause' })
+    success(`${ids.length} monitor(s) mis en pause`)
+  } catch { toastError('Erreur lors de la mise en pause') }
   selectedIds.value = new Set()
   await monitorStore.fetchAll()
 }
 
 async function confirmBulkDelete() {
   const count = selectedIds.value.size
-  if (!confirm(t('monitors.bulk_confirm_delete', { count }))) return
+  const ok = await confirm({
+    title: `Supprimer ${count} monitor(s) ?`,
+    message: 'Cette action est irréversible. Toutes les données associées seront supprimées.',
+    confirmLabel: `Supprimer ${count} monitor(s)`,
+  })
+  if (!ok) return
   const ids = [...selectedIds.value]
-  await monitorsApi.bulkAction({ ids, action: 'delete' })
+  try {
+    await monitorsApi.bulkAction({ ids, action: 'delete' })
+    success(`${count} monitor(s) supprimé(s)`)
+  } catch { toastError('Erreur lors de la suppression') }
   selectedIds.value = new Set()
   await monitorStore.fetchAll()
 }
@@ -396,6 +457,7 @@ function bulkExportCsv() {
   a.download = `monitors-export-${new Date().toISOString().slice(0, 10)}.csv`
   a.click()
   URL.revokeObjectURL(url)
+  success(`Export CSV de ${selectedMonitors.length} monitor(s) téléchargé`)
 }
 
 const statusCfg = {
@@ -410,15 +472,9 @@ function statusLabel(s) { return statusCfg[s]?.label  ?? 'No data' }
 
 function formatTarget(monitor) {
   const raw = monitor.url?.replace(/^https?:\/\//, '') || ''
-  if (monitor.check_type === 'tcp') {
-    return monitor.tcp_port ? `${raw}:${monitor.tcp_port}` : raw
-  }
-  if (monitor.check_type === 'udp') {
-    return monitor.udp_port ? `${raw}:${monitor.udp_port}` : raw
-  }
-  if (monitor.check_type === 'smtp') {
-    return monitor.smtp_port ? `${raw}:${monitor.smtp_port}` : raw
-  }
+  if (monitor.check_type === 'tcp')  return monitor.tcp_port  ? `${raw}:${monitor.tcp_port}`  : raw
+  if (monitor.check_type === 'udp')  return monitor.udp_port  ? `${raw}:${monitor.udp_port}`  : raw
+  if (monitor.check_type === 'smtp') return monitor.smtp_port ? `${raw}:${monitor.smtp_port}` : raw
   return raw
 }
 
@@ -429,19 +485,37 @@ function uptimeColor(u) {
   return 'text-red-400'
 }
 
-async function toggleEnabled(monitor) {
-  await monitorStore.update(monitor.id, { enabled: !monitor.enabled })
+function responseTimeColor(ms) {
+  if (ms == null) return 'text-gray-600'
+  if (ms < 300)  return 'text-emerald-400'
+  if (ms < 1000) return 'text-amber-400'
+  return 'text-red-400'
 }
 
-async function confirmDelete(monitor) {
-  if (confirm(`Delete "${monitor.name}"?`)) {
+async function toggleEnabled(monitor) {
+  try {
+    await monitorStore.update(monitor.id, { enabled: !monitor.enabled })
+    success(monitor.enabled ? `"${monitor.name}" mis en pause` : `"${monitor.name}" activé`)
+  } catch { toastError('Erreur lors de la mise à jour') }
+}
+
+async function handleDelete(monitor) {
+  const ok = await confirm({
+    title: `Supprimer "${monitor.name}" ?`,
+    message: 'Toutes les données de check et incidents associés seront supprimés.',
+    confirmLabel: 'Supprimer',
+  })
+  if (!ok) return
+  try {
     await monitorStore.remove(monitor.id)
-  }
+    success(`"${monitor.name}" supprimé`)
+  } catch { toastError('Erreur lors de la suppression') }
 }
 
 function onCreated() {
   showCreate.value = false
   monitorStore.fetchAll()
+  success('Monitor créé avec succès')
 }
 
 onMounted(() => monitorStore.fetchAll())

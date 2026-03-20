@@ -5,9 +5,10 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from whatisup.models.incident import IncidentScope
+from whatisup.models.incident_update import IncidentUpdateStatus
 
 
 class IncidentOut(BaseModel):
@@ -20,6 +21,25 @@ class IncidentOut(BaseModel):
     affected_probe_ids: list[str]
     dependency_suppressed: bool = False
     group_id: uuid.UUID | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class IncidentUpdateCreate(BaseModel):
+    status: IncidentUpdateStatus
+    message: str = Field(min_length=1, max_length=4000)
+    is_public: bool = True
+
+
+class IncidentUpdateOut(BaseModel):
+    id: uuid.UUID
+    incident_id: uuid.UUID
+    created_by_id: uuid.UUID | None
+    created_by_name: str | None
+    status: IncidentUpdateStatus
+    message: str
+    is_public: bool
+    created_at: datetime
 
     model_config = {"from_attributes": True}
 

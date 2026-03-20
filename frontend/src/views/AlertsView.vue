@@ -129,6 +129,8 @@
                 <span v-if="rule.min_duration_seconds" class="text-xs text-gray-500">· après {{ rule.min_duration_seconds }}s</span>
                 <span v-if="rule.renotify_after_minutes" class="text-xs text-gray-500">· ré-alerte {{ rule.renotify_after_minutes }}min</span>
                 <span v-if="rule.digest_minutes" class="text-xs text-blue-500">· digest {{ rule.digest_minutes }}min</span>
+                <span v-if="rule.anomaly_zscore_threshold" class="text-xs text-purple-400">· z={{ rule.anomaly_zscore_threshold }}</span>
+                <span v-if="rule.schedule?.offhours_suppress" class="text-xs text-amber-400">· 🕐 plages horaires</span>
               </div>
               <div class="mt-2 flex items-center gap-1.5 flex-wrap">
                 <span v-for="ch in rule.channels" :key="ch.id"
@@ -237,7 +239,24 @@
               <option value="ssl_expiry">Expiration du certificat SSL imminente</option>
               <option value="response_time_above">Temps de réponse / résolution dépassé(e)</option>
               <option value="uptime_below">Uptime inférieur au seuil</option>
+              <option value="anomaly_detection">Détection d'anomalie (z-score)</option>
+              <option value="schema_drift">Dérive du schéma API</option>
             </select>
+          </div>
+
+          <!-- Anomaly z-score threshold -->
+          <div v-if="ruleForm.condition === 'anomaly_detection'" class="bg-purple-900/20 border border-purple-800/50 rounded-lg p-3 space-y-2">
+            <label class="block text-sm font-medium text-gray-300">
+              Seuil z-score
+              <span class="text-gray-500 font-normal ml-1">— sensibilité de la détection (1.0 = très sensible, 3.5 = standard)</span>
+            </label>
+            <input v-model.number="ruleForm.anomaly_zscore_threshold" class="input w-full" type="number" min="1.0" max="10.0" step="0.1" placeholder="3.5" />
+            <p class="text-xs text-gray-500">Déclenche une alerte si le temps de réponse s'écarte de plus de Z-sigma par rapport à la moyenne des 7 derniers jours.</p>
+          </div>
+
+          <!-- Schema drift info -->
+          <div v-if="ruleForm.condition === 'schema_drift'" class="bg-amber-900/20 border border-amber-800/50 rounded-lg p-3">
+            <p class="text-xs text-amber-400">Déclenche une alerte quand la structure JSON de la réponse change par rapport au baseline. Activez d'abord la détection de dérive dans le moniteur.</p>
           </div>
 
           <!-- Threshold -->
@@ -275,6 +294,60 @@
               <span class="text-gray-500 font-normal">— 0 = désactivé</span>
             </label>
             <input v-model.number="ruleForm.digest_minutes" class="input w-full" type="number" min="0" max="1440" placeholder="ex: 30" />
+          </div>
+
+          <!-- Business Hours Schedule -->
+          <div class="border border-gray-700 rounded-lg overflow-hidden">
+            <button
+              type="button"
+              @click="ruleForm.showSchedule = !ruleForm.showSchedule"
+              class="w-full flex items-center justify-between px-3 py-2.5 text-sm text-gray-300 hover:bg-gray-800 transition-colors"
+            >
+              <span class="font-medium">Plages horaires (optionnel)</span>
+              <span class="text-gray-500 text-xs">{{ ruleForm.showSchedule ? '▲' : '▼' }}</span>
+            </button>
+            <div v-if="ruleForm.showSchedule" class="px-3 pb-3 space-y-3 border-t border-gray-700 pt-3">
+              <p class="text-xs text-gray-500">Supprime les alertes en dehors des heures de bureau configurées.</p>
+
+              <div class="flex items-center gap-2">
+                <input type="checkbox" id="offhours-suppress" v-model="ruleForm.schedule.offhours_suppress" class="w-4 h-4" />
+                <label for="offhours-suppress" class="text-sm text-gray-300">Supprimer les alertes hors des heures configurées</label>
+              </div>
+
+              <div v-if="ruleForm.schedule.offhours_suppress" class="space-y-3">
+                <div>
+                  <label class="block text-xs text-gray-400 mb-1">Fuseau horaire</label>
+                  <select v-model="ruleForm.schedule.timezone" class="input w-full text-sm">
+                    <option v-for="tz in commonTimezones" :key="tz" :value="tz">{{ tz }}</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label class="block text-xs text-gray-400 mb-1">Jours actifs</label>
+                  <div class="flex flex-wrap gap-1">
+                    <button
+                      v-for="(day, idx) in ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']"
+                      :key="idx"
+                      type="button"
+                      @click="toggleDay(idx)"
+                      class="px-2 py-0.5 rounded text-xs font-medium transition-colors"
+                      :class="ruleForm.schedule.days?.includes(idx) ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'"
+                    >{{ day }}</button>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                  <div>
+                    <label class="block text-xs text-gray-400 mb-1">Heure de début</label>
+                    <input v-model="ruleForm.schedule.start" type="time" class="input w-full text-sm" />
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-400 mb-1">Heure de fin</label>
+                    <input v-model="ruleForm.schedule.end" type="time" class="input w-full text-sm" />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- Channels -->
@@ -342,9 +415,11 @@ import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../api/client'
 import { monitorsApi, groupsApi } from '../api/monitors'
+import { useToast } from '../composables/useToast'
 import AddChannelModal from '../components/alerts/AddChannelModal.vue'
 
 const { t } = useI18n()
+const { success, error: toastError } = useToast()
 
 const channels = ref([])
 const events = ref([])
@@ -365,6 +440,8 @@ const confirmModal = ref(null)
 
 const ruleForm = ref(defaultRuleForm())
 
+const DEFAULT_SCHEDULE = { offhours_suppress: false, timezone: 'Europe/Paris', days: [0, 1, 2, 3, 4], start: '09:00', end: '18:00' }
+
 function defaultRuleForm() {
   return {
     target_type: 'monitor',
@@ -375,7 +452,23 @@ function defaultRuleForm() {
     renotify_after_minutes: null,
     digest_minutes: 0,
     channel_ids: [],
+    anomaly_zscore_threshold: null,
+    showSchedule: false,
+    schedule: { ...DEFAULT_SCHEDULE },
   }
+}
+
+const commonTimezones = [
+  'Europe/Paris', 'Europe/London', 'Europe/Berlin', 'Europe/Madrid', 'Europe/Rome',
+  'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles',
+  'America/Sao_Paulo', 'Asia/Tokyo', 'Asia/Shanghai', 'Asia/Singapore',
+  'Asia/Kolkata', 'Australia/Sydney', 'Pacific/Auckland', 'UTC',
+]
+
+function toggleDay(idx) {
+  const days = ruleForm.value.schedule.days || []
+  const next = days.includes(idx) ? days.filter(d => d !== idx) : [...days, idx]
+  ruleForm.value.schedule.days = next.sort((a, b) => a - b)
 }
 
 const eventFilters = computed(() => [
@@ -408,6 +501,8 @@ const messagePreview = computed(() => {
   else if (cond === 'ssl_expiry') lines.push('Expiration du certificat SSL imminente')
   else if (cond === 'response_time_above') lines.push(`Temps de réponse > ${threshold || '…'}ms`)
   else if (cond === 'uptime_below') lines.push(`Uptime < ${threshold || '…'}%`)
+  else if (cond === 'anomaly_detection') lines.push(`Temps de réponse anormal détecté (z-score > ${ruleForm.value.anomaly_zscore_threshold || 3.5})`)
+  else if (cond === 'schema_drift') lines.push('La structure de la réponse API a changé')
   lines.push('Début : 2026-01-01 12:00 UTC')
   return lines.join('\n')
 })
@@ -442,6 +537,8 @@ function conditionLabel(cond) {
     ssl_expiry: 'Expiration SSL',
     response_time_above: 'Temps de réponse >',
     uptime_below: 'Uptime <',
+    anomaly_detection: 'Anomalie z-score',
+    schema_drift: 'Dérive schéma API',
   }
   return map[cond] || cond
 }
@@ -484,6 +581,7 @@ function confirmDeleteChannel(channel) {
     action: async () => {
       await api.delete(`/alerts/channels/${channel.id}`)
       await loadData()
+      success(`Canal "${channel.name}" supprimé`)
     },
   }
 }
@@ -494,6 +592,7 @@ function confirmDeleteRule(rule) {
     action: async () => {
       await api.delete(`/alerts/rules/${rule.id}`)
       await loadData()
+      success('Règle supprimée')
     },
   }
 }
@@ -517,6 +616,7 @@ async function testChannel(channel) {
 async function toggleRule(rule) {
   await api.patch(`/alerts/rules/${rule.id}`, { enabled: !rule.enabled })
   rule.enabled = !rule.enabled
+  success(rule.enabled ? 'Règle activée' : 'Règle désactivée')
 }
 
 async function runSimulate(rule) {
@@ -544,6 +644,7 @@ function openCreateRule() {
 
 function openEditRule(rule) {
   editingRule.value = rule
+  const hasSchedule = !!rule.schedule
   ruleForm.value = {
     target_type: rule.monitor_id ? 'monitor' : 'group',
     target_id: rule.monitor_id || rule.group_id || '',
@@ -553,6 +654,9 @@ function openEditRule(rule) {
     renotify_after_minutes: rule.renotify_after_minutes,
     digest_minutes: rule.digest_minutes,
     channel_ids: rule.channels.map(c => c.id),
+    anomaly_zscore_threshold: rule.anomaly_zscore_threshold ?? null,
+    showSchedule: hasSchedule,
+    schedule: rule.schedule ? { ...rule.schedule } : { ...DEFAULT_SCHEDULE },
   }
   ruleError.value = ''
   showRuleModal.value = true
@@ -567,7 +671,12 @@ function closeRuleModal() {
 async function saveRule() {
   ruleLoading.value = true
   ruleError.value = ''
+  const isEditing = !!editingRule.value
   try {
+    const schedulePayload = ruleForm.value.schedule?.offhours_suppress
+      ? ruleForm.value.schedule
+      : null
+
     if (editingRule.value) {
       const payload = {
         condition: ruleForm.value.condition,
@@ -576,6 +685,8 @@ async function saveRule() {
         threshold_value: ruleForm.value.threshold_value || undefined,
         renotify_after_minutes: ruleForm.value.renotify_after_minutes || undefined,
         digest_minutes: ruleForm.value.digest_minutes || 0,
+        anomaly_zscore_threshold: ruleForm.value.anomaly_zscore_threshold || undefined,
+        schedule: schedulePayload,
       }
       await api.patch(`/alerts/rules/${editingRule.value.id}`, payload)
     } else {
@@ -583,6 +694,7 @@ async function saveRule() {
         condition: ruleForm.value.condition,
         min_duration_seconds: ruleForm.value.min_duration_seconds || 0,
         channel_ids: ruleForm.value.channel_ids,
+        schedule: schedulePayload,
       }
       if (ruleForm.value.target_type === 'monitor') {
         payload.monitor_id = ruleForm.value.target_id
@@ -592,10 +704,12 @@ async function saveRule() {
       if (ruleForm.value.threshold_value != null) payload.threshold_value = ruleForm.value.threshold_value
       if (ruleForm.value.renotify_after_minutes) payload.renotify_after_minutes = ruleForm.value.renotify_after_minutes
       if (ruleForm.value.digest_minutes) payload.digest_minutes = ruleForm.value.digest_minutes
+      if (ruleForm.value.anomaly_zscore_threshold) payload.anomaly_zscore_threshold = ruleForm.value.anomaly_zscore_threshold
       await api.post('/alerts/rules', payload)
     }
     closeRuleModal()
     await loadData()
+    success(isEditing ? 'Règle mise à jour' : 'Règle créée')
   } catch (err) {
     ruleError.value = err.response?.data?.detail || 'Erreur lors de la sauvegarde de la règle'
   } finally {

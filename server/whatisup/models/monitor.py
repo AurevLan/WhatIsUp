@@ -263,6 +263,15 @@ class Monitor(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     expected_headers: Mapped[dict | None] = mapped_column(_JSON, nullable=True)
     json_schema: Mapped[dict | None] = mapped_column(_JSON, nullable=True)
 
+    # API schema drift detection
+    schema_drift_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False, server_default="false"
+    )
+    schema_baseline: Mapped[str | None] = mapped_column(Text, nullable=True)  # fingerprint string
+    schema_baseline_updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     # SLO / Error Budget
     slo_target: Mapped[float | None] = mapped_column(Float, nullable=True)  # ex: 99.9
     slo_window_days: Mapped[int] = mapped_column(

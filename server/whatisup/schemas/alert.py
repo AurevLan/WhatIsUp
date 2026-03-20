@@ -132,6 +132,10 @@ class AlertRuleCreate(BaseModel):
     storm_max_alerts: int | None = Field(default=None, ge=1, le=1000)
     # Baseline
     baseline_factor: float | None = Field(default=None, ge=1.1, le=100.0)
+    # Anomaly detection
+    anomaly_zscore_threshold: float | None = Field(default=None, ge=1.0, le=10.0)
+    # Business hours schedule
+    schedule: dict | None = None
 
 
 class AlertRuleUpdate(BaseModel):
@@ -145,6 +149,8 @@ class AlertRuleUpdate(BaseModel):
     storm_window_seconds: int | None = Field(default=None, ge=10, le=3600)
     storm_max_alerts: int | None = Field(default=None, ge=1, le=1000)
     baseline_factor: float | None = Field(default=None, ge=1.1, le=100.0)
+    anomaly_zscore_threshold: float | None = Field(default=None, ge=1.0, le=10.0)
+    schedule: dict | None = None
 
 
 class AlertRuleOut(BaseModel):
@@ -160,6 +166,8 @@ class AlertRuleOut(BaseModel):
     storm_window_seconds: int | None = None
     storm_max_alerts: int | None = None
     baseline_factor: float | None = None
+    anomaly_zscore_threshold: float | None = None
+    schedule: dict | None = None
     enabled: bool = True
 
     model_config = {"from_attributes": True}

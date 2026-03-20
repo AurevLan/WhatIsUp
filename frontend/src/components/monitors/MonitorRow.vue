@@ -22,6 +22,13 @@
       </div>
     </div>
 
+    <!-- Response time -->
+    <span v-if="monitor._lastResponseTimeMs != null"
+      class="flex-shrink-0 text-[11px] font-mono hidden sm:block"
+      :class="responseTimeClass">
+      {{ responseTimeLabel }}
+    </span>
+
     <!-- Status badge -->
     <span class="flex-shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-full border" :class="badgeClass">
       {{ statusLabel }}
@@ -67,6 +74,20 @@ const uptimeColorClass = computed(() => {
   if (u == null) return 'text-gray-600'
   if (u >= 99)   return 'text-emerald-400'
   if (u >= 90)   return 'text-amber-400'
+  return 'text-red-400'
+})
+
+const responseTimeLabel = computed(() => {
+  const ms = props.monitor._lastResponseTimeMs
+  if (ms == null) return null
+  return ms < 1000 ? ms + 'ms' : (ms / 1000).toFixed(2) + 's'
+})
+
+const responseTimeClass = computed(() => {
+  const ms = props.monitor._lastResponseTimeMs
+  if (ms == null) return 'text-gray-600'
+  if (ms < 300)  return 'text-emerald-400'
+  if (ms < 1000) return 'text-amber-400'
   return 'text-red-400'
 })
 

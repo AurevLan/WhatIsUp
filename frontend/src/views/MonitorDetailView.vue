@@ -439,6 +439,43 @@
       </template>
     </div>
 
+    <!-- Schema drift card -->
+    <div v-if="['http', 'keyword', 'json_path'].includes(monitor.check_type)" class="card mb-6">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-semibold text-gray-300">API Schema Drift Detection</h2>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <span class="text-xs text-gray-400">Enabled</span>
+          <input
+            type="checkbox"
+            :checked="monitor.schema_drift_enabled"
+            @change="toggleSchemaDrift($event.target.checked)"
+          />
+        </label>
+      </div>
+
+      <template v-if="monitor.schema_drift_enabled">
+        <div class="flex items-start justify-between gap-4">
+          <div class="flex-1">
+            <p class="text-xs text-gray-500 mb-1">Current baseline fingerprint</p>
+            <div v-if="monitor.schema_baseline">
+              <code class="font-mono text-xs text-emerald-400 bg-gray-800 px-2 py-1 rounded block">{{ monitor.schema_baseline }}</code>
+              <p v-if="monitor.schema_baseline_updated_at" class="text-xs text-gray-600 mt-1">
+                Updated {{ new Date(monitor.schema_baseline_updated_at).toLocaleString() }}
+              </p>
+            </div>
+            <p v-else class="text-xs text-gray-500 italic">No baseline set — next successful check will auto-set it</p>
+          </div>
+          <div class="flex gap-2 flex-shrink-0">
+            <button @click="acceptSchemaBaseline" class="btn-primary text-xs">Accept latest</button>
+            <button @click="resetSchemaBaseline" :disabled="!monitor.schema_baseline" class="btn-ghost text-xs text-red-400 hover:text-red-300 disabled:opacity-50">Reset</button>
+          </div>
+        </div>
+      </template>
+      <template v-else>
+        <p class="text-xs text-gray-500">Enable to automatically detect JSON response structure changes.</p>
+      </template>
+    </div>
+
     <!-- Composite members card -->
     <div v-if="monitor.check_type === 'composite'" class="card mb-6">
       <div class="flex items-center justify-between mb-4">
@@ -559,26 +596,75 @@
       </div>
       <div v-if="incidents.length === 0" class="text-gray-600 text-sm text-center py-4">{{ t('monitor_detail.no_incidents') }}</div>
       <div v-else class="divide-y divide-gray-800">
-        <div v-for="inc in incidents" :key="inc.id"
-          class="flex items-center gap-3 py-3 text-sm">
-          <span class="w-2 h-2 rounded-full flex-shrink-0"
-            :class="inc.resolved_at ? 'bg-emerald-500' : 'bg-red-500 animate-pulse'" />
-          <div class="flex-1 min-w-0">
-            <p class="text-gray-300 text-xs">
-              {{ new Date(inc.started_at).toLocaleString('fr-FR') }}
-              <span v-if="inc.resolved_at" class="text-gray-500">
-                → {{ new Date(inc.resolved_at).toLocaleString('fr-FR') }}
-                <span class="ml-1 text-gray-600">({{ Math.round(inc.duration_seconds / 60) }} min)</span>
-              </span>
-              <span v-else class="text-red-400 font-medium ml-1">{{ t('incidents.ongoing') }}</span>
-            </p>
-            <p class="text-xs text-gray-600 mt-0.5 capitalize">{{ inc.scope }}</p>
+        <div v-for="inc in incidents" :key="inc.id" class="py-3 text-sm">
+          <div class="flex items-center gap-3">
+            <span class="w-2 h-2 rounded-full flex-shrink-0"
+              :class="inc.resolved_at ? 'bg-emerald-500' : 'bg-red-500 animate-pulse'" />
+            <div class="flex-1 min-w-0">
+              <p class="text-gray-300 text-xs">
+                {{ new Date(inc.started_at).toLocaleString('fr-FR') }}
+                <span v-if="inc.resolved_at" class="text-gray-500">
+                  → {{ new Date(inc.resolved_at).toLocaleString('fr-FR') }}
+                  <span class="ml-1 text-gray-600">({{ Math.round(inc.duration_seconds / 60) }} min)</span>
+                </span>
+                <span v-else class="text-red-400 font-medium ml-1">{{ t('incidents.ongoing') }}</span>
+              </p>
+              <p class="text-xs text-gray-600 mt-0.5 capitalize">{{ inc.scope }}</p>
+            </div>
+            <button v-if="inc.resolved_at"
+              @click="openPostmortem(inc)"
+              class="btn-ghost text-xs flex-shrink-0 flex items-center gap-1.5">
+              📋 {{ t('monitor_detail.postmortem') }}
+            </button>
+            <button
+              @click="toggleIncidentUpdates(inc.id)"
+              class="btn-ghost text-xs flex-shrink-0 flex items-center gap-1"
+            >
+              📝 Updates
+            </button>
           </div>
-          <button v-if="inc.resolved_at"
-            @click="openPostmortem(inc)"
-            class="btn-ghost text-xs flex-shrink-0 flex items-center gap-1.5">
-            📋 {{ t('monitor_detail.postmortem') }}
-          </button>
+
+          <!-- Incident updates panel -->
+          <div v-if="expandedIncident === inc.id" class="mt-3 ml-5 space-y-2">
+            <div v-if="incidentUpdatesLoading" class="text-xs text-gray-500">Loading…</div>
+            <div v-else>
+              <div
+                v-for="u in incidentUpdates"
+                :key="u.id"
+                class="flex gap-2 text-xs"
+              >
+                <span class="text-gray-600 font-mono flex-shrink-0">{{ new Date(u.created_at).toLocaleString('fr-FR') }}</span>
+                <span :class="{
+                  'text-amber-400': u.status === 'investigating',
+                  'text-blue-400': u.status === 'identified',
+                  'text-purple-400': u.status === 'monitoring',
+                  'text-emerald-400': u.status === 'resolved',
+                }" class="font-semibold capitalize flex-shrink-0">{{ u.status }}</span>
+                <span class="text-gray-300 break-words">{{ u.message }}</span>
+                <span v-if="!u.is_public" class="text-gray-600 italic">(private)</span>
+                <button @click="deleteIncidentUpdate(inc.id, u.id)" class="text-red-500 hover:text-red-400 ml-auto flex-shrink-0">✕</button>
+              </div>
+              <div v-if="incidentUpdates.length === 0" class="text-gray-600 italic">No updates yet</div>
+            </div>
+
+            <!-- Add update form -->
+            <div class="mt-2 pt-2 border-t border-gray-800 space-y-2">
+              <div class="flex gap-2">
+                <select v-model="newUpdate.status" class="input text-xs flex-shrink-0 w-36">
+                  <option value="investigating">Investigating</option>
+                  <option value="identified">Identified</option>
+                  <option value="monitoring">Monitoring</option>
+                  <option value="resolved">Resolved</option>
+                </select>
+                <input v-model="newUpdate.message" class="input text-xs flex-1" placeholder="Status update message…" @keydown.enter="postIncidentUpdate(inc.id)" />
+                <label class="flex items-center gap-1 text-xs text-gray-400 flex-shrink-0">
+                  <input v-model="newUpdate.is_public" type="checkbox" class="mr-1" checked />
+                  Public
+                </label>
+                <button @click="postIncidentUpdate(inc.id)" class="btn-primary text-xs flex-shrink-0">Post</button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -884,6 +970,7 @@
             <th class="pb-2 text-left">{{ t('common.status') }}</th>
             <th v-if="!noHttpTypes.includes(monitor.check_type)" class="pb-2 text-left">HTTP</th>
             <th class="pb-2 text-left">Réponse</th>
+            <th v-if="monitor.check_type === 'http' || monitor.check_type === 'keyword' || monitor.check_type === 'json_path'" class="pb-2 text-left hidden xl:table-cell">Waterfall</th>
             <th v-if="monitor.check_type === 'scenario'" class="pb-2 text-left">Étapes</th>
             <th v-if="!noHttpTypes.includes(monitor.check_type)" class="pb-2 text-left hidden md:table-cell">Redirections</th>
             <th v-if="monitor.ssl_check_enabled" class="pb-2 text-left hidden lg:table-cell">SSL</th>
@@ -911,6 +998,18 @@
             </td>
             <td v-if="!noHttpTypes.includes(monitor.check_type)" class="py-2 text-gray-300">{{ r.http_status ?? '—' }}</td>
             <td class="py-2 text-gray-300">{{ r.response_time_ms ? Math.round(r.response_time_ms) + 'ms' : '—' }}</td>
+            <!-- Waterfall timing mini-bar -->
+            <td v-if="monitor.check_type === 'http' || monitor.check_type === 'keyword' || monitor.check_type === 'json_path'" class="py-2 hidden xl:table-cell">
+              <div v-if="r.ttfb_ms != null" class="flex items-center gap-1.5 text-xs font-mono min-w-[120px]">
+                <div class="flex h-2 rounded overflow-hidden flex-1 bg-gray-800">
+                  <div class="bg-blue-500/70 h-full" :style="`width:${Math.round((r.dns_resolve_ms || 0) / r.response_time_ms * 100)}%`" title="DNS"></div>
+                  <div class="bg-amber-500/70 h-full" :style="`width:${Math.round(r.ttfb_ms / r.response_time_ms * 100)}%`" title="TTFB"></div>
+                  <div class="bg-emerald-500/70 h-full" :style="`flex:1`" title="Download"></div>
+                </div>
+                <span class="text-gray-500">{{ r.ttfb_ms }}ms</span>
+              </div>
+              <span v-else class="text-gray-700 text-xs">—</span>
+            </td>
             <td v-if="monitor.check_type === 'scenario'" class="py-2 text-xs">
               <span v-if="r.scenario_result">
                 <span :class="r.status === 'up' ? 'text-emerald-400' : 'text-red-400'">
@@ -1053,6 +1152,7 @@ import { Shield, ShieldAlert, ShieldCheck } from 'lucide-vue-next'
 import { monitorsApi, triggerCheck, getSlaReport, listAnnotations, createAnnotation, deleteAnnotation, getSlo } from '../api/monitors'
 import { probesApi } from '../api/probes'
 import { metricsApi } from '../api/metrics'
+import { incidentUpdatesApi } from '../api/incidentUpdates'
 import MonitorDependencies from '../components/monitors/MonitorDependencies.vue'
 
 const { t } = useI18n()
@@ -1069,6 +1169,46 @@ const allMonitors = ref([]) // for dependency picker
 // ── Incidents & Post-mortem ───────────────────────────────────────────────────
 const incidents = ref([])
 const incidentError = ref(null)
+const expandedIncident = ref(null)
+const incidentUpdates = ref([])
+const incidentUpdatesLoading = ref(false)
+const newUpdate = ref({ status: 'investigating', message: '', is_public: true })
+
+async function toggleIncidentUpdates(incidentId) {
+  if (expandedIncident.value === incidentId) {
+    expandedIncident.value = null
+    return
+  }
+  expandedIncident.value = incidentId
+  incidentUpdatesLoading.value = true
+  try {
+    const { data } = await incidentUpdatesApi.list(incidentId)
+    incidentUpdates.value = data
+  } finally {
+    incidentUpdatesLoading.value = false
+  }
+}
+
+async function postIncidentUpdate(incidentId) {
+  if (!newUpdate.value.message.trim()) return
+  try {
+    await incidentUpdatesApi.create(incidentId, { ...newUpdate.value })
+    newUpdate.value.message = ''
+    const { data } = await incidentUpdatesApi.list(incidentId)
+    incidentUpdates.value = data
+  } catch {
+    // ignore
+  }
+}
+
+async function deleteIncidentUpdate(incidentId, updateId) {
+  try {
+    await incidentUpdatesApi.delete(incidentId, updateId)
+    incidentUpdates.value = incidentUpdates.value.filter(u => u.id !== updateId)
+  } catch {
+    // ignore
+  }
+}
 
 async function loadIncidents() {
   incidentError.value = null
@@ -1722,6 +1862,36 @@ async function resetDnsBaseline() {
     dnsBaselineMsg.value = e.response?.data?.detail || 'Error'
   } finally {
     dnsBaselineLoading.value = false
+  }
+}
+
+// ── Schema Drift Baseline ─────────────────────────────────────────────────────
+async function toggleSchemaDrift(enabled) {
+  try {
+    await monitorsApi.update(monitor.value.id, { schema_drift_enabled: enabled })
+    monitor.value.schema_drift_enabled = enabled
+  } catch {
+    // ignore
+  }
+}
+
+async function acceptSchemaBaseline() {
+  try {
+    const { data } = await monitorsApi.acceptSchemaBaseline(monitor.value.id)
+    monitor.value.schema_baseline = data.baseline
+    monitor.value.schema_baseline_updated_at = new Date().toISOString()
+  } catch (e) {
+    alert(e.response?.data?.detail || 'Error accepting baseline')
+  }
+}
+
+async function resetSchemaBaseline() {
+  try {
+    await monitorsApi.resetSchemaBaseline(monitor.value.id)
+    monitor.value.schema_baseline = null
+    monitor.value.schema_baseline_updated_at = null
+  } catch {
+    // ignore
   }
 }
 

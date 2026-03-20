@@ -154,11 +154,15 @@ import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../stores/auth'
 import { probesApi } from '../api/probes'
+import { useToast } from '../composables/useToast'
+import { useConfirm } from '../composables/useConfirm'
 import RegisterProbeModal from '../components/probes/RegisterProbeModal.vue'
 import EditProbeModal from '../components/probes/EditProbeModal.vue'
 
 const { t } = useI18n()
 const auth = useAuthStore()
+const { success, error: toastError } = useToast()
+const { confirm } = useConfirm()
 const probes = ref([])
 const showRegister = ref(false)
 const newApiKey = ref(null)
@@ -225,29 +229,34 @@ async function loadProbes() {
 
 async function toggleActive(probe, isActive) {
   const action = isActive ? t('probes.enable') : t('probes.disable')
-  if (!confirm(`${action} "${probe.name}" ?`)) return
+  const ok = await confirm({ title: `${action} "${probe.name}" ?`, confirmLabel: action, danger: !isActive })
+  if (!ok) return
   try {
     const { data } = await probesApi.setActive(probe.id, isActive)
     const idx = probes.value.findIndex(p => p.id === probe.id)
     if (idx !== -1) probes.value[idx] = data
+    success(`Sonde "${probe.name}" ${isActive ? 'activée' : 'désactivée'}`)
     refreshMap()
   } catch (err) {
-    showError(t('common.error'))
+    toastError(t('common.error'))
     console.error(err)
   }
 }
 
 async function removeProbe(probe) {
-  if (!confirm(
-    t('probes.confirm_delete', { name: probe.name }) + '\n\n' +
-    t('probes.confirm_delete_detail')
-  )) return
+  const ok = await confirm({
+    title: t('probes.confirm_delete', { name: probe.name }),
+    message: t('probes.confirm_delete_detail'),
+    confirmLabel: t('probes.delete'),
+  })
+  if (!ok) return
   try {
     await probesApi.remove(probe.id)
     probes.value = probes.value.filter(p => p.id !== probe.id)
+    success(`Sonde "${probe.name}" supprimée`)
     refreshMap()
   } catch (err) {
-    showError(t('common.error'))
+    toastError(t('common.error'))
     console.error(err)
   }
 }
@@ -260,6 +269,7 @@ function onUpdated(updated) {
   const idx = probes.value.findIndex(p => p.id === updated.id)
   if (idx !== -1) probes.value[idx] = updated
   editProbe.value = null
+  success('Sonde mise à jour')
   refreshMap()
 }
 

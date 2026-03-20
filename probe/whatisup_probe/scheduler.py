@@ -53,6 +53,7 @@ class ProbeScheduler:
                 smtp_port=monitor.get("smtp_port"),
                 smtp_starttls=monitor.get("smtp_starttls", False),
                 domain_expiry_warn_days=monitor.get("domain_expiry_warn_days", 30),
+                schema_drift_enabled=monitor.get("schema_drift_enabled", False),
             )
             logger.debug(
                 "check_done",

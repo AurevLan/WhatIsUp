@@ -19,6 +19,9 @@ export const monitorsApi = {
   // DNS baseline
   acceptDnsBaseline: (id) => api.post(`/monitors/${id}/dns-baseline/accept`),
   resetDnsBaseline: (id) => api.delete(`/monitors/${id}/dns-baseline`),
+  // Schema baseline
+  acceptSchemaBaseline: (id) => api.post(`/monitors/${id}/schema-baseline/accept`),
+  resetSchemaBaseline: (id) => api.delete(`/monitors/${id}/schema-baseline`),
   // Composite members
   listCompositeMembers: (id) => api.get(`/monitors/${id}/composite-members`),
   addCompositeMember: (id, data) => api.post(`/monitors/${id}/composite-members`, data),

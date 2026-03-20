@@ -1,6 +1,7 @@
 """Public status page endpoints — no authentication required."""
 
 import secrets
+import uuid
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -11,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
 from whatisup.models.incident import Incident
+from whatisup.models.incident_update import IncidentUpdate
 from whatisup.models.monitor import Monitor, MonitorGroup
 from whatisup.models.result import CheckResult
 from whatisup.models.status_subscription import StatusSubscription
@@ -207,6 +209,54 @@ async def get_public_status(slug: str, db: AsyncSession = Depends(get_db)) -> di
         "description": group.description,
         "incidents_30d": incidents_30d,
     }
+
+
+@router.get("/pages/{slug}/incidents/{incident_id}/updates")
+@limiter.limit("30/minute")
+async def get_public_incident_updates(
+    slug: str,
+    incident_id: uuid.UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> list[dict]:
+    """Public endpoint: list updates for a specific incident on a status page."""
+    group = await _get_group_by_slug(slug, db)
+
+    # Verify the incident belongs to this group (single JOIN query)
+    row = (
+        await db.execute(
+            select(Incident)
+            .join(Monitor, Monitor.id == Incident.monitor_id)
+            .where(
+                Incident.id == incident_id,
+                Monitor.group_id == group.id,
+            )
+        )
+    ).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Incident not found on this page")
+
+    updates = (
+        await db.execute(
+            select(IncidentUpdate)
+            .where(
+                IncidentUpdate.incident_id == incident_id,
+                IncidentUpdate.is_public.is_(True),
+            )
+            .order_by(IncidentUpdate.created_at.asc())
+        )
+    ).scalars().all()
+
+    return [
+        {
+            "id": str(u.id),
+            "status": u.status.value,
+            "message": u.message,
+            "created_by_name": u.created_by_name,
+            "created_at": u.created_at.isoformat(),
+        }
+        for u in updates
+    ]
 
 
 @router.post("/pages/{slug}/subscribe", status_code=201)

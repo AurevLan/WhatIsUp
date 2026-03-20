@@ -387,6 +387,85 @@ export default {
     suppressed_badge: 'Supprimé (parent en panne)',
   },
 
+  // Templates
+  templates: {
+    title: 'Templates de moniteurs',
+    subtitle: 'Modèles réutilisables pour créer des moniteurs rapidement',
+    new: 'Nouveau template',
+    no_templates: "Aucun template pour l'instant. Créez-en un pour commencer.",
+    public_badge: 'Public',
+    shared_badge: 'Partagé',
+    variables_label: 'Variables',
+    apply: 'Appliquer le template',
+    edit: 'Modifier',
+    delete: 'Supprimer',
+    delete_confirm: 'Supprimer le template "{name}" ?',
+    apply_title: 'Appliquer : {name}',
+    apply_subtitle: 'Remplissez les variables pour créer un moniteur depuis ce template.',
+    no_variables: 'Aucune variable à remplir. Un moniteur sera créé immédiatement.',
+    name_override: 'Nom personnalisé (optionnel)',
+    create_monitor: 'Créer le moniteur',
+    form_name: 'Nom',
+    form_description: 'Description (optionnel)',
+    form_public: 'Rendre ce template public (visible par tous les utilisateurs)',
+    form_config: 'Config moniteur (JSON)',
+    form_config_hint: 'utilisez {placeholder} pour la substitution',
+    form_add_variable: '+ Ajouter une variable',
+    var_name: 'NOM_VARIABLE',
+    var_description: 'Description',
+    var_default: 'Défaut',
+    created: 'Template créé',
+    updated: 'Template mis à jour',
+    deleted: 'Template supprimé',
+  },
+
+  // Détection de dérive de schéma API
+  schema_drift: {
+    label: 'Détection de dérive de schéma API',
+    desc: "Alerte quand la structure JSON de la réponse change par rapport au baseline.",
+    enable: 'Activer la détection de dérive',
+    baseline_label: 'Empreinte baseline actuelle',
+    baseline_none: "Pas encore de baseline — sera capturé au prochain check réussi.",
+    baseline_updated: 'Mis à jour le',
+    accept: 'Accepter comme nouveau baseline',
+    reset: 'Réinitialiser le baseline',
+    accepted: 'Baseline accepté.',
+    reset_done: 'Baseline réinitialisé.',
+  },
+
+  // Mises à jour d'incidents (timeline de statut)
+  incident_updates: {
+    title: 'Mises à jour de statut',
+    expand: '▼ Mises à jour',
+    collapse: '▲ Mises à jour',
+    post: 'Publier une mise à jour',
+    status_investigating: 'Investigation',
+    status_identified: 'Identifié',
+    status_monitoring: 'Surveillance',
+    status_resolved: 'Résolu',
+    message_placeholder: 'Décrivez la situation actuelle…',
+    public_label: 'Visible sur la page de statut publique',
+    posted: 'Mise à jour publiée.',
+    deleted: 'Mise à jour supprimée.',
+    no_updates: 'Aucune mise à jour pour l\'instant.',
+  },
+
+  // Timing waterfall HTTP
+  waterfall: {
+    title: 'Timing HTTP',
+    dns: 'DNS',
+    ttfb: 'TTFB',
+    download: 'Téléchargement',
+    total: 'Total',
+  },
+
+  // Détection d'anomalies
+  anomaly: {
+    label: "Détection d'anomalies",
+    zscore_threshold: 'Seuil z-score',
+    zscore_hint: '1.0 = très sensible, 3.5 = standard',
+  },
+
   // Groupes d'incidents
   incidentGroups: {
     title: "Groupes d'incidents",

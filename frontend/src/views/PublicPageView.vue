@@ -138,31 +138,67 @@
         <h2 class="text-lg font-semibold text-gray-300 mb-3">{{ t('public.recent_incidents') }}</h2>
         <div class="space-y-3">
           <div v-for="inc in incidents30d" :key="inc.id"
-            class="bg-gray-900 border border-gray-800 rounded-xl p-4 flex items-start gap-4">
+            class="bg-gray-900 border border-gray-800 rounded-xl p-4">
 
-            <!-- Badge résolu / en cours -->
-            <span
-              :class="inc.is_resolved
-                ? 'bg-emerald-900/40 text-emerald-400 border-emerald-700/50'
-                : 'bg-red-900/40 text-red-400 border-red-700/50 animate-pulse'"
-              class="text-xs font-semibold px-2 py-0.5 rounded border shrink-0 mt-0.5">
-              {{ inc.is_resolved ? 'Resolved' : 'Ongoing' }}
-            </span>
+            <div class="flex items-start gap-4">
+              <!-- Badge résolu / en cours -->
+              <span
+                :class="inc.is_resolved
+                  ? 'bg-emerald-900/40 text-emerald-400 border-emerald-700/50'
+                  : 'bg-red-900/40 text-red-400 border-red-700/50 animate-pulse'"
+                class="text-xs font-semibold px-2 py-0.5 rounded border shrink-0 mt-0.5">
+                {{ inc.is_resolved ? 'Resolved' : 'Ongoing' }}
+              </span>
 
-            <div class="flex-1 min-w-0">
-              <p class="text-white font-medium text-sm">{{ inc.monitor_name }}</p>
-              <p class="text-gray-500 text-xs mt-0.5">
-                Started: {{ formatDatetime(inc.started_at) }}
-                <template v-if="inc.resolved_at">
-                  · Ended: {{ formatDatetime(inc.resolved_at) }}
-                </template>
-              </p>
+              <div class="flex-1 min-w-0">
+                <p class="text-white font-medium text-sm">{{ inc.monitor_name }}</p>
+                <p class="text-gray-500 text-xs mt-0.5">
+                  Started: {{ formatDatetime(inc.started_at) }}
+                  <template v-if="inc.resolved_at">
+                    · Ended: {{ formatDatetime(inc.resolved_at) }}
+                  </template>
+                </p>
+              </div>
+
+              <!-- Durée -->
+              <div v-if="inc.duration_minutes != null" class="text-right shrink-0">
+                <span class="text-sm font-semibold text-gray-300">{{ formatDuration(inc.duration_minutes) }}</span>
+                <p class="text-xs text-gray-600">duration</p>
+              </div>
+
+              <!-- Expand updates -->
+              <button
+                @click="togglePublicUpdates(inc.id)"
+                class="text-xs text-blue-400 hover:text-blue-300 shrink-0"
+              >
+                {{ expandedPublicIncident === inc.id ? '▲ Hide' : '▼ Updates' }}
+              </button>
             </div>
 
-            <!-- Durée -->
-            <div v-if="inc.duration_minutes != null" class="text-right shrink-0">
-              <span class="text-sm font-semibold text-gray-300">{{ formatDuration(inc.duration_minutes) }}</span>
-              <p class="text-xs text-gray-600">duration</p>
+            <!-- Incident updates timeline -->
+            <div v-if="expandedPublicIncident === inc.id && publicUpdates[inc.id]" class="mt-3 ml-2 border-l-2 border-gray-700 pl-4 space-y-2">
+              <div v-if="publicUpdatesLoading[inc.id]" class="text-xs text-gray-500">Loading…</div>
+              <div v-else-if="!publicUpdates[inc.id]?.length" class="text-xs text-gray-600 italic">No updates posted yet.</div>
+              <div v-for="u in publicUpdates[inc.id]" :key="u.id" class="relative">
+                <span class="absolute -left-[21px] top-1 w-3 h-3 rounded-full border-2 border-gray-700"
+                  :class="{
+                    'bg-amber-400': u.status === 'investigating',
+                    'bg-blue-400': u.status === 'identified',
+                    'bg-purple-400': u.status === 'monitoring',
+                    'bg-emerald-400': u.status === 'resolved',
+                  }"
+                ></span>
+                <p class="text-xs text-gray-400">{{ formatDatetime(u.created_at) }}</p>
+                <p class="text-xs font-semibold capitalize mb-0.5"
+                  :class="{
+                    'text-amber-400': u.status === 'investigating',
+                    'text-blue-400': u.status === 'identified',
+                    'text-purple-400': u.status === 'monitoring',
+                    'text-emerald-400': u.status === 'resolved',
+                  }"
+                >{{ u.status }}</p>
+                <p class="text-sm text-gray-300">{{ u.message }}</p>
+              </div>
             </div>
           </div>
         </div>
@@ -230,8 +266,31 @@ const incidents30d = ref([])
 const loading = ref(true)
 const lastUpdated = ref(new Date().toLocaleTimeString('fr-FR'))
 
-// Abonnement
 const loadError = ref(false)
+
+// Incident updates (public)
+const expandedPublicIncident = ref(null)
+const publicUpdates = ref({})
+const publicUpdatesLoading = ref({})
+
+async function togglePublicUpdates(incidentId) {
+  if (expandedPublicIncident.value === incidentId) {
+    expandedPublicIncident.value = null
+    return
+  }
+  expandedPublicIncident.value = incidentId
+  if (publicUpdates.value[incidentId]) return // already loaded
+  publicUpdatesLoading.value[incidentId] = true
+  try {
+    const slug = route.params.slug
+    const { data } = await publicApi.getIncidentUpdates(slug, incidentId)
+    publicUpdates.value[incidentId] = data
+  } catch {
+    publicUpdates.value[incidentId] = []
+  } finally {
+    publicUpdatesLoading.value[incidentId] = false
+  }
+}
 
 // Abonnement
 const subEmail = ref('')

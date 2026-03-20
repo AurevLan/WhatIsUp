@@ -81,8 +81,12 @@
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../api/client'
+import { useToast } from '../composables/useToast'
+import { useConfirm } from '../composables/useConfirm'
 
 const { t } = useI18n()
+const { success, error: toastError } = useToast()
+const { confirm } = useConfirm()
 
 const windows = ref([])
 const showCreate = ref(false)
@@ -136,19 +140,26 @@ async function createWindow() {
     const { data } = await api.post('/maintenance/', payload)
     windows.value.unshift(data)
     showCreate.value = false
+    success(`Fenêtre "${data.name}" créée`)
   } catch (err) {
-    showError('Failed to create maintenance window.')
+    toastError('Erreur lors de la création')
     console.error(err)
   }
 }
 
 async function deleteWindow(w) {
-  if (!confirm(`Delete maintenance window "${w.name}"?`)) return
+  const ok = await confirm({
+    title: `Supprimer "${w.name}" ?`,
+    message: 'Cette fenêtre de maintenance sera définitivement supprimée.',
+    confirmLabel: 'Supprimer',
+  })
+  if (!ok) return
   try {
     await api.delete(`/maintenance/${w.id}`)
     windows.value = windows.value.filter(x => x.id !== w.id)
+    success(`Fenêtre "${w.name}" supprimée`)
   } catch (err) {
-    showError('Failed to delete maintenance window.')
+    toastError('Erreur lors de la suppression')
     console.error(err)
   }
 }

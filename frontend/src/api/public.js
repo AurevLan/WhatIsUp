@@ -34,4 +34,8 @@ export const publicApi = {
    */
   unsubscribe: (slug, token) =>
     publicHttp.get(`/pages/${slug}/unsubscribe`, { params: { token } }),
+
+  /** Fetch public incident updates for a given incident. */
+  getIncidentUpdates: (slug, incidentId) =>
+    publicHttp.get(`/pages/${slug}/incidents/${incidentId}/updates`),
 }

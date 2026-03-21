@@ -810,12 +810,24 @@ async def _check_scenario(
 
     except Exception as exc:
         elapsed_ms = (time.perf_counter() - t0) * 1000
+        err_msg = f"Scenario error: {type(exc).__name__}: {str(exc)[:300]}"
         return CheckResult(
             monitor_id=monitor_id,
             checked_at=checked_at,
             status="error",
             response_time_ms=round(elapsed_ms, 2),
-            error_message=f"Scenario error: {type(exc).__name__}: {str(exc)[:300]}",
+            error_message=err_msg,
+            scenario_result={
+                "steps_total": steps_total,
+                "steps_passed": steps_passed,
+                "steps_warned": 0,
+                "failed_step_index": len(step_results),
+                "failed_step_type": None,
+                "failed_step_label": None,
+                "steps": step_results,
+                "web_vitals": {},
+                "error": err_msg,
+            },
         )
 
 

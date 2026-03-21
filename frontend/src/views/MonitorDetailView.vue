@@ -221,6 +221,13 @@
               No detail available for this run.
             </div>
 
+            <!-- Error without scenario_result (unhandled probe exception) -->
+            <div v-else-if="selectedRunId === r.id && !r.scenario_result && r.error_message"
+              class="px-4 pb-3 pt-2 border-t border-gray-800">
+              <p class="text-xs font-semibold text-gray-400 mb-1">Error</p>
+              <p class="text-xs text-red-300 font-mono break-all">{{ r.error_message }}</p>
+            </div>
+
             <!-- Core Web Vitals (shown when expanded and vitals available) -->
             <div v-if="selectedRunId === r.id && r.scenario_result?.web_vitals && Object.keys(r.scenario_result.web_vitals).length"
               class="px-4 pb-3 pt-2 border-t border-gray-800"

@@ -254,7 +254,7 @@ enroll_probe() {
     --data-urlencode "password=${ADMIN_PASSWORD}" \
     2>&1) || die "Impossible de joindre le serveur : ${CENTRAL_API_URL}"
 
-  _http_code=$(grep -o '__HTTP_CODE__[0-9]*' <<< "$_login_resp" | cut -d_ -f5)
+  _http_code=$(grep -o '__HTTP_CODE__[0-9]*' <<< "$_login_resp" | cut -d_ -f6)
   _login_resp=$(sed 's/__HTTP_CODE__[0-9]*//' <<< "$_login_resp")
 
   [[ "$_http_code" == "200" ]] || die "Authentification échouée (HTTP ${_http_code}). Vérifiez vos credentials."
@@ -291,7 +291,7 @@ enroll_probe() {
     -d "{\"name\":\"${PROBE_NAME}\",\"location_name\":\"${PROBE_LOCATION}\"}" \
     2>&1) || die "Requête d'enregistrement échouée."
 
-  _reg_code=$(grep -o '__HTTP_CODE__[0-9]*' <<< "$_reg_resp" | cut -d_ -f5)
+  _reg_code=$(grep -o '__HTTP_CODE__[0-9]*' <<< "$_reg_resp" | cut -d_ -f6)
   _reg_resp=$(sed 's/__HTTP_CODE__[0-9]*//' <<< "$_reg_resp")
 
   if [[ "$_reg_code" == "409" ]]; then

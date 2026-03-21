@@ -245,7 +245,7 @@ enroll_probe() {
 
   # Login — OAuth2PasswordRequestForm (application/x-www-form-urlencoded)
   local _login_resp _http_code
-  _login_resp=$(curl -sf \
+  _login_resp=$(curl -s \
     --connect-timeout 10 \
     --max-time 20 \
     -w '\n__HTTP_CODE__%{http_code}' \
@@ -267,7 +267,7 @@ enroll_probe() {
 
   # Vérifier que l'utilisateur est superadmin
   local _me_resp
-  _me_resp=$(curl -sf \
+  _me_resp=$(curl -s \
     --connect-timeout 10 \
     --max-time 10 \
     -H "Authorization: Bearer ${_token}" \
@@ -281,7 +281,7 @@ enroll_probe() {
   log "Enregistrement de la sonde '${PROBE_NAME}'…"
 
   local _reg_resp _reg_code
-  _reg_resp=$(curl -sf \
+  _reg_resp=$(curl -s \
     --connect-timeout 10 \
     --max-time 20 \
     -w '\n__HTTP_CODE__%{http_code}' \

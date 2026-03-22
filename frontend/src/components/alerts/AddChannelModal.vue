@@ -58,11 +58,29 @@
         <div v-if="form.type === 'telegram'" class="space-y-3">
           <div>
             <label class="block text-sm font-medium text-gray-300 mb-1">Bot Token *</label>
-            <input v-model="telegramToken" class="input w-full" placeholder="1234567890:ABC..." required />
+            <div class="flex gap-2">
+              <input v-model="telegramToken" class="input flex-1" placeholder="1234567890:ABC..." required />
+              <button
+                type="button"
+                @click="resolveTelegram"
+                :disabled="!telegramToken || telegramResolving"
+                class="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg whitespace-nowrap"
+              >
+                {{ telegramResolving ? '…' : 'Fetch chat ID' }}
+              </button>
+            </div>
+            <p class="text-xs text-gray-500 mt-1">Send any message to your bot first, then click "Fetch chat ID".</p>
+          </div>
+          <div v-if="telegramChatName" class="flex items-center gap-2 bg-green-900/30 border border-green-700/50 rounded-lg px-3 py-2 text-sm text-green-300">
+            <span>✅</span>
+            <span>Connected to <strong>{{ telegramChatName }}</strong> (ID: {{ telegramChatId }})</span>
+          </div>
+          <div v-if="telegramResolveError" class="bg-red-900/40 border border-red-700 rounded-lg px-3 py-2 text-sm text-red-300">
+            {{ telegramResolveError }}
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-300 mb-1">Chat ID *</label>
-            <input v-model="telegramChatId" class="input w-full" placeholder="-1001234567890" required />
+            <input v-model="telegramChatId" class="input w-full" placeholder="Auto-filled after fetch" required />
           </div>
         </div>
 
@@ -139,12 +157,30 @@ const webhookUrl = ref('')
 const webhookSecret = ref('')
 const telegramToken = ref('')
 const telegramChatId = ref('')
+const telegramChatName = ref('')
+const telegramResolving = ref(false)
+const telegramResolveError = ref('')
 const slackWebhookUrl = ref('')
 const pdIntegrationKey = ref('')
 const pdSeverity = ref('critical')
 const opsApiKey = ref('')
 const opsRegion = ref('us')
 const opsPriority = ref('P1')
+
+async function resolveTelegram() {
+  telegramResolving.value = true
+  telegramResolveError.value = ''
+  telegramChatName.value = ''
+  try {
+    const { data } = await api.post('/alerts/telegram/resolve', { bot_token: telegramToken.value })
+    telegramChatId.value = data.chat_id
+    telegramChatName.value = data.chat_name
+  } catch (err) {
+    telegramResolveError.value = err.response?.data?.detail || 'Failed to resolve chat ID'
+  } finally {
+    telegramResolving.value = false
+  }
+}
 
 function buildConfig() {
   switch (form.value.type) {

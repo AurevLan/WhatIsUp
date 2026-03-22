@@ -1,0 +1,5 @@
+FROM python:3.14-slim
+RUN pip install --no-cache-dir httpx
+WORKDIR /tests
+COPY tests/recette.py .
+CMD ["python", "recette.py"]

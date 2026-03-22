@@ -82,7 +82,19 @@ const routes = [
         name: 'Templates',
         component: () => import('../views/TemplatesView.vue'),
       },
+      {
+        path: 'admin',
+        name: 'Admin',
+        component: () => import('../views/AdminView.vue'),
+        meta: { requiresAdmin: true },
+      },
     ],
+  },
+  {
+    path: '/oidc-callback',
+    name: 'OidcCallback',
+    component: () => import('../views/OidcCallbackView.vue'),
+    meta: { public: true },
   },
   {
     path: '/status/:slug',
@@ -106,6 +118,9 @@ router.beforeEach(async (to) => {
   const auth = useAuthStore()
   if (!to.meta.public && !auth.isAuthenticated) {
     return { name: 'Login', query: { redirect: to.fullPath } }
+  }
+  if (to.meta.requiresAdmin && !auth.isSuperadmin) {
+    return { name: 'Dashboard' }
   }
 })
 

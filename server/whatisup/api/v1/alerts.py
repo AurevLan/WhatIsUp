@@ -24,6 +24,8 @@ from whatisup.schemas.alert import (
     AlertRuleOut,
     AlertRuleSimulateOut,
     AlertRuleUpdate,
+    TelegramResolveIn,
+    TelegramResolveOut,
 )
 from whatisup.services.alert import simulate_rule, test_channel
 
@@ -80,6 +82,84 @@ async def test_channel_endpoint(
     return AlertChannelTestOut(success=success, detail=detail)
 
 
+@router.post("/telegram/resolve", response_model=TelegramResolveOut)
+@limiter.limit("10/minute")
+async def telegram_resolve(
+    payload: TelegramResolveIn,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+) -> TelegramResolveOut:
+    """Fetch the latest chat_id from a bot token via getUpdates, then send a validation message."""
+    import httpx
+
+    token = payload.bot_token.strip()
+    base_url = f"https://api.telegram.org/bot{token}"
+
+    async with httpx.AsyncClient(timeout=10) as client:
+        try:
+            resp = await client.get(f"{base_url}/getUpdates", params={"limit": 10, "offset": -10})
+            resp.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Telegram API error: {exc}",
+            )
+
+        data = resp.json()
+        if not data.get("ok"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=data.get("description", "Invalid bot token"),
+            )
+
+        updates = data.get("result", [])
+        if not updates:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No messages received yet — send any message to your bot first, then retry.",
+            )
+
+        # Pick the most recent chat
+        last_update = updates[-1]
+        msg = last_update.get("message") or last_update.get("channel_post")
+        if not msg:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=(
+                    "Could not extract a chat from bot updates"
+                    " — send a text message to your bot."
+                ),
+            )
+
+        chat = msg["chat"]
+        chat_id = str(chat["id"])
+        chat_name = chat.get("title") or " ".join(
+            filter(None, [chat.get("first_name"), chat.get("last_name")])
+        ) or chat.get("username") or chat_id
+
+        # Send validation message
+        try:
+            val_resp = await client.post(
+                f"{base_url}/sendMessage",
+                json={
+                    "chat_id": chat_id,
+                    "text": (
+                        "✅ <b>WhatIsUp</b> — bot connected successfully!"
+                        " Alerts will be sent here."
+                    ),
+                    "parse_mode": "HTML",
+                },
+            )
+            val_resp.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Could not send validation message: {exc}",
+            )
+
+    return TelegramResolveOut(chat_id=chat_id, chat_name=chat_name)
+
+
 @router.delete("/channels/{channel_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_channel(
     channel_id: uuid.UUID,
@@ -108,9 +188,7 @@ async def list_rules(
 ) -> list[AlertRule]:
     result = await db.execute(
         select(AlertRule)
-        .join(AlertRule.channels)
-        .where(AlertChannel.owner_id == current_user.id)
-        .distinct()
+        .where(AlertRule.channels.any(AlertChannel.owner_id == current_user.id))
         .options(selectinload(AlertRule.channels))
     )
     return list(result.scalars().all())

@@ -51,6 +51,8 @@
 - **Multi-probe architecture** — deploy lightweight probe agents in any location; correlate outages geographically
 - **Network type** — tag each probe as `external` (public internet) or `internal` (corporate LAN) to distinguish internal vs external failures
 - **Probe map on dashboard** — Leaflet world map with per-probe 24h uptime (🟢 ≥ 99 % / 🟡 ≥ 90 % / 🔴 < 90 %) and online/offline status; auto-refreshes every 60 s
+- **Network scope per monitor** — restrict each monitor to `all`, `internal`, or `external` probes; useful for LAN-only services
+- **Probe groups** — admin-defined groups; assign probes and grant visibility to specific users
 - **City / address geocoding** — type any address or city to auto-resolve GPS coordinates (Nominatim, no API key)
 
 ### Observability
@@ -79,6 +81,11 @@
 - **Email subscriptions** — visitors subscribe to outage updates; secure unsubscribe token
 
 ### Platform
+- **SSO / OIDC** — OpenID Connect PKCE flow; link user accounts to any OIDC provider (Keycloak, Authentik, Auth0, Google…); optional auto-provisioning of new accounts on first login; configured entirely from the admin GUI (no restart required)
+- **Admin panel** — dedicated UI for user management (`is_active`, `can_create_monitors`), probe group access control, all-monitors view, and live OIDC settings
+- **`can_create_monitors` permission** — per-user flag; superadmin grants or revokes monitor creation rights independently of admin access
+- **Probe groups** — admin-defined groups linking probes to users; regular users see only the probes assigned to their groups
+- **Network scope** — per-monitor `network_scope` field (`all` / `internal` / `external`); restricts which probe types run each check (e.g. internal-only services stay on LAN probes)
 - **Multi-language** — English (default) and French; toggle in the sidebar; persisted to `localStorage`
 - **Bulk actions** — multi-select monitors; bulk enable / pause / delete / export CSV
 - **Audit trail** — every admin action logged with before/after diff
@@ -180,6 +187,13 @@ docker compose -f docker-compose.prod.yml exec server alembic upgrade head
 | `SMTP_USER` | — | — | SMTP username |
 | `SMTP_PASSWORD` | — | — | SMTP password |
 | `SMTP_FROM` | — | `noreply@example.com` | Sender address |
+| `OIDC_ENABLED` | — | `false` | Enable OIDC login (can also be set from admin GUI) |
+| `OIDC_ISSUER_URL` | — | — | OIDC provider discovery URL (e.g. `https://accounts.google.com`) |
+| `OIDC_CLIENT_ID` | — | — | Client ID registered with the OIDC provider |
+| `OIDC_CLIENT_SECRET` | — | — | Client secret (stored encrypted in DB when set from admin GUI) |
+| `OIDC_REDIRECT_URI` | — | — | Callback URL (leave empty to auto-detect from request base URL) |
+| `OIDC_SCOPES` | — | `openid email profile` | Space-separated OIDC scopes |
+| `OIDC_AUTO_PROVISION` | — | `true` | Create user accounts on first OIDC login |
 
 ---
 
@@ -372,9 +386,10 @@ alembic downgrade -1
 ## Security
 
 - **JWT** — HS256, access 15 min + refresh 7 days, Redis-revocable
+- **OIDC / SSO** — PKCE authorization-code flow; `oidc_client_secret` encrypted at rest with Fernet; secret never returned by the API
 - **Probe auth** — `X-Probe-Api-Key` bcrypt 12 rounds + Redis cache 300 s
 - **WebSocket auth** — JSON message frame (`{"type":"auth","token":"…"}`), never URL parameter
-- **Secrets at rest** — Fernet encryption for alert channel secrets (SMTP passwords, Telegram tokens, webhook secrets, PagerDuty / Opsgenie keys) **and** scenario variables (`secret: true`); `FERNET_KEY` is required in production (server refuses to start without it)
+- **Secrets at rest** — Fernet encryption for alert channel secrets (SMTP passwords, Telegram tokens, webhook secrets, PagerDuty / Opsgenie keys), OIDC client secret, **and** scenario variables (`secret: true`); `FERNET_KEY` is required in production (server refuses to start without it)
 - **SSRF protection** — all outbound webhook URLs (generic + Slack) validated against private/loopback ranges before any HTTP request
 - **CORS** — explicit origins only; HTTP origins rejected in production
 - **CSP** — `default-src 'self'; script-src 'self'`

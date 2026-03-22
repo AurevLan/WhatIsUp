@@ -94,6 +94,7 @@ class ProbeScheduler:
 
             if existing:
                 existing.reschedule(IntervalTrigger(seconds=monitor["interval_seconds"]))
+                existing.modify(args=[monitor])
             else:
                 self._scheduler.add_job(
                     self._run_check,

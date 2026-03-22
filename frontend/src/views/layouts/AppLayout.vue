@@ -33,6 +33,10 @@
         <NavLink to="/api-keys" :icon="KeyRound"        :label="t('nav.apiKeys')" />
         <NavLink to="/audit"    :icon="ClipboardList"   :label="t('nav.audit')" />
         <NavLink to="/settings" :icon="Settings"        :label="t('nav.settings')" />
+        <template v-if="auth.isSuperadmin">
+          <div style="font-size:10px;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:.08em;padding:0 8px;margin:12px 0 6px;">Admin</div>
+          <NavLink to="/admin" :icon="ShieldCheck" label="Administration" />
+        </template>
       </div>
 
       <!-- User + lang toggle -->
@@ -88,7 +92,7 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { Activity, Bell, CalendarClock, ClipboardList, Copy, GitMerge, KeyRound, LayoutDashboard, Layers, LogOut, MapPin, Settings, WifiOff } from 'lucide-vue-next'
+import { Activity, Bell, CalendarClock, ClipboardList, Copy, GitMerge, KeyRound, LayoutDashboard, Layers, LogOut, MapPin, Settings, ShieldCheck, WifiOff } from 'lucide-vue-next'
 import { useAuthStore } from '../../stores/auth'
 import { useWebSocketStore } from '../../stores/websocket'
 import { useMonitorStore } from '../../stores/monitors'

@@ -46,6 +46,12 @@ class CheckType(enum.StrEnum):
     composite = "composite"
 
 
+class NetworkScope(enum.StrEnum):
+    all = "all"
+    internal = "internal"
+    external = "external"
+
+
 if TYPE_CHECKING:
     from whatisup.models.alert import AlertRule
     from whatisup.models.incident import Incident
@@ -229,17 +235,16 @@ class Monitor(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )  # A, AAAA, CNAME, MX, TXT
     dns_expected_value: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
-    # DNS drift / cross-probe consistency
+    # DNS drift / split baseline
     dns_baseline_ips: Mapped[list[str] | None] = mapped_column(_JSON, nullable=True)
     dns_drift_alert: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False, server_default="false"
     )
-    dns_consistency_check: Mapped[bool] = mapped_column(
+    dns_split_enabled: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False, server_default="false"
     )
-    dns_allow_split_horizon: Mapped[bool] = mapped_column(
-        Boolean, default=False, nullable=False, server_default="false"
-    )
+    dns_baseline_ips_internal: Mapped[list[str] | None] = mapped_column(_JSON, nullable=True)
+    dns_baseline_ips_external: Mapped[list[str] | None] = mapped_column(_JSON, nullable=True)
 
     # Composite monitor aggregation rule
     composite_aggregation: Mapped[str | None] = mapped_column(
@@ -276,6 +281,11 @@ class Monitor(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     slo_target: Mapped[float | None] = mapped_column(Float, nullable=True)  # ex: 99.9
     slo_window_days: Mapped[int] = mapped_column(
         Integer, nullable=False, server_default="30", default=30
+    )
+
+    # Probe scope: which probe types should run this monitor
+    network_scope: Mapped[str] = mapped_column(
+        String(20), default="all", nullable=False, server_default="all"
     )
 
     # Flapping detection — per-monitor thresholds (override global defaults)

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 import whatisup.core.redis as redis_module
 from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
+from whatisup.core.security import hash_password
 from whatisup.main import app
 from whatisup.models import Base
 from whatisup.models.monitor import Monitor
@@ -18,6 +19,7 @@ from whatisup.models.user import User
 
 # SQLite in-memory for fast tests
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+TEST_PASSWORD = "TestPass1!"
 
 
 @pytest_asyncio.fixture(scope="session")
@@ -63,6 +65,57 @@ async def client(db_session: AsyncSession, fake_redis: FakeRedis):
     limiter.enabled = True
     app.dependency_overrides.clear()
     redis_module._redis = None
+
+
+# ── User / token fixtures ─────────────────────────────────────────────────────
+
+
+@pytest_asyncio.fixture
+async def admin_user(db_session: AsyncSession) -> User:
+    u = User(
+        email="admin@test.com",
+        username="admin",
+        hashed_password=hash_password(TEST_PASSWORD),
+        is_superadmin=True,
+        can_create_monitors=True,
+    )
+    db_session.add(u)
+    await db_session.flush()
+    return u
+
+
+@pytest_asyncio.fixture
+async def admin_token(client: AsyncClient, admin_user: User) -> str:
+    resp = await client.post(
+        "/api/v1/auth/login",
+        data={"username": admin_user.email, "password": TEST_PASSWORD},
+    )
+    assert resp.status_code == 200
+    return resp.json()["access_token"]
+
+
+@pytest_asyncio.fixture
+async def regular_user(db_session: AsyncSession) -> User:
+    u = User(
+        email="user@test.com",
+        username="regularuser",
+        hashed_password=hash_password(TEST_PASSWORD),
+        is_superadmin=False,
+        can_create_monitors=True,
+    )
+    db_session.add(u)
+    await db_session.flush()
+    return u
+
+
+@pytest_asyncio.fixture
+async def user_token(client: AsyncClient, regular_user: User) -> str:
+    resp = await client.post(
+        "/api/v1/auth/login",
+        data={"username": regular_user.email, "password": TEST_PASSWORD},
+    )
+    assert resp.status_code == 200
+    return resp.json()["access_token"]
 
 
 # ── Service-layer fixtures ────────────────────────────────────────────────────

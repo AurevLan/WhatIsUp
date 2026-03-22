@@ -5,10 +5,10 @@ from datetime import UTC, datetime, timedelta
 
 import structlog
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
-from sqlalchemy import case, func, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from whatisup.api.deps import get_current_probe, require_superadmin
+from whatisup.api.deps import get_current_probe, get_current_user, require_superadmin
 from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
 from whatisup.core.security import (
@@ -18,6 +18,7 @@ from whatisup.core.security import (
 )
 from whatisup.models.monitor import Monitor
 from whatisup.models.probe import Probe
+from whatisup.models.probe_group import probe_group_members, user_probe_group_access
 from whatisup.models.result import CheckResult
 from whatisup.models.user import User
 from whatisup.schemas.probe import (
@@ -38,10 +39,25 @@ router = APIRouter(prefix="/probes", tags=["probes"])
 
 @router.get("/", response_model=list[ProbeOut])
 async def list_probes(
-    _user: User = Depends(require_superadmin),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[Probe]:
-    result = await db.execute(select(Probe).order_by(Probe.created_at.desc()))
+    if current_user.is_superadmin:
+        result = await db.execute(select(Probe).order_by(Probe.created_at.desc()))
+        return list(result.scalars().all())
+    # Regular user: only probes in accessible groups
+    stmt = (
+        select(Probe)
+        .join(probe_group_members, Probe.id == probe_group_members.c.probe_id)
+        .join(
+            user_probe_group_access,
+            probe_group_members.c.probe_group_id == user_probe_group_access.c.probe_group_id,
+        )
+        .where(user_probe_group_access.c.user_id == current_user.id)
+        .distinct()
+        .order_by(Probe.created_at.desc())
+    )
+    result = await db.execute(stmt)
     return list(result.scalars().all())
 
 
@@ -155,6 +171,10 @@ async def heartbeat(
                 select(Monitor).where(
                     Monitor.enabled.is_(True),
                     Monitor.check_type != "composite",  # composite monitors have no physical check
+                    or_(
+                        Monitor.network_scope == "all",
+                        Monitor.network_scope == probe.network_type,
+                    ),
                 )
             )
         ).scalars().all()
@@ -197,6 +217,10 @@ async def heartbeat(
                 else None
             ),
             trigger_now=trigger_map.get(str(m.id), False),
+            smtp_port=m.smtp_port,
+            smtp_starttls=m.smtp_starttls,
+            udp_port=m.udp_port,
+            domain_expiry_warn_days=m.domain_expiry_warn_days,
         )
         for m in monitors
     ]

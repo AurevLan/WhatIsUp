@@ -24,6 +24,13 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     hashed_password: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_superadmin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    can_create_monitors: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False, server_default="false"
+    )
+    # OIDC subject identifier — set when account is linked to an OIDC provider
+    oidc_sub: Mapped[str | None] = mapped_column(
+        String(512), unique=True, nullable=True, index=True
+    )
 
     # Relationships
     tag_permissions: Mapped[list[UserTagPermission]] = relationship(

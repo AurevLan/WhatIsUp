@@ -393,27 +393,15 @@
               class="inline-block h-4 w-4 mt-0.5 transform rounded-full bg-white transition-transform" />
           </button>
         </label>
-        <label class="flex items-center justify-between cursor-pointer gap-4">
-          <div>
-            <p class="text-sm text-gray-300">{{ t('monitors.dns_drift.consistency') }}</p>
-            <p class="text-xs text-gray-500">{{ t('monitors.dns_drift.consistency_desc') }}</p>
-          </div>
-          <button type="button" @click="toggleDnsSetting('dns_consistency_check')"
-            :class="monitor.dns_consistency_check ? 'bg-emerald-600' : 'bg-gray-700'"
-            class="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full transition-colors focus:outline-none">
-            <span :class="monitor.dns_consistency_check ? 'translate-x-4' : 'translate-x-0.5'"
-              class="inline-block h-4 w-4 mt-0.5 transform rounded-full bg-white transition-transform" />
-          </button>
-        </label>
-        <label v-if="monitor.dns_consistency_check" class="flex items-center justify-between cursor-pointer gap-4">
+        <label v-if="monitor.dns_drift_alert" class="flex items-center justify-between cursor-pointer gap-4">
           <div>
             <p class="text-sm text-gray-300">{{ t('monitors.dns_drift.split_horizon') }}</p>
             <p class="text-xs text-gray-500">{{ t('monitors.dns_drift.split_horizon_desc') }}</p>
           </div>
-          <button type="button" @click="toggleDnsSetting('dns_allow_split_horizon')"
-            :class="monitor.dns_allow_split_horizon ? 'bg-emerald-600' : 'bg-gray-700'"
+          <button type="button" @click="toggleDnsSetting('dns_split_enabled')"
+            :class="monitor.dns_split_enabled ? 'bg-emerald-600' : 'bg-gray-700'"
             class="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full transition-colors focus:outline-none">
-            <span :class="monitor.dns_allow_split_horizon ? 'translate-x-4' : 'translate-x-0.5'"
+            <span :class="monitor.dns_split_enabled ? 'translate-x-4' : 'translate-x-0.5'"
               class="inline-block h-4 w-4 mt-0.5 transform rounded-full bg-white transition-transform" />
           </button>
         </label>
@@ -422,28 +410,82 @@
       <!-- Baseline section (only when drift alert enabled) -->
       <template v-if="monitor.dns_drift_alert">
         <hr class="border-gray-700 mb-4" />
-        <div class="flex items-start justify-between gap-4">
-          <div class="flex-1">
-            <p class="text-xs text-gray-500 mb-1">{{ t('monitors.dns_drift.baseline_current') }}</p>
-            <div v-if="monitor.dns_baseline_ips && monitor.dns_baseline_ips.length" class="flex flex-wrap gap-1">
-              <span v-for="ip in monitor.dns_baseline_ips" :key="ip"
-                class="font-mono text-xs bg-gray-800 text-emerald-400 px-2 py-0.5 rounded">{{ ip }}</span>
+
+        <!-- Mode normal : baseline unique -->
+        <template v-if="!monitor.dns_split_enabled">
+          <div class="flex items-start justify-between gap-4">
+            <div class="flex-1">
+              <p class="text-xs text-gray-500 mb-1">{{ t('monitors.dns_drift.baseline_current') }}</p>
+              <div v-if="monitor.dns_baseline_ips && monitor.dns_baseline_ips.length" class="flex flex-wrap gap-1">
+                <span v-for="ip in monitor.dns_baseline_ips" :key="ip"
+                  class="font-mono text-xs bg-gray-800 text-emerald-400 px-2 py-0.5 rounded">{{ ip }}</span>
+              </div>
+              <p v-else class="text-xs text-gray-400 italic">{{ t('monitors.dns_drift.baseline_none') }}</p>
             </div>
-            <p v-else class="text-xs text-gray-400 italic">{{ t('monitors.dns_drift.baseline_none') }}</p>
+            <div class="flex gap-2 flex-shrink-0">
+              <button @click="acceptDnsBaseline" :disabled="dnsBaselineLoading"
+                class="btn-primary text-xs disabled:opacity-50">
+                {{ t('monitors.dns_drift.accept_baseline') }}
+              </button>
+              <button @click="resetDnsBaseline('all')" :disabled="dnsBaselineLoading || !monitor.dns_baseline_ips"
+                class="btn-ghost text-xs text-red-400 hover:text-red-300 disabled:opacity-50">
+                {{ t('monitors.dns_drift.reset_baseline') }}
+              </button>
+            </div>
           </div>
-          <div class="flex gap-2 flex-shrink-0">
-            <button @click="acceptDnsBaseline" :disabled="dnsBaselineLoading"
-              class="btn-primary text-xs disabled:opacity-50">
-              {{ t('monitors.dns_drift.accept_baseline') }}
-            </button>
-            <button @click="resetDnsBaseline" :disabled="dnsBaselineLoading || !monitor.dns_baseline_ips"
-              class="btn-ghost text-xs text-red-400 hover:text-red-300 disabled:opacity-50">
+        </template>
+
+        <!-- Mode split : deux baselines -->
+        <template v-else>
+          <!-- Baseline interne -->
+          <div class="mb-4">
+            <p class="text-xs text-gray-500 mb-1">Baseline — sondes internes</p>
+            <div v-if="monitor.dns_baseline_ips_internal?.length" class="flex flex-wrap gap-1 mb-1">
+              <span v-for="ip in monitor.dns_baseline_ips_internal" :key="ip"
+                class="text-xs font-mono px-2 py-0.5 rounded bg-blue-900/40 text-blue-300">{{ ip }}</span>
+            </div>
+            <p v-else class="text-xs text-gray-400 italic mb-1">Pas encore apprise — en attente d'un check depuis une sonde interne</p>
+            <button @click="resetDnsBaseline('internal')" :disabled="dnsBaselineLoading || !monitor.dns_baseline_ips_internal"
+              class="text-xs text-gray-500 hover:text-red-400 disabled:opacity-30">
               {{ t('monitors.dns_drift.reset_baseline') }}
             </button>
           </div>
-        </div>
+          <!-- Baseline externe -->
+          <div>
+            <p class="text-xs text-gray-500 mb-1">Baseline — sondes externes</p>
+            <div v-if="monitor.dns_baseline_ips_external?.length" class="flex flex-wrap gap-1 mb-1">
+              <span v-for="ip in monitor.dns_baseline_ips_external" :key="ip"
+                class="text-xs font-mono px-2 py-0.5 rounded bg-emerald-900/40 text-emerald-300">{{ ip }}</span>
+            </div>
+            <p v-else class="text-xs text-gray-400 italic mb-1">Pas encore apprise — en attente d'un check depuis une sonde externe</p>
+            <button @click="resetDnsBaseline('external')" :disabled="dnsBaselineLoading || !monitor.dns_baseline_ips_external"
+              class="text-xs text-gray-500 hover:text-red-400 disabled:opacity-30">
+              {{ t('monitors.dns_drift.reset_baseline') }}
+            </button>
+          </div>
+        </template>
+
         <div v-if="dnsBaselineMsg" class="mt-2 text-xs text-emerald-400">{{ dnsBaselineMsg }}</div>
       </template>
+    </div>
+
+    <!-- Network scope card (not for heartbeat / composite) -->
+    <div v-if="!['heartbeat', 'composite'].includes(monitor.check_type)" class="card mb-6">
+      <h2 class="text-sm font-semibold text-gray-300 mb-3">{{ t('monitors.network_scope.label') }}</h2>
+      <div class="grid grid-cols-3 gap-2">
+        <button
+          v-for="s in networkScopeOptions" :key="s.value" type="button"
+          @click="setNetworkScope(s.value)"
+          class="py-2 px-2 rounded-lg border text-xs font-medium transition-colors text-center"
+          :class="monitor.network_scope === s.value
+            ? 'bg-blue-600 border-blue-500 text-white'
+            : 'border-gray-700 text-gray-400 hover:border-gray-600 hover:text-gray-300'"
+        >
+          <div class="text-base mb-0.5">{{ s.icon }}</div>
+          {{ s.label }}
+        </button>
+      </div>
+      <p class="text-xs text-gray-500 mt-2">{{ networkScopeOptions.find(s => s.value === monitor.network_scope)?.desc }}</p>
     </div>
 
     <!-- Schema drift card -->
@@ -1134,6 +1176,31 @@
       </div>
     </div>
 
+    <!-- DNS drift alert suggestion modal -->
+    <div v-if="dnsAlertModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+      <div class="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-sm p-6">
+        <h3 class="text-base font-semibold text-white mb-1">Créer une règle d'alerte ?</h3>
+        <p class="text-sm text-gray-400 mb-4">
+          Le DNS Drift est activé mais aucune règle d'alerte <code class="text-emerald-400">any_down</code> n'existe pour ce moniteur.
+          Sans règle, les dérives DNS seront détectées mais aucune notification ne sera envoyée.
+        </p>
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-300 mb-1">Canal de notification</label>
+          <select v-model="dnsAlertChannelId" class="input w-full">
+            <option v-for="ch in dnsAlertChannels" :key="ch.id" :value="ch.id">
+              {{ ch.name }} ({{ ch.type }})
+            </option>
+          </select>
+        </div>
+        <button @click="createDnsAlertRule" :disabled="dnsAlertCreating || !dnsAlertChannelId" class="w-full btn-primary disabled:opacity-50 mb-3">
+          {{ dnsAlertCreating ? 'Création…' : 'Créer la règle d\'alerte' }}
+        </button>
+        <button @click="toggleDnsSetting('dns_drift_alert'); dnsAlertModal = false" class="w-full text-xs text-gray-500 hover:text-gray-300">
+          Désactiver le DNS Drift
+        </button>
+      </div>
+    </div>
+
     <!-- Screenshot lightbox (global — accessible depuis n'importe quel onglet) -->
     <div v-if="screenshotModal.open"
       class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
@@ -1156,6 +1223,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { Shield, ShieldAlert, ShieldCheck } from 'lucide-vue-next'
+import api from '../api/client'
 import { monitorsApi, triggerCheck, getSlaReport, listAnnotations, createAnnotation, deleteAnnotation, getSlo } from '../api/monitors'
 import { probesApi } from '../api/probes'
 import { metricsApi } from '../api/metrics'
@@ -1857,12 +1925,20 @@ async function acceptDnsBaseline() {
   }
 }
 
-async function resetDnsBaseline() {
+async function resetDnsBaseline(type = 'all') {
   dnsBaselineLoading.value = true
   dnsBaselineMsg.value = ''
   try {
-    await monitorsApi.resetDnsBaseline(monitor.value.id)
-    monitor.value.dns_baseline_ips = null
+    await monitorsApi.resetDnsBaseline(monitor.value.id, type)
+    if (type === 'internal') {
+      monitor.value.dns_baseline_ips_internal = null
+    } else if (type === 'external') {
+      monitor.value.dns_baseline_ips_external = null
+    } else {
+      monitor.value.dns_baseline_ips = null
+      monitor.value.dns_baseline_ips_internal = null
+      monitor.value.dns_baseline_ips_external = null
+    }
     dnsBaselineMsg.value = 'Baseline cleared — will re-learn on next check.'
     setTimeout(() => { dnsBaselineMsg.value = '' }, 4000)
   } catch (e) {
@@ -1902,14 +1978,74 @@ async function resetSchemaBaseline() {
   }
 }
 
+// ── DNS alert suggestion modal ─────────────────────────────────────────────
+const dnsAlertModal = ref(false)
+const dnsAlertChannels = ref([])
+const dnsAlertChannelId = ref('')
+const dnsAlertCreating = ref(false)
+
 async function toggleDnsSetting(field) {
   const newVal = !monitor.value[field]
   monitor.value[field] = newVal
   try {
     await monitorsApi.update(monitor.value.id, { [field]: newVal })
   } catch (e) {
-    // revert on error
     monitor.value[field] = !newVal
+    return
+  }
+  // When enabling dns_drift_alert or dns_split_enabled, check if an any_down rule already exists
+  if ((field === 'dns_drift_alert' || field === 'dns_split_enabled') && newVal && monitor.value.dns_drift_alert) {
+    try {
+      const [chResp, rulesResp] = await Promise.all([
+        api.get('/alerts/channels'),
+        api.get('/alerts/rules'),
+      ])
+      const channels = chResp.data
+      const hasRule = rulesResp.data.some(r =>
+        r.monitor_id === monitor.value.id && r.condition === 'any_down'
+      )
+      if (!hasRule && channels.length) {
+        dnsAlertChannels.value = channels
+        dnsAlertChannelId.value = channels[0].id
+        dnsAlertModal.value = true
+      }
+    } catch {}
+  }
+}
+
+// ── Network scope ────────────────────────────────────────────────────────────
+const networkScopeOptions = [
+  { value: 'all', icon: '🌍', label: t('monitors.network_scope.all'), desc: t('monitors.network_scope.all_desc') },
+  { value: 'internal', icon: '🏠', label: t('monitors.network_scope.internal'), desc: t('monitors.network_scope.internal_desc') },
+  { value: 'external', icon: '☁️', label: t('monitors.network_scope.external'), desc: t('monitors.network_scope.external_desc') },
+]
+
+async function setNetworkScope(scope) {
+  if (monitor.value.network_scope === scope) return
+  const prev = monitor.value.network_scope
+  monitor.value.network_scope = scope
+  try {
+    await monitorsApi.update(monitor.value.id, { network_scope: scope })
+  } catch {
+    monitor.value.network_scope = prev
+  }
+}
+
+async function createDnsAlertRule() {
+  if (!dnsAlertChannelId.value) return
+  dnsAlertCreating.value = true
+  try {
+    await api.post('/alerts/rules', {
+      monitor_id: monitor.value.id,
+      condition: 'any_down',
+      min_duration_seconds: 0,
+      channel_ids: [dnsAlertChannelId.value],
+    })
+    dnsAlertModal.value = false
+  } catch (e) {
+    alert(e.response?.data?.detail || 'Erreur lors de la création de la règle')
+  } finally {
+    dnsAlertCreating.value = false
   }
 }
 

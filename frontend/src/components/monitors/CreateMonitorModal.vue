@@ -130,17 +130,10 @@
                 <p class="text-xs text-gray-500">{{ t('monitors.dns_drift.desc') }}</p>
               </div>
             </div>
-            <div class="flex items-start gap-3">
-              <input v-model="form.dns_consistency_check" type="checkbox" id="dns_consistency" class="mt-0.5" />
+            <div v-if="form.dns_drift_alert" class="flex items-start gap-3 pl-1">
+              <input v-model="form.dns_split_enabled" type="checkbox" id="dns_split_enabled" class="mt-0.5" />
               <div>
-                <label for="dns_consistency" class="text-sm text-gray-300">{{ t('monitors.dns_drift.consistency') }}</label>
-                <p class="text-xs text-gray-500">{{ t('monitors.dns_drift.consistency_desc') }}</p>
-              </div>
-            </div>
-            <div v-if="form.dns_consistency_check" class="flex items-start gap-3 pl-6">
-              <input v-model="form.dns_allow_split_horizon" type="checkbox" id="dns_split" class="mt-0.5" />
-              <div>
-                <label for="dns_split" class="text-sm text-gray-300">{{ t('monitors.dns_drift.split_horizon') }}</label>
+                <label for="dns_split_enabled" class="text-sm text-gray-300">{{ t('monitors.dns_drift.split_horizon') }}</label>
                 <p class="text-xs text-gray-500">{{ t('monitors.dns_drift.split_horizon_desc') }}</p>
               </div>
             </div>
@@ -194,6 +187,25 @@
             :variables="form.scenario_variables"
             @update:variables="form.scenario_variables = $event"
           />
+        </div>
+
+        <!-- Network scope (hidden for heartbeat and composite) -->
+        <div v-if="form.check_type !== 'heartbeat' && form.check_type !== 'composite'">
+          <label class="block text-sm font-medium text-gray-300 mb-1">{{ t('monitors.network_scope.label') }}</label>
+          <div class="grid grid-cols-3 gap-2">
+            <button
+              v-for="s in networkScopes" :key="s.value" type="button"
+              @click="form.network_scope = s.value"
+              class="py-2 px-2 rounded-lg border text-xs font-medium transition-colors text-center"
+              :class="form.network_scope === s.value
+                ? 'bg-blue-600 border-blue-500 text-white'
+                : 'border-gray-700 text-gray-400 hover:border-gray-600 hover:text-gray-300'"
+            >
+              <div class="text-base mb-0.5">{{ s.icon }}</div>
+              {{ s.label }}
+            </button>
+          </div>
+          <p class="text-xs text-gray-500 mt-1">{{ networkScopes.find(s => s.value === form.network_scope)?.desc }}</p>
         </div>
 
         <!-- Interval / Timeout (hidden for heartbeat and composite — no physical probe) -->
@@ -464,6 +476,12 @@ const checkTypes = [
 
 const dnsRecordTypes = ['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS']
 
+const networkScopes = [
+  { value: 'all', icon: '🌍', label: t('monitors.network_scope.all'), desc: t('monitors.network_scope.all_desc') },
+  { value: 'internal', icon: '🏠', label: t('monitors.network_scope.internal'), desc: t('monitors.network_scope.internal_desc') },
+  { value: 'external', icon: '☁️', label: t('monitors.network_scope.external'), desc: t('monitors.network_scope.external_desc') },
+]
+
 const currentType = computed(() => checkTypes.find(t => t.value === form.value.check_type) || checkTypes[0])
 
 const form = ref({
@@ -500,8 +518,9 @@ const form = ref({
   flap_window_minutes: 10,
   // DNS drift
   dns_drift_alert: false,
-  dns_consistency_check: false,
-  dns_allow_split_horizon: false,
+  dns_split_enabled: false,
+  // Network scope
+  network_scope: 'all',
   // Composite
   composite_aggregation: 'majority_up',
 })
@@ -563,8 +582,12 @@ function buildPayload() {
     p.dns_record_type = form.value.dns_record_type
     if (form.value.dns_expected_value) p.dns_expected_value = form.value.dns_expected_value
     p.dns_drift_alert = form.value.dns_drift_alert
-    p.dns_consistency_check = form.value.dns_consistency_check
-    p.dns_allow_split_horizon = form.value.dns_allow_split_horizon
+    p.dns_split_enabled = form.value.dns_split_enabled
+  }
+
+  // Network scope (applies to all non-heartbeat, non-composite)
+  if (form.value.check_type !== 'heartbeat' && form.value.check_type !== 'composite') {
+    p.network_scope = form.value.network_scope
   }
 
   if (form.value.check_type === 'composite') {

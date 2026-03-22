@@ -1,15 +1,22 @@
-"""Authentication endpoints: register, login, refresh, logout, me."""
+"""Authentication endpoints: register, login, refresh, logout, me, OIDC."""
 
+import hashlib
+import os
 import uuid
+from base64 import urlsafe_b64encode
+from urllib.parse import urlencode
 
+import httpx
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from jwt.exceptions import InvalidTokenError
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.api.deps import get_current_user, require_superadmin
+from whatisup.core.config import get_settings
 from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
 from whatisup.core.redis import get_redis
@@ -34,46 +41,10 @@ async def register(
     payload: UserCreate,
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    from whatisup.core.config import get_settings
-
-    settings = get_settings()
-    if not settings.registration_open:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Registration is closed. Contact an administrator.",
-        )
-
-    existing = (
-        await db.execute(
-            select(User).where((User.email == payload.email) | (User.username == payload.username))
-        )
-    ).scalar_one_or_none()
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Email or username already registered",
-        )
-
-    # Only the very first user (bootstrap) becomes superadmin
-    user_count = (await db.execute(select(func.count(User.id)))).scalar_one()
-    is_first = user_count == 0
-
-    user = User(
-        email=str(payload.email),
-        username=payload.username,
-        full_name=payload.full_name,
-        hashed_password=hash_password(payload.password),
-        is_superadmin=is_first,
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Registration is disabled. Contact your administrator.",
     )
-    db.add(user)
-    await db.flush()
-
-    from whatisup.services.audit import log_action
-
-    await log_action(db, "user.register", "user", user.id, user.username, None)
-
-    logger.info("user_registered", user_id=str(user.id), is_superadmin=is_first)
-    return user
 
 
 @router.post("/users", response_model=UserOut, status_code=status.HTTP_201_CREATED)
@@ -202,3 +173,254 @@ async def logout(payload: TokenRefreshRequest) -> None:
 async def me(current_user: User = Depends(get_current_user)) -> User:
     """Return the currently authenticated user."""
     return current_user
+
+
+# ── OIDC ─────────────────────────────────────────────────────────────────────
+
+
+async def _resolve_oidc_settings(db: AsyncSession) -> dict:
+    """Return effective OIDC settings: DB row overrides env vars."""
+    from whatisup.core.security import _get_fernet
+    from whatisup.models.system_settings import SystemSettings
+
+    row = (
+        await db.execute(select(SystemSettings).where(SystemSettings.id == 1))
+    ).scalar_one_or_none()
+    settings = get_settings()
+
+    if row is not None:
+        client_secret = ""
+        if row.oidc_client_secret:
+            fernet = _get_fernet()
+            if fernet:
+                try:
+                    client_secret = fernet.decrypt(row.oidc_client_secret.encode()).decode()
+                except Exception:
+                    client_secret = row.oidc_client_secret
+            else:
+                client_secret = row.oidc_client_secret
+
+        return {
+            "enabled": row.oidc_enabled,
+            "issuer_url": row.oidc_issuer_url or settings.oidc_issuer_url,
+            "client_id": row.oidc_client_id or settings.oidc_client_id,
+            "client_secret": client_secret or settings.oidc_client_secret,
+            "redirect_uri": row.oidc_redirect_uri or settings.oidc_redirect_uri,
+            "scopes": row.oidc_scopes or settings.oidc_scopes,
+            "auto_provision": row.oidc_auto_provision,
+        }
+
+    return {
+        "enabled": settings.oidc_enabled,
+        "issuer_url": settings.oidc_issuer_url,
+        "client_id": settings.oidc_client_id,
+        "client_secret": settings.oidc_client_secret,
+        "redirect_uri": settings.oidc_redirect_uri,
+        "scopes": settings.oidc_scopes,
+        "auto_provision": settings.oidc_auto_provision,
+    }
+
+
+@router.get("/oidc/config")
+async def oidc_config(db: AsyncSession = Depends(get_db)) -> dict:
+    """Return OIDC availability so the frontend can show/hide the SSO button."""
+    cfg = await _resolve_oidc_settings(db)
+    return {"enabled": cfg["enabled"]}
+
+
+async def _oidc_discover(issuer: str) -> dict:
+    """Fetch and return the OIDC discovery document."""
+    url = issuer.rstrip("/") + "/.well-known/openid-configuration"
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.get(url)
+        resp.raise_for_status()
+        return resp.json()
+
+
+@router.get("/oidc/login")
+@limiter.limit("20/minute")
+async def oidc_login(
+    request: Request, db: AsyncSession = Depends(get_db)
+) -> RedirectResponse:
+    """Redirect the browser to the OIDC provider's authorization endpoint."""
+    cfg = await _resolve_oidc_settings(db)
+    if not cfg["enabled"]:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="OIDC not enabled")
+
+    try:
+        discovery = await _oidc_discover(cfg["issuer_url"])
+    except Exception as exc:
+        logger.error("oidc_discovery_failed", error=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="OIDC provider unreachable",
+        ) from exc
+
+    # Generate state + PKCE code_verifier
+    state = urlsafe_b64encode(os.urandom(32)).rstrip(b"=").decode()
+    code_verifier = urlsafe_b64encode(os.urandom(32)).rstrip(b"=").decode()
+    code_challenge = urlsafe_b64encode(
+        hashlib.sha256(code_verifier.encode()).digest()
+    ).rstrip(b"=").decode()
+
+    # Persist in Redis (10-minute TTL)
+    redis = get_redis()
+    await redis.setex(f"whatisup:oidc:state:{state}", 600, code_verifier)
+
+    base = str(request.base_url).rstrip("/")
+    redirect_uri = cfg["redirect_uri"] or f"{base}/api/v1/auth/oidc/callback"
+
+    params = {
+        "response_type": "code",
+        "client_id": cfg["client_id"],
+        "redirect_uri": redirect_uri,
+        "scope": cfg["scopes"],
+        "state": state,
+        "code_challenge": code_challenge,
+        "code_challenge_method": "S256",
+    }
+    auth_url = discovery["authorization_endpoint"] + "?" + urlencode(params)
+    return RedirectResponse(url=auth_url, status_code=302)
+
+
+@router.get("/oidc/callback")
+@limiter.limit("20/minute")
+async def oidc_callback(
+    request: Request,
+    code: str | None = None,
+    state: str | None = None,
+    error: str | None = None,
+    db: AsyncSession = Depends(get_db),
+) -> RedirectResponse:
+    """Handle the provider redirect, issue JWT, redirect to frontend."""
+    cfg = await _resolve_oidc_settings(db)
+    if not cfg["enabled"]:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="OIDC not enabled")
+
+    settings = get_settings()
+    # Determine frontend base URL from CORS origins or request
+    frontend_url = (
+        settings.cors_allowed_origins[0]
+        if settings.cors_allowed_origins
+        else str(request.base_url).rstrip("/")
+    )
+
+    def _fail(msg: str) -> RedirectResponse:
+        return RedirectResponse(
+            url=f"{frontend_url}/oidc-callback?error={msg}",
+            status_code=302,
+        )
+
+    if error:
+        return _fail(error)
+    if not code or not state:
+        return _fail("missing_params")
+
+    # Validate state and retrieve code_verifier
+    redis = get_redis()
+    redis_key = f"whatisup:oidc:state:{state}"
+    code_verifier = await redis.get(redis_key)
+    if not code_verifier:
+        return _fail("invalid_state")
+    await redis.delete(redis_key)
+    if isinstance(code_verifier, bytes):
+        code_verifier = code_verifier.decode()
+
+    try:
+        discovery = await _oidc_discover(cfg["issuer_url"])
+    except Exception:
+        return _fail("provider_unreachable")
+
+    base = str(request.base_url).rstrip("/")
+    redirect_uri = cfg["redirect_uri"] or f"{base}/api/v1/auth/oidc/callback"
+
+    # Exchange code for tokens
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            token_resp = await client.post(
+                discovery["token_endpoint"],
+                data={
+                    "grant_type": "authorization_code",
+                    "code": code,
+                    "redirect_uri": redirect_uri,
+                    "client_id": cfg["client_id"],
+                    "client_secret": cfg["client_secret"],
+                    "code_verifier": code_verifier,
+                },
+                headers={"Accept": "application/json"},
+            )
+            token_resp.raise_for_status()
+            tokens = token_resp.json()
+    except Exception as exc:
+        logger.error("oidc_token_exchange_failed", error=str(exc))
+        return _fail("token_exchange_failed")
+
+    # Fetch userinfo
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            ui_resp = await client.get(
+                discovery["userinfo_endpoint"],
+                headers={"Authorization": f"Bearer {tokens['access_token']}"},
+            )
+            ui_resp.raise_for_status()
+            userinfo = ui_resp.json()
+    except Exception as exc:
+        logger.error("oidc_userinfo_failed", error=str(exc))
+        return _fail("userinfo_failed")
+
+    sub = userinfo.get("sub")
+    email = userinfo.get("email", "")
+    if not sub or not email:
+        return _fail("missing_claims")
+
+    # Find or create user
+    user = (await db.execute(select(User).where(User.oidc_sub == sub))).scalar_one_or_none()
+
+    if user is None:
+        # Try to find by email (link existing account)
+        user = (await db.execute(select(User).where(User.email == email))).scalar_one_or_none()
+        if user:
+            user.oidc_sub = sub
+        elif cfg["auto_provision"]:
+            # Auto-provision new account
+            preferred = userinfo.get("preferred_username") or email.split("@")[0]
+            # Ensure unique username
+            base = preferred[:95]
+            candidate = base
+            suffix = 1
+            while (
+                await db.execute(select(User).where(User.username == candidate))
+            ).scalar_one_or_none():
+                candidate = f"{base}_{suffix}"
+                suffix += 1
+            user = User(
+                email=email,
+                username=candidate,
+                full_name=userinfo.get("name"),
+                oidc_sub=sub,
+                can_create_monitors=False,
+            )
+            db.add(user)
+            await db.flush()
+            logger.info("oidc_user_provisioned", user_id=str(user.id), email=email)
+        else:
+            return _fail("account_not_found")
+
+    if not user.is_active:
+        return _fail("account_disabled")
+
+    await db.flush()
+
+    access = create_access_token(str(user.id))
+    refresh = create_refresh_token(str(user.id))
+    await redis.setex(f"whatisup:refresh:{user.id}:{refresh[-12:]}", 7 * 86400, "1")
+
+    logger.info("oidc_login_success", user_id=str(user.id))
+    from whatisup.services.audit import log_action
+    await log_action(db, "user.login_oidc", "user", user.id, user.username, None)
+    await db.commit()
+
+    return RedirectResponse(
+        url=f"{frontend_url}/oidc-callback?access_token={access}&refresh_token={refresh}",
+        status_code=302,
+    )

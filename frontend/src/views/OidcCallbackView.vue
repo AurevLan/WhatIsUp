@@ -1,0 +1,75 @@
+<template>
+  <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#030712;">
+    <div style="text-align:center;color:#94a3b8;font-size:14px;">
+      <div v-if="error" style="color:#f87171;">
+        <p style="font-size:18px;font-weight:600;margin-bottom:8px;">Échec de la connexion SSO</p>
+        <p>{{ errorMessage }}</p>
+        <a href="/login" style="display:inline-block;margin-top:16px;color:#3b82f6;">← Retour à la connexion</a>
+      </div>
+      <div v-else>
+        <div style="width:32px;height:32px;border:3px solid rgba(59,130,246,.3);border-top-color:#3b82f6;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 16px;"></div>
+        Connexion en cours…
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
+import { useWebSocketStore } from '../stores/websocket'
+import axios from 'axios'
+
+const router = useRouter()
+const route  = useRoute()
+const auth   = useAuthStore()
+const ws     = useWebSocketStore()
+
+const error = ref(false)
+const errorMessage = ref('')
+
+onMounted(async () => {
+  const params = new URLSearchParams(window.location.search)
+  const errorParam = params.get('error')
+
+  if (errorParam) {
+    error.value = true
+    errorMessage.value = errorParam.replace(/_/g, ' ')
+    return
+  }
+
+  const accessToken  = params.get('access_token')
+  const refreshToken = params.get('refresh_token')
+
+  if (!accessToken || !refreshToken) {
+    error.value = true
+    errorMessage.value = 'Paramètres manquants dans la réponse SSO.'
+    return
+  }
+
+  // Store tokens
+  localStorage.setItem('access_token', accessToken)
+  localStorage.setItem('refresh_token', refreshToken)
+  auth.accessToken = accessToken
+
+  // Fetch user profile
+  try {
+    const { data } = await axios.get('/api/v1/auth/me', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    auth.user = data
+  } catch {
+    error.value = true
+    errorMessage.value = 'Impossible de récupérer le profil utilisateur.'
+    return
+  }
+
+  ws.connect()
+  router.replace('/')
+})
+</script>
+
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>

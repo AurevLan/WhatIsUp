@@ -23,8 +23,10 @@ from whatisup.models.monitor import (
 )
 from whatisup.models.monitor_template import MonitorTemplate
 from whatisup.models.probe import Probe
+from whatisup.models.probe_group import ProbeGroup, probe_group_members, user_probe_group_access
 from whatisup.models.result import CheckResult, CheckStatus
 from whatisup.models.status_subscription import StatusSubscription
+from whatisup.models.system_settings import SystemSettings
 from whatisup.models.tag import PermissionLevel, Tag, UserTagPermission
 from whatisup.models.user import User
 
@@ -42,6 +44,9 @@ __all__ = [
     "MonitorGroup",
     "PublicPage",
     "Probe",
+    "ProbeGroup",
+    "probe_group_members",
+    "user_probe_group_access",
     "CheckResult",
     "CheckStatus",
     "CustomMetric",
@@ -56,6 +61,7 @@ __all__ = [
     "AlertRule",
     "MonitorAnnotation",
     "StatusSubscription",
+    "SystemSettings",
     "UserApiKey",
     "IncidentUpdate",
     "IncidentUpdateStatus",

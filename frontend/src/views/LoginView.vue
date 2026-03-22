@@ -37,18 +37,36 @@
             {{ loading ? t('auth.signing_in') : t('auth.sign_in') }}
           </button>
         </form>
+
+        <!-- OIDC SSO button -->
+        <div v-if="oidcEnabled" style="margin-top:16px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+            <div style="flex:1;height:1px;background:#1e293b;"></div>
+            <span style="font-size:12px;color:#475569;">ou</span>
+            <div style="flex:1;height:1px;background:#1e293b;"></div>
+          </div>
+          <a href="/api/v1/auth/oidc/login"
+            style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:11px;border:1px solid #334155;border-radius:10px;color:#94a3b8;font-size:14px;font-weight:500;text-decoration:none;transition:border-color .15s,color .15s;"
+            onmouseover="this.style.borderColor='#475569';this.style.color='#f1f5f9'"
+            onmouseout="this.style.borderColor='#334155';this.style.color='#94a3b8'"
+          >
+            <Shield :size="15" />
+            {{ t('auth.sso_login') }}
+          </a>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { Activity, AlertCircle, LogIn } from 'lucide-vue-next'
+import { Activity, AlertCircle, LogIn, Shield } from 'lucide-vue-next'
 import { useAuthStore } from '../stores/auth'
 import { useWebSocketStore } from '../stores/websocket'
+import axios from 'axios'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -60,6 +78,14 @@ const email    = ref('')
 const password = ref('')
 const error    = ref('')
 const loading  = ref(false)
+const oidcEnabled = ref(false)
+
+onMounted(async () => {
+  try {
+    const { data } = await axios.get('/api/v1/auth/oidc/config')
+    oidcEnabled.value = data.enabled
+  } catch {}
+})
 
 async function handleLogin() {
   loading.value = true

@@ -18,7 +18,7 @@ export const monitorsApi = {
   removeDependency: (id, depId) => api.delete(`/monitors/${id}/dependencies/${depId}`),
   // DNS baseline
   acceptDnsBaseline: (id) => api.post(`/monitors/${id}/dns-baseline/accept`),
-  resetDnsBaseline: (id) => api.delete(`/monitors/${id}/dns-baseline`),
+  resetDnsBaseline: (id, type = 'all') => api.delete(`/monitors/${id}/dns-baseline`, { params: { type } }),
   // Schema baseline
   acceptSchemaBaseline: (id) => api.post(`/monitors/${id}/schema-baseline/accept`),
   resetSchemaBaseline: (id) => api.delete(`/monitors/${id}/schema-baseline`),

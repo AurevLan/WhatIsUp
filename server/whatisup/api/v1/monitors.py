@@ -142,6 +142,11 @@ async def create_monitor(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Monitor:
+    if not current_user.is_superadmin and not current_user.can_create_monitors:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Monitor creation not allowed for your account",
+        )
     tags = []
     if payload.tag_ids:
         tags_result = await db.execute(select(Tag).where(Tag.id.in_(payload.tag_ids)))
@@ -193,8 +198,7 @@ async def create_monitor(
         slo_target=payload.slo_target,
         slo_window_days=payload.slo_window_days,
         dns_drift_alert=payload.dns_drift_alert,
-        dns_consistency_check=payload.dns_consistency_check,
-        dns_allow_split_horizon=payload.dns_allow_split_horizon,
+        dns_split_enabled=payload.dns_split_enabled,
         composite_aggregation=payload.composite_aggregation,
     )
     db.add(monitor)
@@ -974,17 +978,30 @@ async def accept_dns_baseline(
 async def reset_dns_baseline(
     request: Request,
     monitor_id: uuid.UUID,
+    type: str = Query(default="all", pattern=r"^(all|internal|external)$"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    """Clear the DNS baseline — the next successful check will re-learn it."""
+    """Clear the DNS baseline — the next successful check will re-learn it.
+
+    type=all (default): clears all baselines (global, internal, external)
+    type=internal: clears only the internal probe baseline
+    type=external: clears only the external probe baseline
+    """
     monitor = await _get_monitor_or_404(monitor_id, current_user, db)
     if monitor.check_type != "dns":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="DNS baseline only applies to dns check_type monitors",
         )
-    monitor.dns_baseline_ips = None
+    if type == "internal":
+        monitor.dns_baseline_ips_internal = None
+    elif type == "external":
+        monitor.dns_baseline_ips_external = None
+    else:
+        monitor.dns_baseline_ips = None
+        monitor.dns_baseline_ips_internal = None
+        monitor.dns_baseline_ips_external = None
 
 
 # ---------------------------------------------------------------------------

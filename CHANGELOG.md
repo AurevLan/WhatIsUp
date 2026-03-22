@@ -11,6 +11,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.8.0] - 2026-03-22
+
+### Added
+
+#### SSO / OIDC (OpenID Connect)
+- Full PKCE authorization-code flow: `GET /api/v1/auth/oidc/login` → callback → JWT pair issued
+- `OidcCallbackView` in frontend handles the redirect and stores tokens automatically
+- OIDC settings persisted in a new `system_settings` DB table — overrides env vars at runtime without a restart
+- Admin GUI tab **SSO / OIDC** in the admin panel: enable/disable, configure issuer URL, client ID/secret, redirect URI, scopes, and auto-provision toggle
+- `oidc_client_secret` encrypted at rest with Fernet; `oidc_client_secret_set` boolean returned to frontend (secret value never exposed)
+- `oidc_sub` field on `User` model for provider-side subject linkage
+- Auto-provision: unknown OIDC subjects can create accounts automatically (configurable)
+- `_resolve_oidc_settings(db)` helper — reads DB row first, falls back to environment variables
+- Public endpoint `GET /api/v1/auth/oidc/config` returns `enabled` flag and authorization URL for login page
+
+#### Admin panel
+- New `AdminView` with tabs: Users, Monitors, Probe groups, SSO / OIDC
+- **User management** — list, create, update (`is_active`, `can_create_monitors`), delete; cannot delete own account
+- **`can_create_monitors` permission** — new boolean on `User`; non-superadmin users without this flag receive 403 on monitor creation
+- **Probe groups** — admin-managed groups linking probes to users; regular users see only probes in their groups; full CRUD at `GET/POST /api/v1/admin/probe-groups`, `PATCH/DELETE /{id}`, `POST /{id}/probes`, `DELETE /{id}/probes/{probe_id}`, `POST /{id}/users`, `DELETE /{id}/users/{user_id}`
+- **All-monitors view** — superadmin can list every monitor across all users at `GET /api/v1/admin/monitors`
+- OIDC settings CRUD at `GET/PUT /api/v1/admin/settings/oidc`
+
+#### Network scope filtering
+- New `network_scope` field on `Monitor` (`all` / `internal` / `external`) — controls which probe types execute each monitor
+- Heartbeat endpoint filters monitors by `or_(network_scope == "all", network_scope == probe.network_type)`
+- UI: scope selector in `CreateMonitorModal`; existing monitors default to `all` (no breaking change)
+
+#### Probe improvements
+- `ProbeMonitorConfig` now includes `smtp_port`, `smtp_starttls`, `udp_port`, `domain_expiry_warn_days` — these were read by the probe scheduler but never sent, causing SMTP/UDP/domain monitors to silently use hardcoded defaults
+- Heartbeat populates all four new fields from the DB row
+
+### Fixed
+- **Probe scheduler — scenario/config changes ignored** — `APScheduler.reschedule()` updates the trigger interval but does not update job `args`; adding `existing.modify(args=[monitor])` ensures that scenario steps, variables, and all other config fields are propagated to running jobs after a monitor update. Without this fix, scenario steps edited after initial creation were never picked up until the probe was restarted.
+- **Alert channel Telegram text too long** — detail message and validation confirmation string wrapped to stay within ruff E501 limit (no functional change)
+
+### Changed
+- Login page shows SSO button when OIDC is enabled (resolved from DB at request time)
+- `GET /api/v1/probes/` returns only probes in the caller's probe groups for regular users; superadmin still sees all probes
+
+### Tests
+- Full test suite rewritten: 73 passing tests across `test_auth`, `test_monitors`, `test_alerts`, `test_groups`, `test_admin`
+- `conftest.py` creates `admin_user` / `regular_user` fixtures directly in the DB (avoids the disabled `/register` endpoint); tokens obtained via `/auth/login`
+- New `test_admin.py`: users CRUD, all-monitors list, probe groups CRUD (add/remove probe and user), OIDC settings (env fallback, DB update, secret masking, secret preservation on null, `/auth/oidc/config` reflection)
+- New `test_alerts.py`: channel CRUD, cross-user isolation, rule CRUD, events endpoint, auth guard
+- New `test_groups.py`: monitor groups CRUD, slug conflict 409, cross-user 403, auth guard
+
+### Migrations
+- `d61cfbdf8a24` — add `can_create_monitors` to `users`
+- `b4c5d6e7f8a9` — add `oidc_sub` to `users`
+- `283efc2c973a` — add `probe_groups`, `probe_group_members`, `user_probe_group_access` tables
+- `a3b4c5d6e7f8` — add `network_scope` to `monitors` (`server_default='all'`, backfills existing rows)
+- `73c722e67eee` — DNS split-horizon: `dns_split_enabled` flag; remove consistency columns
+- `c1d2e3f4a5b7` — add `system_settings` table (OIDC DB-persisted config)
+
+---
+
 ## [0.7.0] - 2026-03-20
 
 ### Added
@@ -360,7 +417,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docker Compose (dev + prod with Nginx + TLS)
 - Security: rate limiting, security headers, JWT validation, probe API key bcrypt hashing
 
-[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.4.0...v0.5.0

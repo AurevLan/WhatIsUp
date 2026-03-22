@@ -66,6 +66,16 @@ class Settings(BaseSettings):
     # Data retention
     data_retention_days: int = 90  # 0 = keep forever
 
+    # OIDC / SSO
+    oidc_enabled: bool = False
+    oidc_issuer_url: str = ""        # e.g. https://accounts.google.com
+    oidc_client_id: str = ""
+    oidc_client_secret: str = ""
+    oidc_redirect_uri: str = ""      # full callback URL; auto-derived if empty
+    oidc_scopes: str = "openid email profile"
+    # If True, create a new local account on first OIDC login (invite-only = False)
+    oidc_auto_provision: bool = True
+
     # Feature flags
     registration_open: bool = True  # False = invite-only after first user
 

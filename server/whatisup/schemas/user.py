@@ -29,6 +29,24 @@ class UserUpdate(BaseModel):
     password: str | None = Field(default=None, min_length=8, max_length=128)
 
 
+class AdminUserCreate(BaseModel):
+    email: EmailStr
+    username: str | None = Field(
+        default=None, min_length=3, max_length=100, pattern=r"^[a-zA-Z0-9_-]+$"
+    )
+    password: str = Field(min_length=8, max_length=128)
+    full_name: str | None = Field(default=None, max_length=255)
+    can_create_monitors: bool = False
+
+
+class AdminUserUpdate(BaseModel):
+    full_name: str | None = Field(default=None, max_length=255)
+    email: EmailStr | None = None
+    password: str | None = Field(default=None, min_length=8, max_length=128)
+    is_active: bool | None = None
+    can_create_monitors: bool | None = None
+
+
 class UserOut(BaseModel):
     id: uuid.UUID
     email: str
@@ -36,8 +54,13 @@ class UserOut(BaseModel):
     full_name: str | None
     is_active: bool
     is_superadmin: bool
+    can_create_monitors: bool
 
     model_config = {"from_attributes": True}
+
+
+class AdminUserOut(UserOut):
+    monitor_count: int = 0
 
 
 class TokenResponse(BaseModel):

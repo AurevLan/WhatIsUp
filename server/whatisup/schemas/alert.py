@@ -118,6 +118,15 @@ class AlertChannelTestOut(BaseModel):
     detail: str
 
 
+class TelegramResolveIn(BaseModel):
+    bot_token: str
+
+
+class TelegramResolveOut(BaseModel):
+    chat_id: str
+    chat_name: str
+
+
 class AlertRuleCreate(BaseModel):
     monitor_id: uuid.UUID | None = None
     group_id: uuid.UUID | None = None

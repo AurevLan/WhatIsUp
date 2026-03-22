@@ -148,6 +148,7 @@ def create_app() -> FastAPI:
 
     # Routers
     from whatisup.api.v1 import (
+        admin,
         alerts,
         api_keys,
         audit,
@@ -166,6 +167,7 @@ def create_app() -> FastAPI:
         ws,
     )
 
+    app.include_router(admin.router, prefix="/api/v1")
     app.include_router(auth.router, prefix="/api/v1")
     app.include_router(api_keys.router, prefix="/api/v1")
     app.include_router(monitors.router, prefix="/api/v1")

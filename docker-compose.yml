@@ -86,6 +86,12 @@ services:
       SMTP_FROM: ${SMTP_FROM:-noreply@example.com}
       AUTO_REGISTER_PROBE: "true"
       PROBE_LOCATION: ${PROBE_LOCATION:-Central Server}
+      OIDC_ENABLED: ${OIDC_ENABLED:-false}
+      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI:-}
+      OIDC_AUTO_PROVISION: ${OIDC_AUTO_PROVISION:-true}
     networks:
       - backend
       - frontend
@@ -194,6 +200,24 @@ services:
           cpus: "1.0"
     profiles:
       - probe
+
+  # ── Recette / tests d'intégration (profil "recette") ─────────────────────
+  # Usage: docker compose --env-file .env --profile recette run --rm recette
+  recette:
+    build:
+      context: ./server
+      dockerfile: Dockerfile.recette
+    environment:
+      RECETTE_BASE_URL: http://server:8000
+      ADMIN_EMAIL: ${RECETTE_EMAIL:-recette@test.local}
+      ADMIN_PASSWORD: ${RECETTE_PASSWORD:-RecettePass1!}
+    networks:
+      - frontend
+    depends_on:
+      server:
+        condition: service_healthy
+    profiles:
+      - recette
 
 volumes:
   postgres_data:

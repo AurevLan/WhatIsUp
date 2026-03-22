@@ -59,10 +59,11 @@ class MonitorCreate(BaseModel):
     domain_expiry_warn_days: int = Field(default=30, ge=1, le=365)
     dns_record_type: str | None = Field(default=None, pattern=r"^(A|AAAA|CNAME|MX|TXT|NS)$")
     dns_expected_value: str | None = Field(default=None, max_length=512)
-    # DNS drift / cross-probe consistency
+    # DNS drift / split baseline
     dns_drift_alert: bool = False
-    dns_consistency_check: bool = False
-    dns_allow_split_horizon: bool = False
+    dns_split_enabled: bool = False
+    dns_baseline_ips_internal: list[str] | None = None
+    dns_baseline_ips_external: list[str] | None = None
     # Composite monitor
     composite_aggregation: str | None = Field(
         default=None,
@@ -85,6 +86,8 @@ class MonitorCreate(BaseModel):
     # SLO / Error Budget
     slo_target: float | None = Field(None, ge=0.0, le=100.0)
     slo_window_days: int = Field(30, ge=1, le=365)
+    # Probe scope
+    network_scope: str = Field(default="all", pattern=r"^(all|internal|external)$")
     # Flapping detection — per-monitor overrides
     flap_threshold: int = Field(default=5, ge=2, le=50)
     flap_window_minutes: int = Field(default=10, ge=1, le=60)
@@ -136,8 +139,9 @@ class MonitorUpdate(BaseModel):
     dns_record_type: str | None = Field(default=None, pattern=r"^(A|AAAA|CNAME|MX|TXT|NS)$")
     dns_expected_value: str | None = Field(default=None, max_length=512)
     dns_drift_alert: bool | None = None
-    dns_consistency_check: bool | None = None
-    dns_allow_split_horizon: bool | None = None
+    dns_split_enabled: bool | None = None
+    dns_baseline_ips_internal: list[str] | None = None
+    dns_baseline_ips_external: list[str] | None = None
     composite_aggregation: str | None = Field(
         default=None,
         pattern=r"^(majority_up|all_up|any_up|weighted_up)$",
@@ -159,6 +163,8 @@ class MonitorUpdate(BaseModel):
     # SLO / Error Budget
     slo_target: float | None = Field(None, ge=0.0, le=100.0)
     slo_window_days: int | None = Field(None, ge=1, le=365)
+    # Probe scope
+    network_scope: str | None = Field(default=None, pattern=r"^(all|internal|external)$")
     # Flapping
     flap_threshold: int | None = Field(default=None, ge=2, le=50)
     flap_window_minutes: int | None = Field(default=None, ge=1, le=60)
@@ -190,8 +196,9 @@ class MonitorOut(BaseModel):
     dns_expected_value: str | None
     dns_baseline_ips: list[str] | None = None
     dns_drift_alert: bool = False
-    dns_consistency_check: bool = False
-    dns_allow_split_horizon: bool = False
+    dns_split_enabled: bool = False
+    dns_baseline_ips_internal: list[str] | None = None
+    dns_baseline_ips_external: list[str] | None = None
     composite_aggregation: str | None = None
     keyword: str | None
     keyword_negate: bool
@@ -210,6 +217,8 @@ class MonitorOut(BaseModel):
     # SLO / Error Budget
     slo_target: float | None = None
     slo_window_days: int = 30
+    # Probe scope
+    network_scope: str = "all"
     # Flapping
     flap_threshold: int = 5
     flap_window_minutes: int = 10

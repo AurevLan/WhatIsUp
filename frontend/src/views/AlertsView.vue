@@ -239,9 +239,20 @@
               <option value="ssl_expiry">Expiration du certificat SSL imminente</option>
               <option value="response_time_above">Temps de réponse / résolution dépassé(e)</option>
               <option value="uptime_below">Uptime inférieur au seuil</option>
+              <option value="response_time_above_baseline">Temps de réponse > N× la moyenne 7j</option>
               <option value="anomaly_detection">Détection d'anomalie (z-score)</option>
               <option value="schema_drift">Dérive du schéma API</option>
             </select>
+          </div>
+
+          <!-- Baseline factor -->
+          <div v-if="ruleForm.condition === 'response_time_above_baseline'" class="bg-blue-900/20 border border-blue-800/50 rounded-lg p-3 space-y-2">
+            <label class="block text-sm font-medium text-gray-300">
+              Facteur (N×)
+              <span class="text-gray-500 font-normal ml-1">— alerte si temps de réponse > N × moyenne 7j</span>
+            </label>
+            <input v-model.number="ruleForm.baseline_factor" class="input w-full" type="number" min="1.1" max="20" step="0.1" placeholder="ex: 3" />
+            <p class="text-xs text-gray-500">Exemple : 3 → alerte si le temps de réponse dépasse 3× la moyenne habituelle sur les 7 derniers jours. Nécessite au moins 24h d'historique.</p>
           </div>
 
           <!-- Anomaly z-score threshold -->
@@ -438,9 +449,9 @@ const simulateResults = ref({})
 const eventsFilter = ref('all')
 const confirmModal = ref(null)
 
-const ruleForm = ref(defaultRuleForm())
-
 const DEFAULT_SCHEDULE = { offhours_suppress: false, timezone: 'Europe/Paris', days: [0, 1, 2, 3, 4], start: '09:00', end: '18:00' }
+
+const ruleForm = ref(defaultRuleForm())
 
 function defaultRuleForm() {
   return {
@@ -453,6 +464,7 @@ function defaultRuleForm() {
     digest_minutes: 0,
     channel_ids: [],
     anomaly_zscore_threshold: null,
+    baseline_factor: null,
     showSchedule: false,
     schedule: { ...DEFAULT_SCHEDULE },
   }
@@ -501,6 +513,7 @@ const messagePreview = computed(() => {
   else if (cond === 'ssl_expiry') lines.push('Expiration du certificat SSL imminente')
   else if (cond === 'response_time_above') lines.push(`Temps de réponse > ${threshold || '…'}ms`)
   else if (cond === 'uptime_below') lines.push(`Uptime < ${threshold || '…'}%`)
+  else if (cond === 'response_time_above_baseline') lines.push(`Temps de réponse > ${ruleForm.value.baseline_factor || '…'}× la moyenne habituelle (7j)`)
   else if (cond === 'anomaly_detection') lines.push(`Temps de réponse anormal détecté (z-score > ${ruleForm.value.anomaly_zscore_threshold || 3.5})`)
   else if (cond === 'schema_drift') lines.push('La structure de la réponse API a changé')
   lines.push('Début : 2026-01-01 12:00 UTC')
@@ -537,6 +550,7 @@ function conditionLabel(cond) {
     ssl_expiry: 'Expiration SSL',
     response_time_above: 'Temps de réponse >',
     uptime_below: 'Uptime <',
+    response_time_above_baseline: 'Temps de réponse > N× moy. 7j',
     anomaly_detection: 'Anomalie z-score',
     schema_drift: 'Dérive schéma API',
   }
@@ -655,6 +669,7 @@ function openEditRule(rule) {
     digest_minutes: rule.digest_minutes,
     channel_ids: rule.channels.map(c => c.id),
     anomaly_zscore_threshold: rule.anomaly_zscore_threshold ?? null,
+    baseline_factor: rule.baseline_factor ?? null,
     showSchedule: hasSchedule,
     schedule: rule.schedule ? { ...rule.schedule } : { ...DEFAULT_SCHEDULE },
   }
@@ -686,6 +701,7 @@ async function saveRule() {
         renotify_after_minutes: ruleForm.value.renotify_after_minutes || undefined,
         digest_minutes: ruleForm.value.digest_minutes || 0,
         anomaly_zscore_threshold: ruleForm.value.anomaly_zscore_threshold || undefined,
+        baseline_factor: ruleForm.value.baseline_factor || undefined,
         schedule: schedulePayload,
       }
       await api.patch(`/alerts/rules/${editingRule.value.id}`, payload)
@@ -705,6 +721,7 @@ async function saveRule() {
       if (ruleForm.value.renotify_after_minutes) payload.renotify_after_minutes = ruleForm.value.renotify_after_minutes
       if (ruleForm.value.digest_minutes) payload.digest_minutes = ruleForm.value.digest_minutes
       if (ruleForm.value.anomaly_zscore_threshold) payload.anomaly_zscore_threshold = ruleForm.value.anomaly_zscore_threshold
+      if (ruleForm.value.baseline_factor) payload.baseline_factor = ruleForm.value.baseline_factor
       await api.post('/alerts/rules', payload)
     }
     closeRuleModal()

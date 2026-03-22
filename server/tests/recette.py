@@ -15,7 +15,6 @@ Options d'authentification (dans l'ordre de priorité):
 """
 
 import argparse
-import json
 import os
 import sys
 import time
@@ -212,7 +211,7 @@ def test_monitors() -> None:
 
     # Get by ID
     r = client.get(f"/api/v1/monitors/{mid}", headers=auth_headers())
-    check(f"GET /monitors/{{id}}", r, 200)
+    check("GET /monitors/{id}", r, 200)
 
     # Patch — including network_scope
     r = client.patch(f"/api/v1/monitors/{mid}", headers=auth_headers(), json={
@@ -693,7 +692,7 @@ def test_public_pages() -> None:
         slug = pub_group.get("public_slug")
         if slug:
             r = client.get(f"/api/v1/public/pages/{slug}")
-            check(f"GET /public/pages/{{slug}}", r, 200)
+            check("GET /public/pages/{slug}", r, 200)
 
             r = client.get(f"/api/v1/public/pages/{slug}/monitors")
             check("GET /public/pages/{slug}/monitors", r, 200)
@@ -721,18 +720,6 @@ def test_cleanup() -> None:
     if "probe_id" in IDS:
         r = client.delete(f"/api/v1/probes/{IDS['probe_id']}", headers=auth_headers())
         check("DELETE /probes/{id} (cleanup)", r, 204)
-
-    # Logout
-    refresh = None
-    try:
-        import base64, json as _json
-        parts = TOKEN.split(".") if TOKEN else []
-        if len(parts) == 3:
-            pad = parts[1] + "=="
-            payload = _json.loads(base64.urlsafe_b64decode(pad))
-            # we don't have the refresh token anymore at this point
-    except Exception:
-        pass
 
     ok("Cleanup complete")
 

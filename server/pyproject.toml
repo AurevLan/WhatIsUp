@@ -83,7 +83,9 @@ select = ["E", "F", "I", "UP"]
 
 [tool.ruff.lint.per-file-ignores]
 # Alembic migrations use Union[...] and typing imports from autogenerate template
-"alembic/versions/*.py" = ["UP007", "UP035", "F401", "I001"]
+"alembic/versions/*.py" = ["UP007", "UP035", "F401", "I001", "E501"]
+# Recette script: long HTTP URL strings are fine in a one-off test runner
+"tests/recette.py" = ["E501"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

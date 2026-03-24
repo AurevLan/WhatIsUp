@@ -185,7 +185,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../stores/auth'
 import { probesApi } from '../api/probes'
@@ -234,7 +234,7 @@ function escapeHtml(str) {
 
 function isOnline(probe) {
   if (!probe.is_active || !probe.last_seen_at) return false
-  return (Date.now() - new Date(probe.last_seen_at).getTime()) / 1000 < 120
+  return (Date.now() - new Date(probe.last_seen_at).getTime()) / 1000 < 300
 }
 
 function probeStatusClass(probe) {
@@ -405,5 +405,10 @@ watch(activeTab, async (tab) => {
   }
 })
 
-onMounted(loadProbes)
+let refreshTimer = null
+onMounted(() => {
+  loadProbes()
+  refreshTimer = setInterval(loadProbes, 60_000)
+})
+onUnmounted(() => clearInterval(refreshTimer))
 </script>

@@ -316,10 +316,10 @@
         </div>
 
         <div class="flex gap-3 pt-2">
-          <button type="button" @click="$emit('close')" class="btn-secondary flex-1">
+          <button type="button" @click="$emit('close')" class="btn-secondary flex-1 justify-center">
             {{ t('common.cancel') }}
           </button>
-          <button type="submit" :disabled="loading" class="btn-primary flex-1">
+          <button type="submit" :disabled="loading" class="btn-primary flex-1 justify-center">
             {{ loading ? t('common.loading') : t('common.save') }}
           </button>
         </div>

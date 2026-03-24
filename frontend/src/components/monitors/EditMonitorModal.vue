@@ -316,11 +316,10 @@
         </div>
 
         <div class="flex gap-3 pt-2">
-          <button type="button" @click="$emit('close')"
-            class="flex-1 px-4 py-2 border border-gray-700 text-gray-300 rounded-lg hover:bg-gray-800 transition-colors">
+          <button type="button" @click="$emit('close')" class="btn-secondary flex-1">
             {{ t('common.cancel') }}
           </button>
-          <button type="submit" :disabled="loading" class="flex-1 btn-primary">
+          <button type="submit" :disabled="loading" class="btn-primary flex-1">
             {{ loading ? t('common.loading') : t('common.save') }}
           </button>
         </div>

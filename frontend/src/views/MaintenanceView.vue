@@ -3,7 +3,7 @@
     <div class="flex items-center justify-between mb-8">
       <div>
         <h1 class="text-2xl font-bold text-white">{{ t('maintenance.title') }}</h1>
-        <p class="text-gray-400 mt-1">Schedule downtime windows to suppress alerts</p>
+        <p class="text-gray-400 mt-1">{{ t('maintenance.subtitle') }}</p>
       </div>
       <button @click="showCreate = true" class="btn-primary">+ {{ t('maintenance.add') }}</button>
     </div>
@@ -27,7 +27,7 @@
             <div class="mt-2 text-xs text-gray-500 space-y-0.5">
               <div>{{ t('maintenance.starts') }}: {{ formatDt(w.starts_at) }}</div>
               <div>{{ t('maintenance.ends') }}: {{ formatDt(w.ends_at) }}</div>
-              <div>Alerts suppressed: {{ w.suppress_alerts ? t('common.yes') : t('common.no') }}</div>
+              <div>{{ t('maintenance.alerts_suppressed') }}: {{ w.suppress_alerts ? t('common.yes') : t('common.no') }}</div>
             </div>
           </div>
           <button @click="deleteWindow(w)" class="text-xs text-red-400 hover:text-red-300">{{ t('common.delete') }}</button>
@@ -41,7 +41,7 @@
     <!-- Create modal -->
     <div v-if="showCreate" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
       <div class="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md p-6">
-        <h2 class="text-lg font-semibold text-white mb-4">New maintenance window</h2>
+        <h2 class="text-lg font-semibold text-white mb-4">{{ t('maintenance.modal_title') }}</h2>
         <div class="space-y-4">
           <div>
             <label class="text-sm text-gray-400">{{ t('common.name') }}</label>
@@ -65,7 +65,7 @@
           </div>
           <div class="flex items-center gap-2">
             <input v-model="form.suppress_alerts" type="checkbox" id="suppress" />
-            <label for="suppress" class="text-sm text-gray-300">Suppress alerts during window</label>
+            <label for="suppress" class="text-sm text-gray-300">{{ t('maintenance.suppress_alerts_label') }}</label>
           </div>
         </div>
         <div class="flex gap-3 mt-6">
@@ -108,7 +108,7 @@ function isActive(w) {
 }
 
 function formatDt(dt) {
-  return new Date(dt).toLocaleString('fr-FR')
+  return new Date(dt).toLocaleString()
 }
 
 function showError(msg) {
@@ -121,7 +121,7 @@ async function loadWindows() {
     const { data } = await api.get('/maintenance/')
     windows.value = data
   } catch (err) {
-    showError('Failed to load maintenance windows.')
+    showError(t('common.error'))
     console.error(err)
   }
 }
@@ -140,26 +140,26 @@ async function createWindow() {
     const { data } = await api.post('/maintenance/', payload)
     windows.value.unshift(data)
     showCreate.value = false
-    success(`Fenêtre "${data.name}" créée`)
+    success(t('common.success'))
   } catch (err) {
-    toastError('Erreur lors de la création')
+    toastError(t('common.error'))
     console.error(err)
   }
 }
 
 async function deleteWindow(w) {
   const ok = await confirm({
-    title: `Supprimer "${w.name}" ?`,
-    message: 'Cette fenêtre de maintenance sera définitivement supprimée.',
-    confirmLabel: 'Supprimer',
+    title: t('maintenance.confirm_delete'),
+    message: t('maintenance.confirm_delete_detail'),
+    confirmLabel: t('common.delete'),
   })
   if (!ok) return
   try {
     await api.delete(`/maintenance/${w.id}`)
     windows.value = windows.value.filter(x => x.id !== w.id)
-    success(`Fenêtre "${w.name}" supprimée`)
+    success(t('common.success'))
   } catch (err) {
-    toastError('Erreur lors de la suppression')
+    toastError(t('common.error'))
     console.error(err)
   }
 }

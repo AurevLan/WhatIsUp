@@ -92,6 +92,9 @@ services:
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
       OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI:-}
       OIDC_AUTO_PROVISION: ${OIDC_AUTO_PROVISION:-true}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_CONTACT_EMAIL: ${VAPID_CONTACT_EMAIL:-admin@example.com}
     networks:
       - backend
       - frontend

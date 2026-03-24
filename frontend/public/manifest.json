@@ -1,0 +1,16 @@
+{
+  "name": "WhatIsUp Monitoring",
+  "short_name": "WhatIsUp",
+  "description": "Web monitoring platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#030712",
+  "theme_color": "#3b82f6",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64",
+      "type": "image/x-icon"
+    }
+  ]
+}

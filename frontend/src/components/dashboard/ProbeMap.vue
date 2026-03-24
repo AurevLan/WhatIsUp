@@ -80,6 +80,7 @@ const mapEl   = ref(null)
 
 let leafletMap     = null
 let leafletMarkers = []
+let L              = null
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 function isOnline(probe) {
@@ -127,7 +128,7 @@ async function load() {
 // ── Leaflet ───────────────────────────────────────────────────────────────────
 async function initMap() {
   if (!mapEl.value) return
-  const L = (await import('leaflet')).default
+  L = (await import('leaflet')).default
   await import('leaflet/dist/leaflet.css')
 
   if (leafletMap) {
@@ -146,11 +147,23 @@ async function initMap() {
   // Dark overlay to match the theme
   leafletMap.getContainer().style.filter = 'brightness(.85) saturate(.6) hue-rotate(200deg)'
 
-  renderMarkers(L)
+  renderMarkers()
+  fitToProbes()
 }
 
-function renderMarkers(L) {
-  if (!leafletMap) return
+function fitToProbes() {
+  if (!leafletMap || !L || leafletMarkers.length === 0) return
+  const latlngs = leafletMarkers.map(m => m.getLatLng())
+  if (latlngs.length === 1) {
+    leafletMap.setView(latlngs[0], 6)
+  } else {
+    const bounds = L.latLngBounds(latlngs)
+    leafletMap.fitBounds(bounds, { padding: [30, 30], maxZoom: 8 })
+  }
+}
+
+function renderMarkers() {
+  if (!leafletMap || !L) return
   leafletMarkers.forEach(m => m.remove())
   leafletMarkers = []
 
@@ -225,10 +238,7 @@ onMounted(async () => {
   await initMap()
   timer = setInterval(async () => {
     await load()
-    if (leafletMap) {
-      const L = (await import('leaflet')).default
-      renderMarkers(L)
-    }
+    if (leafletMap) renderMarkers()
   }, 60_000)
 })
 
@@ -237,11 +247,8 @@ onUnmounted(() => {
   if (leafletMap) { leafletMap.remove(); leafletMap = null }
 })
 
-watch(probes, async () => {
-  if (leafletMap) {
-    const L = (await import('leaflet')).default
-    renderMarkers(L)
-  }
+watch(probes, () => {
+  if (leafletMap) renderMarkers()
 })
 </script>
 

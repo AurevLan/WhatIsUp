@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from whatisup.models.alert import AlertChannel
     from whatisup.models.api_key import UserApiKey
     from whatisup.models.tag import UserTagPermission
+    from whatisup.models.web_push import WebPushSubscription
 
 
 class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -41,6 +42,9 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     api_keys: Mapped[list[UserApiKey]] = relationship(
         "UserApiKey", back_populates="user", cascade="all, delete-orphan"
+    )
+    push_subscriptions: Mapped[list[WebPushSubscription]] = relationship(
+        "WebPushSubscription", back_populates="user", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:

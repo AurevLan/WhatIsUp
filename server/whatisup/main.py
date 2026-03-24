@@ -164,6 +164,7 @@ def create_app() -> FastAPI:
         public,
         status,
         templates,
+        web_push,
         ws,
     )
 
@@ -184,6 +185,7 @@ def create_app() -> FastAPI:
     app.include_router(incidents.router, prefix="/api/v1")
     app.include_router(incident_updates.router, prefix="/api/v1")
     app.include_router(templates.router, prefix="/api/v1")
+    app.include_router(web_push.router, prefix="/api/v1")
 
     # Prometheus metrics (optional dependency)
     try:

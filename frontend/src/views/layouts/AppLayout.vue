@@ -1,82 +1,93 @@
 <template>
-  <div style="display:flex; min-height:100vh; background:#030712;">
+  <div class="app-shell">
+
+    <!-- Mobile overlay -->
+    <div v-if="sidebarOpen" class="sidebar-overlay lg:hidden" @click="sidebarOpen = false" />
 
     <!-- Sidebar -->
-    <nav style="width:220px; background:#0a0f1e; border-right:1px solid #1e293b; display:flex; flex-direction:column; flex-shrink:0;">
-
+    <nav
+      class="sidebar"
+      :class="{ 'sidebar--open': sidebarOpen }"
+    >
       <!-- Logo -->
-      <div style="padding:20px 16px; border-bottom:1px solid #1e293b;">
-        <div style="display:flex; align-items:center; gap:10px;">
-          <div style="width:34px;height:34px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-            <Activity :size="16" color="white" :stroke-width="2.5" />
-          </div>
-          <div>
-            <div style="font-size:14px;font-weight:700;color:#f1f5f9;line-height:1.2;">WhatIsUp</div>
-            <div style="font-size:11px;color:#475569;line-height:1.2;">Monitoring</div>
-          </div>
+      <div class="sidebar__logo">
+        <div class="sidebar__logo-icon">
+          <Activity :size="15" color="white" :stroke-width="2.5" />
+        </div>
+        <div>
+          <div class="sidebar__logo-name">WhatIsUp</div>
+          <div class="sidebar__logo-sub">Monitoring</div>
         </div>
       </div>
 
       <!-- Nav -->
-      <div style="flex:1;padding:12px 8px;display:flex;flex-direction:column;gap:2px;overflow-y:auto;">
-        <div style="font-size:10px;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:.08em;padding:0 8px;margin:0 0 6px;">{{ t('nav.overview') }}</div>
+      <div class="sidebar__nav">
+        <div class="nav-section">{{ t('nav.overview') }}</div>
         <NavLink to="/"         :icon="LayoutDashboard" :label="t('nav.dashboard')" :exact="true" />
         <NavLink to="/monitors" :icon="Activity"        :label="t('nav.monitors')" :badge="downCount" />
         <NavLink to="/groups"   :icon="Layers"          :label="t('nav.groups')" />
-        <div style="font-size:10px;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:.08em;padding:0 8px;margin:12px 0 6px;">{{ t('nav.infrastructure') }}</div>
-        <NavLink to="/probes"           :icon="MapPin"          :label="t('nav.probes')" />
-        <NavLink to="/alerts"           :icon="Bell"            :label="t('nav.alerts')" />
-        <NavLink to="/maintenance"      :icon="CalendarClock"   :label="t('nav.maintenance')" />
-        <NavLink to="/incident-groups"  :icon="GitMerge"        :label="t('nav.incidentGroups')" :badge="openIncidentCount" />
-        <NavLink to="/templates"        :icon="Copy"            label="Templates" />
-        <div style="font-size:10px;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:.08em;padding:0 8px;margin:12px 0 6px;">{{ t('nav.account') }}</div>
-        <NavLink to="/api-keys" :icon="KeyRound"        :label="t('nav.apiKeys')" />
-        <NavLink to="/audit"    :icon="ClipboardList"   :label="t('nav.audit')" />
-        <NavLink to="/settings" :icon="Settings"        :label="t('nav.settings')" />
+
+        <div class="nav-section">{{ t('nav.infrastructure') }}</div>
+        <NavLink to="/probes"          :icon="MapPin"        :label="t('nav.probes')" />
+        <NavLink to="/alerts"          :icon="Bell"          :label="t('nav.alerts')" />
+        <NavLink to="/maintenance"     :icon="CalendarClock" :label="t('nav.maintenance')" />
+        <NavLink to="/incident-groups" :icon="GitMerge"      :label="t('nav.incidentGroups')" :badge="openIncidentCount" />
+        <NavLink to="/templates"       :icon="Copy"          label="Templates" />
+
+        <div class="nav-section">{{ t('nav.account') }}</div>
+        <NavLink to="/api-keys" :icon="KeyRound"      :label="t('nav.apiKeys')" />
+        <NavLink to="/audit"    :icon="ClipboardList" :label="t('nav.audit')" />
+        <NavLink to="/settings" :icon="Settings"      :label="t('nav.settings')" />
+
         <template v-if="auth.isSuperadmin">
-          <div style="font-size:10px;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:.08em;padding:0 8px;margin:12px 0 6px;">Admin</div>
+          <div class="nav-section">Admin</div>
           <NavLink to="/admin" :icon="ShieldCheck" label="Administration" />
         </template>
       </div>
 
-      <!-- User -->
-      <div style="padding:12px 8px;border-top:1px solid #1e293b;">
-        <div style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:10px;cursor:pointer;" onmouseenter="this.style.background='#1e293b'" onmouseleave="this.style.background='transparent'">
-          <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:white;flex-shrink:0;">
-            {{ auth.user?.username?.[0]?.toUpperCase() || 'U' }}
-          </div>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:13px;font-weight:600;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ auth.user?.username }}</div>
-            <div style="font-size:11px;color:#475569;">{{ auth.isSuperadmin ? 'Admin' : 'User' }}</div>
-          </div>
-          <button @click="handleLogout" :title="t('auth.logout')" style="background:none;border:none;cursor:pointer;color:#475569;padding:4px;border-radius:6px;display:flex;align-items:center;" onmouseenter="this.style.color='#ef4444'" onmouseleave="this.style.color='#475569'">
-            <LogOut :size="15" />
-          </button>
+      <!-- User footer -->
+      <div class="sidebar__user">
+        <div class="sidebar__user-avatar">
+          {{ auth.user?.username?.[0]?.toUpperCase() || 'U' }}
         </div>
+        <div class="sidebar__user-info">
+          <div class="sidebar__user-name">{{ auth.user?.username }}</div>
+          <div class="sidebar__user-role">{{ auth.isSuperadmin ? 'Admin' : 'User' }}</div>
+        </div>
+        <button @click="handleLogout" :title="t('auth.logout')" class="sidebar__logout">
+          <LogOut :size="14" />
+        </button>
       </div>
     </nav>
 
-    <!-- Main -->
-    <div style="flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden;">
-      <!-- Top bar -->
-      <div style="display:flex;align-items:center;justify-content:flex-end;padding:8px 20px;border-bottom:1px solid #1e293b;background:#0a0f1e;min-height:44px;">
-        <button
-          @click="toggleLang"
-          :title="t('settings.language')"
-          style="background:none;border:1px solid #1e293b;cursor:pointer;color:#475569;padding:4px 10px;border-radius:6px;display:flex;align-items:center;gap:6px;font-size:12px;transition:all .15s;"
-          onmouseenter="this.style.borderColor='#334155';this.style.color='#94a3b8';"
-          onmouseleave="this.style.borderColor='#1e293b';this.style.color='#475569';"
-        >
-          <span style="font-size:14px;line-height:1;">{{ currentLang === 'en' ? '🇫🇷' : '🇬🇧' }}</span>
-          <span>{{ currentLang === 'en' ? 'FR' : 'EN' }}</span>
+    <!-- Main area -->
+    <div class="main">
+      <!-- Topbar -->
+      <header class="topbar">
+        <!-- Hamburger (mobile) -->
+        <button class="topbar__hamburger" @click="sidebarOpen = !sidebarOpen" :aria-label="'Toggle menu'">
+          <span class="hamburger-line" :class="{ 'hamburger-line--open-1': sidebarOpen }" />
+          <span class="hamburger-line" :class="{ 'hamburger-line--open-2': sidebarOpen }" />
+          <span class="hamburger-line" :class="{ 'hamburger-line--open-3': sidebarOpen }" />
         </button>
-      </div>
-      <!-- WS banner -->
-      <div v-if="!ws.connected" style="display:flex;align-items:center;gap:8px;padding:10px 24px;background:rgba(245,158,11,.1);border-bottom:1px solid rgba(245,158,11,.2);color:#fbbf24;font-size:13px;">
-        <WifiOff :size="14" />
-        {{ t('ws.reconnecting') }}
-      </div>
-      <main style="flex:1;overflow-y:auto;">
+
+        <!-- WS reconnecting banner -->
+        <div v-if="!ws.connected" class="topbar__ws-badge">
+          <WifiOff :size="11" />
+          {{ t('ws.reconnecting') }}
+        </div>
+
+        <div class="topbar__right">
+          <!-- Language toggle -->
+          <button @click="toggleLang" :title="t('settings.language')" class="topbar__lang-btn">
+            <span>{{ currentLang === 'en' ? '🇫🇷' : '🇬🇧' }}</span>
+            <span>{{ currentLang === 'en' ? 'FR' : 'EN' }}</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Content -->
+      <main class="content" @click="sidebarOpen && (sidebarOpen = false)">
         <router-view />
       </main>
     </div>
@@ -91,7 +102,11 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { Activity, Bell, CalendarClock, ClipboardList, Copy, GitMerge, KeyRound, LayoutDashboard, Layers, LogOut, MapPin, Settings, ShieldCheck, WifiOff } from 'lucide-vue-next'
+import {
+  Activity, Bell, CalendarClock, ClipboardList, Copy, GitMerge,
+  KeyRound, LayoutDashboard, Layers, LogOut, MapPin, Settings,
+  ShieldCheck, WifiOff,
+} from 'lucide-vue-next'
 import { useAuthStore } from '../../stores/auth'
 import { useWebSocketStore } from '../../stores/websocket'
 import { useMonitorStore } from '../../stores/monitors'
@@ -105,15 +120,12 @@ const router = useRouter()
 const auth = useAuthStore()
 const ws = useWebSocketStore()
 const monitorStore = useMonitorStore()
-
+const sidebarOpen = ref(false)
 const currentLang = ref(getLocale())
 
-// Badge monitors DOWN
 const downCount = computed(() =>
   monitorStore.monitors.filter(m => ['down', 'error', 'timeout'].includes(m._lastStatus)).length
 )
-
-// Badge incidents ouverts
 const openIncidentCount = computed(() =>
   monitorStore.monitors.filter(m => m._hasOpenIncident).length
 )
@@ -129,3 +141,256 @@ async function handleLogout() {
   router.push('/login')
 }
 </script>
+
+<style scoped>
+/* ── Shell ── */
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+  background: var(--bg-base);
+}
+
+/* ── Sidebar ── */
+.sidebar {
+  width: var(--sidebar-w);
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  z-index: 50;
+  transition: transform .22s cubic-bezier(.4,0,.2,1);
+  overflow: hidden;
+}
+
+/* Desktop: always visible */
+@media (min-width: 1024px) {
+  .sidebar {
+    position: sticky;
+    transform: none !important;
+  }
+  .main { margin-left: 0; }
+}
+
+/* Mobile: hidden off-screen */
+@media (max-width: 1023px) {
+  .sidebar {
+    transform: translateX(-100%);
+  }
+  .sidebar--open {
+    transform: translateX(0);
+    box-shadow: 4px 0 32px rgba(0,0,0,.5);
+  }
+}
+
+.sidebar__logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.sidebar__logo-icon {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(59,130,246,.3);
+}
+
+.sidebar__logo-name {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-1);
+  line-height: 1.2;
+  letter-spacing: -.01em;
+}
+
+.sidebar__logo-sub {
+  font-size: 10.5px;
+  color: var(--text-3);
+  line-height: 1.2;
+}
+
+.sidebar__nav {
+  flex: 1;
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.sidebar__user {
+  padding: 10px 8px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-shrink: 0;
+}
+
+.sidebar__user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+}
+
+.sidebar__user-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar__user-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+.sidebar__user-role {
+  font-size: 10.5px;
+  color: var(--text-3);
+  line-height: 1.3;
+}
+
+.sidebar__logout {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-3);
+  padding: 5px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  transition: color .15s, background .15s;
+  flex-shrink: 0;
+}
+.sidebar__logout:hover {
+  color: #fca5a5;
+  background: rgba(248,113,113,.1);
+}
+
+/* ── Main ── */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  /* On desktop, sidebar is sticky, so no offset needed */
+}
+
+/* ── Topbar ── */
+.topbar {
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  height: var(--topbar-h);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-surface);
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.topbar__hamburger {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px 4px;
+  border-radius: 6px;
+  transition: background .15s;
+}
+.topbar__hamburger:hover { background: var(--bg-surface-2); }
+@media (min-width: 1024px) {
+  .topbar__hamburger { display: none; }
+}
+
+.hamburger-line {
+  display: block;
+  width: 18px;
+  height: 1.5px;
+  background: var(--text-2);
+  border-radius: 2px;
+  transition: transform .2s, opacity .2s;
+  transform-origin: center;
+}
+.hamburger-line--open-1 { transform: translateY(5.5px) rotate(45deg); }
+.hamburger-line--open-2 { opacity: 0; transform: scaleX(0); }
+.hamburger-line--open-3 { transform: translateY(-5.5px) rotate(-45deg); }
+
+.topbar__ws-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: #fbbf24;
+  background: rgba(251,191,36,.08);
+  border: 1px solid rgba(251,191,36,.2);
+  border-radius: 99px;
+  padding: 3px 10px;
+}
+
+.topbar__right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.topbar__lang-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  color: var(--text-3);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-family: inherit;
+  font-weight: 500;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.topbar__lang-btn:hover {
+  border-color: var(--border-hover);
+  color: var(--text-2);
+  background: var(--bg-surface-2);
+}
+.topbar__lang-btn span:first-child { font-size: 13px; line-height: 1; }
+
+/* ── Content ── */
+.content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+</style>

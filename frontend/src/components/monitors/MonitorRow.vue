@@ -1,47 +1,30 @@
 <template>
-  <router-link
-    :to="`/monitors/${monitor.id}`"
-    class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/[.03] transition-colors group"
-  >
-    <!-- Status dot -->
-    <span
-      class="w-2 h-2 rounded-full flex-shrink-0"
-      :class="dotClass"
-    />
+  <router-link :to="`/monitors/${monitor.id}`" class="monitor-row">
+    <!-- Status indicator -->
+    <span class="monitor-row__dot" :class="dotClass" />
 
     <!-- Name + target -->
-    <div class="flex-1 min-w-0">
-      <p class="text-sm font-semibold text-gray-200 truncate group-hover:text-white">
-        {{ monitor.name }}
-      </p>
-      <div class="flex items-center gap-1.5 mt-0.5">
-        <span class="text-[10px] font-bold font-mono uppercase px-1.5 py-0.5 rounded bg-gray-800 text-gray-500 flex-shrink-0">
-          {{ monitor.check_type }}
-        </span>
-        <span class="text-[11px] font-mono text-gray-600 truncate">{{ target }}</span>
+    <div class="monitor-row__info">
+      <p class="monitor-row__name">{{ monitor.name }}</p>
+      <div class="monitor-row__meta">
+        <span class="monitor-row__type">{{ monitor.check_type }}</span>
+        <span class="monitor-row__target">{{ target }}</span>
       </div>
     </div>
 
     <!-- Response time -->
-    <span v-if="monitor._lastResponseTimeMs != null"
-      class="flex-shrink-0 text-[11px] font-mono hidden sm:block"
-      :class="responseTimeClass">
+    <span v-if="monitor._lastResponseTimeMs != null" class="monitor-row__rt" :class="responseTimeClass">
       {{ responseTimeLabel }}
     </span>
 
-    <!-- Status badge -->
-    <span class="flex-shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-full border" :class="badgeClass">
-      {{ statusLabel }}
-    </span>
-
     <!-- Uptime -->
-    <div class="flex-shrink-0 w-14 text-right">
-      <p class="text-sm font-bold" :class="uptimeColorClass">{{ uptime }}</p>
-      <p class="text-[10px] text-gray-600">24h</p>
+    <div class="monitor-row__uptime">
+      <span class="monitor-row__uptime-val" :class="uptimeColorClass">{{ uptime }}</span>
+      <span class="monitor-row__uptime-label">24h</span>
     </div>
 
-    <!-- Interval -->
-    <p class="flex-shrink-0 w-8 text-right text-[11px] text-gray-600">{{ intervalLabel }}</p>
+    <!-- Status badge -->
+    <span class="monitor-row__badge" :class="badgeClass">{{ statusLabel }}</span>
   </router-link>
 </template>
 
@@ -51,18 +34,17 @@ import { computed } from 'vue'
 const props = defineProps({ monitor: Object })
 
 const statusCfg = {
-  up:      { dot: 'bg-emerald-500',                          badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25', label: 'UP' },
-  down:    { dot: 'bg-red-500 shadow-[0_0_6px_#ef4444]',    badge: 'bg-red-500/10 text-red-400 border-red-500/25',             label: 'DOWN' },
-  timeout: { dot: 'bg-amber-500',                            badge: 'bg-amber-500/10 text-amber-400 border-amber-500/25',       label: 'TIMEOUT' },
-  error:   { dot: 'bg-orange-500',                           badge: 'bg-orange-500/10 text-orange-400 border-orange-500/25',    label: 'ERROR' },
+  up:      { dot: 'dot--up',      badge: 'badge-up',      label: 'UP' },
+  down:    { dot: 'dot--down',    badge: 'badge-down',    label: 'DOWN' },
+  timeout: { dot: 'dot--timeout', badge: 'badge-timeout', label: 'TIMEOUT' },
+  error:   { dot: 'dot--error',   badge: 'badge-error',   label: 'ERROR' },
 }
-const defCfg = { dot: 'bg-gray-700', badge: 'bg-gray-800 text-gray-500 border-gray-700', label: 'NO DATA' }
+const defCfg = { dot: 'dot--unknown', badge: 'badge-unknown', label: 'NO DATA' }
 
-const cfg = computed(() => statusCfg[props.monitor._lastStatus] ?? defCfg)
-
-const dotClass    = computed(() => cfg.value.dot)
-const badgeClass  = computed(() => cfg.value.badge)
-const statusLabel = computed(() => cfg.value.label)
+const cfg           = computed(() => statusCfg[props.monitor._lastStatus] ?? defCfg)
+const dotClass      = computed(() => cfg.value.dot)
+const badgeClass    = computed(() => cfg.value.badge)
+const statusLabel   = computed(() => cfg.value.label)
 
 const uptime = computed(() => {
   const u = props.monitor._uptime24h
@@ -71,10 +53,10 @@ const uptime = computed(() => {
 
 const uptimeColorClass = computed(() => {
   const u = props.monitor._uptime24h
-  if (u == null) return 'text-gray-600'
-  if (u >= 99)   return 'text-emerald-400'
-  if (u >= 90)   return 'text-amber-400'
-  return 'text-red-400'
+  if (u == null) return 'text-muted'
+  if (u >= 99)   return 'text-up'
+  if (u >= 90)   return 'text-warn'
+  return 'text-down'
 })
 
 const responseTimeLabel = computed(() => {
@@ -85,15 +67,10 @@ const responseTimeLabel = computed(() => {
 
 const responseTimeClass = computed(() => {
   const ms = props.monitor._lastResponseTimeMs
-  if (ms == null) return 'text-gray-600'
-  if (ms < 300)  return 'text-emerald-400'
-  if (ms < 1000) return 'text-amber-400'
-  return 'text-red-400'
-})
-
-const intervalLabel = computed(() => {
-  const s = props.monitor.interval_seconds
-  return s < 60 ? s + 's' : Math.round(s / 60) + 'm'
+  if (ms == null) return 'text-muted'
+  if (ms < 300)  return 'text-up'
+  if (ms < 1000) return 'text-warn'
+  return 'text-down'
 })
 
 const target = computed(() => {
@@ -105,3 +82,124 @@ const target = computed(() => {
   return raw
 })
 </script>
+
+<style scoped>
+.monitor-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  transition: background .15s;
+  cursor: pointer;
+  text-decoration: none;
+}
+.monitor-row:hover { background: rgba(255,255,255,.028); }
+
+/* Status dot */
+.monitor-row__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.dot--up      { background: #34d399; }
+.dot--down    { background: #f87171; box-shadow: 0 0 0 0 rgba(248,113,113,.5); animation: pulse-ring 2s ease-out infinite; }
+.dot--timeout { background: #fbbf24; }
+.dot--error   { background: #fb923c; }
+.dot--unknown { background: var(--text-3); }
+
+/* Info */
+.monitor-row__info { flex: 1; min-width: 0; }
+.monitor-row__name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+.monitor-row__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+.monitor-row__type {
+  font-size: 9.5px;
+  font-weight: 700;
+  font-family: "JetBrains Mono", monospace;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--bg-surface-3);
+  color: var(--text-3);
+  letter-spacing: .04em;
+  flex-shrink: 0;
+}
+.monitor-row__target {
+  font-size: 11px;
+  font-family: "JetBrains Mono", monospace;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Response time */
+.monitor-row__rt {
+  font-size: 11px;
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 500;
+  flex-shrink: 0;
+  display: none;
+}
+@media (min-width: 480px) {
+  .monitor-row__rt { display: block; }
+}
+
+/* Uptime */
+.monitor-row__uptime {
+  flex-shrink: 0;
+  text-align: right;
+  display: none;
+}
+@media (min-width: 640px) {
+  .monitor-row__uptime { display: block; }
+}
+.monitor-row__uptime-val {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.monitor-row__uptime-label {
+  font-size: 9.5px;
+  color: var(--text-3);
+}
+
+/* Badge */
+.monitor-row__badge {
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 99px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  flex-shrink: 0;
+}
+
+/* Color utilities */
+.text-up   { color: #34d399; }
+.text-warn { color: #fbbf24; }
+.text-down { color: #f87171; }
+.text-muted { color: var(--text-3); }
+
+@keyframes pulse-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(248,113,113,.5); }
+  70%  { box-shadow: 0 0 0 5px rgba(248,113,113,0); }
+  100% { box-shadow: 0 0 0 0 rgba(248,113,113,0); }
+}
+</style>

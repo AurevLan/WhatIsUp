@@ -204,6 +204,11 @@ async def _fire_alerts(
         .all()
     )
 
+    # Web push: notify monitor owner for open/resolve events (independent of rules)
+    if event_type in ("incident_opened", "incident_resolved"):
+        from whatisup.services.web_push import dispatch_web_push_for_incident
+        await dispatch_web_push_for_incident(db, incident, monitor, event_type)
+
     if not rules:
         return
 

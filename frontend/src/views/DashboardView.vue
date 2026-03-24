@@ -1,98 +1,80 @@
 <template>
-  <div class="p-8 max-w-6xl mx-auto space-y-6">
+  <div class="dash">
 
     <!-- Header -->
-    <div>
-      <h1 class="text-2xl font-bold text-gray-100">{{ t('dashboard.title') }}</h1>
-      <p class="text-sm text-gray-600 mt-1">Real-time overview of your monitored services</p>
+    <div class="dash__header">
+      <h1 class="dash__title">{{ t('dashboard.title') }}</h1>
+      <p class="dash__sub">{{ t('dashboard.subtitle') }}</p>
     </div>
 
-    <!-- Summary cards -->
-    <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
-      <StatCard :label="t('dashboard.total_monitors')" :value="monitors.length"  color="#60a5fa" bg="rgba(59,130,246,.1)"  :icon="Monitor" />
-      <StatCard :label="t('dashboard.monitors_up')"    :value="upCount"          color="#34d399" bg="rgba(16,185,129,.1)" :icon="CheckCircle2" />
-      <StatCard
-        :label="t('dashboard.monitors_down')"
-        :value="downCount"
+    <!-- Stat cards -->
+    <div class="dash__stats">
+      <StatCard :label="t('dashboard.total_monitors')" :value="monitors.length"  color="#60a5fa" :bg="'rgba(79,156,249,.1)'"    :icon="Monitor" />
+      <StatCard :label="t('dashboard.monitors_up')"    :value="upCount"          color="#34d399" :bg="'rgba(52,211,153,.1)'"    :icon="CheckCircle2" />
+      <StatCard :label="t('dashboard.monitors_down')"  :value="downCount"
         :color="downCount > 0 ? '#f87171' : '#34d399'"
-        :bg="downCount > 0 ? 'rgba(239,68,68,.1)' : 'rgba(16,185,129,.05)'"
-        :icon="XCircle"
-        :pulse="downCount > 0"
-      />
-      <StatCard :label="t('dashboard.active_incidents')" :value="incidentCount"  color="#fbbf24" bg="rgba(245,158,11,.1)" :icon="AlertTriangle" :pulse="incidentCount > 0" />
-      <StatCard :label="t('dashboard.global_uptime')"   :value="globalUptimeStr" color="#a78bfa" bg="rgba(139,92,246,.1)" :icon="TrendingUp" />
+        :bg="downCount > 0 ? 'rgba(248,113,113,.1)' : 'rgba(52,211,153,.06)'"
+        :icon="XCircle" :pulse="downCount > 0" />
+      <StatCard :label="t('dashboard.active_incidents')" :value="incidentCount"  color="#fbbf24" :bg="'rgba(251,191,36,.1)'"    :icon="AlertTriangle" :pulse="incidentCount > 0" />
+      <StatCard :label="t('dashboard.global_uptime')"    :value="globalUptimeStr" color="#c084fc" :bg="'rgba(192,132,252,.1)'"   :icon="TrendingUp" />
     </div>
 
-    <!-- Two-column layout on large screens -->
-    <div class="grid grid-cols-1 xl:grid-cols-5 gap-6">
+    <!-- Grid -->
+    <div class="dash__grid">
 
-      <!-- Monitor list (3/5) -->
-      <div class="xl:col-span-3 card p-0 overflow-hidden">
-        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-800/80">
-          <h2 class="text-sm font-semibold text-gray-100">{{ t('monitors.title') }}</h2>
-          <router-link to="/monitors" class="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors">
-            View all <ArrowRight class="w-3 h-3" />
+      <!-- Monitor list -->
+      <div class="card dash__monitors-card p-0 overflow-hidden">
+        <div class="dash__card-header">
+          <h2 class="dash__card-title">{{ t('monitors.title') }}</h2>
+          <router-link to="/monitors" class="dash__view-all">
+            {{ t('common.view_all') }} <ArrowRight :size="12" />
           </router-link>
         </div>
 
-        <!-- Loading -->
-        <div v-if="loading" class="p-5 space-y-3">
-          <div v-for="i in 5" :key="i" class="h-12 bg-gray-800/50 rounded-xl animate-pulse" />
+        <div v-if="loading" class="p-4 space-y-2">
+          <div v-for="i in 5" :key="i" class="skeleton h-12" />
         </div>
 
-        <!-- Empty -->
-        <div v-else-if="monitors.length === 0" class="flex flex-col items-center py-16 text-center px-6">
-          <div class="w-14 h-14 bg-gray-800 rounded-2xl flex items-center justify-center mb-4">
-            <Monitor class="w-7 h-7 text-gray-700" />
-          </div>
-          <p class="text-sm font-medium text-gray-600 mb-1">{{ t('monitors.no_monitors') }}</p>
-          <p class="text-xs text-gray-700 mb-5">Add your first URL to start monitoring</p>
-          <router-link to="/monitors" class="btn-primary text-sm">
-            <Plus class="w-4 h-4" />
-            {{ t('monitors.add') }}
+        <div v-else-if="monitors.length === 0" class="dash__empty">
+          <div class="dash__empty-icon"><Monitor :size="24" /></div>
+          <p class="dash__empty-text">{{ t('monitors.no_monitors') }}</p>
+          <router-link to="/monitors" class="btn-primary mt-4">
+            <Plus :size="14" /> {{ t('monitors.add') }}
           </router-link>
         </div>
 
-        <!-- List: DOWN first -->
-        <div v-else class="px-3 py-2">
+        <div v-else class="px-2 py-1.5">
           <MonitorRow v-for="m in previewMonitors" :key="m.id" :monitor="m" />
-          <p v-if="monitors.length > 10" class="text-center text-xs text-gray-700 py-3">
-            +{{ monitors.length - 10 }} more —
-            <router-link to="/monitors" class="text-blue-400 hover:text-blue-300">view all</router-link>
+          <p v-if="monitors.length > 10" class="dash__more-link">
+            +{{ monitors.length - 10 }} —
+            <router-link to="/monitors">{{ t('common.view_all') }}</router-link>
           </p>
         </div>
       </div>
 
-      <!-- Right column (2/5) -->
-      <div class="xl:col-span-2 flex flex-col gap-6">
+      <!-- Right column -->
+      <div class="dash__right">
 
-        <!-- Open incidents widget -->
+        <!-- Active incidents -->
         <div v-if="openIncidents.length > 0" class="card p-0 overflow-hidden">
-          <div class="flex items-center justify-between px-5 py-4 border-b border-gray-800/80">
-            <h2 class="text-sm font-semibold text-gray-100 flex items-center gap-2">
-              <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-              Incidents actifs
+          <div class="dash__card-header">
+            <h2 class="dash__card-title flex items-center gap-2">
+              <span class="dot-pulse" />
+              {{ t('dashboard.active_incidents') }}
             </h2>
-            <span class="text-xs font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full border border-red-500/25">
-              {{ openIncidents.length }}
-            </span>
+            <span class="dash__incident-count">{{ openIncidents.length }}</span>
           </div>
-          <div class="divide-y divide-gray-800/60">
-            <div v-for="m in openIncidents.slice(0, 5)" :key="m.id"
-              class="px-5 py-3 flex items-center gap-3 hover:bg-white/[.02] transition-colors">
-              <span class="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_6px_#ef4444] flex-shrink-0"></span>
-              <router-link :to="`/monitors/${m.id}`" class="flex-1 text-sm font-medium text-gray-200 hover:text-white truncate">
-                {{ m.name }}
-              </router-link>
-              <span class="text-xs text-gray-600 font-mono flex-shrink-0">{{ m.check_type }}</span>
+          <div>
+            <div v-for="m in openIncidents.slice(0, 5)" :key="m.id" class="dash__incident-row">
+              <span class="dot-down" />
+              <router-link :to="`/monitors/${m.id}`" class="dash__incident-name">{{ m.name }}</router-link>
+              <span class="dash__incident-type">{{ m.check_type }}</span>
             </div>
           </div>
         </div>
 
         <!-- Probe map -->
-        <div class="flex-1">
-          <ProbeMap />
-        </div>
+        <ProbeMap />
       </div>
     </div>
   </div>
@@ -111,16 +93,14 @@ const STATUS_PRIORITY = { down: 0, error: 1, timeout: 2, up: 3 }
 const StatCard = defineComponent({
   props: { label: String, value: [Number, String], color: String, bg: String, icon: [Object, Function], pulse: Boolean },
   setup(p) {
-    return () => h('div', {
-      style: `background:#0a0f1e;border:1px solid #1e293b;border-radius:14px;padding:18px 20px;display:flex;align-items:center;gap:14px;`
-    }, [
-      h('div', { style: `width:40px;height:40px;border-radius:10px;background:${p.bg};display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;` }, [
-        h(p.icon, { size: 20, color: p.color, strokeWidth: 2 }),
-        p.pulse ? h('span', { style: 'position:absolute;top:-3px;right:-3px;width:8px;height:8px;background:#ef4444;border-radius:50%;animation:pulse 2s infinite;' }) : null,
+    return () => h('div', { class: 'stat-card' }, [
+      h('div', { class: 'stat-card__icon', style: `background:${p.bg};` }, [
+        h(p.icon, { size: 18, color: p.color, strokeWidth: 2 }),
+        p.pulse ? h('span', { class: 'stat-card__pulse' }) : null,
       ]),
-      h('div', [
-        h('div', { style: `font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;` }, p.label),
-        h('div', { style: `font-size:26px;font-weight:700;color:${p.color};line-height:1;` }, String(p.value)),
+      h('div', { class: 'stat-card__body' }, [
+        h('div', { class: 'stat-card__label' }, p.label),
+        h('div', { class: 'stat-card__value', style: `color:${p.color};` }, String(p.value)),
       ]),
     ])
   },
@@ -142,20 +122,221 @@ const globalUptimeStr = computed(() => {
   return avg.toFixed(2) + '%'
 })
 
-// Preview list sorted: DOWN/error/timeout first, then UP
 const previewMonitors = computed(() =>
   [...monitors.value]
-    .sort((a, b) => {
-      const pa = STATUS_PRIORITY[a._lastStatus] ?? 4
-      const pb = STATUS_PRIORITY[b._lastStatus] ?? 4
-      return pa - pb
-    })
+    .sort((a, b) => (STATUS_PRIORITY[a._lastStatus] ?? 4) - (STATUS_PRIORITY[b._lastStatus] ?? 4))
     .slice(0, 10)
 )
 
-const openIncidents = computed(() =>
-  monitors.value.filter(m => m._hasOpenIncident)
-)
+const openIncidents = computed(() => monitors.value.filter(m => m._hasOpenIncident))
 
 onMounted(() => monitorStore.fetchAll())
 </script>
+
+<style scoped>
+.dash {
+  padding: 1.25rem 1rem 2rem;
+  max-width: 72rem;
+  margin: 0 auto;
+}
+@media (min-width: 640px)  { .dash { padding: 1.5rem 1.5rem 2rem; } }
+@media (min-width: 1024px) { .dash { padding: 2rem 2rem 2.5rem; } }
+
+.dash__header { margin-bottom: 1.5rem; }
+.dash__title {
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: var(--text-1);
+  letter-spacing: -.02em;
+  line-height: 1.2;
+}
+.dash__sub { font-size: .8125rem; color: var(--text-3); margin-top: .25rem; }
+
+/* Stat cards */
+.dash__stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: .75rem;
+  margin-bottom: 1.5rem;
+}
+@media (min-width: 640px)  { .dash__stats { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 1024px) { .dash__stats { grid-template-columns: repeat(5, 1fr); } }
+
+/* Main grid */
+.dash__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+}
+@media (min-width: 1280px) {
+  .dash__grid { grid-template-columns: 3fr 2fr; }
+}
+
+.dash__right { display: flex; flex-direction: column; gap: 1.25rem; }
+
+/* Card header */
+.dash__card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .875rem 1.125rem;
+  border-bottom: 1px solid var(--border);
+}
+.dash__card-title {
+  font-size: .8125rem;
+  font-weight: 600;
+  color: var(--text-1);
+}
+.dash__view-all {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: .75rem;
+  color: var(--accent);
+  transition: color .15s;
+  text-decoration: none;
+}
+.dash__view-all:hover { color: #7cbcff; }
+
+.dash__incident-count {
+  font-size: .75rem;
+  font-weight: 700;
+  color: #f87171;
+  background: rgba(248,113,113,.1);
+  border: 1px solid rgba(248,113,113,.22);
+  border-radius: 99px;
+  padding: 2px 8px;
+}
+
+/* Empty state */
+.dash__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 3rem 1.5rem;
+  text-align: center;
+}
+.dash__empty-icon {
+  width: 48px;
+  height: 48px;
+  background: var(--bg-surface-2);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-3);
+  margin-bottom: 1rem;
+}
+.dash__empty-text { font-size: .875rem; color: var(--text-3); }
+
+.dash__more-link {
+  text-align: center;
+  font-size: .75rem;
+  color: var(--text-3);
+  padding: .75rem;
+}
+.dash__more-link a { color: var(--accent); }
+
+/* Incidents */
+.dash__incident-row {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: .625rem 1.125rem;
+  border-bottom: 1px solid var(--border);
+  transition: background .15s;
+}
+.dash__incident-row:last-child { border-bottom: none; }
+.dash__incident-row:hover { background: rgba(255,255,255,.018); }
+
+.dash__incident-name {
+  flex: 1;
+  font-size: .8125rem;
+  font-weight: 500;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-decoration: none;
+  transition: color .15s;
+}
+.dash__incident-name:hover { color: white; }
+.dash__incident-type {
+  font-size: .6875rem;
+  font-family: "JetBrains Mono", monospace;
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
+/* Status dots */
+.dot-down {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #f87171;
+  flex-shrink: 0;
+}
+.dot-pulse {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #f87171;
+  flex-shrink: 0;
+  animation: pulse-ring 2s ease-out infinite;
+}
+@keyframes pulse-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(248,113,113,.5); }
+  70%  { box-shadow: 0 0 0 5px rgba(248,113,113,0); }
+  100% { box-shadow: 0 0 0 0 rgba(248,113,113,0); }
+}
+
+/* StatCard */
+:deep(.stat-card) {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.125rem;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: border-color .2s;
+}
+:deep(.stat-card:hover) { border-color: var(--border-hover); }
+
+:deep(.stat-card__icon) {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+}
+:deep(.stat-card__pulse) {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 8px;
+  height: 8px;
+  background: #ef4444;
+  border-radius: 50%;
+  border: 2px solid var(--bg-surface);
+}
+
+:deep(.stat-card__label) {
+  font-size: .65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--text-3);
+  margin-bottom: 3px;
+  white-space: nowrap;
+}
+:deep(.stat-card__value) {
+  font-size: 1.625rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -.03em;
+}
+</style>

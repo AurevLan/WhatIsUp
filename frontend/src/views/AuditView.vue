@@ -1,17 +1,17 @@
 <template>
   <div class="p-8">
     <div class="mb-8">
-      <h1 class="text-2xl font-bold text-white">Audit Log</h1>
-      <p class="text-gray-400 mt-1">History of all changes made in the system</p>
+      <h1 class="text-2xl font-bold text-white">{{ t('audit.title') }}</h1>
+      <p class="text-gray-400 mt-1">{{ t('audit.subtitle') }}</p>
     </div>
 
     <!-- Filters -->
     <div class="flex gap-3 mb-6 flex-wrap">
       <select v-model="filterType" @change="load" class="input text-sm">
-        <option value="">All objects</option>
-        <option value="monitor">Monitors</option>
-        <option value="probe">Probes</option>
-        <option value="alert_channel">Alert channels</option>
+        <option value="">{{ t('audit.filter_all') }}</option>
+        <option value="monitor">{{ t('audit.filter_monitors') }}</option>
+        <option value="probe">{{ t('audit.filter_probes') }}</option>
+        <option value="alert_channel">{{ t('audit.filter_alert_channels') }}</option>
       </select>
     </div>
 
@@ -25,10 +25,10 @@
       <table class="w-full text-sm">
         <thead class="border-b border-gray-800">
           <tr class="text-left text-gray-500">
-            <th class="px-4 py-3">Timestamp</th>
-            <th class="px-4 py-3">Action</th>
-            <th class="px-4 py-3">Object</th>
-            <th class="px-4 py-3">User</th>
+            <th class="px-4 py-3">{{ t('audit.col_timestamp') }}</th>
+            <th class="px-4 py-3">{{ t('audit.col_action') }}</th>
+            <th class="px-4 py-3">{{ t('audit.col_object') }}</th>
+            <th class="px-4 py-3">{{ t('audit.col_user') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -49,7 +49,7 @@
             <td class="px-4 py-3 text-gray-400">{{ entry.user_email || 'system' }}</td>
           </tr>
           <tr v-if="logs.length === 0">
-            <td colspan="4" class="px-4 py-12 text-center text-gray-500">No audit log entries.</td>
+            <td colspan="4" class="px-4 py-12 text-center text-gray-500">{{ t('audit.empty') }}</td>
           </tr>
         </tbody>
       </table>
@@ -57,14 +57,14 @@
 
     <!-- Diff panel -->
     <div v-if="selected?.diff" class="mt-4 card">
-      <h3 class="text-sm font-semibold text-gray-300 mb-3">Changes</h3>
+      <h3 class="text-sm font-semibold text-gray-300 mb-3">{{ t('audit.changes') }}</h3>
       <div class="grid grid-cols-2 gap-4">
         <div>
-          <div class="text-xs text-gray-500 mb-1">Before</div>
+          <div class="text-xs text-gray-500 mb-1">{{ t('audit.before') }}</div>
           <pre class="text-xs text-gray-400 bg-gray-800 rounded p-3 overflow-auto max-h-64">{{ JSON.stringify(selected.diff.before, null, 2) }}</pre>
         </div>
         <div>
-          <div class="text-xs text-gray-500 mb-1">After</div>
+          <div class="text-xs text-gray-500 mb-1">{{ t('audit.after') }}</div>
           <pre class="text-xs text-gray-300 bg-gray-800 rounded p-3 overflow-auto max-h-64">{{ JSON.stringify(selected.diff.after, null, 2) }}</pre>
         </div>
       </div>
@@ -72,14 +72,17 @@
 
     <!-- Load more -->
     <button v-if="logs.length >= limit" @click="loadMore" class="mt-4 btn-secondary w-full text-sm">
-      Load more
+      {{ t('audit.load_more') }}
     </button>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import api from '../api/client'
+
+const { t } = useI18n()
 
 const logs = ref([])
 const selected = ref(null)
@@ -89,7 +92,7 @@ const limit = ref(100)
 const offset = ref(0)
 
 function formatDt(dt) {
-  return new Date(dt).toLocaleString('fr-FR')
+  return new Date(dt).toLocaleString()
 }
 
 function actionClass(action) {
@@ -111,7 +114,7 @@ async function load() {
     const { data } = await api.get('/audit/', { params })
     logs.value = data
   } catch (err) {
-    showError('Failed to load audit logs.')
+    showError(t('common.error'))
     console.error(err)
   }
 }
@@ -124,7 +127,7 @@ async function loadMore() {
     const { data } = await api.get('/audit/', { params })
     logs.value.push(...data)
   } catch (err) {
-    showError('Failed to load more entries.')
+    showError(t('common.error'))
   }
 }
 

@@ -14,3 +14,8 @@ app.use(i18n)
 app.use(VueApexCharts)
 
 app.mount('#app')
+
+// Register service worker for Web Push
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {})
+}

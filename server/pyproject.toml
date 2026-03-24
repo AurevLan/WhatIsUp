@@ -48,6 +48,9 @@ dependencies = [
     # HTTP client (webhook/telegram dispatch + probe validation)
     "httpx>=0.28.0,<0.29",
 
+    # Web Push (VAPID)
+    "pywebpush>=1.9.0,<2",
+
     # Structured logging
     "structlog>=25.1.0,<26",
 

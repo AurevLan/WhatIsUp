@@ -11,6 +11,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.0] - 2026-03-24
+
+### Added
+
+#### Web Push notifications (PWA)
+- Push notifications via the Web Push API (VAPID) — browser receives alerts even with the tab closed
+- New `WebPushSubscription` model and `web_push_subscriptions` table (migration `f0a1b2c3d4e5`)
+- Backend service `services/web_push.py`: VAPID signing via `pywebpush`, async dispatch wrapped in `asyncio.to_thread`, automatic removal of expired subscriptions (HTTP 410)
+- REST API `GET|POST|DELETE /api/v1/push/subscription` + `GET /api/v1/push/vapid-public-key` + `POST /api/v1/push/subscription/test`
+- Push fired automatically on `incident_opened` and `incident_resolved` for the monitor owner (hooked in `services/incident.py`, independent of AlertRules)
+- Frontend service worker `public/sw.js`: handles `push` events, shows system notification, `notificationclick` opens/focuses the app
+- PWA manifest `public/manifest.json` + `<link rel="manifest">` + `<meta name="theme-color">` in `index.html`
+- Pinia store `stores/webPush.js`: permission request, subscribe/unsubscribe/test, base64url→Uint8Array VAPID key conversion
+- Settings page: "Push notifications" section with subscribe/unsubscribe/test buttons and status indicator
+- Service worker registered in `main.js` on app load
+- New config fields: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_CONTACT_EMAIL` (optional — push silently disabled if unset)
+- `pywebpush>=1.9.0,<2` added to server dependencies
+
+#### Monitor editing
+- Edit modal `EditMonitorModal.vue` — pre-fills all fields from the existing monitor, calls `PATCH /api/v1/monitors/{id}`, emits `updated` on success
+- Edit button (pencil icon) added to each row in `MonitorsView.vue`
+
+#### UI / UX redesign ("Graphite Studio")
+- New typography: `Plus Jakarta Sans` (UI) + `JetBrains Mono` (data/code) loaded from Google Fonts
+- Design tokens via CSS custom properties (`--bg-surface`, `--text-1`, `--accent`, `--border`, etc.) — consistent palette across all components
+- Fully responsive layout: sidebar slides in from the left on mobile (<1024 px) with a backdrop overlay; hamburger button with animated open/close icon in the topbar
+- Language toggle relocated from the sidebar to the top-right header bar
+- `NavLink.vue` rewritten with scoped CSS: clean active state (accent fill), animated hover, compact badge
+- `MonitorRow.vue` redesigned: progressive disclosure — response time hidden <480 px, uptime hidden <640 px; DOWN dot animates with a `pulse-ring` halo
+- `DashboardView.vue`: responsive stat cards (2 cols mobile → 3 cols tablet → 5 cols desktop), reworked grid layout
+- `style.css`: new `.card`, `.btn-*`, `.input`, `.badge-*`, `.skeleton` shimmer loader, `.sidebar-overlay` backdrop
+- ProbeMap: auto-zoom to probe locations on load (`fitBounds` with padding; single probe → zoom level 6)
+
+### Changed
+- Probe health auto-refresh in `ProbesView.vue`: data refreshed every 60 s; `isOnline` threshold raised from 120 s to 300 s to tolerate heartbeat jitter
+- `AppLayout.vue`: topbar is now `position: sticky` so it stays visible while scrolling content
+- Sidebar `position: sticky` on desktop (in flex flow) — eliminates the double-offset gap that appeared with `margin-left` + in-flow sidebar
+
+### Fixed
+- **i18n — duplicate `common:` key**: both `en.js` and `fr.js` had a second `common:` block (containing only `day`/`days`) that silently overrode the first block, making `common.save`, `common.cancel`, `common.loading`, etc. display as literal keys. Fixed by merging `day`/`days` into the first block and removing the duplicate.
+- `AuditView.vue`: all strings were hardcoded in English with no `useI18n()` usage — fully rewritten with i18n keys and `toLocaleString()` (no more hardcoded `'fr-FR'` locale)
+- `MaintenanceView.vue`: hardcoded English/French strings replaced with i18n keys; `formatDt` locale-agnostic
+- **Hamburger button visible on desktop**: `lg:hidden` Tailwind class was not applied because the element uses scoped CSS — fixed with an explicit `@media (min-width: 1024px) { display: none }` rule
+- **Sidebar gap on desktop**: redundant `margin-left: var(--sidebar-w)` on `.main` caused a 224 px blank strip alongside the sticky sidebar — rule removed
+
+### Database migrations
+
+| Revision | Description |
+|----------|-------------|
+| `f0a1b2c3d4e5` | Create `web_push_subscriptions` table with `user_id` FK, `endpoint`, `p256dh`, `auth`, `user_agent` |
+
+---
+
 ## [0.8.1] - 2026-03-24
 
 ### Added
@@ -450,7 +503,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docker Compose (dev + prod with Nginx + TLS)
 - Security: rate limiting, security headers, JWT validation, probe API key bcrypt hashing
 
-[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v0.8.1...HEAD
+[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/AurevLan/WhatIsUp/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.6.0...v0.7.0

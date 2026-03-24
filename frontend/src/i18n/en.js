@@ -47,6 +47,7 @@ export default {
     required: 'required',
     day: 'day',
     days: 'days',
+    view_all: 'View all',
   },
 
   // Status
@@ -64,6 +65,7 @@ export default {
   // Dashboard
   dashboard: {
     title: 'Dashboard',
+    subtitle: 'Real-time overview of your monitored services',
     total_monitors: 'Total monitors',
     monitors_up: 'Monitors up',
     monitors_down: 'Monitors down',
@@ -340,6 +342,16 @@ export default {
     appearance: 'Appearance',
     account: 'Account',
     administration: 'Administration',
+    push_title: 'Push notifications',
+    push_desc: 'Receive alerts on this device even when the tab is closed.',
+    push_subscribe: 'Enable push notifications',
+    push_unsubscribe: 'Disable push notifications',
+    push_test: 'Send a test notification',
+    push_subscribed: 'Active — this device will receive alerts',
+    push_not_subscribed: 'Inactive',
+    push_not_supported: 'Your browser does not support push notifications.',
+    push_not_configured: 'Push notifications are not configured on this server.',
+    push_permission_denied: 'Notification permission denied. Please enable it in your browser settings.',
   },
 
   // API Keys
@@ -367,13 +379,37 @@ export default {
   },
 
   // Maintenance
+  audit: {
+    title: 'Audit Log',
+    subtitle: 'History of all changes made in the system',
+    filter_all: 'All objects',
+    filter_monitors: 'Monitors',
+    filter_probes: 'Probes',
+    filter_alert_channels: 'Alert channels',
+    col_timestamp: 'Timestamp',
+    col_action: 'Action',
+    col_object: 'Object',
+    col_user: 'User',
+    empty: 'No audit log entries.',
+    changes: 'Changes',
+    before: 'Before',
+    after: 'After',
+    load_more: 'Load more',
+  },
+
   maintenance: {
     title: 'Maintenance windows',
+    subtitle: 'Schedule downtime windows to suppress alerts',
     add: 'Add window',
+    modal_title: 'New maintenance window',
     no_windows: 'No maintenance windows',
     starts: 'Starts',
     ends: 'Ends',
     active: 'Active',
+    alerts_suppressed: 'Alerts suppressed',
+    suppress_alerts_label: 'Suppress alerts during window',
+    confirm_delete: 'Delete this maintenance window?',
+    confirm_delete_detail: 'This action is irreversible.',
   },
 
   // Public status page

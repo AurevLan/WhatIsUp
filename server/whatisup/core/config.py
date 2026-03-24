@@ -76,6 +76,12 @@ class Settings(BaseSettings):
     # If True, create a new local account on first OIDC login (invite-only = False)
     oidc_auto_provision: bool = True
 
+    # Web Push (VAPID)
+    # Generate keys: python -c "from py_vapid import Vapid; v=Vapid(); v.generate_keys(); print('Private:', v.private_key); print('Public:', v.public_key_urlsafe)"
+    vapid_private_key: str = ""   # PEM string or base64url private key
+    vapid_public_key: str = ""    # base64url public key — sent to frontend
+    vapid_contact_email: str = "admin@example.com"
+
     # Feature flags
     registration_open: bool = True  # False = invite-only after first user
 

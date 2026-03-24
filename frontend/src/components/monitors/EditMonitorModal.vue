@@ -338,7 +338,7 @@ const props = defineProps({
   monitor: { type: Object, required: true },
 })
 
-const { t } = useI18n()
+const { t } = useI18n({ useScope: 'global' })
 
 const emit = defineEmits(['close', 'updated'])
 const monitorStore = useMonitorStore()

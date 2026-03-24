@@ -207,7 +207,7 @@
                   <Eye class="w-3.5 h-3.5" />
                 </router-link>
                 <button @click="editingMonitor = monitor" class="btn-ghost px-2 py-1 text-xs" :title="t('common.edit')">
-                  <Pencil class="w-3.5 h-3.5" />
+                  <PencilLine class="w-3.5 h-3.5" />
                 </button>
                 <button @click="toggleEnabled(monitor)" class="btn-ghost px-2 py-1 text-xs" :title="monitor.enabled ? t('monitors.bulk_pause') : t('monitors.bulk_enable')">
                   <Pause v-if="monitor.enabled" class="w-3.5 h-3.5" />
@@ -298,7 +298,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Download, Eye, LayoutGrid, List, Monitor, Pause, PauseCircle, Pencil, Play, Plus, Search, Trash2, X } from 'lucide-vue-next'
+import { Download, Eye, LayoutGrid, List, Monitor, Pause, PauseCircle, PencilLine, Play, Plus, Search, Trash2, X } from 'lucide-vue-next'
 import { useMonitorStore } from '../stores/monitors'
 import { monitorsApi } from '../api/monitors'
 import { useToast } from '../composables/useToast'

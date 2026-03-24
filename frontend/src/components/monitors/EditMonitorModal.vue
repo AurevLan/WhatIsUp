@@ -330,15 +330,15 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { useI18n } from 'vue-i18n'
 import { useMonitorStore } from '../../stores/monitors'
 import ScenarioBuilder from './ScenarioBuilder.vue'
+import { i18n } from '../../i18n'
 
 const props = defineProps({
   monitor: { type: Object, required: true },
 })
 
-const { t } = useI18n({ useScope: 'global' })
+const t = i18n.global.t.bind(i18n.global)
 
 const emit = defineEmits(['close', 'updated'])
 const monitorStore = useMonitorStore()

@@ -23,7 +23,8 @@ jobs:
       - name: Install server + pip-audit
         run: pip install -e ".[dev]" pip-audit
       - name: Audit server dependencies
-        run: pip-audit
+        # CVE-2026-4539 (pygments): no fix release yet — revisit when pygments > 2.19.2
+        run: pip-audit --ignore-vuln CVE-2026-4539
 
   pip-audit-probe:
     name: pip-audit (probe)
@@ -39,7 +40,8 @@ jobs:
       - name: Install probe + pip-audit
         run: pip install -e ".[dev]" pip-audit
       - name: Audit probe dependencies
-        run: pip-audit
+        # CVE-2026-4539 (pygments): no fix release yet — revisit when pygments > 2.19.2
+        run: pip-audit --ignore-vuln CVE-2026-4539
 
   npm-audit-frontend:
     name: npm audit (frontend)

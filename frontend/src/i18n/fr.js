@@ -68,6 +68,7 @@ export default {
   monitors: {
     title: 'Moniteurs',
     add: 'Ajouter un moniteur',
+    edit_title: 'Modifier le moniteur',
     no_monitors: 'Aucun moniteur',
     no_results: 'Aucun moniteur ne correspond aux filtres',
     filter_status: 'Filtrer par statut',

@@ -206,6 +206,9 @@
                 <router-link :to="`/monitors/${monitor.id}`" class="btn-ghost px-2 py-1 text-xs">
                   <Eye class="w-3.5 h-3.5" />
                 </router-link>
+                <button @click="editingMonitor = monitor" class="btn-ghost px-2 py-1 text-xs" :title="t('common.edit')">
+                  <Pencil class="w-3.5 h-3.5" />
+                </button>
                 <button @click="toggleEnabled(monitor)" class="btn-ghost px-2 py-1 text-xs" :title="monitor.enabled ? t('monitors.bulk_pause') : t('monitors.bulk_enable')">
                   <Pause v-if="monitor.enabled" class="w-3.5 h-3.5" />
                   <Play v-else class="w-3.5 h-3.5" />
@@ -288,18 +291,20 @@
     </div>
 
     <CreateMonitorModal v-if="showCreate" @close="showCreate = false" @created="onCreated" />
+    <EditMonitorModal v-if="editingMonitor" :monitor="editingMonitor" @close="editingMonitor = null" @updated="onUpdated" />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Download, Eye, LayoutGrid, List, Monitor, Pause, PauseCircle, Play, Plus, Search, Trash2, X } from 'lucide-vue-next'
+import { Download, Eye, LayoutGrid, List, Monitor, Pause, PauseCircle, Pencil, Play, Plus, Search, Trash2, X } from 'lucide-vue-next'
 import { useMonitorStore } from '../stores/monitors'
 import { monitorsApi } from '../api/monitors'
 import { useToast } from '../composables/useToast'
 import { useConfirm } from '../composables/useConfirm'
 import CreateMonitorModal from '../components/monitors/CreateMonitorModal.vue'
+import EditMonitorModal from '../components/monitors/EditMonitorModal.vue'
 
 const { t } = useI18n()
 const monitorStore = useMonitorStore()
@@ -315,6 +320,7 @@ const filterStatus  = ref('')
 const filterType    = ref('')
 const filterGroup   = ref('')
 const showCreate    = ref(false)
+const editingMonitor = ref(null)
 
 // Persist view mode
 const STORAGE_KEY = 'whatisup_monitors_view'
@@ -516,6 +522,12 @@ function onCreated() {
   showCreate.value = false
   monitorStore.fetchAll()
   success('Monitor créé avec succès')
+}
+
+function onUpdated() {
+  editingMonitor.value = null
+  monitorStore.fetchAll()
+  success('Monitor mis à jour')
 }
 
 onMounted(() => monitorStore.fetchAll())

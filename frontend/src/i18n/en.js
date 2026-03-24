@@ -77,6 +77,7 @@ export default {
   monitors: {
     title: 'Monitors',
     add: 'Add monitor',
+    edit_title: 'Edit monitor',
     no_monitors: 'No monitors yet',
     no_results: 'No monitors match your filters',
     filter_status: 'Filter by status',

@@ -70,6 +70,23 @@ class ProbeCheckResultIn(BaseModel):
     schema_fingerprint: str | None = Field(default=None, max_length=64)
 
 
+class ProbeHealthPayload(BaseModel):
+    """System health metrics reported by the probe at each heartbeat."""
+
+    cpu_percent: float | None = Field(default=None, ge=0, le=100)
+    ram_percent: float | None = Field(default=None, ge=0, le=100)
+    disk_percent: float | None = Field(default=None, ge=0, le=100)
+    load_avg_1m: float | None = Field(default=None, ge=0)
+    monitors_active: int | None = Field(default=None, ge=0)
+    checks_running: int | None = Field(default=None, ge=0)
+
+
+class ProbeHeartbeatRequest(BaseModel):
+    """Body sent by the probe at each heartbeat."""
+
+    health: ProbeHealthPayload | None = None
+
+
 class ProbeHeartbeatResponse(BaseModel):
     """Response to probe heartbeat — includes monitor configs to check."""
 
@@ -127,7 +144,7 @@ class ProbeMonitorStatus(BaseModel):
 
 
 class ProbeStatsOut(BaseModel):
-    """Probe with 24h availability stats — used for dashboard map."""
+    """Probe with 24h availability stats and live health — used for dashboard map."""
 
     id: uuid.UUID
     name: str
@@ -139,5 +156,6 @@ class ProbeStatsOut(BaseModel):
     network_type: NetworkType
     uptime_24h: float | None
     check_count_24h: int
+    health: ProbeHealthPayload | None = None
 
     model_config = {"from_attributes": True}

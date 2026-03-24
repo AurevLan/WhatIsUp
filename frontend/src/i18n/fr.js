@@ -234,6 +234,10 @@ export default {
     saving: 'Sauvegarde…',
     name_label: 'Nom de la sonde',
     name_placeholder: 'paris-sonde-01',
+    health_title: 'Santé système',
+    health_monitors: 'Moniteurs',
+    health_running: 'en cours',
+    health_load: 'Charge',
   },
   alerts: {
     title: "Règles d'alerte",

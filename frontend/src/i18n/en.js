@@ -247,6 +247,10 @@ export default {
     saving: 'Saving…',
     name_label: 'Probe Name',
     name_placeholder: 'paris-probe-01',
+    health_title: 'System health',
+    health_monitors: 'Monitors',
+    health_running: 'running',
+    health_load: 'Load',
   },
 
   // Alerts

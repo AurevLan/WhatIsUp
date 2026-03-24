@@ -73,6 +73,41 @@
             </div>
           </div>
 
+          <!-- Health metrics (superadmin, probe online with recent health data) -->
+          <div v-if="probe.health && isOnline(probe)" class="mt-3 pt-3 border-t border-gray-800/60">
+            <p class="text-xs font-medium text-gray-500 mb-2">{{ t('probes.health_title') }}</p>
+            <div class="space-y-1.5">
+              <div v-for="metric in [
+                { label: 'CPU', value: probe.health.cpu_percent },
+                { label: 'RAM', value: probe.health.ram_percent },
+                { label: 'Disk', value: probe.health.disk_percent },
+              ]" :key="metric.label" class="flex items-center gap-2">
+                <span class="text-xs text-gray-500 w-10 shrink-0">{{ metric.label }}</span>
+                <div class="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                  <div class="h-full rounded-full transition-all"
+                    :class="healthBarColor(metric.value)"
+                    :style="{ width: (metric.value ?? 0) + '%' }"></div>
+                </div>
+                <span class="text-xs text-gray-400 w-8 text-right shrink-0">
+                  {{ metric.value != null ? metric.value.toFixed(0) + '%' : '—' }}
+                </span>
+              </div>
+              <div class="flex justify-between items-center pt-0.5">
+                <span class="text-xs text-gray-500">{{ t('probes.health_monitors') }}</span>
+                <span class="text-xs text-gray-300">
+                  {{ probe.health.monitors_active }}
+                  <span class="text-gray-500">({{ probe.health.checks_running }} {{ t('probes.health_running') }})</span>
+                </span>
+              </div>
+              <div v-if="probe.health.load_avg_1m != null" class="flex justify-between items-center">
+                <span class="text-xs text-gray-500">{{ t('probes.health_load') }} 1m</span>
+                <span class="text-xs" :class="probe.health.load_avg_1m > 2 ? 'text-amber-400' : 'text-gray-400'">
+                  {{ probe.health.load_avg_1m.toFixed(2) }}
+                </span>
+              </div>
+            </div>
+          </div>
+
           <div v-if="auth.isSuperadmin" class="mt-4 pt-4 border-t border-gray-800 flex gap-4">
             <router-link
               :to="`/probes/${probe.id}/timeline`"
@@ -211,6 +246,13 @@ function formatDate(dt) {
   return new Date(dt).toLocaleString()
 }
 
+function healthBarColor(pct) {
+  if (pct == null) return 'bg-gray-600'
+  if (pct < 60) return 'bg-emerald-500'
+  if (pct < 80) return 'bg-amber-500'
+  return 'bg-red-500'
+}
+
 // ── data ─────────────────────────────────────────────────────────────────────
 function showError(msg) {
   errorMsg.value = msg
@@ -219,7 +261,10 @@ function showError(msg) {
 
 async function loadProbes() {
   try {
-    const { data } = await probesApi.list()
+    // Superadmins get enriched stats (uptime 24h + live health); others get basic list
+    const { data } = auth.isSuperadmin
+      ? await probesApi.stats()
+      : await probesApi.list()
     probes.value = data
   } catch (err) {
     showError(t('common.error'))

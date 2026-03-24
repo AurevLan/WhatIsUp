@@ -24,6 +24,8 @@ from whatisup.models.user import User
 from whatisup.schemas.probe import (
     ProbeCheckResultIn,
     ProbeCreate,
+    ProbeHealthPayload,
+    ProbeHeartbeatRequest,
     ProbeHeartbeatResponse,
     ProbeMonitorConfig,
     ProbeOut,
@@ -88,6 +90,19 @@ async def probe_stats(
 
     stats_map = {row.probe_id: row for row in agg}
 
+    # Fetch live health metrics from Redis (written at each heartbeat, TTL 120s)
+    from whatisup.core.redis import get_redis
+
+    redis = get_redis()
+    health_values = await redis.mget([f"whatisup:probe_health:{p.id}" for p in probes])
+    health_map: dict[uuid.UUID, ProbeHealthPayload] = {}
+    for probe, hv in zip(probes, health_values):
+        if hv:
+            try:
+                health_map[probe.id] = ProbeHealthPayload.model_validate_json(hv)
+            except Exception:
+                logger.warning("probe_health_parse_failed", probe_id=str(probe.id))
+
     out = []
     for probe in probes:
         row = stats_map.get(probe.id)
@@ -105,6 +120,7 @@ async def probe_stats(
             "network_type": probe.network_type,
             "uptime_24h": uptime,
             "check_count_24h": total,
+            "health": health_map.get(probe.id),
         })
     return out
 
@@ -155,15 +171,27 @@ async def register_probe(
     }
 
 
-@router.get("/heartbeat", response_model=ProbeHeartbeatResponse)
-@limiter.limit("30/minute")
+@router.post("/heartbeat", response_model=ProbeHeartbeatResponse)
+@limiter.limit("120/minute")
 async def heartbeat(
     request: Request,
+    payload: ProbeHeartbeatRequest,
     probe: Probe = Depends(get_current_probe),
     db: AsyncSession = Depends(get_db),
 ) -> ProbeHeartbeatResponse:
-    """Probe heartbeat — returns current list of enabled monitors to check."""
+    """Probe heartbeat — updates last_seen, stores health metrics, returns monitor list."""
     probe.last_seen_at = datetime.now(UTC)
+
+    from whatisup.core.redis import get_redis
+
+    redis = get_redis()
+
+    if payload.health:
+        await redis.set(
+            f"whatisup:probe_health:{probe.id}",
+            payload.health.model_dump_json(),
+            ex=120,
+        )
 
     monitors = list(
         (
@@ -181,9 +209,6 @@ async def heartbeat(
     )
 
     # Check for immediate trigger requests set via the trigger-check endpoint
-    from whatisup.core.redis import get_redis
-
-    redis = get_redis()
     trigger_keys = await redis.mget([f"whatisup:trigger_check:{m.id}" for m in monitors])
     trigger_map = {str(m.id): bool(v) for m, v in zip(monitors, trigger_keys)}
 
@@ -228,7 +253,7 @@ async def heartbeat(
 
 
 @router.post("/results", status_code=status.HTTP_202_ACCEPTED)
-@limiter.limit("60/minute")
+@limiter.limit("600/minute")
 async def push_result(
     request: Request,
     payload: ProbeCheckResultIn,

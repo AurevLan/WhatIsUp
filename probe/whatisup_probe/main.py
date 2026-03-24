@@ -42,6 +42,8 @@ async def run() -> None:
         await asyncio.Event().wait()
     except asyncio.CancelledError:
         pass
+    finally:
+        await scheduler.aclose()
 
 
 def main() -> None:

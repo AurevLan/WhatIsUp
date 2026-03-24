@@ -577,7 +577,10 @@ async def _check_scenario(
 
     try:
         async with async_playwright() as pw:
-            browser = await pw.chromium.launch(headless=True)
+            browser = await pw.chromium.launch(
+                headless=True,
+                args=["--no-sandbox", "--disable-dev-shm-usage"],
+            )
             context = await browser.new_context(
                 viewport={"width": 1280, "height": 720},
                 ignore_https_errors=True,

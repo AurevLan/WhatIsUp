@@ -170,6 +170,7 @@ services:
       server:
         condition: service_healthy
     restart: unless-stopped
+    shm_size: '256mb'
     profiles:
       - central-probe
 
@@ -183,7 +184,7 @@ services:
       PROBE_NAME: ${PROBE_NAME:-local-probe}
       PROBE_LOCATION: ${PROBE_LOCATION:-Local}
       HEARTBEAT_INTERVAL: "30"
-      MAX_CONCURRENT_CHECKS: "20"
+      MAX_CONCURRENT_CHECKS: "10"
     dns:
       - ${PROBE_DNS_1:-8.8.8.8}
       - ${PROBE_DNS_2:-8.8.4.4}
@@ -193,11 +194,7 @@ services:
       server:
         condition: service_healthy
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 512m
-          cpus: "1.0"
+    shm_size: '256mb'
     profiles:
       - probe
 

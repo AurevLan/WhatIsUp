@@ -30,6 +30,7 @@ services:
       HEARTBEAT_INTERVAL: ${HEARTBEAT_INTERVAL:-30}
       MAX_CONCURRENT_CHECKS: ${MAX_CONCURRENT_CHECKS:-10}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    shm_size: '256mb'
     dns:
       - ${PROBE_DNS_1:-8.8.8.8}
       - ${PROBE_DNS_2:-8.8.4.4}

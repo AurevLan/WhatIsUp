@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from typing import Any
 
+import psutil
 import structlog
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
@@ -23,9 +25,28 @@ class ProbeScheduler:
         self._scheduler = AsyncIOScheduler()
         self._semaphore = asyncio.Semaphore(self._settings.max_concurrent_checks)
         self._monitors: dict[str, dict[str, Any]] = {}  # monitor_id -> config
+        psutil.cpu_percent(interval=None)  # first call always returns 0.0; discard it
 
     def _make_job_id(self, monitor_id: str) -> str:
         return f"check_{monitor_id}"
+
+    def _collect_health(self) -> dict:
+        """Collect current system health metrics (non-blocking)."""
+        try:
+            load_avg_1m: float | None = round(os.getloadavg()[0], 2)
+        except (AttributeError, OSError):
+            load_avg_1m = None
+
+        checks_running = self._settings.max_concurrent_checks - self._semaphore._value
+
+        return {
+            "cpu_percent": psutil.cpu_percent(interval=None),
+            "ram_percent": psutil.virtual_memory().percent,
+            "disk_percent": psutil.disk_usage("/").percent,
+            "load_avg_1m": load_avg_1m,
+            "monitors_active": len(self._monitors),
+            "checks_running": max(0, checks_running),
+        }
 
     async def _run_check(self, monitor: dict[str, Any]) -> None:
         async with self._semaphore:
@@ -65,7 +86,7 @@ class ProbeScheduler:
 
     async def sync_monitors(self) -> None:
         """Fetch monitor list from central and synchronize scheduled jobs."""
-        monitors = await self._reporter.heartbeat()
+        monitors = await self._reporter.heartbeat(self._collect_health())
         if monitors is None:
             logger.warning("heartbeat_failed_skipping_sync")
             return
@@ -143,3 +164,6 @@ class ProbeScheduler:
     def stop(self) -> None:
         self._scheduler.shutdown(wait=False)
         logger.info("probe_scheduler_stopped")
+
+    async def aclose(self) -> None:
+        await self._reporter.aclose()

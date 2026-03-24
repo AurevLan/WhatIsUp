@@ -11,6 +11,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.8.1] - 2026-03-24
+
+### Added
+
+#### Probe health monitoring
+- Probe reports live system metrics at each heartbeat: CPU %, RAM %, disk %, load average (1m), active monitor count, concurrent checks in progress
+- Metrics collected via `psutil` (no external dependency for the probe agent beyond package install)
+- Server stores health in Redis with a 120 s TTL — automatically marked stale when a probe goes offline
+- `GET /api/v1/probes/stats` enriched with a `health` field per probe (populated via a single `MGET`, no extra round-trips)
+- Portal (superadmin): probe cards show color-coded progress bars (green < 60 %, amber < 80 %, red ≥ 80 %) for CPU / RAM / Disk, plus monitors count, concurrent checks, and load average
+
+#### Tests
+- New `server/tests/test_probes.py`: 17 tests covering probe registration, heartbeat POST with/without health, Pydantic field validation, Redis TTL persistence, stats enrichment, stale-health null, auth guards
+- New `probe/tests/test_health.py`: 9 tests covering `_collect_health()` keys/types/state, heartbeat POST body, error handling, client reuse
+
+### Changed
+
+#### Probe scalability
+- Heartbeat endpoint changed from `GET` to `POST` — probe sends `{"health": {...}}` body alongside the request
+- `Reporter`: persistent `httpx.AsyncClient` shared across all pushes — eliminates per-result TCP handshake
+- Chromium (scenario checks): launch args `--no-sandbox` + `--disable-dev-shm-usage` — fixes random crashes in Docker non-root containers
+- `shm_size: 256mb` added to all probe Docker Compose services (defense-in-depth alongside `--disable-dev-shm-usage`)
+- `MAX_CONCURRENT_CHECKS` default: 20 → 10 — avoids OOM when scenario checks (Chromium, ~150–300 MB each) run concurrently
+- Rate limit `/api/v1/probes/results`: 60/min → 600/min — previous limit caused 429s for probes with ≥ 30 monitors at 30 s intervals
+- Rate limit `/api/v1/probes/heartbeat`: 30/min → 120/min
+- DB connection pool: `pool_size` 10 → 20, `max_overflow` 20 → 10 — more permanent connections, fewer spike allocations
+- `psutil.cpu_percent()` warm-up call in scheduler `__init__` — prevents the documented first-call 0.0 from appearing in the initial heartbeat
+
+### Fixed
+- `deploy.resources.limits` block removed from the `probe` Compose service — this block is Swarm-only and was silently ignored by `docker compose`, giving a false sense of memory capping
+
+---
+
 ## [0.8.0] - 2026-03-22
 
 ### Added
@@ -417,7 +450,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docker Compose (dev + prod with Nginx + TLS)
 - Security: rate limiting, security headers, JWT validation, probe API key bcrypt hashing
 
-[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/AurevLan/WhatIsUp/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.5.0...v0.6.0

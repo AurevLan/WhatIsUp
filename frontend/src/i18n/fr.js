@@ -247,6 +247,7 @@ export default {
     channels: 'Canaux',
     add_rule: 'Ajouter une règle',
     add_channel: 'Ajouter un canal',
+    edit_rule: 'Modifier la règle',
     no_rules: "Aucune règle d'alerte",
     no_channels: 'Aucun canal configuré',
     channel_type: {

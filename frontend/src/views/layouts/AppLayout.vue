@@ -39,22 +39,8 @@
         </template>
       </div>
 
-      <!-- User + lang toggle -->
+      <!-- User -->
       <div style="padding:12px 8px;border-top:1px solid #1e293b;">
-        <!-- Language toggle -->
-        <div style="display:flex;justify-content:center;margin-bottom:8px;">
-          <button
-            @click="toggleLang"
-            :title="t('settings.language')"
-            style="background:none;border:1px solid #1e293b;cursor:pointer;color:#475569;padding:4px 10px;border-radius:6px;display:flex;align-items:center;gap:6px;font-size:12px;transition:all .15s;"
-            onmouseenter="this.style.borderColor='#334155';this.style.color='#94a3b8';"
-            onmouseleave="this.style.borderColor='#1e293b';this.style.color='#475569';"
-          >
-            <span style="font-size:14px;line-height:1;">{{ currentLang === 'en' ? '🇫🇷' : '🇬🇧' }}</span>
-            <span>{{ currentLang === 'en' ? 'FR' : 'EN' }}</span>
-          </button>
-        </div>
-
         <div style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:10px;cursor:pointer;" onmouseenter="this.style.background='#1e293b'" onmouseleave="this.style.background='transparent'">
           <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:white;flex-shrink:0;">
             {{ auth.user?.username?.[0]?.toUpperCase() || 'U' }}
@@ -72,6 +58,19 @@
 
     <!-- Main -->
     <div style="flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden;">
+      <!-- Top bar -->
+      <div style="display:flex;align-items:center;justify-content:flex-end;padding:8px 20px;border-bottom:1px solid #1e293b;background:#0a0f1e;min-height:44px;">
+        <button
+          @click="toggleLang"
+          :title="t('settings.language')"
+          style="background:none;border:1px solid #1e293b;cursor:pointer;color:#475569;padding:4px 10px;border-radius:6px;display:flex;align-items:center;gap:6px;font-size:12px;transition:all .15s;"
+          onmouseenter="this.style.borderColor='#334155';this.style.color='#94a3b8';"
+          onmouseleave="this.style.borderColor='#1e293b';this.style.color='#475569';"
+        >
+          <span style="font-size:14px;line-height:1;">{{ currentLang === 'en' ? '🇫🇷' : '🇬🇧' }}</span>
+          <span>{{ currentLang === 'en' ? 'FR' : 'EN' }}</span>
+        </button>
+      </div>
       <!-- WS banner -->
       <div v-if="!ws.connected" style="display:flex;align-items:center;gap:8px;padding:10px 24px;background:rgba(245,158,11,.1);border-bottom:1px solid rgba(245,158,11,.2);color:#fbbf24;font-size:13px;">
         <WifiOff :size="14" />

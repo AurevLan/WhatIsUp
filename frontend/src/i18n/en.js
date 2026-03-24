@@ -45,6 +45,8 @@ export default {
     unknown: 'Unknown',
     optional: 'optional',
     required: 'required',
+    day: 'day',
+    days: 'days',
   },
 
   // Status
@@ -396,12 +398,6 @@ export default {
   // WebSocket banner
   ws: {
     reconnecting: 'Reconnecting to real-time updates…',
-  },
-
-  // Misc
-  common: {
-    day: 'day',
-    days: 'days',
   },
 
   // Probe timeline

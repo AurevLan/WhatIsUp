@@ -42,6 +42,8 @@ export default {
     unknown: 'Inconnu',
     optional: 'optionnel',
     required: 'requis',
+    day: 'jour',
+    days: 'jours',
   },
   status: {
     up: 'En ligne',
@@ -367,12 +369,6 @@ export default {
   },
   ws: {
     reconnecting: 'Reconnexion aux mises à jour en temps réel…',
-  },
-
-  // Divers
-  common: {
-    day: 'jour',
-    days: 'jours',
   },
 
   // Timeline probe

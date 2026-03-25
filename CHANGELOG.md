@@ -11,6 +11,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.1] - 2026-03-25
+
+### Fixed
+
+#### Frontend
+- **Auth redirect on expired session**: when no refresh token was present, a 401 response silently rejected the request instead of redirecting to `/login`; the redirect now fires in all 401 cases (no refresh token, or refresh token rejected by the server)
+
+#### Probe — Playwright / scenario reliability
+- **Zombie Chromium cleanup**: `kill_stale_chromium()` is called once at probe startup; kills any leftover `chrome-headless-shell` processes from a previous crash so they cannot block new browser launches
+- **Concurrent Playwright cap**: new `max_concurrent_scenarios` config (default: `2`) limits how many Chromium instances run simultaneously, independently of `max_concurrent_checks`; prevents OOM-kills on low-memory probe machines
+- **`--disable-gpu` flag**: added to the Chromium launch args; reduces GPU-related crashes in headless Docker containers
+
+---
+
 ## [0.9.0] - 2026-03-24
 
 ### Added
@@ -503,7 +517,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docker Compose (dev + prod with Nginx + TLS)
 - Security: rate limiting, security headers, JWT validation, probe API key bcrypt hashing
 
-[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v0.9.1...HEAD
+[0.9.1]: https://github.com/AurevLan/WhatIsUp/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/AurevLan/WhatIsUp/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.7.0...v0.8.0

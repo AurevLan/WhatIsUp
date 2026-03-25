@@ -1,286 +1,281 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675">
   <defs>
-    <linearGradient id="chartArea" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#22c55e" stop-opacity="0.25"/>
-      <stop offset="100%" stop-color="#22c55e" stop-opacity="0.02"/>
-    </linearGradient>
-    <linearGradient id="sloBar" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#22c55e"/>
-      <stop offset="99.2%" stop-color="#22c55e"/>
-      <stop offset="99.2%" stop-color="#334155"/>
-      <stop offset="100%" stop-color="#334155"/>
-    </linearGradient>
-    <filter id="shadow">
-      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#00000044"/>
-    </filter>
+    <clipPath id="chart-clip">
+      <rect x="282" y="284" width="836" height="116"/>
+    </clipPath>
   </defs>
 
   <!-- Background -->
-  <rect width="1200" height="675" fill="#0f172a"/>
+  <rect width="1200" height="675" fill="#0c1117"/>
 
   <!-- Sidebar -->
-  <rect x="0" y="0" width="220" height="675" fill="#0c1524"/>
-  <rect x="219" y="0" width="1" height="675" fill="#1e293b"/>
+  <rect x="0" y="0" width="224" height="675" fill="#131920"/>
+  <rect x="224" y="0" width="1" height="675" fill="#1e2d3d"/>
 
   <!-- Logo -->
-  <rect x="18" y="20" width="10" height="10" rx="2" fill="#3b82f6"/>
-  <rect x="32" y="20" width="10" height="10" rx="2" fill="#22c55e"/>
-  <text x="48" y="31" font-family="system-ui,sans-serif" font-size="15" font-weight="700" fill="#f1f5f9">WhatIsUp</text>
-  <rect x="12" y="52" width="196" height="1" fill="#1e293b"/>
+  <circle cx="28" cy="32" r="7" fill="#4f9cf9"/>
+  <circle cx="28" cy="32" r="3" fill="#0c1117"/>
+  <text x="44" y="37" font-family="system-ui, sans-serif" font-size="14" font-weight="700" fill="#e4ecf4">WhatIsUp</text>
 
-  <!-- Nav -->
-  <circle cx="26" cy="80" r="4" fill="#475569"/>
-  <text x="40" y="85" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">Dashboard</text>
-  <rect x="8" y="100" width="204" height="36" rx="8" fill="#3b82f6" opacity="0.15"/>
-  <rect x="8" y="100" width="3" height="36" rx="1" fill="#3b82f6"/>
-  <circle cx="26" cy="118" r="4" fill="#3b82f6"/>
-  <text x="40" y="123" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#3b82f6">Monitors</text>
-  <circle cx="26" cy="154" r="4" fill="#475569"/>
-  <text x="40" y="159" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">Probes</text>
-  <circle cx="26" cy="188" r="4" fill="#475569"/>
-  <text x="40" y="193" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">Alerts</text>
-  <circle cx="26" cy="222" r="4" fill="#475569"/>
-  <text x="40" y="227" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">Maintenance</text>
-  <circle cx="26" cy="256" r="4" fill="#475569"/>
-  <text x="40" y="261" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">Audit</text>
-  <rect x="12" y="630" width="196" height="1" fill="#1e293b"/>
-  <circle cx="28" cy="653" r="13" fill="#1e40af"/>
-  <text x="28" y="657" font-family="system-ui,sans-serif" font-size="11" font-weight="700" fill="#fff" text-anchor="middle">A</text>
-  <text x="48" y="649" font-family="system-ui,sans-serif" font-size="12" fill="#94a3b8">admin@local</text>
-  <text x="48" y="663" font-family="system-ui,sans-serif" font-size="10" fill="#475569">Superadmin</text>
+  <!-- Sidebar nav -->
+  <rect x="8" y="56" width="208" height="34" rx="6" fill="#1a2230"/>
+  <rect x="16" y="68" width="3" height="10" rx="1.5" fill="#4f9cf9"/>
+  <text x="30" y="78" font-family="system-ui, sans-serif" font-size="13" font-weight="500" fill="#e4ecf4">Monitors</text>
 
-  <!-- Main content -->
-  <rect x="220" y="0" width="980" height="675" fill="#0f172a"/>
+  <text x="20" y="116" font-family="system-ui, sans-serif" font-size="13" fill="#8899aa">Probes</text>
+  <text x="20" y="148" font-family="system-ui, sans-serif" font-size="13" fill="#8899aa">Groups</text>
+  <text x="20" y="180" font-family="system-ui, sans-serif" font-size="13" fill="#8899aa">Alerts</text>
+  <text x="20" y="212" font-family="system-ui, sans-serif" font-size="13" fill="#8899aa">Status Pages</text>
+  <text x="20" y="244" font-family="system-ui, sans-serif" font-size="13" fill="#8899aa">Incidents</text>
+  <text x="20" y="276" font-family="system-ui, sans-serif" font-size="13" fill="#8899aa">Maintenance</text>
+
+  <!-- Sidebar bottom -->
+  <rect x="0" y="608" width="224" height="1" fill="#1e2d3d"/>
+  <text x="20" y="632" font-family="system-ui, sans-serif" font-size="13" fill="#8899aa">Settings</text>
+  <text x="20" y="656" font-family="system-ui, sans-serif" font-size="11" fill="#4d6070">admin@example.com</text>
+
+  <!-- Topbar -->
+  <rect x="224" y="0" width="976" height="52" fill="#131920"/>
+  <rect x="224" y="52" width="976" height="1" fill="#1e2d3d"/>
 
   <!-- Breadcrumb -->
-  <text x="244" y="30" font-family="system-ui,sans-serif" font-size="12" fill="#3b82f6">← Monitors</text>
-  <rect x="220" y="38" width="980" height="1" fill="#1e293b"/>
+  <text x="244" y="31" font-family="system-ui, sans-serif" font-size="13" fill="#4d6070">Monitors</text>
+  <text x="308" y="31" font-family="system-ui, sans-serif" font-size="13" fill="#4d6070"> / </text>
+  <text x="324" y="31" font-family="system-ui, sans-serif" font-size="13" fill="#e4ecf4">korben.info</text>
 
-  <!-- Title row -->
-  <circle cx="260" cy="66" r="9" fill="#22c55e"/>
-  <circle cx="260" cy="66" r="14" fill="#22c55e" opacity="0.15"/>
-  <text x="282" y="58" font-family="system-ui,sans-serif" font-size="22" font-weight="700" fill="#f1f5f9">korben.info</text>
+  <!-- Lang toggle -->
+  <rect x="1128" y="14" width="48" height="26" rx="5" fill="#1a2230" stroke="#1e2d3d" stroke-width="1"/>
+  <text x="1152" y="31" font-family="system-ui, sans-serif" font-size="12" font-weight="600" fill="#8899aa" text-anchor="middle">FR</text>
+
+  <!-- Monitor header -->
+  <text x="244" y="96" font-family="system-ui, sans-serif" font-size="22" font-weight="700" fill="#e4ecf4">korben.info</text>
+
   <!-- UP badge -->
-  <rect x="456" y="46" width="40" height="22" rx="11" fill="#14532d"/>
-  <text x="476" y="62" font-family="system-ui,sans-serif" font-size="11" font-weight="700" fill="#22c55e" text-anchor="middle">UP</text>
+  <rect x="408" y="78" width="46" height="22" rx="11" fill="#34d399" fill-opacity="0.14"/>
+  <circle cx="420" cy="89" r="4" fill="#34d399"/>
+  <text x="427" y="93" font-family="system-ui, sans-serif" font-size="11" font-weight="700" fill="#34d399">UP</text>
 
-  <text x="282" y="78" font-family="monospace,system-ui" font-size="12" fill="#64748b">https://korben.info</text>
+  <!-- URL + meta -->
+  <text x="244" y="118" font-family="system-ui, sans-serif" font-size="13" fill="#4f9cf9">https://korben.info</text>
+  <text x="374" y="118" font-family="system-ui, sans-serif" font-size="13" fill="#4d6070"> · HTTP · 60s</text>
 
-  <!-- Buttons -->
-  <rect x="970" y="48" width="90" height="30" rx="6" fill="#3b82f6"/>
-  <text x="1015" y="68" font-family="system-ui,sans-serif" font-size="12" font-weight="600" fill="#fff" text-anchor="middle">▶ Test now</text>
-  <rect x="872" y="48" width="90" height="30" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-  <text x="917" y="68" font-family="system-ui,sans-serif" font-size="12" fill="#94a3b8" text-anchor="middle">✎ Edit</text>
+  <!-- Action buttons -->
+  <rect x="878" y="74" width="68" height="30" rx="6" fill="#1a2230" stroke="#1e2d3d" stroke-width="1"/>
+  <text x="912" y="93" font-family="system-ui, sans-serif" font-size="12" fill="#e4ecf4" text-anchor="middle">Edit</text>
 
-  <!-- Tabs -->
-  <rect x="220" y="90" width="980" height="1" fill="#1e293b"/>
-  <text x="244" y="112" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#3b82f6">Overview</text>
-  <rect x="244" y="116" width="68" height="2" rx="1" fill="#3b82f6"/>
-  <text x="330" y="112" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">Incidents</text>
-  <text x="410" y="112" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">Probes</text>
-  <text x="480" y="112" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">Settings</text>
-  <rect x="220" y="120" width="980" height="1" fill="#1e293b"/>
+  <rect x="954" y="74" width="112" height="30" rx="6" fill="#1a2230" stroke="#1e2d3d" stroke-width="1"/>
+  <text x="1010" y="93" font-family="system-ui, sans-serif" font-size="12" fill="#e4ecf4" text-anchor="middle">Trigger check</text>
 
-  <!-- 3 stat cards -->
-  <rect x="244" y="130" width="290" height="82" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1" filter="url(#shadow)"/>
-  <text x="266" y="152" font-family="system-ui,sans-serif" font-size="11" fill="#94a3b8">UPTIME (24H)</text>
-  <text x="266" y="188" font-family="system-ui,sans-serif" font-size="34" font-weight="700" fill="#22c55e">99.8%</text>
-  <text x="266" y="204" font-family="system-ui,sans-serif" font-size="10" fill="#475569">1 check failed in last 24h</text>
+  <rect x="1074" y="74" width="64" height="30" rx="6" fill="#1a2230" stroke="#1e2d3d" stroke-width="1"/>
+  <text x="1106" y="93" font-family="system-ui, sans-serif" font-size="12" fill="#8899aa" text-anchor="middle">Pause</text>
 
-  <rect x="546" y="130" width="290" height="82" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1" filter="url(#shadow)"/>
-  <text x="568" y="152" font-family="system-ui,sans-serif" font-size="11" fill="#94a3b8">AVG RESPONSE TIME</text>
-  <text x="568" y="188" font-family="system-ui,sans-serif" font-size="34" font-weight="700" fill="#f1f5f9">142<tspan font-size="16" fill="#94a3b8">ms</tspan></text>
-  <text x="568" y="204" font-family="system-ui,sans-serif" font-size="10" fill="#475569">p95: 280ms · p99: 410ms</text>
+  <!-- Stat cards row -->
+  <!-- Card 1: Uptime 24h -->
+  <rect x="244" y="138" width="200" height="88" rx="8" fill="#131920" stroke="#1e2d3d" stroke-width="1"/>
+  <text x="262" y="164" font-family="system-ui, sans-serif" font-size="12" fill="#8899aa">Uptime 24h</text>
+  <text x="262" y="198" font-family="system-ui, sans-serif" font-size="28" font-weight="700" fill="#34d399">99.8%</text>
 
-  <rect x="848" y="130" width="296" height="82" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1" filter="url(#shadow)"/>
-  <text x="870" y="152" font-family="system-ui,sans-serif" font-size="11" fill="#94a3b8">UPTIME (7D)</text>
-  <text x="870" y="188" font-family="system-ui,sans-serif" font-size="34" font-weight="700" fill="#22c55e">99.2%</text>
-  <text x="870" y="204" font-family="system-ui,sans-serif" font-size="10" fill="#475569">3 incidents · 12min total downtime</text>
+  <!-- Card 2: Uptime 30d -->
+  <rect x="454" y="138" width="200" height="88" rx="8" fill="#131920" stroke="#1e2d3d" stroke-width="1"/>
+  <text x="472" y="164" font-family="system-ui, sans-serif" font-size="12" fill="#8899aa">Uptime 30 days</text>
+  <text x="472" y="198" font-family="system-ui, sans-serif" font-size="28" font-weight="700" fill="#34d399">99.2%</text>
+
+  <!-- Card 3: Avg response -->
+  <rect x="664" y="138" width="200" height="88" rx="8" fill="#131920" stroke="#1e2d3d" stroke-width="1"/>
+  <text x="682" y="164" font-family="system-ui, sans-serif" font-size="12" fill="#8899aa">Avg response</text>
+  <text x="682" y="198" font-family="system-ui, sans-serif" font-size="28" font-weight="700" fill="#4f9cf9">142ms</text>
+
+  <!-- Card 4: SSL -->
+  <rect x="874" y="138" width="264" height="88" rx="8" fill="#131920" stroke="#1e2d3d" stroke-width="1"/>
+  <text x="892" y="164" font-family="system-ui, sans-serif" font-size="12" fill="#8899aa">SSL Certificate</text>
+  <text x="892" y="192" font-family="system-ui, sans-serif" font-size="20" font-weight="700" fill="#34d399">Valid</text>
+  <text x="892" y="214" font-family="system-ui, sans-serif" font-size="12" fill="#8899aa">Expires in 45 days</text>
 
   <!-- Response time chart -->
-  <rect x="244" y="224" width="636" height="220" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-  <text x="264" y="246" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#f1f5f9">Response Time (24h)</text>
-  <text x="820" y="246" font-family="system-ui,sans-serif" font-size="11" fill="#3b82f6" text-anchor="end">Last 24 hours</text>
+  <rect x="244" y="242" width="894" height="166" rx="8" fill="#131920" stroke="#1e2d3d" stroke-width="1"/>
+  <text x="262" y="266" font-family="system-ui, sans-serif" font-size="13" font-weight="600" fill="#e4ecf4">Response Time — last 24h</text>
 
-  <!-- Chart grid lines -->
-  <line x1="264" y1="260" x2="860" y2="260" stroke="#1e293b" stroke-width="1"/>
-  <line x1="264" y1="294" x2="860" y2="294" stroke="#1e293b" stroke-width="1"/>
-  <line x1="264" y1="328" x2="860" y2="328" stroke="#1e293b" stroke-width="1"/>
-  <line x1="264" y1="362" x2="860" y2="362" stroke="#1e293b" stroke-width="1"/>
-  <line x1="264" y1="396" x2="860" y2="396" stroke="#1e293b" stroke-width="1"/>
-  <line x1="264" y1="426" x2="860" y2="426" stroke="#334155" stroke-width="1"/>
+  <!-- Grid lines -->
+  <line x1="282" y1="290" x2="1118" y2="290" stroke="#1e2d3d" stroke-width="1" stroke-dasharray="3,4"/>
+  <line x1="282" y1="310" x2="1118" y2="310" stroke="#1e2d3d" stroke-width="1" stroke-dasharray="3,4"/>
+  <line x1="282" y1="330" x2="1118" y2="330" stroke="#1e2d3d" stroke-width="1" stroke-dasharray="3,4"/>
+  <line x1="282" y1="350" x2="1118" y2="350" stroke="#1e2d3d" stroke-width="1" stroke-dasharray="3,4"/>
+  <line x1="282" y1="370" x2="1118" y2="370" stroke="#1e2d3d" stroke-width="1" stroke-dasharray="3,4"/>
+  <line x1="282" y1="392" x2="1118" y2="392" stroke="#1e2d3d" stroke-width="1"/>
 
-  <!-- Y-axis labels -->
-  <text x="260" y="264" font-family="monospace,system-ui" font-size="9" fill="#475569" text-anchor="end">500ms</text>
-  <text x="260" y="298" font-family="monospace,system-ui" font-size="9" fill="#475569" text-anchor="end">400ms</text>
-  <text x="260" y="332" font-family="monospace,system-ui" font-size="9" fill="#475569" text-anchor="end">300ms</text>
-  <text x="260" y="366" font-family="monospace,system-ui" font-size="9" fill="#475569" text-anchor="end">200ms</text>
-  <text x="260" y="400" font-family="monospace,system-ui" font-size="9" fill="#475569" text-anchor="end">100ms</text>
-  <text x="260" y="430" font-family="monospace,system-ui" font-size="9" fill="#475569" text-anchor="end">0</text>
+  <!-- Y labels -->
+  <text x="278" y="293" font-family="JetBrains Mono, monospace" font-size="9" fill="#4d6070" text-anchor="end">400ms</text>
+  <text x="278" y="333" font-family="JetBrains Mono, monospace" font-size="9" fill="#4d6070" text-anchor="end">200ms</text>
+  <text x="278" y="373" font-family="JetBrains Mono, monospace" font-size="9" fill="#4d6070" text-anchor="end">0ms</text>
 
-  <!-- X-axis labels -->
-  <text x="264" y="442" font-family="system-ui,sans-serif" font-size="9" fill="#475569">00:00</text>
-  <text x="364" y="442" font-family="system-ui,sans-serif" font-size="9" fill="#475569">04:00</text>
-  <text x="464" y="442" font-family="system-ui,sans-serif" font-size="9" fill="#475569">08:00</text>
-  <text x="564" y="442" font-family="system-ui,sans-serif" font-size="9" fill="#475569">12:00</text>
-  <text x="664" y="442" font-family="system-ui,sans-serif" font-size="9" fill="#475569">16:00</text>
-  <text x="764" y="442" font-family="system-ui,sans-serif" font-size="9" fill="#475569">20:00</text>
-  <text x="840" y="442" font-family="system-ui,sans-serif" font-size="9" fill="#475569">now</text>
+  <!-- Area fill -->
+  <path d="M282,372 C300,368 315,362 330,355 C348,347 362,342 380,356 C398,370 412,348 430,340 C448,332 462,336 480,326 C498,316 510,358 528,344 C546,330 562,316 580,294 C590,284 608,330 625,348 C642,366 660,344 678,336 C696,328 714,338 730,330 C748,322 762,342 778,320 C794,298 812,330 830,322 C848,314 860,336 878,334 C896,332 910,338 930,330 C948,322 964,336 982,340 C1000,344 1018,326 1036,330 C1054,334 1070,322 1090,328 C1104,332 1114,336 1118,338 L1118,400 L282,400 Z" fill="#4f9cf9" fill-opacity="0.07"/>
 
-  <!-- Chart area fill -->
-  <path d="M264,390 C290,382 310,375 340,370 C370,365 380,360 410,355 C440,350 450,345 470,348 C490,351 500,375 520,380 C540,385 550,362 570,355 C590,348 610,342 640,340 C670,338 690,336 720,335 C750,334 770,332 800,330 C820,328 840,327 860,326 L860,426 L264,426 Z" fill="url(#chartArea)"/>
+  <!-- Line -->
+  <path d="M282,372 C300,368 315,362 330,355 C348,347 362,342 380,356 C398,370 412,348 430,340 C448,332 462,336 480,326 C498,316 510,358 528,344 C546,330 562,316 580,294 C590,284 608,330 625,348 C642,366 660,344 678,336 C696,328 714,338 730,330 C748,322 762,342 778,320 C794,298 812,330 830,322 C848,314 860,336 878,334 C896,332 910,338 930,330 C948,322 964,336 982,340 C1000,344 1018,326 1036,330 C1054,334 1070,322 1090,328 C1104,332 1114,336 1118,338" fill="none" stroke="#4f9cf9" stroke-width="1.8" stroke-linejoin="round" clip-path="url(#chart-clip)"/>
 
-  <!-- Chart line -->
-  <path d="M264,390 C290,382 310,375 340,370 C370,365 380,360 410,355 C440,350 450,345 470,348 C490,351 500,375 520,380 C540,385 550,362 570,355 C590,348 610,342 640,340 C670,338 690,336 720,335 C750,334 770,332 800,330 C820,328 840,327 860,326" fill="none" stroke="#22c55e" stroke-width="2" stroke-linejoin="round"/>
+  <!-- Peak point + tooltip -->
+  <circle cx="580" cy="294" r="4" fill="#4f9cf9" stroke="#131920" stroke-width="2"/>
+  <rect x="550" y="278" width="66" height="20" rx="4" fill="#1a2230" stroke="#1e2d3d" stroke-width="1"/>
+  <text x="583" y="292" font-family="JetBrains Mono, monospace" font-size="10" fill="#e4ecf4" text-anchor="middle">381ms</text>
 
-  <!-- Current value tooltip -->
-  <rect x="830" y="308" width="56" height="22" rx="4" fill="#22c55e"/>
-  <text x="858" y="323" font-family="monospace,system-ui" font-size="11" font-weight="700" fill="#fff" text-anchor="middle">138ms</text>
-  <circle cx="860" cy="326" r="4" fill="#22c55e" stroke="#0f172a" stroke-width="2"/>
+  <!-- X labels -->
+  <text x="282" y="408" font-family="JetBrains Mono, monospace" font-size="10" fill="#4d6070">00:00</text>
+  <text x="490" y="408" font-family="JetBrains Mono, monospace" font-size="10" fill="#4d6070">06:00</text>
+  <text x="698" y="408" font-family="JetBrains Mono, monospace" font-size="10" fill="#4d6070">12:00</text>
+  <text x="906" y="408" font-family="JetBrains Mono, monospace" font-size="10" fill="#4d6070">18:00</text>
+  <text x="1100" y="408" font-family="JetBrains Mono, monospace" font-size="10" fill="#4d6070">now</text>
 
-  <!-- SLO / Error Budget card -->
-  <rect x="892" y="224" width="252" height="220" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-  <text x="912" y="246" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#f1f5f9">SLO / Error Budget</text>
+  <!-- Daily History -->
+  <text x="244" y="434" font-family="system-ui, sans-serif" font-size="13" font-weight="600" fill="#e4ecf4">Daily History — 90 days</text>
 
-  <text x="912" y="272" font-family="system-ui,sans-serif" font-size="11" fill="#94a3b8">Target SLO</text>
-  <text x="1130" y="272" font-family="system-ui,sans-serif" font-size="11" font-weight="600" fill="#f1f5f9" text-anchor="end">99.5%</text>
-
-  <text x="912" y="292" font-family="system-ui,sans-serif" font-size="11" fill="#94a3b8">Current (30d)</text>
-  <text x="1130" y="292" font-family="system-ui,sans-serif" font-size="11" font-weight="600" fill="#22c55e" text-anchor="end">99.8%</text>
-
-  <!-- Progress bar -->
-  <rect x="912" y="302" width="220" height="8" rx="4" fill="#334155"/>
-  <rect x="912" y="302" width="218" height="8" rx="4" fill="#22c55e"/>
-
-  <text x="912" y="328" font-family="system-ui,sans-serif" font-size="11" fill="#94a3b8">Budget used</text>
-  <text x="1130" y="328" font-family="system-ui,sans-serif" font-size="11" font-weight="600" fill="#f1f5f9" text-anchor="end">12min / 2h 10min</text>
-
-  <!-- Remaining budget bar -->
-  <rect x="912" y="338" width="220" height="8" rx="4" fill="#334155"/>
-  <rect x="912" y="338" width="198" height="8" rx="4" fill="#3b82f6"/>
-  <text x="912" y="360" font-family="system-ui,sans-serif" font-size="10" fill="#475569">90.8% budget remaining</text>
-
-  <rect x="912" y="375" width="220" height="1" fill="#334155"/>
-
-  <text x="912" y="396" font-family="system-ui,sans-serif" font-size="11" fill="#94a3b8">Period</text>
-  <text x="1130" y="396" font-family="system-ui,sans-serif" font-size="11" fill="#64748b" text-anchor="end">Last 30 days</text>
-  <text x="912" y="416" font-family="system-ui,sans-serif" font-size="11" fill="#94a3b8">Window</text>
-  <text x="1130" y="416" font-family="system-ui,sans-serif" font-size="11" fill="#64748b" text-anchor="end">Rolling</text>
-  <text x="912" y="436" font-family="system-ui,sans-serif" font-size="11" fill="#94a3b8">Status</text>
-  <rect x="1068" y="424" width="62" height="18" rx="9" fill="#14532d"/>
-  <text x="1099" y="437" font-family="system-ui,sans-serif" font-size="10" font-weight="700" fill="#22c55e" text-anchor="middle">Healthy</text>
-
-  <!-- 90-day uptime bar -->
-  <rect x="244" y="456" width="900" height="80" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-  <text x="264" y="476" font-family="system-ui,sans-serif" font-size="12" font-weight="600" fill="#f1f5f9">90-day uptime history</text>
-  <text x="1130" y="476" font-family="system-ui,sans-serif" font-size="11" fill="#22c55e" text-anchor="end">99.1% over 90 days</text>
-
-  <!-- Mini bars (90 days) -->
-  <g transform="translate(264, 486)">
-    <!-- Generate 90 mini bars, mostly green with 2 red ones -->
-    <rect x="0" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="10" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="20" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="30" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="40" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="50" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="60" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="70" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="80" y="5" width="8" height="25" rx="1" fill="#f59e0b" opacity="0.9"/>
-    <rect x="90" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="100" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="110" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="120" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="130" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="140" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="150" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="160" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="170" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="180" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="190" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="200" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="210" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="220" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="230" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="240" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="250" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="260" y="0" width="8" height="30" rx="1" fill="#ef4444" opacity="0.9"/>
-    <rect x="270" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="280" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="290" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="300" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="310" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="320" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="330" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="340" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="350" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="360" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="370" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="380" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="390" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="400" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="410" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="420" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="430" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="440" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="450" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="460" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="470" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="480" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="490" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="500" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="510" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="520" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="530" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="540" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="550" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="560" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="570" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="580" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="590" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="600" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="610" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="620" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="630" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="640" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="650" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="660" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="670" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="680" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="690" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="700" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="710" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="720" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="730" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="740" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="750" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="760" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="770" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="780" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="790" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="800" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="810" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="820" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="830" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="840" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="850" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <rect x="860" y="0" width="8" height="30" rx="1" fill="#22c55e" opacity="0.8"/>
-    <text x="0" y="46" font-family="system-ui,sans-serif" font-size="10" fill="#475569">90 days ago</text>
-    <text x="880" y="46" font-family="system-ui,sans-serif" font-size="10" fill="#475569" text-anchor="end">Today</text>
+  <!-- 90 bars (9px wide, 2px gap = 11px step, from x=244, 90*11-2=988, fits in 894px with 9px bars -->
+  <!-- Using 9px wide bars with 1px gap = 10px step, 90 bars = 900px total, fits in 894 so use 8px+2px=10 -->
+  <g transform="translate(244, 440)">
+    <rect x="0"   y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="10"  y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="20"  y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="30"  y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="40"  y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="50"  y="0" width="8" height="20" rx="2" fill="#fbbf24"/>
+    <rect x="60"  y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="70"  y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="80"  y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="90"  y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="100" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="110" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="120" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="130" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="140" y="0" width="8" height="20" rx="2" fill="#f87171"/>
+    <rect x="150" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="160" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="170" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="180" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="190" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="200" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="210" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="220" y="0" width="8" height="20" rx="2" fill="#fbbf24"/>
+    <rect x="230" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="240" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="250" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="260" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="270" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="280" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="290" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="300" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="310" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="320" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="330" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="340" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="350" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="360" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="370" y="0" width="8" height="20" rx="2" fill="#fbbf24"/>
+    <rect x="380" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="390" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="400" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="410" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="420" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="430" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="440" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="450" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="460" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="470" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="480" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="490" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="500" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="510" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="520" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="530" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="540" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="550" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="560" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="570" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="580" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="590" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="600" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="610" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="620" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="630" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="640" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="650" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="660" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="670" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="680" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="690" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="700" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="710" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="720" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="730" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="740" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="750" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="760" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="770" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="780" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="790" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="800" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="810" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="820" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="830" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="840" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="850" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="860" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="870" y="0" width="8" height="20" rx="2" fill="#34d399"/>
+    <rect x="880" y="0" width="8" height="20" rx="2" fill="#34d399"/>
   </g>
 
-  <!-- Recent incidents section -->
-  <rect x="244" y="548" width="900" height="112" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-  <text x="264" y="568" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#f1f5f9">Recent Incidents</text>
+  <!-- History date labels -->
+  <text x="244" y="478" font-family="system-ui, sans-serif" font-size="11" fill="#4d6070">90 days ago</text>
+  <text x="1138" y="478" font-family="system-ui, sans-serif" font-size="11" fill="#4d6070" text-anchor="end">today</text>
 
-  <!-- incident row -->
-  <rect x="264" y="580" width="860" height="36" rx="6" fill="#0f172a"/>
-  <rect x="264" y="580" width="3" height="36" rx="1" fill="#f59e0b"/>
-  <circle cx="280" cy="598" r="4" fill="#f59e0b"/>
-  <text x="294" y="594" font-family="system-ui,sans-serif" font-size="12" font-weight="600" fill="#fcd34d">Slow response detected</text>
-  <text x="294" y="610" font-family="system-ui,sans-serif" font-size="11" fill="#64748b">Duration: 4 min 30s  ·  HTTP 200 but p95 > 2s threshold</text>
-  <text x="1110" y="602" font-family="system-ui,sans-serif" font-size="11" fill="#475569" text-anchor="end">2 days ago</text>
+  <!-- Bottom panels -->
+  <!-- Incidents panel -->
+  <rect x="244" y="492" width="536" height="158" rx="8" fill="#131920" stroke="#1e2d3d" stroke-width="1"/>
+  <text x="262" y="516" font-family="system-ui, sans-serif" font-size="13" font-weight="600" fill="#e4ecf4">Incidents</text>
 
-  <!-- No more incidents message -->
-  <text x="694" y="642" font-family="system-ui,sans-serif" font-size="12" fill="#475569" text-anchor="middle">No other incidents in the last 30 days</text>
+  <!-- Table header row -->
+  <rect x="244" y="524" width="536" height="26" fill="#1a2230" rx="0"/>
+  <text x="262" y="541" font-family="system-ui, sans-serif" font-size="11" fill="#4d6070">Date</text>
+  <text x="386" y="541" font-family="system-ui, sans-serif" font-size="11" fill="#4d6070">Duration</text>
+  <text x="480" y="541" font-family="system-ui, sans-serif" font-size="11" fill="#4d6070">Cause</text>
+  <text x="680" y="541" font-family="system-ui, sans-serif" font-size="11" fill="#4d6070" text-anchor="end">Status</text>
+
+  <!-- Row 1 -->
+  <rect x="244" y="550" width="536" height="1" fill="#1e2d3d"/>
+  <text x="262" y="572" font-family="system-ui, sans-serif" font-size="12" fill="#e4ecf4">Mar 10, 2026</text>
+  <text x="386" y="572" font-family="system-ui, sans-serif" font-size="12" fill="#8899aa">3m 12s</text>
+  <text x="480" y="572" font-family="system-ui, sans-serif" font-size="12" fill="#8899aa">HTTP 503</text>
+  <rect x="644" y="560" width="68" height="18" rx="9" fill="#34d399" fill-opacity="0.13"/>
+  <text x="678" y="572" font-family="system-ui, sans-serif" font-size="11" font-weight="600" fill="#34d399" text-anchor="middle">Resolved</text>
+
+  <!-- Row 2 -->
+  <rect x="244" y="584" width="536" height="1" fill="#1e2d3d"/>
+  <text x="262" y="606" font-family="system-ui, sans-serif" font-size="12" fill="#e4ecf4">Feb 28, 2026</text>
+  <text x="386" y="606" font-family="system-ui, sans-serif" font-size="12" fill="#8899aa">1m 47s</text>
+  <text x="480" y="606" font-family="system-ui, sans-serif" font-size="12" fill="#8899aa">Timeout</text>
+  <rect x="644" y="594" width="68" height="18" rx="9" fill="#34d399" fill-opacity="0.13"/>
+  <text x="678" y="606" font-family="system-ui, sans-serif" font-size="11" font-weight="600" fill="#34d399" text-anchor="middle">Resolved</text>
+
+  <!-- SLO panel -->
+  <rect x="792" y="492" width="346" height="158" rx="8" fill="#131920" stroke="#1e2d3d" stroke-width="1"/>
+  <text x="810" y="516" font-family="system-ui, sans-serif" font-size="13" font-weight="600" fill="#e4ecf4">SLO</text>
+
+  <!-- SLO rows -->
+  <text x="810" y="544" font-family="system-ui, sans-serif" font-size="12" fill="#8899aa">Target</text>
+  <text x="1122" y="544" font-family="system-ui, sans-serif" font-size="12" font-weight="600" fill="#e4ecf4" text-anchor="end">99.5%</text>
+
+  <text x="810" y="570" font-family="system-ui, sans-serif" font-size="12" fill="#8899aa">Actual</text>
+  <text x="1122" y="570" font-family="system-ui, sans-serif" font-size="12" font-weight="700" fill="#34d399" text-anchor="end">99.8%</text>
+
+  <!-- SLO bar -->
+  <rect x="810" y="580" width="310" height="7" rx="3.5" fill="#1a2230"/>
+  <rect x="810" y="580" width="276" height="7" rx="3.5" fill="#34d399"/>
+
+  <text x="810" y="610" font-family="system-ui, sans-serif" font-size="12" fill="#8899aa">Error budget remaining</text>
+  <text x="1122" y="610" font-family="system-ui, sans-serif" font-size="12" font-weight="700" fill="#4f9cf9" text-anchor="end">89%</text>
+
+  <!-- Budget bar -->
+  <rect x="810" y="620" width="310" height="7" rx="3.5" fill="#1a2230"/>
+  <rect x="810" y="620" width="276" height="7" rx="3.5" fill="#4f9cf9"/>
+
+  <text x="810" y="644" font-family="system-ui, sans-serif" font-size="11" fill="#4d6070">30-day rolling window</text>
 </svg>

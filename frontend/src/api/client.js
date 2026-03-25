@@ -30,11 +30,12 @@ api.interceptors.response.use(
           original.headers.Authorization = `Bearer ${data.access_token}`
           return api(original)
         } catch {
-          localStorage.removeItem('access_token')
-          localStorage.removeItem('refresh_token')
-          window.location.href = '/login'
+          // refresh failed — fall through to redirect
         }
       }
+      localStorage.removeItem('access_token')
+      localStorage.removeItem('refresh_token')
+      window.location.href = '/login'
     }
     return Promise.reject(error)
   }

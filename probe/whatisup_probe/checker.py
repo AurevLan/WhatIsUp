@@ -545,6 +545,35 @@ def _substitute_vars(text: str, variables: list[dict]) -> str:
     return text
 
 
+def kill_stale_chromium() -> int:
+    """Kill leftover chrome-headless-shell processes from previous crashed runs.
+
+    Should be called once at probe startup, not during normal operation.
+    Returns the number of processes killed.
+    """
+    import os as _os
+    import signal
+    import subprocess
+
+    try:
+        result = subprocess.run(
+            ["pgrep", "-f", "chrome-headless-shell"],
+            capture_output=True,
+            text=True,
+        )
+        pids = [int(p) for p in result.stdout.split() if p.strip()]
+        killed = 0
+        for pid in pids:
+            try:
+                _os.kill(pid, signal.SIGKILL)
+                killed += 1
+            except ProcessLookupError:
+                pass
+        return killed
+    except FileNotFoundError:
+        return 0  # pgrep not available
+
+
 async def _check_scenario(
     monitor_id: str,
     steps: list[dict],
@@ -579,7 +608,7 @@ async def _check_scenario(
         async with async_playwright() as pw:
             browser = await pw.chromium.launch(
                 headless=True,
-                args=["--no-sandbox", "--disable-dev-shm-usage"],
+                args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
             )
             context = await browser.new_context(
                 viewport={"width": 1280, "height": 720},

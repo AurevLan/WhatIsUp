@@ -1,226 +1,255 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675">
-  <defs>
-    <filter id="shadow">
-      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#00000044"/>
-    </filter>
-  </defs>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" width="1200" height="675" style="font-family:'Plus Jakarta Sans',system-ui,sans-serif;">
 
-  <!-- Background -->
-  <rect width="1200" height="675" fill="#0f172a"/>
+  <!-- bg-base -->
+  <rect width="1200" height="675" fill="#0c1117"/>
 
-  <!-- Sidebar -->
-  <rect x="0" y="0" width="220" height="675" fill="#0c1524"/>
-  <rect x="219" y="0" width="1" height="675" fill="#1e293b"/>
+  <!-- ═══════════ SIDEBAR 224px ═══════════ -->
+  <rect width="224" height="675" fill="#131920"/>
+  <rect x="223" y="0" width="1" height="675" fill="#1e2d3d"/>
 
   <!-- Logo -->
-  <rect x="18" y="20" width="10" height="10" rx="2" fill="#3b82f6"/>
-  <rect x="32" y="20" width="10" height="10" rx="2" fill="#22c55e"/>
-  <text x="48" y="31" font-family="system-ui,sans-serif" font-size="15" font-weight="700" fill="#f1f5f9">WhatIsUp</text>
-  <rect x="12" y="52" width="196" height="1" fill="#1e293b"/>
+  <rect x="16" y="12" width="26" height="26" rx="7" fill="#4f9cf9"/>
+  <text x="29" y="27" text-anchor="middle" fill="#0c1117" font-size="13" font-weight="800">W</text>
+  <text x="50" y="28" fill="#e4ecf4" font-size="14" font-weight="700">WhatIsUp</text>
 
-  <!-- Nav -->
-  <circle cx="26" cy="80" r="4" fill="#475569"/>
-  <text x="40" y="85" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">Dashboard</text>
-  <rect x="8" y="100" width="204" height="36" rx="8" fill="#3b82f6" opacity="0.15"/>
-  <rect x="8" y="100" width="3" height="36" rx="1" fill="#3b82f6"/>
-  <circle cx="26" cy="118" r="4" fill="#3b82f6"/>
-  <text x="40" y="123" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#3b82f6">Monitors</text>
-  <circle cx="26" cy="154" r="4" fill="#475569"/>
-  <text x="40" y="159" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">Probes</text>
-  <circle cx="26" cy="188" r="4" fill="#475569"/>
-  <text x="40" y="193" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">Alerts</text>
-  <circle cx="26" cy="222" r="4" fill="#475569"/>
-  <text x="40" y="227" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">Maintenance</text>
-  <circle cx="26" cy="256" r="4" fill="#475569"/>
-  <text x="40" y="261" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">Audit</text>
-  <rect x="12" y="630" width="196" height="1" fill="#1e293b"/>
-  <circle cx="28" cy="653" r="13" fill="#1e40af"/>
-  <text x="28" y="657" font-family="system-ui,sans-serif" font-size="11" font-weight="700" fill="#fff" text-anchor="middle">A</text>
-  <text x="48" y="649" font-family="system-ui,sans-serif" font-size="12" fill="#94a3b8">admin@local</text>
-  <text x="48" y="663" font-family="system-ui,sans-serif" font-size="10" fill="#475569">Superadmin</text>
+  <rect x="16" y="48" width="192" height="1" fill="#1e2d3d"/>
 
-  <!-- Main content -->
-  <rect x="220" y="0" width="980" height="675" fill="#0f172a"/>
+  <!-- Nav — Dashboard -->
+  <circle cx="29" cy="73" r="6" fill="none" stroke="#4d6070" stroke-width="1.5"/>
+  <text x="44" y="78" fill="#8899aa" font-size="13">Dashboard</text>
 
-  <!-- Top bar -->
-  <rect x="220" y="0" width="980" height="56" fill="#0c1524"/>
-  <rect x="220" y="55" width="980" height="1" fill="#1e293b"/>
-  <text x="244" y="33" font-family="system-ui,sans-serif" font-size="20" font-weight="700" fill="#f1f5f9">Monitors</text>
-  <text x="244" y="50" font-family="system-ui,sans-serif" font-size="12" fill="#475569">12 monitors configured</text>
-  <!-- Add monitor button -->
-  <rect x="1050" y="14" width="130" height="30" rx="6" fill="#3b82f6"/>
-  <text x="1115" y="33" font-family="system-ui,sans-serif" font-size="12" font-weight="600" fill="#fff" text-anchor="middle">+ Add monitor</text>
+  <!-- Nav — Monitors (active) -->
+  <rect x="8" y="90" width="208" height="34" rx="7" fill="#4f9cf9" opacity="0.12"/>
+  <rect x="8" y="90" width="3" height="34" rx="2" fill="#4f9cf9"/>
+  <circle cx="29" cy="107" r="6" fill="none" stroke="#4f9cf9" stroke-width="1.5"/>
+  <text x="44" y="112" fill="#4f9cf9" font-size="13" font-weight="600">Monitors</text>
+  <rect x="190" y="100" width="22" height="14" rx="7" fill="#4f9cf9" opacity="0.2"/>
+  <text x="201" y="111" text-anchor="middle" fill="#4f9cf9" font-size="9" font-weight="700">12</text>
 
-  <!-- Filters row -->
-  <rect x="244" y="64" width="200" height="30" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-  <text x="344" y="83" font-family="system-ui,sans-serif" font-size="12" fill="#64748b" text-anchor="middle">All statuses ▾</text>
-  <rect x="452" y="64" width="180" height="30" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-  <text x="542" y="83" font-family="system-ui,sans-serif" font-size="12" fill="#64748b" text-anchor="middle">All types ▾</text>
-  <rect x="640" y="64" width="180" height="30" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-  <text x="730" y="83" font-family="system-ui,sans-serif" font-size="12" fill="#64748b" text-anchor="middle">All groups ▾</text>
+  <!-- Nav — Probes -->
+  <circle cx="29" cy="141" r="6" fill="none" stroke="#4d6070" stroke-width="1.5"/>
+  <text x="44" y="146" fill="#8899aa" font-size="13">Probes</text>
 
-  <!-- Search -->
-  <rect x="840" y="64" width="240" height="30" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-  <text x="856" y="83" font-family="system-ui,sans-serif" font-size="12" fill="#475569">⌕  Search monitors...</text>
+  <!-- Nav — Groups -->
+  <circle cx="29" cy="175" r="6" fill="none" stroke="#4d6070" stroke-width="1.5"/>
+  <text x="44" y="180" fill="#8899aa" font-size="13">Groups</text>
 
-  <!-- View toggle -->
-  <rect x="1092" y="64" width="30" height="30" rx="6" fill="#3b82f6"/>
-  <rect x="1097" y="70" width="8" height="8" rx="1" fill="#fff"/>
-  <rect x="1097" y="80" width="8" height="5" rx="1" fill="#fff" opacity="0.6"/>
-  <rect x="1107" y="70" width="8" height="5" rx="1" fill="#fff" opacity="0.6"/>
-  <rect x="1107" y="77" width="8" height="8" rx="1" fill="#fff" opacity="0.6"/>
+  <!-- Nav — Alerts -->
+  <circle cx="29" cy="209" r="6" fill="none" stroke="#4d6070" stroke-width="1.5"/>
+  <text x="44" y="214" fill="#8899aa" font-size="13">Alerts</text>
 
-  <rect x="1126" y="64" width="30" height="30" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-  <rect x="1131" y="70" width="5" height="5" rx="1" fill="#64748b"/>
-  <rect x="1138" y="70" width="5" height="5" rx="1" fill="#64748b"/>
-  <rect x="1131" y="78" width="5" height="5" rx="1" fill="#64748b"/>
-  <rect x="1138" y="78" width="5" height="5" rx="1" fill="#64748b"/>
-  <rect x="1131" y="86" width="5" height="5" rx="1" fill="#64748b"/>
-  <rect x="1138" y="86" width="5" height="5" rx="1" fill="#64748b"/>
+  <!-- Nav — Maintenance -->
+  <circle cx="29" cy="243" r="6" fill="none" stroke="#4d6070" stroke-width="1.5"/>
+  <text x="44" y="248" fill="#8899aa" font-size="13">Maintenance</text>
 
-  <!-- Bulk action bar (2 selected) -->
-  <rect x="244" y="102" width="900" height="38" rx="6" fill="#1e3a5f" stroke="#3b82f6" stroke-width="1"/>
-  <text x="264" y="125" font-family="system-ui,sans-serif" font-size="12" fill="#3b82f6" font-weight="600">2 selected</text>
-  <rect x="360" y="112" width="70" height="20" rx="4" fill="#22c55e" opacity="0.2"/>
-  <text x="395" y="126" font-family="system-ui,sans-serif" font-size="11" fill="#22c55e" text-anchor="middle">▶ Enable</text>
-  <rect x="438" y="112" width="62" height="20" rx="4" fill="#f59e0b" opacity="0.2"/>
-  <text x="469" y="126" font-family="system-ui,sans-serif" font-size="11" fill="#f59e0b" text-anchor="middle">⏸ Pause</text>
-  <rect x="508" y="112" width="62" height="20" rx="4" fill="#ef4444" opacity="0.2"/>
-  <text x="539" y="126" font-family="system-ui,sans-serif" font-size="11" fill="#ef4444" text-anchor="middle">🗑 Delete</text>
-  <rect x="578" y="112" width="90" height="20" rx="4" fill="#475569" opacity="0.3"/>
-  <text x="623" y="126" font-family="system-ui,sans-serif" font-size="11" fill="#94a3b8" text-anchor="middle">⬇ Export CSV</text>
-  <text x="1100" y="125" font-family="system-ui,sans-serif" font-size="11" fill="#3b82f6" text-anchor="end">✕ Clear selection</text>
+  <!-- Nav — Audit -->
+  <circle cx="29" cy="277" r="6" fill="none" stroke="#4d6070" stroke-width="1.5"/>
+  <text x="44" y="282" fill="#8899aa" font-size="13">Audit</text>
 
-  <!-- Table header -->
-  <rect x="244" y="148" width="900" height="30" rx="0" fill="#1e293b"/>
-  <!-- Header checkbox -->
-  <rect x="254" y="157" width="14" height="14" rx="3" fill="none" stroke="#475569" stroke-width="1.5"/>
-  <text x="280" y="169" font-family="system-ui,sans-serif" font-size="11" fill="#475569">NAME</text>
-  <text x="500" y="169" font-family="system-ui,sans-serif" font-size="11" fill="#475569">TYPE</text>
-  <text x="580" y="169" font-family="system-ui,sans-serif" font-size="11" fill="#475569">STATUS</text>
-  <text x="668" y="169" font-family="system-ui,sans-serif" font-size="11" fill="#475569">UPTIME 24H</text>
-  <text x="770" y="169" font-family="system-ui,sans-serif" font-size="11" fill="#475569">RESPONSE</text>
-  <text x="870" y="169" font-family="system-ui,sans-serif" font-size="11" fill="#475569">INTERVAL</text>
-  <text x="960" y="169" font-family="system-ui,sans-serif" font-size="11" fill="#475569">PROBE</text>
-  <text x="1090" y="169" font-family="system-ui,sans-serif" font-size="11" fill="#475569" text-anchor="end">ACTIONS</text>
-  <rect x="244" y="178" width="900" height="1" fill="#334155"/>
+  <!-- Nav — Settings -->
+  <circle cx="29" cy="311" r="6" fill="none" stroke="#4d6070" stroke-width="1.5"/>
+  <text x="44" y="316" fill="#8899aa" font-size="13">Settings</text>
 
-  <!-- Row 1 - selected -->
-  <rect x="244" y="180" width="900" height="44" fill="#1e3a5f" opacity="0.3"/>
-  <rect x="254" y="191" width="14" height="14" rx="3" fill="#3b82f6"/>
-  <text x="260" y="201" font-family="system-ui,sans-serif" font-size="10" fill="#fff" text-anchor="middle">✓</text>
-  <circle cx="290" cy="202" r="6" fill="#22c55e"/>
-  <text x="304" y="198" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#f1f5f9">korben.info</text>
-  <text x="304" y="214" font-family="system-ui,sans-serif" font-size="10" fill="#475569">https://korben.info</text>
-  <rect x="494" y="191" width="44" height="20" rx="4" fill="#1e3a5f"/>
-  <text x="516" y="206" font-family="system-ui,sans-serif" font-size="11" fill="#3b82f6" text-anchor="middle">HTTP</text>
-  <rect x="568" y="191" width="52" height="20" rx="10" fill="#14532d"/>
-  <text x="594" y="205" font-family="system-ui,sans-serif" font-size="11" font-weight="600" fill="#22c55e" text-anchor="middle">UP</text>
-  <text x="680" y="205" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#22c55e">99.8%</text>
-  <text x="780" y="205" font-family="monospace,system-ui" font-size="12" fill="#f1f5f9">142ms</text>
-  <text x="875" y="205" font-family="monospace,system-ui" font-size="12" fill="#64748b">60s</text>
-  <text x="965" y="205" font-family="system-ui,sans-serif" font-size="11" fill="#94a3b8">Paris-FR</text>
-  <text x="1080" y="205" font-family="system-ui,sans-serif" font-size="11" fill="#475569" text-anchor="end">⋯</text>
-  <rect x="244" y="223" width="900" height="1" fill="#1e293b" opacity="0.6"/>
+  <!-- Sidebar user -->
+  <rect x="8" y="630" width="208" height="36" rx="7" fill="#1a2230"/>
+  <circle cx="28" cy="648" r="11" fill="#202c3a"/>
+  <text x="28" y="653" text-anchor="middle" fill="#8899aa" font-size="11" font-weight="600">A</text>
+  <text x="47" y="644" fill="#e4ecf4" font-size="12" font-weight="600">admin</text>
+  <text x="47" y="657" fill="#4d6070" font-size="10">superadmin</text>
 
-  <!-- Row 2 - selected -->
-  <rect x="244" y="225" width="900" height="44" fill="#1e3a5f" opacity="0.3"/>
-  <rect x="254" y="236" width="14" height="14" rx="3" fill="#3b82f6"/>
-  <text x="260" y="246" font-family="system-ui,sans-serif" font-size="10" fill="#fff" text-anchor="middle">✓</text>
-  <circle cx="290" cy="247" r="6" fill="#22c55e"/>
-  <text x="304" y="243" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#f1f5f9">API Production</text>
-  <text x="304" y="259" font-family="system-ui,sans-serif" font-size="10" fill="#475569">https://api.example.com/health</text>
-  <rect x="494" y="236" width="44" height="20" rx="4" fill="#1e3a5f"/>
-  <text x="516" y="251" font-family="system-ui,sans-serif" font-size="11" fill="#3b82f6" text-anchor="middle">HTTP</text>
-  <rect x="568" y="236" width="52" height="20" rx="10" fill="#14532d"/>
-  <text x="594" y="250" font-family="system-ui,sans-serif" font-size="11" font-weight="600" fill="#22c55e" text-anchor="middle">UP</text>
-  <text x="680" y="250" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#22c55e">100%</text>
-  <text x="780" y="250" font-family="monospace,system-ui" font-size="12" fill="#f1f5f9">38ms</text>
-  <text x="875" y="250" font-family="monospace,system-ui" font-size="12" fill="#64748b">30s</text>
-  <text x="965" y="250" font-family="system-ui,sans-serif" font-size="11" fill="#94a3b8">Frankfurt-DE</text>
-  <text x="1080" y="250" font-family="system-ui,sans-serif" font-size="11" fill="#475569" text-anchor="end">⋯</text>
-  <rect x="244" y="268" width="900" height="1" fill="#1e293b" opacity="0.6"/>
+  <!-- ═══════════ TOPBAR 48px ═══════════ -->
+  <rect x="224" y="0" width="976" height="48" fill="#131920"/>
+  <rect x="224" y="47" width="976" height="1" fill="#1e2d3d"/>
 
-  <!-- Row 3 - DOWN -->
-  <rect x="244" y="270" width="900" height="44" fill="#ef4444" opacity="0.04"/>
-  <rect x="254" y="281" width="14" height="14" rx="3" fill="none" stroke="#475569" stroke-width="1.5"/>
-  <circle cx="290" cy="292" r="6" fill="#ef4444"/>
-  <circle cx="290" cy="292" r="10" fill="#ef4444" opacity="0.15"/>
-  <text x="304" y="288" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#f1f5f9">legacy-app.internal</text>
-  <text x="304" y="304" font-family="system-ui,sans-serif" font-size="10" fill="#475569">http://legacy-app.internal:8080</text>
-  <rect x="494" y="281" width="44" height="20" rx="4" fill="#1e3a5f"/>
-  <text x="516" y="296" font-family="system-ui,sans-serif" font-size="11" fill="#3b82f6" text-anchor="middle">HTTP</text>
-  <rect x="568" y="281" width="52" height="20" rx="10" fill="#7f1d1d"/>
-  <text x="594" y="295" font-family="system-ui,sans-serif" font-size="11" font-weight="600" fill="#ef4444" text-anchor="middle">DOWN</text>
-  <text x="680" y="295" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#ef4444">81.3%</text>
-  <text x="780" y="295" font-family="monospace,system-ui" font-size="12" fill="#ef4444">timeout</text>
-  <text x="875" y="295" font-family="monospace,system-ui" font-size="12" fill="#64748b">60s</text>
-  <text x="965" y="295" font-family="system-ui,sans-serif" font-size="11" fill="#94a3b8">Internal</text>
-  <text x="1080" y="295" font-family="system-ui,sans-serif" font-size="11" fill="#475569" text-anchor="end">⋯</text>
-  <rect x="244" y="313" width="900" height="1" fill="#1e293b" opacity="0.6"/>
+  <text x="244" y="30" fill="#e4ecf4" font-size="16" font-weight="700">Monitors</text>
 
-  <!-- Row 4 -->
-  <rect x="254" y="326" width="14" height="14" rx="3" fill="none" stroke="#475569" stroke-width="1.5"/>
-  <circle cx="290" cy="337" r="6" fill="#22c55e"/>
-  <text x="304" y="333" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#f1f5f9">DNS resolv.conf</text>
-  <text x="304" y="349" font-family="system-ui,sans-serif" font-size="10" fill="#475569">example.com — A record</text>
-  <rect x="494" y="326" width="40" height="20" rx="4" fill="#2d1b69"/>
-  <text x="514" y="341" font-family="system-ui,sans-serif" font-size="11" fill="#a78bfa" text-anchor="middle">DNS</text>
-  <rect x="568" y="326" width="52" height="20" rx="10" fill="#14532d"/>
-  <text x="594" y="340" font-family="system-ui,sans-serif" font-size="11" font-weight="600" fill="#22c55e" text-anchor="middle">UP</text>
-  <text x="680" y="340" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#22c55e">100%</text>
-  <text x="780" y="340" font-family="monospace,system-ui" font-size="12" fill="#f1f5f9">8ms</text>
-  <text x="875" y="340" font-family="monospace,system-ui" font-size="12" fill="#64748b">120s</text>
-  <text x="965" y="340" font-family="system-ui,sans-serif" font-size="11" fill="#94a3b8">Paris-FR</text>
-  <text x="1080" y="340" font-family="system-ui,sans-serif" font-size="11" fill="#475569" text-anchor="end">⋯</text>
-  <rect x="244" y="358" width="900" height="1" fill="#1e293b" opacity="0.6"/>
+  <!-- + Add Monitor button -->
+  <rect x="986" y="10" width="136" height="28" rx="7" fill="#4f9cf9"/>
+  <text x="1054" y="28" text-anchor="middle" fill="#0c1117" font-size="12" font-weight="700">+ Add Monitor</text>
 
-  <!-- Row 5 -->
-  <rect x="254" y="371" width="14" height="14" rx="3" fill="none" stroke="#475569" stroke-width="1.5"/>
-  <circle cx="290" cy="382" r="6" fill="#22c55e"/>
-  <text x="304" y="378" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#f1f5f9">TCP — PostgreSQL</text>
-  <text x="304" y="394" font-family="system-ui,sans-serif" font-size="10" fill="#475569">db.internal:5432</text>
-  <rect x="494" y="371" width="40" height="20" rx="4" fill="#1a2f1a"/>
-  <text x="514" y="386" font-family="system-ui,sans-serif" font-size="11" fill="#22c55e" text-anchor="middle">TCP</text>
-  <rect x="568" y="371" width="52" height="20" rx="10" fill="#14532d"/>
-  <text x="594" y="385" font-family="system-ui,sans-serif" font-size="11" font-weight="600" fill="#22c55e" text-anchor="middle">UP</text>
-  <text x="680" y="385" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#22c55e">99.9%</text>
-  <text x="780" y="385" font-family="monospace,system-ui" font-size="12" fill="#f1f5f9">2ms</text>
-  <text x="875" y="385" font-family="monospace,system-ui" font-size="12" fill="#64748b">30s</text>
-  <text x="965" y="385" font-family="system-ui,sans-serif" font-size="11" fill="#94a3b8">Internal</text>
-  <text x="1080" y="385" font-family="system-ui,sans-serif" font-size="11" fill="#475569" text-anchor="end">⋯</text>
-  <rect x="244" y="403" width="900" height="1" fill="#1e293b" opacity="0.6"/>
+  <!-- Lang toggle FR -->
+  <rect x="1132" y="12" width="42" height="24" rx="6" fill="#1a2230" stroke="#1e2d3d" stroke-width="1"/>
+  <text x="1153" y="28" text-anchor="middle" fill="#8899aa" font-size="11" font-weight="600">FR</text>
 
-  <!-- Row 6 - Scenario -->
-  <rect x="254" y="416" width="14" height="14" rx="3" fill="none" stroke="#475569" stroke-width="1.5"/>
-  <circle cx="290" cy="427" r="6" fill="#22c55e"/>
-  <text x="304" y="423" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#f1f5f9">checkout-scenario</text>
-  <text x="304" y="439" font-family="system-ui,sans-serif" font-size="10" fill="#475569">Playwright — e-commerce flow</text>
-  <rect x="494" y="416" width="64" height="20" rx="4" fill="#2d1b3d"/>
-  <text x="526" y="431" font-family="system-ui,sans-serif" font-size="11" fill="#c084fc" text-anchor="middle">Scenario</text>
-  <rect x="568" y="416" width="52" height="20" rx="10" fill="#14532d"/>
-  <text x="594" y="430" font-family="system-ui,sans-serif" font-size="11" font-weight="600" fill="#22c55e" text-anchor="middle">UP</text>
-  <text x="680" y="430" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="#22c55e">97.4%</text>
-  <text x="780" y="430" font-family="monospace,system-ui" font-size="12" fill="#f1f5f9">1.24s</text>
-  <text x="875" y="430" font-family="monospace,system-ui" font-size="12" fill="#64748b">300s</text>
-  <text x="965" y="430" font-family="system-ui,sans-serif" font-size="11" fill="#94a3b8">Frankfurt-DE</text>
-  <text x="1080" y="430" font-family="system-ui,sans-serif" font-size="11" fill="#475569" text-anchor="end">⋯</text>
-  <rect x="244" y="448" width="900" height="1" fill="#1e293b" opacity="0.6"/>
+  <!-- ═══════════ MAIN CONTENT ═══════════ -->
 
-  <!-- Pagination -->
-  <text x="244" y="478" font-family="system-ui,sans-serif" font-size="12" fill="#475569">Showing 6 of 12 monitors</text>
-  <rect x="800" y="462" width="34" height="28" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-  <text x="817" y="480" font-family="system-ui,sans-serif" font-size="12" fill="#64748b" text-anchor="middle">‹</text>
-  <rect x="840" y="462" width="34" height="28" rx="6" fill="#3b82f6"/>
-  <text x="857" y="480" font-family="system-ui,sans-serif" font-size="12" fill="#fff" text-anchor="middle">1</text>
-  <rect x="880" y="462" width="34" height="28" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-  <text x="897" y="480" font-family="system-ui,sans-serif" font-size="12" fill="#64748b" text-anchor="middle">2</text>
-  <rect x="920" y="462" width="34" height="28" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-  <text x="937" y="480" font-family="system-ui,sans-serif" font-size="12" fill="#64748b" text-anchor="middle">›</text>
+  <!-- ── Search bar + filters ── -->
+  <!-- Search input -->
+  <rect x="244" y="62" width="340" height="32" rx="7" fill="#1a2230" stroke="#1e2d3d" stroke-width="1"/>
+  <!-- search icon (magnifier) -->
+  <circle cx="264" cy="78" r="6" fill="none" stroke="#4d6070" stroke-width="1.5"/>
+  <line x1="268" y1="82" x2="272" y2="86" stroke="#4d6070" stroke-width="1.5" stroke-linecap="round"/>
+  <text x="280" y="83" fill="#4d6070" font-size="12">Search monitors…</text>
 
-  <!-- Bottom status bar -->
-  <rect x="220" y="650" width="980" height="25" fill="#0c1524"/>
-  <rect x="220" y="650" width="980" height="1" fill="#1e293b"/>
-  <circle cx="234" cy="662" r="4" fill="#22c55e"/>
-  <text x="244" y="666" font-family="system-ui,sans-serif" font-size="10" fill="#475569">WebSocket connected · 10 UP · 1 DOWN · 1 PAUSED</text>
+  <!-- Filter buttons -->
+  <!-- All (active) -->
+  <rect x="596" y="62" width="44" height="32" rx="7" fill="#4f9cf9" opacity="0.18" stroke="#4f9cf9" stroke-width="1"/>
+  <text x="618" y="83" text-anchor="middle" fill="#4f9cf9" font-size="12" font-weight="600">All</text>
+
+  <!-- Up -->
+  <rect x="648" y="62" width="44" height="32" rx="7" fill="#1a2230" stroke="#1e2d3d" stroke-width="1"/>
+  <text x="670" y="83" text-anchor="middle" fill="#8899aa" font-size="12">Up</text>
+
+  <!-- Down -->
+  <rect x="700" y="62" width="56" height="32" rx="7" fill="#1a2230" stroke="#1e2d3d" stroke-width="1"/>
+  <text x="728" y="83" text-anchor="middle" fill="#8899aa" font-size="12">Down</text>
+
+  <!-- Type filter -->
+  <rect x="772" y="62" width="120" height="32" rx="7" fill="#1a2230" stroke="#1e2d3d" stroke-width="1"/>
+  <text x="820" y="83" text-anchor="middle" fill="#8899aa" font-size="12">All types ▾</text>
+
+  <!-- Showing count -->
+  <text x="244" y="116" fill="#4d6070" font-size="11">Showing 8 monitors</text>
+
+  <!-- ── Table header ── -->
+  <rect x="244" y="122" width="924" height="30" rx="6" fill="#1a2230"/>
+  <text x="266" y="142" fill="#4d6070" font-size="10" font-weight="700" letter-spacing="0.5">STATUS</text>
+  <text x="340" y="142" fill="#4d6070" font-size="10" font-weight="700" letter-spacing="0.5">NAME / URL</text>
+  <text x="526" y="142" fill="#4d6070" font-size="10" font-weight="700" letter-spacing="0.5">TYPE</text>
+  <text x="604" y="142" fill="#4d6070" font-size="10" font-weight="700" letter-spacing="0.5">UPTIME 24H</text>
+  <text x="706" y="142" fill="#4d6070" font-size="10" font-weight="700" letter-spacing="0.5">RESPONSE</text>
+  <text x="806" y="142" fill="#4d6070" font-size="10" font-weight="700" letter-spacing="0.5">PROBE</text>
+  <text x="898" y="142" fill="#4d6070" font-size="10" font-weight="700" letter-spacing="0.5">INTERVAL</text>
+  <text x="968" y="142" fill="#4d6070" font-size="10" font-weight="700" letter-spacing="0.5">ACTIONS</text>
+
+  <!-- ── Row 1 — UP http ── -->
+  <rect x="244" y="152" width="924" height="38" fill="#131920"/>
+  <rect x="244" y="189" width="924" height="1" fill="#1e2d3d"/>
+  <circle cx="264" cy="171" r="6" fill="#34d399"/>
+  <text x="340" y="167" fill="#e4ecf4" font-size="12" font-weight="600">api.example.com</text>
+  <text x="340" y="182" fill="#4d6070" font-size="10">https://api.example.com/health</text>
+  <rect x="522" y="160" width="36" height="18" rx="5" fill="#4f9cf9" opacity="0.18"/>
+  <text x="540" y="173" text-anchor="middle" fill="#4f9cf9" font-size="10" font-weight="600">http</text>
+  <text x="602" y="175" fill="#34d399" font-size="12">99.98%</text>
+  <text x="704" y="175" fill="#e4ecf4" font-size="12">118 ms</text>
+  <rect x="802" y="162" width="48" height="16" rx="4" fill="#202c3a"/>
+  <text x="826" y="174" text-anchor="middle" fill="#8899aa" font-size="10">Paris</text>
+  <text x="898" y="175" fill="#8899aa" font-size="12">30s</text>
+  <!-- edit btn -->
+  <rect x="964" y="160" width="28" height="22" rx="5" fill="#202c3a" stroke="#1e2d3d" stroke-width="1"/>
+  <text x="978" y="175" text-anchor="middle" fill="#8899aa" font-size="13">✎</text>
+
+  <!-- ── Row 2 — UP http ── -->
+  <rect x="244" y="190" width="924" height="38" fill="#131920"/>
+  <rect x="244" y="227" width="924" height="1" fill="#1e2d3d"/>
+  <circle cx="264" cy="209" r="6" fill="#34d399"/>
+  <text x="340" y="205" fill="#e4ecf4" font-size="12" font-weight="600">web-frontend</text>
+  <text x="340" y="220" fill="#4d6070" font-size="10">https://app.example.com</text>
+  <rect x="522" y="198" width="36" height="18" rx="5" fill="#4f9cf9" opacity="0.18"/>
+  <text x="540" y="211" text-anchor="middle" fill="#4f9cf9" font-size="10" font-weight="600">http</text>
+  <text x="602" y="213" fill="#34d399" font-size="12">100%</text>
+  <text x="704" y="213" fill="#e4ecf4" font-size="12">89 ms</text>
+  <rect x="802" y="200" width="70" height="16" rx="4" fill="#202c3a"/>
+  <text x="837" y="212" text-anchor="middle" fill="#8899aa" font-size="10">Frankfurt</text>
+  <text x="898" y="213" fill="#8899aa" font-size="12">60s</text>
+  <rect x="964" y="198" width="28" height="22" rx="5" fill="#202c3a" stroke="#1e2d3d" stroke-width="1"/>
+  <text x="978" y="213" text-anchor="middle" fill="#8899aa" font-size="13">✎</text>
+
+  <!-- ── Row 3 — DOWN tcp (fond rougeâtre) ── -->
+  <rect x="244" y="228" width="924" height="38" fill="#f87171" opacity="0.05"/>
+  <rect x="244" y="265" width="924" height="1" fill="#1e2d3d"/>
+  <circle cx="264" cy="247" r="10" fill="#f87171" opacity="0.18"/>
+  <circle cx="264" cy="247" r="6" fill="#f87171"/>
+  <text x="340" y="243" fill="#e4ecf4" font-size="12" font-weight="600">db-postgres-primary</text>
+  <text x="340" y="258" fill="#4d6070" font-size="10">tcp://db.internal:5432</text>
+  <rect x="522" y="236" width="30" height="18" rx="5" fill="#fbbf24" opacity="0.18"/>
+  <text x="537" y="249" text-anchor="middle" fill="#fbbf24" font-size="10" font-weight="600">tcp</text>
+  <text x="602" y="251" fill="#f87171" font-size="12">87.32%</text>
+  <text x="704" y="251" fill="#4d6070" font-size="12">—</text>
+  <rect x="802" y="238" width="46" height="16" rx="4" fill="#202c3a"/>
+  <text x="825" y="250" text-anchor="middle" fill="#8899aa" font-size="10">Saran</text>
+  <text x="898" y="251" fill="#8899aa" font-size="12">30s</text>
+  <rect x="964" y="236" width="28" height="22" rx="5" fill="#202c3a" stroke="#1e2d3d" stroke-width="1"/>
+  <text x="978" y="251" text-anchor="middle" fill="#f87171" font-size="13">✎</text>
+
+  <!-- ── Row 4 — UP scenario ── -->
+  <rect x="244" y="266" width="924" height="38" fill="#131920"/>
+  <rect x="244" y="303" width="924" height="1" fill="#1e2d3d"/>
+  <circle cx="264" cy="285" r="6" fill="#34d399"/>
+  <text x="340" y="281" fill="#e4ecf4" font-size="12" font-weight="600">checkout-flow</text>
+  <text x="340" y="296" fill="#4d6070" font-size="10">Playwright scenario</text>
+  <rect x="518" y="274" width="54" height="18" rx="5" fill="#8899aa" opacity="0.15"/>
+  <text x="545" y="287" text-anchor="middle" fill="#8899aa" font-size="10" font-weight="600">scenario</text>
+  <text x="602" y="289" fill="#34d399" font-size="12">99.50%</text>
+  <text x="704" y="289" fill="#e4ecf4" font-size="12">2340 ms</text>
+  <rect x="802" y="276" width="46" height="16" rx="4" fill="#202c3a"/>
+  <text x="825" y="288" text-anchor="middle" fill="#8899aa" font-size="10">Paris</text>
+  <text x="898" y="289" fill="#8899aa" font-size="12">5m</text>
+  <rect x="964" y="274" width="28" height="22" rx="5" fill="#202c3a" stroke="#1e2d3d" stroke-width="1"/>
+  <text x="978" y="289" text-anchor="middle" fill="#8899aa" font-size="13">✎</text>
+
+  <!-- ── Row 5 — UP dns ── -->
+  <rect x="244" y="304" width="924" height="38" fill="#131920"/>
+  <rect x="244" y="341" width="924" height="1" fill="#1e2d3d"/>
+  <circle cx="264" cy="323" r="6" fill="#34d399"/>
+  <text x="340" y="319" fill="#e4ecf4" font-size="12" font-weight="600">dns-resolver</text>
+  <text x="340" y="334" fill="#4d6070" font-size="10">dns://8.8.8.8 — A record</text>
+  <rect x="522" y="312" width="30" height="18" rx="5" fill="#34d399" opacity="0.18"/>
+  <text x="537" y="325" text-anchor="middle" fill="#34d399" font-size="10" font-weight="600">dns</text>
+  <text x="602" y="327" fill="#34d399" font-size="12">100%</text>
+  <text x="704" y="327" fill="#e4ecf4" font-size="12">22 ms</text>
+  <rect x="802" y="314" width="64" height="16" rx="4" fill="#202c3a"/>
+  <text x="834" y="326" text-anchor="middle" fill="#8899aa" font-size="10">New York</text>
+  <text x="898" y="327" fill="#8899aa" font-size="12">60s</text>
+  <rect x="964" y="312" width="28" height="22" rx="5" fill="#202c3a" stroke="#1e2d3d" stroke-width="1"/>
+  <text x="978" y="327" text-anchor="middle" fill="#8899aa" font-size="13">✎</text>
+
+  <!-- ── Row 6 — WARN keyword ── -->
+  <rect x="244" y="342" width="924" height="38" fill="#fbbf24" opacity="0.04"/>
+  <rect x="244" y="379" width="924" height="1" fill="#1e2d3d"/>
+  <circle cx="264" cy="361" r="6" fill="#fbbf24"/>
+  <text x="340" y="357" fill="#e4ecf4" font-size="12" font-weight="600">search-api-keyword</text>
+  <text x="340" y="372" fill="#4d6070" font-size="10">https://search.example.com — keyword: "results"</text>
+  <rect x="514" y="350" width="54" height="18" rx="5" fill="#4f9cf9" opacity="0.18"/>
+  <text x="541" y="363" text-anchor="middle" fill="#4f9cf9" font-size="10" font-weight="600">keyword</text>
+  <text x="602" y="365" fill="#fbbf24" font-size="12">94.20%</text>
+  <text x="704" y="365" fill="#e4ecf4" font-size="12">310 ms</text>
+  <rect x="802" y="352" width="70" height="16" rx="4" fill="#202c3a"/>
+  <text x="837" y="364" text-anchor="middle" fill="#8899aa" font-size="10">Frankfurt</text>
+  <text x="898" y="365" fill="#8899aa" font-size="12">30s</text>
+  <rect x="964" y="350" width="28" height="22" rx="5" fill="#202c3a" stroke="#1e2d3d" stroke-width="1"/>
+  <text x="978" y="365" text-anchor="middle" fill="#8899aa" font-size="13">✎</text>
+
+  <!-- ── Row 7 — UP http ── -->
+  <rect x="244" y="380" width="924" height="38" fill="#131920"/>
+  <rect x="244" y="417" width="924" height="1" fill="#1e2d3d"/>
+  <circle cx="264" cy="399" r="6" fill="#34d399"/>
+  <text x="340" y="395" fill="#e4ecf4" font-size="12" font-weight="600">cdn-assets</text>
+  <text x="340" y="410" fill="#4d6070" font-size="10">https://cdn.example.com/ping</text>
+  <rect x="522" y="388" width="36" height="18" rx="5" fill="#4f9cf9" opacity="0.18"/>
+  <text x="540" y="401" text-anchor="middle" fill="#4f9cf9" font-size="10" font-weight="600">http</text>
+  <text x="602" y="403" fill="#34d399" font-size="12">99.99%</text>
+  <text x="704" y="403" fill="#e4ecf4" font-size="12">54 ms</text>
+  <rect x="802" y="390" width="46" height="16" rx="4" fill="#202c3a"/>
+  <text x="825" y="402" text-anchor="middle" fill="#8899aa" font-size="10">Saran</text>
+  <text x="898" y="403" fill="#8899aa" font-size="12">60s</text>
+  <rect x="964" y="388" width="28" height="22" rx="5" fill="#202c3a" stroke="#1e2d3d" stroke-width="1"/>
+  <text x="978" y="403" text-anchor="middle" fill="#8899aa" font-size="13">✎</text>
+
+  <!-- ── Row 8 — UP heartbeat ── -->
+  <rect x="244" y="418" width="924" height="38" fill="#131920"/>
+  <circle cx="264" cy="437" r="6" fill="#34d399"/>
+  <text x="340" y="433" fill="#e4ecf4" font-size="12" font-weight="600">cron-backup</text>
+  <text x="340" y="448" fill="#4d6070" font-size="10">Heartbeat — last ping 4 min ago</text>
+  <rect x="514" y="426" width="56" height="18" rx="5" fill="#4f9cf9" opacity="0.18"/>
+  <text x="542" y="439" text-anchor="middle" fill="#4f9cf9" font-size="10" font-weight="600">heartbeat</text>
+  <text x="602" y="441" fill="#34d399" font-size="12">99.90%</text>
+  <text x="704" y="441" fill="#4d6070" font-size="12">—</text>
+  <rect x="802" y="428" width="46" height="16" rx="4" fill="#202c3a"/>
+  <text x="825" y="440" text-anchor="middle" fill="#8899aa" font-size="10">Paris</text>
+  <text x="898" y="441" fill="#8899aa" font-size="12">5m</text>
+  <rect x="964" y="426" width="28" height="22" rx="5" fill="#202c3a" stroke="#1e2d3d" stroke-width="1"/>
+  <text x="978" y="441" text-anchor="middle" fill="#8899aa" font-size="13">✎</text>
+
+  <!-- ── Pagination ── -->
+  <rect x="244" y="472" width="924" height="1" fill="#1e2d3d"/>
+  <text x="244" y="492" fill="#4d6070" font-size="11">Showing 1–8 of 12 monitors</text>
+  <!-- pagination buttons -->
+  <rect x="1076" y="478" width="32" height="24" rx="5" fill="#1a2230" stroke="#1e2d3d" stroke-width="1"/>
+  <text x="1092" y="494" text-anchor="middle" fill="#4d6070" font-size="13">‹</text>
+  <rect x="1114" y="478" width="32" height="24" rx="5" fill="#4f9cf9" opacity="0.18"/>
+  <text x="1130" y="494" text-anchor="middle" fill="#4f9cf9" font-size="12" font-weight="600">1</text>
+  <rect x="1152" y="478" width="16" height="24" rx="5" fill="#1a2230" stroke="#1e2d3d" stroke-width="1"/>
+  <text x="1160" y="494" text-anchor="middle" fill="#8899aa" font-size="13">›</text>
+
 </svg>

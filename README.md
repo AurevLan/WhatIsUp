@@ -3,7 +3,7 @@
 > Open-source uptime monitoring with multi-probe geographic correlation, real-time dashboard, SLO tracking, alerting, and public status pages.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Python 3.12](https://img.shields.io/badge/Python-3.12-blue)](https://python.org)
+[![Python 3.14](https://img.shields.io/badge/Python-3.14-blue)](https://python.org)
 [![Vue 3](https://img.shields.io/badge/Vue-3.5-42b883)](https://vuejs.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.125+-009688)](https://fastapi.tiangolo.com)
 [![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16-336791)](https://postgresql.org)
@@ -86,7 +86,7 @@
 - **`can_create_monitors` permission** — per-user flag; superadmin grants or revokes monitor creation rights independently of admin access
 - **Probe groups** — admin-defined groups linking probes to users; regular users see only the probes assigned to their groups
 - **Network scope** — per-monitor `network_scope` field (`all` / `internal` / `external`); restricts which probe types run each check (e.g. internal-only services stay on LAN probes)
-- **Multi-language** — English (default) and French; toggle in the sidebar; persisted to `localStorage`
+- **Multi-language** — English (default) and French; toggle in the top bar; persisted to `localStorage`
 - **Bulk actions** — multi-select monitors; bulk enable / pause / delete / export CSV
 - **Audit trail** — every admin action logged with before/after diff
 - **RBAC** — superadmin + per-resource ownership enforcement
@@ -245,6 +245,7 @@ services:
 | `PROBE_API_KEY` | ✅ | — | API key from probe registration |
 | `PROBE_LOCATION` | — | `unknown` | Display name in the UI |
 | `MAX_CONCURRENT_CHECKS` | — | `10` | Max parallel checks |
+| `MAX_CONCURRENT_SCENARIOS` | — | `2` | Max concurrent Playwright/Chromium instances (subset of `MAX_CONCURRENT_CHECKS`; reduce on low-memory machines) |
 | `HEARTBEAT_INTERVAL` | — | `15` | Seconds between server heartbeats |
 
 ---

@@ -26,6 +26,8 @@ class ProbeSettings(BaseSettings):
 
     # Max concurrent checks
     max_concurrent_checks: int = 10
+    # Max concurrent Playwright/Chromium instances (subset of max_concurrent_checks)
+    max_concurrent_scenarios: int = 2
 
     # Logging
     log_level: str = "INFO"

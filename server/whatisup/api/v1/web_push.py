@@ -12,7 +12,11 @@ from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
 from whatisup.models.user import User
 from whatisup.models.web_push import WebPushSubscription
-from whatisup.schemas.web_push import WebPushPublicKeyOut, WebPushSubscribeIn, WebPushSubscriptionOut
+from whatisup.schemas.web_push import (
+    WebPushPublicKeyOut,
+    WebPushSubscribeIn,
+    WebPushSubscriptionOut,
+)
 
 router = APIRouter(prefix="/push", tags=["web-push"])
 
@@ -46,7 +50,11 @@ async def get_subscription(
     return sub
 
 
-@router.post("/subscription", response_model=WebPushSubscriptionOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/subscription",
+    response_model=WebPushSubscriptionOut,
+    status_code=status.HTTP_201_CREATED,
+)
 @limiter.limit("10/minute")
 async def subscribe(
     request: Request,

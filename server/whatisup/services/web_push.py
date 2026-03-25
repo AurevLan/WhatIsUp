@@ -15,7 +15,9 @@ from whatisup.core.config import get_settings
 logger = structlog.get_logger(__name__)
 
 
-def _send_one(endpoint: str, p256dh: str, auth: str, payload: str, private_key: str, contact: str) -> None:
+def _send_one(
+    endpoint: str, p256dh: str, auth: str, payload: str, private_key: str, contact: str
+) -> None:
     """Synchronous push send — runs in a thread pool via asyncio.to_thread."""
     try:
         from pywebpush import WebPushException, webpush
@@ -30,7 +32,7 @@ def _send_one(endpoint: str, p256dh: str, auth: str, payload: str, private_key: 
             vapid_claims={"sub": f"mailto:{contact}"},
             timeout=10,
         )
-    except WebPushException as exc:
+    except WebPushException:
         # 410 Gone = subscription expired, caller should delete it
         raise
     except Exception as exc:
@@ -78,7 +80,11 @@ async def send_push_to_user(
         except Exception as exc:
             from pywebpush import WebPushException
 
-            if isinstance(exc, WebPushException) and exc.response is not None and exc.response.status_code == 410:
+            if (
+                isinstance(exc, WebPushException)
+                and exc.response is not None
+                and exc.response.status_code == 410
+            ):
                 # Subscription expired — queue for removal
                 stale_ids.append(sub.id)
             else:
@@ -102,7 +108,7 @@ async def dispatch_web_push_for_incident(
     """Fire web push notification for an incident open/resolve event."""
     if event_type == "incident_opened":
         title = f"🔴 {monitor.name} is DOWN"
-        body = f"An incident was detected. Check your dashboard."
+        body = "An incident was detected. Check your dashboard."
     elif event_type == "incident_resolved":
         title = f"✅ {monitor.name} is back UP"
         body = "The incident has been resolved."

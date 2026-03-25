@@ -25,4 +25,4 @@ class WebPushSubscription(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # Optional browser/device label
     user_agent: Mapped[str | None] = mapped_column(String(512))
 
-    user: Mapped["User"] = relationship(back_populates="push_subscriptions")  # noqa: F821
+    user: Mapped[User] = relationship(back_populates="push_subscriptions")  # noqa: F821

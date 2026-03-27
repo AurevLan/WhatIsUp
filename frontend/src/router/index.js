@@ -78,6 +78,11 @@ const routes = [
         component: () => import('../views/ProbeTimelineView.vue'),
       },
       {
+        path: 'incidents',
+        name: 'Incidents',
+        component: () => import('../views/IncidentsView.vue'),
+      },
+      {
         path: 'templates',
         name: 'Templates',
         component: () => import('../views/TemplatesView.vue'),

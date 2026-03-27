@@ -55,36 +55,50 @@ class ProbeScheduler:
 
     async def _run_check(self, monitor: dict[str, Any]) -> None:
         is_scenario = monitor.get("check_type") == "scenario"
+        # Hard outer timeout: monitor timeout + 60 s overhead (browser launch, cleanup).
+        # Prevents a hung Playwright process from freezing the job slot forever.
+        hard_timeout = monitor["timeout_seconds"] + 60
         async with self._semaphore:
             if is_scenario:
                 await self._scenario_semaphore.acquire()
             try:
-                result = await perform_check(
-                    monitor_id=str(monitor["id"]),
-                    url=monitor["url"],
-                    timeout_seconds=monitor["timeout_seconds"],
-                    follow_redirects=monitor["follow_redirects"],
-                    expected_status_codes=monitor["expected_status_codes"],
-                    ssl_check_enabled=monitor["ssl_check_enabled"],
-                    check_type=monitor.get("check_type", "http"),
-                    tcp_port=monitor.get("tcp_port"),
-                    udp_port=monitor.get("udp_port"),
-                    dns_record_type=monitor.get("dns_record_type"),
-                    dns_expected_value=monitor.get("dns_expected_value"),
-                    keyword=monitor.get("keyword"),
-                    keyword_negate=monitor.get("keyword_negate", False),
-                    expected_json_path=monitor.get("expected_json_path"),
-                    expected_json_value=monitor.get("expected_json_value"),
-                    steps=monitor.get("scenario_steps") or monitor.get("steps"),
-                    variables=monitor.get("scenario_variables") or monitor.get("variables"),
-                    body_regex=monitor.get("body_regex"),
-                    expected_headers=monitor.get("expected_headers"),
-                    json_schema=monitor.get("json_schema"),
-                    smtp_port=monitor.get("smtp_port"),
-                    smtp_starttls=monitor.get("smtp_starttls", False),
-                    domain_expiry_warn_days=monitor.get("domain_expiry_warn_days", 30),
-                    schema_drift_enabled=monitor.get("schema_drift_enabled", False),
+                result = await asyncio.wait_for(
+                    perform_check(
+                        monitor_id=str(monitor["id"]),
+                        url=monitor["url"],
+                        timeout_seconds=monitor["timeout_seconds"],
+                        follow_redirects=monitor["follow_redirects"],
+                        expected_status_codes=monitor["expected_status_codes"],
+                        ssl_check_enabled=monitor["ssl_check_enabled"],
+                        check_type=monitor.get("check_type", "http"),
+                        tcp_port=monitor.get("tcp_port"),
+                        udp_port=monitor.get("udp_port"),
+                        dns_record_type=monitor.get("dns_record_type"),
+                        dns_expected_value=monitor.get("dns_expected_value"),
+                        keyword=monitor.get("keyword"),
+                        keyword_negate=monitor.get("keyword_negate", False),
+                        expected_json_path=monitor.get("expected_json_path"),
+                        expected_json_value=monitor.get("expected_json_value"),
+                        steps=monitor.get("scenario_steps") or monitor.get("steps"),
+                        variables=monitor.get("scenario_variables") or monitor.get("variables"),
+                        body_regex=monitor.get("body_regex"),
+                        expected_headers=monitor.get("expected_headers"),
+                        json_schema=monitor.get("json_schema"),
+                        smtp_port=monitor.get("smtp_port"),
+                        smtp_starttls=monitor.get("smtp_starttls", False),
+                        domain_expiry_warn_days=monitor.get("domain_expiry_warn_days", 30),
+                        schema_drift_enabled=monitor.get("schema_drift_enabled", False),
+                    ),
+                    timeout=hard_timeout,
                 )
+            except asyncio.TimeoutError:
+                logger.error(
+                    "check_hard_timeout",
+                    monitor_id=str(monitor["id"]),
+                    hard_timeout=hard_timeout,
+                )
+                kill_stale_chromium()
+                return
             finally:
                 if is_scenario:
                     self._scenario_semaphore.release()

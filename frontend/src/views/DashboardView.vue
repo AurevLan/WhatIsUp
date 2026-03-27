@@ -73,6 +73,29 @@
           </div>
         </div>
 
+        <!-- Offline probes -->
+        <div v-if="offlineProbes.length > 0" class="card p-0 overflow-hidden">
+          <div class="dash__card-header">
+            <h2 class="dash__card-title flex items-center gap-2">
+              <WifiOff :size="13" style="color:#f87171" />
+              {{ t('dashboard.offline_probes') }}
+            </h2>
+            <span class="dash__incident-count">{{ offlineProbes.length }}</span>
+          </div>
+          <div>
+            <router-link
+              v-for="p in offlineProbes"
+              :key="p.id"
+              to="/probes"
+              class="dash__incident-row"
+            >
+              <span class="dot-down" />
+              <span class="dash__incident-name">{{ p.name }}</span>
+              <span class="dash__incident-type">{{ probeLastSeen(p) }} ago</span>
+            </router-link>
+          </div>
+        </div>
+
         <!-- Probe map -->
         <ProbeMap />
       </div>
@@ -81,12 +104,13 @@
 </template>
 
 <script setup>
-import { computed, defineComponent, h, onMounted } from 'vue'
+import { computed, defineComponent, h, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { AlertTriangle, ArrowRight, CheckCircle2, Monitor, Plus, TrendingUp, XCircle } from 'lucide-vue-next'
+import { AlertTriangle, ArrowRight, CheckCircle2, Monitor, Plus, TrendingUp, WifiOff, XCircle } from 'lucide-vue-next'
 import { useMonitorStore } from '../stores/monitors'
 import MonitorRow from '../components/monitors/MonitorRow.vue'
 import ProbeMap from '../components/dashboard/ProbeMap.vue'
+import api from '../api/client'
 
 const STATUS_PRIORITY = { down: 0, error: 1, timeout: 2, up: 3 }
 
@@ -130,7 +154,31 @@ const previewMonitors = computed(() =>
 
 const openIncidents = computed(() => monitors.value.filter(m => m._hasOpenIncident))
 
-onMounted(() => monitorStore.fetchAll())
+// Offline probes
+const probes = ref([])
+const OFFLINE_MS = 5 * 60 * 1000
+const offlineProbes = computed(() =>
+  probes.value.filter(p => {
+    if (!p.is_enabled) return false
+    if (!p.last_seen_at) return true
+    return Date.now() - new Date(p.last_seen_at).getTime() > OFFLINE_MS
+  })
+)
+function probeLastSeen(p) {
+  if (!p.last_seen_at) return t('common.never')
+  const diff = Math.round((Date.now() - new Date(p.last_seen_at).getTime()) / 1000)
+  if (diff < 60) return `${diff}s`
+  if (diff < 3600) return `${Math.round(diff / 60)}m`
+  return `${Math.round(diff / 3600)}h`
+}
+
+onMounted(async () => {
+  monitorStore.fetchAll()
+  try {
+    const { data } = await api.get('/probes')
+    probes.value = data
+  } catch {}
+})
 </script>
 
 <style scoped>
@@ -168,7 +216,7 @@ onMounted(() => monitorStore.fetchAll())
   grid-template-columns: 1fr;
   gap: 1.25rem;
 }
-@media (min-width: 1280px) {
+@media (min-width: 1024px) {
   .dash__grid { grid-template-columns: 3fr 2fr; }
 }
 
@@ -322,6 +370,7 @@ onMounted(() => monitorStore.fetchAll())
   background: #ef4444;
   border-radius: 50%;
   border: 2px solid var(--bg-surface);
+  animation: pulse-ring 2s ease-out infinite;
 }
 
 :deep(.stat-card__label) {

@@ -44,6 +44,13 @@ class IncidentUpdateOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class IncidentRef(BaseModel):
+    id: uuid.UUID
+    monitor_id: uuid.UUID
+
+    model_config = {"from_attributes": True}
+
+
 class IncidentGroupOut(BaseModel):
     id: uuid.UUID
     triggered_at: datetime
@@ -51,5 +58,6 @@ class IncidentGroupOut(BaseModel):
     cause_probe_ids: list[str]
     status: str
     incident_ids: list[uuid.UUID] = []
+    incident_refs: list[IncidentRef] = []
 
     model_config = {"from_attributes": True}

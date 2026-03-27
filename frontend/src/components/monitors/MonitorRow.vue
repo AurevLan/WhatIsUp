@@ -23,6 +23,14 @@
       <span class="monitor-row__uptime-label">24h</span>
     </div>
 
+    <!-- Flapping indicator -->
+    <span v-if="monitor._isFlapping" class="monitor-row__flap" title="Flapping — oscillating rapidly">⚡</span>
+
+    <!-- Health score -->
+    <span v-if="monitor._healthScore" class="monitor-row__health" :class="`health--${monitor._healthScore}`">
+      {{ monitor._healthScore }}
+    </span>
+
     <!-- Status badge -->
     <span class="monitor-row__badge" :class="badgeClass">{{ statusLabel }}</span>
   </router-link>
@@ -190,6 +198,36 @@ const target = computed(() => {
   border: 1px solid transparent;
   flex-shrink: 0;
 }
+
+/* Flapping */
+.monitor-row__flap {
+  font-size: 11px;
+  flex-shrink: 0;
+  animation: flap-flash 1.2s ease-in-out infinite;
+}
+@keyframes flap-flash {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* Health score */
+.monitor-row__health {
+  font-size: 9.5px;
+  font-weight: 800;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  letter-spacing: 0;
+}
+.health--A { background: rgba(52,211,153,.15); color: #34d399; border: 1px solid rgba(52,211,153,.3); }
+.health--B { background: rgba(96,165,250,.15); color: #60a5fa; border: 1px solid rgba(96,165,250,.3); }
+.health--C { background: rgba(251,191,36,.15);  color: #fbbf24; border: 1px solid rgba(251,191,36,.3); }
+.health--D { background: rgba(251,146,60,.15);  color: #fb923c; border: 1px solid rgba(251,146,60,.3); }
+.health--F { background: rgba(248,113,113,.15); color: #f87171; border: 1px solid rgba(248,113,113,.3); }
 
 /* Color utilities */
 .text-up   { color: #34d399; }

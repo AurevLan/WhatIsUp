@@ -156,6 +156,7 @@ def create_app() -> FastAPI:
         groups,
         incident_updates,
         incidents,
+        incidents_list,
         maintenance,
         metrics,
         monitors,
@@ -183,6 +184,7 @@ def create_app() -> FastAPI:
     app.include_router(ping.router, prefix="/api/v1")
     app.include_router(metrics.router, prefix="/api/v1")
     app.include_router(incidents.router, prefix="/api/v1")
+    app.include_router(incidents_list.router, prefix="/api/v1")
     app.include_router(incident_updates.router, prefix="/api/v1")
     app.include_router(templates.router, prefix="/api/v1")
     app.include_router(web_push.router, prefix="/api/v1")

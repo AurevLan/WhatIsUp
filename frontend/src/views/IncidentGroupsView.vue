@@ -64,11 +64,11 @@
             <p class="text-gray-500 text-xs mb-1">{{ t('incidentGroups.incidents') }}</p>
             <div class="flex flex-wrap gap-1">
               <router-link
-                v-for="incId in group.incident_ids" :key="incId"
-                :to="incidentLink(incId)"
+                v-for="ref in group.incident_refs" :key="ref.id"
+                :to="`/monitors/${ref.monitor_id}`"
                 class="px-2 py-0.5 bg-gray-800 text-blue-400 text-xs rounded font-mono hover:bg-gray-700"
-              >{{ incId.slice(0, 8) }}…</router-link>
-              <span v-if="group.incident_ids.length === 0" class="text-gray-600">—</span>
+              >{{ String(ref.id).slice(0, 8) }}…</router-link>
+              <span v-if="group.incident_refs.length === 0" class="text-gray-600">—</span>
             </div>
           </div>
         </div>
@@ -99,10 +99,6 @@ function probeName(pid) {
   return probeMap.value[pid]?.name ?? pid.slice(0, 8)
 }
 
-function incidentLink(incId) {
-  // Deep-link not yet implemented: just return a hash
-  return '#'
-}
 
 async function load() {
   loading.value = true

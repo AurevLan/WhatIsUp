@@ -32,7 +32,8 @@
         <NavLink to="/alerts"          :icon="Bell"          :label="t('nav.alerts')" />
         <NavLink to="/maintenance"     :icon="CalendarClock" :label="t('nav.maintenance')" />
         <NavLink to="/incident-groups" :icon="GitMerge"      :label="t('nav.incidentGroups')" :badge="openIncidentCount" />
-        <NavLink to="/templates"       :icon="Copy"          label="Templates" />
+        <NavLink to="/incidents"       :icon="Clock"         :label="t('nav.incidents')" />
+        <NavLink to="/templates"       :icon="Copy"          :label="t('nav.templates')" />
 
         <div class="nav-section">{{ t('nav.account') }}</div>
         <NavLink to="/api-keys" :icon="KeyRound"      :label="t('nav.apiKeys')" />
@@ -72,12 +73,20 @@
         </button>
 
         <!-- WS reconnecting banner -->
-        <div v-if="!ws.connected" class="topbar__ws-badge">
-          <WifiOff :size="11" />
-          {{ t('ws.reconnecting') }}
-        </div>
+        <Transition name="badge-fade">
+          <div v-if="ws.showReconnecting" class="topbar__ws-badge">
+            <WifiOff :size="11" />
+            {{ t('ws.reconnecting') }}
+          </div>
+        </Transition>
 
         <div class="topbar__right">
+          <!-- Global status indicator -->
+          <div v-if="!monitorStore.loading && monitorStore.monitors.length > 0" class="topbar__status" :class="downCount > 0 ? 'topbar__status--down' : 'topbar__status--up'">
+            <span class="topbar__status-dot" />
+            {{ downCount > 0 ? t('dashboard.n_down', { n: downCount }) : t('dashboard.all_operational') }}
+          </div>
+
           <!-- Language toggle -->
           <button @click="toggleLang" :title="t('settings.language')" class="topbar__lang-btn">
             <span>{{ currentLang === 'en' ? '🇫🇷' : '🇬🇧' }}</span>
@@ -103,7 +112,7 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
-  Activity, Bell, CalendarClock, ClipboardList, Copy, GitMerge,
+  Activity, Bell, CalendarClock, ClipboardList, Clock, Copy, GitMerge,
   KeyRound, LayoutDashboard, Layers, LogOut, MapPin, Settings,
   ShieldCheck, WifiOff,
 } from 'lucide-vue-next'
@@ -199,7 +208,7 @@ async function handleLogout() {
 .sidebar__logo-icon {
   width: 32px;
   height: 32px;
-  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  background: var(--brand-gradient);
   border-radius: 9px;
   display: flex;
   align-items: center;
@@ -245,7 +254,7 @@ async function handleLogout() {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  background: var(--brand-gradient);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -356,6 +365,49 @@ async function handleLogout() {
   border: 1px solid rgba(251,191,36,.2);
   border-radius: 99px;
   padding: 3px 10px;
+}
+
+.badge-fade-enter-active, .badge-fade-leave-active {
+  transition: opacity .25s ease, transform .25s ease;
+}
+.badge-fade-enter-from, .badge-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+.topbar__status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 500;
+  border-radius: 99px;
+  padding: 3px 10px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.topbar__status--up {
+  color: var(--up);
+  background: rgba(52,211,153,.08);
+  border-color: rgba(52,211,153,.2);
+}
+.topbar__status--down {
+  color: var(--down);
+  background: rgba(248,113,113,.08);
+  border-color: rgba(248,113,113,.2);
+}
+.topbar__status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+.topbar__status--down .topbar__status-dot {
+  animation: pulse-ring 2s ease-out infinite;
+}
+@media (max-width: 640px) {
+  .topbar__status { display: none; }
 }
 
 .topbar__right {

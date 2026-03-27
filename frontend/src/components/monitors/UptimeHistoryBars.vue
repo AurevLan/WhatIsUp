@@ -1,36 +1,31 @@
 <template>
   <div>
-    <div class="flex items-center justify-between mb-2">
-      <span class="text-xs text-gray-500">{{ days }}-day history</span>
-      <span class="text-xs text-gray-500">
+    <div class="hb__header">
+      <span class="hb__label">{{ days }}-day history</span>
+      <span class="hb__label">
         Overall: <span :class="overallClass">{{ overallUptime }}%</span>
       </span>
     </div>
 
-    <div class="flex gap-px items-end" style="height: 32px;">
+    <div class="hb__bars">
       <div
         v-for="bar in paddedBars"
         :key="bar.date"
-        class="flex-1 rounded-sm cursor-pointer transition-opacity hover:opacity-80 group relative"
+        class="hb__bar"
         :class="barClass(bar)"
-        style="min-width: 3px;"
         @mouseenter="hovered = bar"
         @mouseleave="hovered = null"
       >
         <!-- Tooltip -->
-        <div
-          v-if="hovered && hovered.date === bar.date"
-          class="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-10
-                 bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs whitespace-nowrap shadow-xl pointer-events-none"
-        >
-          <div class="text-gray-300 font-medium">{{ formatDate(bar.date) }}</div>
-          <div v-if="bar.empty" class="text-gray-500">No data</div>
+        <div v-if="hovered && hovered.date === bar.date" class="hb__tooltip">
+          <div class="hb__tooltip-date">{{ formatDate(bar.date) }}</div>
+          <div v-if="bar.empty" class="hb__tooltip-muted">No data</div>
           <template v-else>
-            <div :class="bar.uptime_percent >= 99 ? 'text-emerald-400' : bar.uptime_percent >= 95 ? 'text-amber-400' : 'text-red-400'">
+            <div :class="bar.uptime_percent >= 99 ? 'hb__val--up' : bar.uptime_percent >= 95 ? 'hb__val--warn' : 'hb__val--down'">
               {{ bar.uptime_percent }}% uptime
             </div>
-            <div class="text-gray-400">{{ bar.total }} checks</div>
-            <div v-if="bar.avg_response_time_ms" class="text-gray-400">
+            <div class="hb__tooltip-muted">{{ bar.total }} checks</div>
+            <div v-if="bar.avg_response_time_ms" class="hb__tooltip-muted">
               Avg: {{ Math.round(bar.avg_response_time_ms) }}ms
             </div>
           </template>
@@ -38,7 +33,7 @@
       </div>
     </div>
 
-    <div class="flex justify-between mt-1 text-xs text-gray-600">
+    <div class="hb__legend">
       <span>{{ days }}d ago</span>
       <span>Today</span>
     </div>
@@ -47,12 +42,14 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 const props = defineProps({
   history: { type: Array, default: () => [] },
   days: { type: Number, default: 90 },
 })
 
+const { locale } = useI18n()
 const hovered = ref(null)
 
 const paddedBars = computed(() => {
@@ -83,20 +80,93 @@ const overallUptime = computed(() => {
 
 const overallClass = computed(() => {
   const v = parseFloat(overallUptime.value)
-  if (isNaN(v)) return 'text-gray-400'
-  if (v >= 99) return 'text-emerald-400'
-  if (v >= 95) return 'text-amber-400'
-  return 'text-red-400'
+  if (isNaN(v)) return 'hb__val--muted'
+  if (v >= 99) return 'hb__val--up'
+  if (v >= 95) return 'hb__val--warn'
+  return 'hb__val--down'
 })
 
 function barClass(bar) {
-  if (bar.empty) return 'bg-gray-800'
-  if (bar.uptime_percent >= 99) return 'bg-emerald-500'
-  if (bar.uptime_percent >= 95) return 'bg-amber-400'
-  return 'bg-red-500'
+  if (bar.empty) return 'hb__bar--empty'
+  if (bar.uptime_percent >= 99) return 'hb__bar--up'
+  if (bar.uptime_percent >= 95) return 'hb__bar--warn'
+  return 'hb__bar--down'
 }
 
 function formatDate(dateStr) {
-  return new Date(dateStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
+  return new Date(dateStr).toLocaleDateString(locale.value, { day: 'numeric', month: 'short', year: 'numeric' })
 }
 </script>
+
+<style scoped>
+.hb__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.hb__label {
+  font-size: 0.75rem;
+  color: var(--text-3);
+}
+
+.hb__bars {
+  display: flex;
+  gap: 1px;
+  align-items: flex-end;
+  height: 32px;
+}
+
+.hb__bar {
+  flex: 1;
+  min-width: 3px;
+  border-radius: 2px;
+  cursor: pointer;
+  position: relative;
+  transition: opacity .15s;
+}
+.hb__bar:hover { opacity: 0.75; }
+
+.hb__bar--empty  { background: var(--bg-surface-3); }
+.hb__bar--up     { background: var(--up); }
+.hb__bar--warn   { background: var(--warn); }
+.hb__bar--down   { background: var(--down); }
+
+.hb__tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.625rem;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(0,0,0,.4);
+  pointer-events: none;
+}
+
+.hb__tooltip-date {
+  color: var(--text-1);
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.hb__tooltip-muted { color: var(--text-3); }
+
+.hb__val--up   { color: var(--up); }
+.hb__val--warn { color: var(--warn); }
+.hb__val--down { color: var(--down); }
+.hb__val--muted { color: var(--text-3); }
+
+.hb__legend {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.25rem;
+  font-size: 0.6875rem;
+  color: var(--text-3);
+}
+</style>

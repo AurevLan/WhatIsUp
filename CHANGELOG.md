@@ -11,6 +11,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.10.0] - 2026-03-27
+
+### Added
+
+#### Frontend — Global incident timeline
+- New **Incidents** view (`/incidents`) listing all incidents across all monitors, with filters by status (All / Open / Resolved) and time window (7 / 30 / 90 days)
+- Nav link "Incidents" (clock icon) added to the sidebar, between Incident Groups and Settings
+- Each row links to the corresponding monitor detail page; shows check type badge, duration, and open/resolved status
+
+#### Frontend — 365-day uptime heatmap
+- New `UptimeHeatmap` component: GitHub-style calendar heatmap showing one year of daily uptime on the monitor detail page
+- Color grades: `up` (≥99%), `high` (≥95%), `mid` (≥80%), `low` (>0%), `down` (0%)
+- Skeleton loader during fetch, inline error on failure, month labels, legend, data-count indicator
+- Positioned just below the stat cards in the Availability tab — visible on all monitor types
+
+#### Frontend — MonitorsView redesign
+- **Card / list view toggle** (grid icon / list icon) — card view shows a compact status tile per monitor
+- **Search** bar with keyboard shortcut focus
+- **Sortable columns** (name, uptime 24h, response time) with directional arrows
+- **Pagination** (50 per page) — list and card views both paginated
+- **Bulk select** — checkboxes + Select All / Deselect All; bulk-delete selected monitors
+
+#### Frontend — Dashboard offline probes card
+- New card in the dashboard right column showing any probe that hasn't sent a heartbeat in the last 5 minutes
+- Displays probe name, location, and last-seen timestamp; only rendered when at least one probe is offline
+
+#### Frontend — DNS monitor improvements
+- Current resolved values banner on the Availability tab: shows record type badge and the current IP / CNAME / TXT values as tags
+- DNS changelog now correctly diffs `dns_resolved_values` (the actual resolved IPs/names) instead of `final_url` (which is always `null` for DNS checks)
+
+#### Backend — Status summary API
+- `GET /api/v1/status/summary`: machine-readable overall health endpoint returning `operational / degraded / major_outage` plus per-monitor status, last check time, and uptime_24h; rate-limited at 120/min; designed for CI/CD pipelines and external integrations
+
+#### Backend — Global incident list API
+- `GET /api/v1/incidents/` (new module `incidents_list.py`): cross-monitor incident list with `days` and `resolved` filters; returns `monitor_name`, `monitor_check_type`, `started_at`, `resolved_at`, `duration_seconds`, `is_resolved`
+- `IncidentOut` schema extended with `monitor_check_type`, `started_at`, `is_resolved` fields
+
+### Fixed
+
+#### Probe — scenario checks no longer freeze after a Playwright hang
+- **Root cause**: if a Playwright browser launch hung indefinitely, `perform_check` never returned; APScheduler kept the job slot marked as "running" (1/1 instances), causing every subsequent scheduled firing to be skipped with *"maximum number of running instances reached"*
+- **Fix**: `asyncio.wait_for(perform_check(...), timeout=timeout_seconds + 60)` in `_run_check`; on `TimeoutError` the job logs `check_hard_timeout`, calls `kill_stale_chromium()`, and exits cleanly — freeing the slot for the next run
+
+#### Frontend — MonitorDetailView crash on load (TDZ ReferenceError)
+- `watch(chartWindow, loadResults)` was placed ~230 lines before `const chartWindow = ref(24)`, hitting JavaScript's Temporal Dead Zone and throwing `ReferenceError: Cannot access 'chartWindow' before initialization` at setup time — preventing any data from loading
+- Moved the `watch` call to immediately after the `chartWindow` declaration
+
+---
+
 ## [0.9.1] - 2026-03-25
 
 ### Fixed
@@ -517,7 +566,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docker Compose (dev + prod with Nginx + TLS)
 - Security: rate limiting, security headers, JWT validation, probe API key bcrypt hashing
 
-[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v0.9.1...HEAD
+[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.9.1...v0.10.0
 [0.9.1]: https://github.com/AurevLan/WhatIsUp/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/AurevLan/WhatIsUp/compare/v0.8.0...v0.8.1

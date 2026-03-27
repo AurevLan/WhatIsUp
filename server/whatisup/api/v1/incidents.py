@@ -15,7 +15,7 @@ from whatisup.core.limiter import limiter
 from whatisup.models.incident import IncidentGroup
 from whatisup.models.monitor import Monitor
 from whatisup.models.user import User
-from whatisup.schemas.incident import IncidentGroupOut
+from whatisup.schemas.incident import IncidentGroupOut, IncidentRef
 
 router = APIRouter(prefix="/incident-groups", tags=["incidents"])
 
@@ -64,6 +64,9 @@ async def list_incident_groups(
             cause_probe_ids=g.cause_probe_ids,
             status=g.status,
             incident_ids=[inc.id for inc in g.incidents],
+            incident_refs=[
+                IncidentRef(id=inc.id, monitor_id=inc.monitor_id) for inc in g.incidents
+            ],
         )
         result.append(d)
     return result
@@ -106,4 +109,7 @@ async def get_incident_group(
         cause_probe_ids=group.cause_probe_ids,
         status=group.status,
         incident_ids=[inc.id for inc in group.incidents],
+        incident_refs=[
+            IncidentRef(id=inc.id, monitor_id=inc.monitor_id) for inc in group.incidents
+        ],
     )

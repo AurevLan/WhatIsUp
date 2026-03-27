@@ -2,7 +2,11 @@
   <div class="p-8" v-if="monitor">
     <!-- Header -->
     <div class="flex items-center gap-4 mb-8">
-      <router-link to="/monitors" class="text-gray-400 hover:text-white text-sm">← Monitors</router-link>
+      <nav class="breadcrumb">
+        <router-link to="/monitors" class="breadcrumb__link">{{ t('monitors.title') }}</router-link>
+        <span class="breadcrumb__sep">/</span>
+        <span class="breadcrumb__current">{{ monitor.name }}</span>
+      </nav>
       <div class="flex-1">
         <div class="flex items-center gap-3">
           <span class="w-3 h-3 rounded-full" :class="statusClass"></span>
@@ -25,12 +29,12 @@
           ? 'text-blue-400 border-b-2 border-blue-400 -mb-px'
           : 'text-gray-500 hover:text-gray-300'"
       >
-        {{ tab }}
+        {{ tabLabel(tab) }}
       </button>
     </div>
 
     <!-- ── Onglet Scénario ───────────────────────────────────────────────────── -->
-    <div v-if="activeTab === 'Scénario'">
+    <div v-if="activeTab === TAB_SCENARIO">
       <!-- Stats cards -->
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <div class="card text-center">
@@ -62,7 +66,7 @@
       <!-- Edit scenario link -->
       <div class="flex items-center justify-end mb-3">
         <button
-          @click="router.push('/monitors')"
+          @click="editingMonitor = monitor"
           class="btn-secondary text-xs flex items-center gap-1.5"
           :title="t('monitor_detail.edit')"
         >
@@ -82,7 +86,7 @@
             <template v-if="testing">
               <span class="w-2 h-2 rounded-full bg-blue-400 animate-pulse shrink-0"></span>
               <span v-if="testingState === 'queued'">{{ t('monitor_detail.testing_queued') }}</span>
-              <span v-else>{{ t('monitor_detail.testing_running') }}</span>
+              <span v-else>{{ t('monitor_detail.testing_running') }} {{ testingElapsed > 0 ? t('monitor_detail.testing_elapsed', { s: testingElapsed }) : '' }}</span>
             </template>
             <template v-else>
               ▶ {{ t('monitor_detail.test_now') }}
@@ -279,7 +283,7 @@
     </div>
 
     <!-- ── Disponibilité + Temps de réponse + Checks ─────────────────────── -->
-    <div v-if="activeTab === 'Disponibilité'">
+    <div v-if="activeTab === TAB_AVAILABILITY">
 
     <!-- Stats cards -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -331,6 +335,38 @@
         </p>
         <p class="text-xs text-gray-600 mt-0.5">vs prev. 6h</p>
       </div>
+    </div>
+
+    <!-- DNS: current resolved value banner -->
+    <div v-if="monitor.check_type === 'dns'" class="card mb-6 flex flex-wrap items-center gap-4">
+      <div class="flex items-center gap-2 shrink-0">
+        <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">{{ monitor.dns_record_type || 'A' }}</span>
+        <span class="text-xs text-gray-600">·</span>
+        <span class="text-xs font-mono text-gray-400">{{ formatTarget(monitor) }}</span>
+      </div>
+      <div class="flex-1 min-w-0">
+        <template v-if="currentDnsValues">
+          <div class="flex flex-wrap gap-1.5">
+            <span
+              v-for="v in currentDnsValues" :key="v"
+              class="font-mono text-xs px-2 py-0.5 rounded bg-emerald-900/40 text-emerald-300 border border-emerald-800/60"
+            >{{ v }}</span>
+          </div>
+        </template>
+        <span v-else class="text-xs text-gray-500 italic">No resolution data yet</span>
+      </div>
+      <div v-if="monitor.dns_expected_value" class="shrink-0 text-xs font-mono px-2 py-1 rounded bg-blue-900/30 text-blue-300 border border-blue-800/50">
+        expected: {{ monitor.dns_expected_value }}
+      </div>
+    </div>
+
+    <!-- Annual uptime heatmap -->
+    <div class="card mb-6">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-semibold text-gray-300">{{ t('monitor_detail.heatmap_title') }}</h2>
+        <span class="text-xs text-gray-500">365 {{ t('common.days') }}</span>
+      </div>
+      <UptimeHeatmap :monitor-id="String(monitor.id)" />
     </div>
 
     <!-- DNS: value changelog -->
@@ -651,9 +687,9 @@
               :class="inc.resolved_at ? 'bg-emerald-500' : 'bg-red-500 animate-pulse'" />
             <div class="flex-1 min-w-0">
               <p class="text-gray-300 text-xs">
-                {{ new Date(inc.started_at).toLocaleString('fr-FR') }}
+                {{ new Date(inc.started_at).toLocaleString(locale.value) }}
                 <span v-if="inc.resolved_at" class="text-gray-500">
-                  → {{ new Date(inc.resolved_at).toLocaleString('fr-FR') }}
+                  → {{ new Date(inc.resolved_at).toLocaleString(locale.value) }}
                   <span class="ml-1 text-gray-600">({{ Math.round(inc.duration_seconds / 60) }} min)</span>
                 </span>
                 <span v-else class="text-red-400 font-medium ml-1">{{ t('incidents.ongoing') }}</span>
@@ -682,7 +718,7 @@
                 :key="u.id"
                 class="flex gap-2 text-xs"
               >
-                <span class="text-gray-600 font-mono flex-shrink-0">{{ new Date(u.created_at).toLocaleString('fr-FR') }}</span>
+                <span class="text-gray-600 font-mono flex-shrink-0">{{ new Date(u.created_at).toLocaleString(locale.value) }}</span>
                 <span :class="{
                   'text-amber-400': u.status === 'investigating',
                   'text-blue-400': u.status === 'identified',
@@ -787,11 +823,23 @@
       </div>
     </div>
 
-    <!-- Availability timeline (30-min buckets, 24h) -->
+    <!-- Chart window selector (shared by availability + RT charts) -->
+    <div class="flex items-center gap-1 mb-3">
+      <button
+        v-for="w in CHART_WINDOWS" :key="w.h"
+        @click="chartWindow = w.h"
+        class="px-2.5 py-1 text-xs rounded-md border transition-colors"
+        :class="chartWindow === w.h
+          ? 'bg-blue-600 border-blue-500 text-white'
+          : 'border-gray-700 text-gray-500 hover:border-gray-600 hover:text-gray-300'"
+      >{{ w.label }}</button>
+    </div>
+
+    <!-- Availability timeline -->
     <div class="card mb-6">
       <div class="flex items-center justify-between mb-4">
-        <h2 class="text-sm font-semibold text-gray-300">{{ t('monitor_detail.uptime_24h') }}</h2>
-        <span class="text-xs text-gray-500">30-min buckets · all probes aggregated</span>
+        <h2 class="text-sm font-semibold text-gray-300">{{ t('monitor_detail.availability') }}</h2>
+        <span class="text-xs text-gray-500">{{ chartBucketMin(chartWindow) }}min {{ t('monitor_detail.buckets') }}</span>
       </div>
       <apexchart
         v-if="availSeries[0]?.data?.length"
@@ -800,16 +848,20 @@
         :options="availOptions"
         :series="availSeries"
       />
-      <p v-else class="text-gray-500 text-sm text-center py-6">No data yet</p>
+      <p v-else class="text-gray-500 text-sm text-center py-6">{{ t('monitor_detail.no_data') }}</p>
     </div>
 
     <!-- Response time per probe (HTTP/TCP/Keyword/JSON only — not DNS) -->
     <div v-if="monitor.check_type !== 'dns'" class="card mb-6">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-sm font-semibold text-gray-300">
-          {{ monitor.check_type === 'tcp' ? 'TCP latency per probe — 24h' : 'Response time per probe — 24h' }}
+          {{ monitor.check_type === 'tcp' ? t('monitor_detail.tcp_latency') : t('monitor_detail.response_time') }}
         </h2>
-        <div class="flex gap-3">
+        <div class="flex items-center gap-3 flex-wrap">
+          <span v-if="responseTrend" class="flex items-center gap-1 text-xs font-medium"
+            :class="responseTrend.up ? 'text-red-400' : 'text-emerald-400'">
+            {{ responseTrend.up ? '↑' : '↓' }} {{ responseTrend.pct }}% {{ t('monitor_detail.trend_vs_6h') }}
+          </span>
           <span v-for="(s, i) in rtSeries" :key="s.name" class="flex items-center gap-1.5 text-xs text-gray-400">
             <span class="w-3 h-1.5 rounded-full inline-block" :style="`background:${probeColors[i % probeColors.length]}`" />
             {{ s.name }}
@@ -936,7 +988,7 @@
           <div class="flex-1 min-w-0">
             <p class="text-sm text-gray-200">{{ a.content }}</p>
             <p class="text-xs text-gray-500 mt-0.5">
-              {{ new Date(a.annotated_at).toLocaleString('fr-FR') }}
+              {{ new Date(a.annotated_at).toLocaleString(locale.value) }}
               <span v-if="a.created_by" class="ml-2 text-gray-600">· {{ a.created_by }}</span>
             </p>
           </div>
@@ -995,10 +1047,10 @@
               </span>
             </td>
             <td class="py-2 text-xs font-mono max-w-xs"
-              :title="r.final_url || r.error_message || ''">
-              <span v-if="r.status === 'up' && r.final_url"
+              :title="dnsValueStr(r) || r.error_message || ''">
+              <span v-if="dnsValueStr(r)"
                 :class="isDnsValueChange(idx) ? 'text-amber-300 font-semibold' : 'text-emerald-400'">
-                {{ r.final_url }}
+                {{ dnsValueStr(r) }}
               </span>
               <span v-else-if="r.error_message" class="text-red-300 truncate block max-w-xs">{{ r.error_message }}</span>
               <span v-else class="text-gray-600">—</span>
@@ -1158,7 +1210,7 @@
     </div>
 
     <!-- ── Onglet Carte ─────────────────────────────────────────────────────── -->
-    <div v-if="activeTab === 'Carte'">
+    <div v-if="activeTab === TAB_MAP">
       <div ref="probeMapEl" class="rounded-xl overflow-hidden" style="height: 480px;"></div>
 
       <!-- Sondes sans coordonnées -->
@@ -1214,6 +1266,7 @@
         <img :src="screenshotModal.src" class="w-full rounded-lg border border-gray-700 shadow-2xl" />
       </div>
     </div>
+    <EditMonitorModal v-if="editingMonitor" :monitor="editingMonitor" @close="editingMonitor = null" @updated="onMonitorUpdated" />
   </div>
   <div v-else class="p-8 text-gray-400">{{ t('common.loading') }}</div>
 </template>
@@ -1229,8 +1282,10 @@ import { probesApi } from '../api/probes'
 import { metricsApi } from '../api/metrics'
 import { incidentUpdatesApi } from '../api/incidentUpdates'
 import MonitorDependencies from '../components/monitors/MonitorDependencies.vue'
+import EditMonitorModal from '../components/monitors/EditMonitorModal.vue'
+import UptimeHeatmap from '../components/monitors/UptimeHeatmap.vue'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const route = useRoute()
 const router = useRouter()
@@ -1240,6 +1295,27 @@ const uptime24  = ref(null)
 const uptime7d  = ref(null)
 const probeMap  = ref({})   // probeId → { name, location_name }
 const allMonitors = ref([]) // for dependency picker
+const editingMonitor = ref(null)
+
+function onMonitorUpdated() {
+  editingMonitor.value = null
+  loadAll()
+}
+
+async function loadAll() {
+  const id    = route.params.id
+  const since = new Date(Date.now() - chartWindow.value * 60 * 60 * 1000).toISOString()
+  const [monResp, resResp, up24Resp, up7dResp] = await Promise.all([
+    monitorsApi.get(id),
+    monitorsApi.results(id, { limit: 2000, since }),
+    monitorsApi.uptime(id, 24),
+    monitorsApi.uptime(id, 168),
+  ])
+  monitor.value  = monResp.data
+  results.value  = resResp.data
+  uptime24.value = up24Resp.data
+  uptime7d.value = up7dResp.data
+}
 
 // ── Incidents & Post-mortem ───────────────────────────────────────────────────
 const incidents = ref([])
@@ -1429,10 +1505,12 @@ const newResultId  = ref(null)
 let   testPollInterval   = null
 let   testPollTimeout    = null  // 30-second hard limit
 let   highlightTimeout   = null  // 5-second highlight clear
+const testingElapsed = ref(0)
+let   elapsedInterval = null
 
 async function loadResults() {
   const id    = route.params.id
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  const since = new Date(Date.now() - chartWindow.value * 60 * 60 * 1000).toISOString()
   const { data } = await monitorsApi.results(id, { limit: 2000, since })
   // Only update ref when data actually changed to avoid spurious re-renders
   const latest = data[0]
@@ -1447,6 +1525,8 @@ async function handleTriggerCheck() {
   testing.value      = true
   testingState.value = 'queued'
   newResultId.value  = null
+  testingElapsed.value = 0
+  elapsedInterval = setInterval(() => { testingElapsed.value++ }, 1000)
 
   const clickedAt = new Date().toISOString()
 
@@ -1454,6 +1534,9 @@ async function handleTriggerCheck() {
     await triggerCheck(monitor.value.id)
     testingState.value = 'running'
   } catch {
+    clearInterval(elapsedInterval)
+    elapsedInterval = null
+    testingElapsed.value = 0
     testing.value      = false
     testingState.value = null
     return
@@ -1463,8 +1546,10 @@ async function handleTriggerCheck() {
   const stopPolling = () => {
     clearInterval(testPollInterval)
     clearTimeout(testPollTimeout)
+    clearInterval(elapsedInterval)
     testPollInterval = null
     testPollTimeout  = null
+    elapsedInterval  = null
   }
 
   testPollTimeout = setTimeout(() => {
@@ -1490,18 +1575,28 @@ async function handleTriggerCheck() {
 }
 
 // ── Tabs ─────────────────────────────────────────────────────────────────────
+const TAB_AVAILABILITY = 'availability'
+const TAB_SCENARIO = 'scenario'
+const TAB_MAP = 'map'
+
+const tabLabel = (tab) => ({
+  [TAB_AVAILABILITY]: t('monitor_detail.tab_availability'),
+  [TAB_SCENARIO]: t('monitor_detail.tab_scenario'),
+  [TAB_MAP]: t('monitor_detail.tab_map'),
+}[tab] ?? tab)
+
 const viewTabs = computed(() => {
-  const tabs = ['Disponibilité']
-  if (monitor.value?.check_type === 'scenario') tabs.push('Scénario')
-  tabs.push('Carte')
+  const tabs = [TAB_AVAILABILITY]
+  if (monitor.value?.check_type === 'scenario') tabs.push(TAB_SCENARIO)
+  tabs.push(TAB_MAP)
   return tabs
 })
-const activeTab = ref('Disponibilité')
+const activeTab = ref(TAB_AVAILABILITY)
 
 // Auto-switch to Scénario tab when monitor loads and is scenario type
 watch(monitor, (m) => {
-  if (m?.check_type === 'scenario' && activeTab.value === 'Disponibilité') {
-    activeTab.value = 'Scénario'
+  if (m?.check_type === 'scenario' && activeTab.value === TAB_AVAILABILITY) {
+    activeTab.value = TAB_SCENARIO
   }
 }, { once: true })
 
@@ -1528,7 +1623,7 @@ function markerColor(p) {
 }
 
 function statusLabel(p) {
-  if (!p.last_status) return 'Pas encore de check'
+  if (!p.last_status) return t('monitor_detail.no_check_yet')
   return p.last_status + (p.response_time_ms ? ` — ${Math.round(p.response_time_ms)}ms` : '')
 }
 
@@ -1567,15 +1662,15 @@ async function initMonitorMap() {
       iconAnchor: [7, 7],
     })
     const checkedAt = p.last_checked_at
-      ? new Date(p.last_checked_at).toLocaleString('fr-FR') : 'Never'
+      ? new Date(p.last_checked_at).toLocaleString(locale.value) : 'Never'
     const marker = L.marker([p.latitude, p.longitude], { icon })
       .addTo(monitorLeafletMap)
       .bindPopup(`
         <b>${p.name}</b><br>
         ${p.location_name}<br>
-        <span style="color:${col.hex}">● ${p.last_status ?? 'No check'}</span>
+        <span style="color:${col.hex}">● ${p.last_status ?? t('monitor_detail.no_check_yet')}</span>
         ${p.response_time_ms != null ? ` — ${Math.round(p.response_time_ms)}ms` : ''}<br>
-        <small>Last check: ${checkedAt}</small>
+        <small>${checkedAt}</small>
       `)
     monitorMarkers.push(marker)
   }
@@ -1583,7 +1678,7 @@ async function initMonitorMap() {
 
 async function setTab(tab) {
   activeTab.value = tab
-  if (tab === 'Carte') {
+  if (tab === TAB_MAP) {
     if (!probeStatuses.value.length) {
       try {
         const { data } = await monitorsApi.probeStatus(route.params.id)
@@ -1635,10 +1730,16 @@ const responseTrend = computed(() => {
 })
 
 // ── DNS changelog ─────────────────────────────────────────────────────────────
-// Normalize DNS values: split by comma, trim, sort — "5.6.7.8, 1.2.3.4" === "1.2.3.4, 5.6.7.8"
-function normalizeDnsValue(raw) {
-  if (!raw) return null
-  return raw.split(',').map(v => v.trim()).filter(Boolean).sort().join(', ')
+// Normalize DNS values: sort for stable comparison — ["5.6.7.8","1.2.3.4"] === ["1.2.3.4","5.6.7.8"]
+function normalizeDnsValue(vals) {
+  if (!vals || !vals.length) return null
+  return [...vals].sort().join(', ')
+}
+
+function dnsValueStr(r) {
+  if (r.status !== 'up') return null
+  if (r.dns_resolved_values?.length) return r.dns_resolved_values.join(', ')
+  return null
 }
 
 // results are DESC (newest first) — compare chronologically (reversed)
@@ -1647,19 +1748,19 @@ const dnsChangelog = computed(() => {
   const chronological = [...results.value].reverse()
   const changes = []
   let lastNorm = undefined // undefined = no previous result yet
-  let lastRaw = null
+  let lastVals = null
   for (const r of chronological) {
-    const raw = r.status === 'up' ? (r.final_url || '') : null
-    const norm = normalizeDnsValue(raw)
+    const vals = r.status === 'up' ? (r.dns_resolved_values ?? []) : null
+    const norm = normalizeDnsValue(vals)
     if (norm !== lastNorm) {
       changes.push({
         checked_at: r.checked_at,
         probe_id: r.probe_id,
-        old_value: lastNorm === undefined ? null : lastRaw,
-        new_value: raw,
+        old_value: lastNorm === undefined ? null : (lastVals ? lastVals.join(', ') : null),
+        new_value: vals ? vals.join(', ') : null,
       })
       lastNorm = norm
-      lastRaw = raw
+      lastVals = vals
     }
   }
   return changes.reverse() // most recent first
@@ -1669,10 +1770,16 @@ const dnsChangelog = computed(() => {
 function isDnsValueChange(idx) {
   const slice = results.value.slice(0, 100)
   if (idx >= slice.length - 1) return false
-  const curr = normalizeDnsValue(slice[idx].status === 'up' ? slice[idx].final_url : null)
-  const prev = normalizeDnsValue(slice[idx + 1].status === 'up' ? slice[idx + 1].final_url : null)
+  const curr = normalizeDnsValue(slice[idx].status === 'up' ? slice[idx].dns_resolved_values : null)
+  const prev = normalizeDnsValue(slice[idx + 1].status === 'up' ? slice[idx + 1].dns_resolved_values : null)
   return curr !== prev
 }
+
+// Most recent successful DNS resolution
+const currentDnsValues = computed(() => {
+  const r = results.value.find(r => r.status === 'up' && r.dns_resolved_values?.length)
+  return r?.dns_resolved_values ?? null
+})
 
 // Auto-select the most recent run when results load
 watch(results, (res) => {
@@ -1723,6 +1830,40 @@ function probeColor(probeId) {
   const idx = probeIndexMap.value[probeId] ?? 0
   return probeColors[idx % probeColors.length]
 }
+
+// ── Chart window & alert threshold ────────────────────────────────────────────
+const CHART_WINDOWS = [
+  { h: 6,   label: '6h' },
+  { h: 24,  label: '24h' },
+  { h: 72,  label: '3d' },
+  { h: 168, label: '7d' },
+]
+const chartWindow = ref(24)
+
+// Reload results when chart window changes (watch must be after chartWindow declaration)
+watch(chartWindow, loadResults)
+
+function chartBucketMin(h) {
+  if (h <= 6)  return 15
+  if (h <= 24) return 30
+  if (h <= 72) return 120
+  return 240
+}
+
+const alertRules = ref([])
+
+async function loadAlertRules() {
+  if (!monitor.value) return
+  try {
+    const { data } = await api.get('/alerts/rules')
+    alertRules.value = data.filter(r => r.monitor_id && String(r.monitor_id) === String(monitor.value.id))
+  } catch {}
+}
+
+const rtThresholdMs = computed(() => {
+  const rule = alertRules.value.find(r => r.condition === 'response_time_above' && r.threshold_value != null)
+  return rule?.threshold_value ?? null
+})
 
 // ── Custom metrics push ───────────────────────────────────────────────────────
 const customMetrics = ref([])
@@ -1808,19 +1949,27 @@ const rtOptions = computed(() => ({
         orientation: 'vertical',
       },
     })),
+    yaxis: rtThresholdMs.value != null ? [{
+      y: rtThresholdMs.value,
+      borderColor: '#f87171',
+      strokeDashArray: 4,
+      label: {
+        text: `Alert: ${rtThresholdMs.value}ms`,
+        style: { color: '#fff', background: '#ef4444', fontSize: '10px', padding: { left: 6, right: 6, top: 2, bottom: 2 } },
+        position: 'right',
+      },
+    }] : [],
   },
 }))
 
-// ── Chart: aggregated availability (bar, 30-min buckets) ─────────────────────
-const BUCKET_MIN = 30
-
+// ── Chart: aggregated availability (bar, dynamic window) ─────────────────────
 const availSeries = computed(() => {
-  if (!results.value.length) return [{ name: 'Disponibilité', data: [] }]
+  if (!results.value.length) return [{ name: 'Availability', data: [] }]
 
   const now    = Date.now()
-  const window = 24 * 60 * 60 * 1000
-  const bucket = BUCKET_MIN * 60 * 1000
-  const count  = Math.floor(window / bucket)   // 48 buckets
+  const window = chartWindow.value * 60 * 60 * 1000
+  const bucket = chartBucketMin(chartWindow.value) * 60 * 1000
+  const count  = Math.floor(window / bucket)
 
   const buckets = Array.from({ length: count }, (_, i) => ({
     ts:    now - window + (i + 1) * bucket,
@@ -1838,7 +1987,7 @@ const availSeries = computed(() => {
   }
 
   return [{
-    name: 'Disponibilité',
+    name: 'Availability',
     data: buckets.map(b => ({
       x: b.ts,
       y: b.total > 0 ? Math.round(b.up / b.total * 100) : null,
@@ -1846,7 +1995,7 @@ const availSeries = computed(() => {
   }]
 })
 
-const availOptions = {
+const availOptions = computed(() => ({
   chart: { type: 'bar', toolbar: { show: false }, background: 'transparent', animations: { enabled: false } },
   plotOptions: {
     bar: {
@@ -1874,9 +2023,9 @@ const availOptions = {
   theme: { mode: 'dark' },
   tooltip: {
     x: { format: 'dd/MM HH:mm' },
-    y: { formatter: v => v !== null ? v + '% des sondes UP' : 'Aucune donnée' },
+    y: { formatter: v => v !== null ? v + '% probes UP' : t('monitor_detail.no_data') },
   },
-}
+}))
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const noHttpTypes = ['tcp', 'udp', 'smtp', 'ping', 'domain_expiry', 'heartbeat', 'composite']
@@ -1896,14 +2045,14 @@ function formatTarget(m) {
 }
 
 function formatDate(dt) {
-  return new Date(dt).toLocaleString('fr-FR', {
+  return new Date(dt).toLocaleString(locale.value, {
     hour: '2-digit', minute: '2-digit', second: '2-digit',
     day: '2-digit', month: '2-digit',
   })
 }
 
 function formatDateShort(dt) {
-  return new Date(dt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  return new Date(dt).toLocaleDateString(locale.value, { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 // ── DNS Baseline ──────────────────────────────────────────────────────────────
@@ -2103,15 +2252,17 @@ onUnmounted(() => {
   clearInterval(testPollInterval)
   clearTimeout(testPollTimeout)
   clearTimeout(highlightTimeout)
+  clearInterval(elapsedInterval)
   testPollInterval = null
   testPollTimeout  = null
   highlightTimeout = null
+  elapsedInterval  = null
 })
 
 // ── Mount ─────────────────────────────────────────────────────────────────────
 onMounted(async () => {
   const id   = route.params.id
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  const since = new Date(Date.now() - chartWindow.value * 60 * 60 * 1000).toISOString()
 
   const [monResp, resResp, up24Resp, up7dResp] = await Promise.all([
     monitorsApi.get(id),
@@ -2128,12 +2279,13 @@ onMounted(async () => {
   sloEditTarget.value = monitor.value.slo_target ?? null
   sloEditDays.value   = monitor.value.slo_window_days ?? 30
 
-  // Load annotations, incidents, SLO, custom metrics & composite members non-blocking
+  // Load annotations, incidents, SLO, custom metrics, composite members & alert rules non-blocking
   loadAnnotations()
   loadIncidents()
   loadSlo()
   loadCustomMetrics()
   loadCompositeMembers()
+  loadAlertRules()
 
   // Load all monitors for dependency picker
   try {
@@ -2148,3 +2300,11 @@ onMounted(async () => {
   } catch {}
 })
 </script>
+
+<style scoped>
+.breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 0.8125rem; margin-bottom: 1.25rem; }
+.breadcrumb__link { color: var(--text-3); transition: color .15s; }
+.breadcrumb__link:hover { color: var(--text-1); }
+.breadcrumb__sep { color: var(--text-3); }
+.breadcrumb__current { color: var(--text-1); font-weight: 500; }
+</style>

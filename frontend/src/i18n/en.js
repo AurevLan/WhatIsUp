@@ -15,6 +15,8 @@ export default {
     infrastructure: 'Infrastructure',
     account: 'Account',
     incidentGroups: 'Incident Groups',
+    incidents: 'Incidents',
+    templates: 'Templates',
   },
 
   // Common
@@ -75,6 +77,9 @@ export default {
     recent_events: 'Recent events',
     avg_response_time: 'Avg. response time',
     global_uptime: 'Global uptime (24h)',
+    all_operational: 'All operational',
+    n_down: '{n} down',
+    offline_probes: 'Offline probes',
   },
 
   // Monitors
@@ -99,6 +104,21 @@ export default {
     bulk_delete: 'Delete',
     bulk_export: 'Export CSV',
     bulk_confirm_delete: 'Delete {count} monitor(s)?',
+    bulk_confirm_delete_title: 'Delete {count} monitor(s)?',
+    bulk_confirm_delete_message: 'This action is irreversible. All associated data will be deleted.',
+    bulk_confirm_delete_label: 'Delete {count} monitor(s)',
+    bulk_success_enabled: '{count} monitor(s) enabled',
+    bulk_success_paused: '{count} monitor(s) paused',
+    bulk_success_deleted: '{count} monitor(s) deleted',
+    bulk_error: 'An error occurred',
+    deselect_all: 'Deselect all',
+    paused_success: '"{name}" paused',
+    enabled_success: '"{name}" enabled',
+    deleted_success: '"{name}" deleted',
+    confirm_delete_title: 'Delete "{name}"?',
+    confirm_delete_message: 'All check data and associated incidents will be deleted.',
+    created_success: 'Monitor created successfully',
+    updated_success: 'Monitor updated successfully',
     interval: 'every {n}s',
     last_check: 'Last check',
     response_time: 'Response time',
@@ -200,6 +220,18 @@ export default {
     custom_metrics: 'Custom metrics',
     push_url: 'Show push URL',
     web_vitals: 'Core Web Vitals',
+    tab_availability: 'Availability',
+    tab_scenario: 'Scenario',
+    tab_map: 'Map',
+    testing_elapsed: '{s}s',
+    availability: 'Availability',
+    buckets: 'buckets · all probes',
+    no_data: 'No data yet',
+    no_check_yet: 'No check yet',
+    response_time: 'Response time per probe',
+    tcp_latency: 'TCP latency per probe',
+    trend_vs_6h: 'vs −6h',
+    heatmap_title: '365-day uptime heatmap',
   },
 
   // Probes
@@ -306,12 +338,21 @@ export default {
   // Incidents
   incidents: {
     title: 'Incidents',
-    no_incidents: 'No incidents',
+    subtitle: 'Cross-monitor incident timeline',
+    no_incidents: 'No incidents in this period',
     started: 'Started',
     resolved: 'Resolved',
     duration: 'Duration',
     ongoing: 'Ongoing',
     cause: 'Cause',
+    filter_all: 'All',
+    filter_open: 'Open',
+    filter_resolved: 'Resolved',
+    last_7d: '7 days',
+    last_30d: '30 days',
+    last_90d: '90 days',
+    monitor: 'Monitor',
+    type: 'Type',
   },
 
   // Auth
@@ -538,6 +579,13 @@ export default {
     label: 'Anomaly Detection',
     zscore_threshold: 'Z-score threshold',
     zscore_hint: '1.0 = very sensitive, 3.5 = standard',
+  },
+
+  // Heatmap
+  heatmap: {
+    less: 'Less',
+    more: 'More',
+    no_data: 'No data',
   },
 
   // Incident groups

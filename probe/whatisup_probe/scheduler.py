@@ -91,7 +91,7 @@ class ProbeScheduler:
                     ),
                     timeout=hard_timeout,
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.error(
                     "check_hard_timeout",
                     monitor_id=str(monitor["id"]),

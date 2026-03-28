@@ -1,11 +1,5 @@
 <template>
-  <div class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-    <div class="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
-      <div class="flex items-center justify-between mb-6">
-        <h2 class="text-lg font-semibold text-white">{{ t('monitors.edit_title') }}</h2>
-        <button @click="$emit('close')" class="text-gray-400 hover:text-white">✕</button>
-      </div>
-
+  <BaseModal :title="t('monitors.edit_title')" size="lg" @close="$emit('close')">
       <form @submit.prevent="handleSubmit" class="space-y-4">
 
         <!-- Check type selector (read-only in edit mode) -->
@@ -324,8 +318,7 @@
           </button>
         </div>
       </form>
-    </div>
-  </div>
+  </BaseModal>
 </template>
 
 <script setup>
@@ -333,6 +326,7 @@ import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useMonitorStore } from '../../stores/monitors'
 import ScenarioBuilder from './ScenarioBuilder.vue'
+import BaseModal from '../BaseModal.vue'
 
 const props = defineProps({
   monitor: { type: Object, required: true },

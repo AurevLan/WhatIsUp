@@ -24,8 +24,8 @@ from whatisup.core.security import (
     create_access_token,
     create_refresh_token,
     decode_token,
-    hash_password,
-    verify_password,
+    hash_password_async,
+    verify_password_async,
 )
 from whatisup.models.user import User
 from whatisup.schemas.user import TokenRefreshRequest, TokenResponse, UserCreate, UserOut
@@ -69,7 +69,7 @@ async def create_user(
         email=str(payload.email),
         username=payload.username,
         full_name=payload.full_name,
-        hashed_password=hash_password(payload.password),
+        hashed_password=await hash_password_async(payload.password),
         is_superadmin=False,  # Admin explicitly sets superadmin if needed
     )
     db.add(user)
@@ -100,7 +100,7 @@ async def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    if not verify_password(form.password, user.hashed_password):
+    if not await verify_password_async(form.password, user.hashed_password):
         logger.warning("login_failed_password", user_id=str(user.id))
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -113,7 +113,8 @@ async def login(
 
     # Store refresh token in Redis (TTL = 7 days)
     redis = get_redis()
-    await redis.setex(f"whatisup:refresh:{user.id}:{refresh[-12:]}", 7 * 86400, "1")
+    _rh = hashlib.sha256(refresh.encode()).hexdigest()[:32]
+    await redis.setex(f"whatisup:refresh:{user.id}:{_rh}", 7 * 86400, "1")
 
     logger.info("login_success", user_id=str(user.id))
     from whatisup.services.audit import log_action
@@ -130,14 +131,15 @@ async def refresh(
     try:
         data = decode_token(payload.refresh_token, "refresh")
         user_id = uuid.UUID(data["sub"])
-    except (InvalidTokenError, ValueError, KeyError) as exc:
+    except (InvalidTokenError, ValueError, KeyError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
-        ) from exc
+        )
 
     # Check not blacklisted
     redis = get_redis()
-    key = f"whatisup:refresh:{user_id}:{payload.refresh_token[-12:]}"
+    _rh = hashlib.sha256(payload.refresh_token.encode()).hexdigest()[:32]
+    key = f"whatisup:refresh:{user_id}:{_rh}"
     if not await redis.exists(key):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token revoked"
@@ -151,7 +153,8 @@ async def refresh(
     await redis.delete(key)
     new_access = create_access_token(str(user.id))
     new_refresh = create_refresh_token(str(user.id))
-    await redis.setex(f"whatisup:refresh:{user.id}:{new_refresh[-12:]}", 7 * 86400, "1")
+    _nrh = hashlib.sha256(new_refresh.encode()).hexdigest()[:32]
+    await redis.setex(f"whatisup:refresh:{user.id}:{_nrh}", 7 * 86400, "1")
 
     return TokenResponse(access_token=new_access, refresh_token=new_refresh)
 
@@ -165,7 +168,8 @@ async def logout(payload: TokenRefreshRequest) -> None:
         return  # Already invalid, nothing to revoke
 
     redis = get_redis()
-    key = f"whatisup:refresh:{user_id}:{payload.refresh_token[-12:]}"
+    _rh = hashlib.sha256(payload.refresh_token.encode()).hexdigest()[:32]
+    key = f"whatisup:refresh:{user_id}:{_rh}"
     await redis.delete(key)
 
 
@@ -230,7 +234,25 @@ async def oidc_config(db: AsyncSession = Depends(get_db)) -> dict:
 
 async def _oidc_discover(issuer: str) -> dict:
     """Fetch and return the OIDC discovery document."""
+    import ipaddress as _ipa
+    import socket as _sock
+    from urllib.parse import urlparse as _urlparse
+
     url = issuer.rstrip("/") + "/.well-known/openid-configuration"
+    parsed = _urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError("OIDC issuer URL must use http or https")
+    hostname = parsed.hostname or ""
+    if hostname.lower() in {"localhost", "127.0.0.1", "::1", "0.0.0.0"}:
+        raise ValueError("OIDC issuer URL points to blocked host")
+    try:
+        for ai in _sock.getaddrinfo(hostname, None, proto=_sock.IPPROTO_TCP):
+            ip = _ipa.ip_address(ai[4][0])
+            if ip.is_private or ip.is_loopback or ip.is_link_local:
+                raise ValueError("OIDC issuer URL resolves to internal IP")
+    except _sock.gaierror:
+        pass
+
     async with httpx.AsyncClient(timeout=10) as client:
         resp = await client.get(url)
         resp.raise_for_status()
@@ -250,11 +272,11 @@ async def oidc_login(
     try:
         discovery = await _oidc_discover(cfg["issuer_url"])
     except Exception as exc:
-        logger.error("oidc_discovery_failed", error=str(exc))
+        logger.error("oidc_discovery_failed", error_type=type(exc).__name__)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="OIDC provider unreachable",
-        ) from exc
+        )
 
     # Generate state + PKCE code_verifier
     state = urlsafe_b64encode(os.urandom(32)).rstrip(b"=").decode()
@@ -306,8 +328,10 @@ async def oidc_callback(
     )
 
     def _fail(msg: str) -> RedirectResponse:
+        from urllib.parse import urlencode
+
         return RedirectResponse(
-            url=f"{frontend_url}/oidc-callback?error={msg}",
+            url=f"{frontend_url}/oidc-callback?{urlencode({'error': msg})}",
             status_code=302,
         )
 
@@ -352,7 +376,7 @@ async def oidc_callback(
             token_resp.raise_for_status()
             tokens = token_resp.json()
     except Exception as exc:
-        logger.error("oidc_token_exchange_failed", error=str(exc))
+        logger.error("oidc_token_exchange_failed", error_type=type(exc).__name__)
         return _fail("token_exchange_failed")
 
     # Fetch userinfo
@@ -365,7 +389,7 @@ async def oidc_callback(
             ui_resp.raise_for_status()
             userinfo = ui_resp.json()
     except Exception as exc:
-        logger.error("oidc_userinfo_failed", error=str(exc))
+        logger.error("oidc_userinfo_failed", error_type=type(exc).__name__)
         return _fail("userinfo_failed")
 
     sub = userinfo.get("sub")
@@ -413,7 +437,8 @@ async def oidc_callback(
 
     access = create_access_token(str(user.id))
     refresh = create_refresh_token(str(user.id))
-    await redis.setex(f"whatisup:refresh:{user.id}:{refresh[-12:]}", 7 * 86400, "1")
+    _rh = hashlib.sha256(refresh.encode()).hexdigest()[:32]
+    await redis.setex(f"whatisup:refresh:{user.id}:{_rh}", 7 * 86400, "1")
 
     logger.info("oidc_login_success", user_id=str(user.id))
     from whatisup.services.audit import log_action

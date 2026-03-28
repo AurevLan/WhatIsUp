@@ -1,8 +1,5 @@
 <template>
-  <div class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-    <div class="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md p-6">
-      <h2 class="text-lg font-semibold text-white mb-6">{{ t('probes.edit_title') }}</h2>
-
+  <BaseModal :title="t('probes.edit_title')" @close="$emit('close')">
       <form @submit.prevent="save" class="space-y-4">
         <div>
           <label class="block text-xs text-gray-400 mb-1">{{ t('probes.location_label') }}</label>
@@ -60,14 +57,14 @@
           </button>
         </div>
       </form>
-    </div>
-  </div>
+  </BaseModal>
 </template>
 
 <script setup>
 import { ref, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { probesApi } from '../../api/probes'
+import BaseModal from '../BaseModal.vue'
 
 const { t } = useI18n()
 

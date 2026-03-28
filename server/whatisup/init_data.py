@@ -10,7 +10,7 @@ import string
 from sqlalchemy import func, select
 
 from whatisup.core.database import get_session_factory
-from whatisup.core.security import generate_probe_api_key, hash_api_key, hash_password
+from whatisup.core.security import generate_probe_api_key, hash_api_key, hash_password_async
 from whatisup.models.probe import Probe
 from whatisup.models.user import User
 
@@ -28,7 +28,7 @@ async def init() -> None:
                 User(
                     email="admin@local",
                     username="admin",
-                    hashed_password=hash_password(pwd),
+                    hashed_password=await hash_password_async(pwd),
                     is_superadmin=True,
                     is_active=True,
                 )

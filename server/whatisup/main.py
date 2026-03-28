@@ -40,7 +40,7 @@ async def _retention_job() -> None:
         try:
             await purge_old_results(settings.data_retention_days)
         except Exception as exc:
-            logger.error("retention_job_failed", error=str(exc))
+            logger.error("retention_job_failed", error_type=type(exc).__name__, error=str(exc))
 
 
 @asynccontextmanager
@@ -64,7 +64,11 @@ async def lifespan(app: FastAPI):
             try:
                 await check_heartbeats()
             except Exception as exc:
-                logger.error("heartbeat_checker_error", error=str(exc))
+                logger.error(
+                    "heartbeat_checker_error",
+                    error_type=type(exc).__name__,
+                    error=str(exc),
+                )
             await asyncio.sleep(30)
 
     heartbeat_task = asyncio.create_task(_heartbeat_checker())

@@ -2335,6 +2335,10 @@ onUnmounted(() => {
   testPollTimeout  = null
   highlightTimeout = null
   elapsedInterval  = null
+  if (monitorLeafletMap) {
+    monitorLeafletMap.remove()
+    monitorLeafletMap = null
+  }
 })
 
 // ── Mount ─────────────────────────────────────────────────────────────────────

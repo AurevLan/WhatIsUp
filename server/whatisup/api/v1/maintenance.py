@@ -2,12 +2,13 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.api.deps import get_current_user
 from whatisup.core.database import get_db
+from whatisup.core.limiter import limiter
 from whatisup.models.maintenance import MaintenanceWindow
 from whatisup.models.monitor import Monitor, MonitorGroup
 from whatisup.models.user import User
@@ -74,7 +75,9 @@ async def create_window(
 
 
 @router.delete("/{window_id}", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("30/minute")
 async def delete_window(
+    request: Request,
     window_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -90,7 +93,9 @@ async def delete_window(
 
 
 @router.patch("/{window_id}", response_model=MaintenanceWindowOut)
+@limiter.limit("30/minute")
 async def update_window(
+    request: Request,
     window_id: uuid.UUID,
     payload: MaintenanceWindowCreate,
     current_user: User = Depends(get_current_user),

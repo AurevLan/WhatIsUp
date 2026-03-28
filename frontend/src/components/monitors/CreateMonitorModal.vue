@@ -1,11 +1,5 @@
 <template>
-  <div class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-    <div class="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
-      <div class="flex items-center justify-between mb-6">
-        <h2 class="text-lg font-semibold text-white">{{ t('monitors.add') }}</h2>
-        <button @click="$emit('close')" class="text-gray-400 hover:text-white">✕</button>
-      </div>
-
+  <BaseModal :title="t('monitors.add')" size="lg" @close="$emit('close')">
       <form @submit.prevent="handleSubmit" class="space-y-4">
 
         <!-- Check type selector -->
@@ -377,7 +371,7 @@
 
         <div class="flex gap-3 pt-2">
           <button type="button" @click="$emit('close')"
-            class="flex-1 px-4 py-2 border border-gray-700 text-gray-300 rounded-lg hover:bg-gray-800 transition-colors">
+            class="btn-secondary flex-1">
             {{ t('common.cancel') }}
           </button>
           <button type="submit" :disabled="loading" class="flex-1 btn-primary">
@@ -385,8 +379,7 @@
           </button>
         </div>
       </form>
-    </div>
-  </div>
+  </BaseModal>
 </template>
 
 <script setup>
@@ -395,6 +388,7 @@ import { useI18n } from 'vue-i18n'
 import { useMonitorStore } from '../../stores/monitors'
 import api from '../../api/client'
 import ScenarioBuilder from './ScenarioBuilder.vue'
+import BaseModal from '../BaseModal.vue'
 
 const { t } = useI18n()
 

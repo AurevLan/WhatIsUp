@@ -2,7 +2,32 @@
   <div class="p-8">
     <h1 class="text-2xl font-bold text-white mb-8">{{ t('alerts.title') }}</h1>
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+    <!-- Skeleton loading -->
+    <div v-if="loading" class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+      <div>
+        <div class="skeleton h-6 w-40 mb-4" />
+        <div class="space-y-3">
+          <div v-for="i in 3" :key="i" class="skeleton-row card">
+            <div class="skeleton-circle" />
+            <div class="flex-1 space-y-2">
+              <div class="skeleton-line w-3/4" />
+              <div class="skeleton-line w-1/2" style="height:0.5rem" />
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="skeleton h-6 w-40 mb-4" />
+        <div class="space-y-2">
+          <div v-for="i in 5" :key="i" class="card py-2.5">
+            <div class="skeleton-line w-full" />
+            <div class="skeleton-line w-2/3 mt-2" style="height:0.5rem" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div v-else class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
       <!-- Alert Channels -->
       <div>
         <div class="flex items-center justify-between mb-4">
@@ -10,7 +35,7 @@
           <button @click="showAddChannel = true" class="text-sm btn-primary">+ {{ t('alerts.add_channel') }}</button>
         </div>
         <div class="space-y-3">
-          <div v-for="channel in channels" :key="channel.id" class="card">
+          <div v-for="(channel, idx) in channels" :key="channel.id" class="card stagger-item" :style="{ animationDelay: idx * 50 + 'ms' }">
             <div class="flex items-center gap-4">
               <div class="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
                 :class="channelIcon(channel.type).bg">
@@ -44,9 +69,10 @@
               — {{ testResults[channel.id].detail }}
             </div>
           </div>
-          <p v-if="!channels.length" class="text-gray-500 text-sm text-center py-8">
-            {{ t('alerts.no_channels') }}
-          </p>
+          <div v-if="!channels.length" class="empty-state">
+            <div class="empty-state__icon">🔔</div>
+            <p class="empty-state__title">{{ t('alerts.no_channels') }}</p>
+          </div>
         </div>
       </div>
 
@@ -84,9 +110,10 @@
               </span>
             </div>
           </div>
-          <p v-if="!filteredEvents.length" class="text-gray-500 text-sm text-center py-8">
-            {{ t('alerts.no_events') }}
-          </p>
+          <div v-if="!filteredEvents.length" class="empty-state">
+            <div class="empty-state__icon">📋</div>
+            <p class="empty-state__title">{{ t('alerts.no_events') }}</p>
+          </div>
         </div>
       </div>
     </div>
@@ -454,6 +481,7 @@ import AddChannelModal from '../components/alerts/AddChannelModal.vue'
 const { t } = useI18n()
 const { success, error: toastError } = useToast()
 
+const loading = ref(true)
 const channels = ref([])
 const events = ref([])
 const rules = ref([])
@@ -637,14 +665,18 @@ function formatRelative(dt) {
 
 async function loadData() {
   showAddChannel.value = false
-  const [chResp, evResp, rulesResp] = await Promise.all([
-    api.get('/alerts/channels'),
-    api.get('/alerts/events'),
-    api.get('/alerts/rules'),
-  ])
-  channels.value = chResp.data
-  events.value = evResp.data
-  rules.value = rulesResp.data
+  try {
+    const [chResp, evResp, rulesResp] = await Promise.all([
+      api.get('/alerts/channels'),
+      api.get('/alerts/events'),
+      api.get('/alerts/rules'),
+    ])
+    channels.value = chResp.data
+    events.value = evResp.data
+    rules.value = rulesResp.data
+  } finally {
+    loading.value = false
+  }
 }
 
 function confirmDeleteChannel(channel) {

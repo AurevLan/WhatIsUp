@@ -102,9 +102,9 @@
         </div>
       </div>
 
-      <div v-else-if="filteredMonitors.length === 0" class="flex flex-col items-center py-16 text-center p-8">
-        <Monitor class="w-10 h-10 text-gray-700 mb-3" />
-        <p class="text-gray-500 text-sm">{{ t('monitors.no_results') }}</p>
+      <div v-else-if="filteredMonitors.length === 0" class="empty-state">
+        <div class="empty-state__icon"><Monitor :size="22" /></div>
+        <p class="empty-state__title">{{ t('monitors.no_results') }}</p>
         <button v-if="hasActiveFilters" @click="clearFilters" class="btn-secondary text-xs mt-3 flex items-center gap-1">
           <X class="w-3 h-3" /> {{ t('monitors.clear_filters') }}
         </button>
@@ -139,9 +139,10 @@
         </thead>
         <tbody>
           <tr
-            v-for="monitor in paginatedMonitors"
+            v-for="(monitor, idx) in paginatedMonitors"
             :key="monitor.id"
-            class="table-row"
+            class="table-row stagger-item"
+            :style="{ animationDelay: idx * 20 + 'ms' }"
             :class="selectedIds.has(monitor.id) ? 'bg-blue-950/20' : ''"
           >
             <!-- Checkbox -->
@@ -234,9 +235,10 @@
     <div v-else>
       <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
         <router-link
-          v-for="monitor in paginatedMonitors" :key="monitor.id"
+          v-for="(monitor, idx) in paginatedMonitors" :key="monitor.id"
           :to="`/monitors/${monitor.id}`"
-          class="group relative rounded-xl border p-4 transition-all duration-200 hover:scale-[1.02]"
+          class="stagger-item group relative rounded-xl border p-4 transition-all duration-200 hover:scale-[1.02]"
+          :style="{ animationDelay: idx * 30 + 'ms' }"
           :class="{
             'border-emerald-700/50 bg-emerald-950/20 hover:border-emerald-600': monitor._lastStatus === 'up',
             'border-red-700/60 bg-red-950/30 hover:border-red-600': monitor._lastStatus === 'down',
@@ -291,10 +293,9 @@
         </router-link>
 
         <!-- Empty state -->
-        <div v-if="filteredMonitors.length === 0"
-          class="col-span-full flex flex-col items-center py-16 text-center">
-          <Monitor class="w-10 h-10 text-gray-700 mb-3" />
-          <p class="text-gray-500 text-sm">{{ t('monitors.no_results') }}</p>
+        <div v-if="filteredMonitors.length === 0" class="col-span-full empty-state">
+          <div class="empty-state__icon"><Monitor :size="22" /></div>
+          <p class="empty-state__title">{{ t('monitors.no_results') }}</p>
           <button v-if="hasActiveFilters" @click="clearFilters" class="btn-secondary text-xs mt-3 flex items-center gap-1">
             <X class="w-3 h-3" /> {{ t('monitors.clear_filters') }}
           </button>

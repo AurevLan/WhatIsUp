@@ -1,10 +1,5 @@
 <template>
-  <div class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-    <div class="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md p-6">
-      <div class="flex items-center justify-between mb-6">
-        <h2 class="text-lg font-semibold text-white">Add Alert Channel</h2>
-        <button @click="$emit('close')" class="text-gray-400 hover:text-white">✕</button>
-      </div>
+  <BaseModal title="Add Alert Channel" @close="$emit('close')">
 
       <form @submit.prevent="handleSubmit" class="space-y-4">
         <div>
@@ -133,19 +128,19 @@
         </div>
 
         <div class="flex gap-3 pt-2">
-          <button type="button" @click="$emit('close')" class="flex-1 px-4 py-2 border border-gray-700 text-gray-300 rounded-lg hover:bg-gray-800">Cancel</button>
+          <button type="button" @click="$emit('close')" class="btn-secondary flex-1">Cancel</button>
           <button type="submit" :disabled="loading || !form.type" class="flex-1 btn-primary">
             {{ loading ? 'Adding…' : 'Add channel' }}
           </button>
         </div>
       </form>
-    </div>
-  </div>
+  </BaseModal>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
 import api from '../../api/client'
+import BaseModal from '../BaseModal.vue'
 
 const emit = defineEmits(['close', 'created'])
 const form = ref({ name: '', type: '' })

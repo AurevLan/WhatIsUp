@@ -14,7 +14,7 @@ from sqlalchemy.orm import selectinload
 from whatisup.api.deps import require_superadmin
 from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
-from whatisup.core.security import hash_password
+from whatisup.core.security import hash_password_async
 from whatisup.models.monitor import Monitor
 from whatisup.models.probe import Probe
 from whatisup.models.probe_group import ProbeGroup, probe_group_members, user_probe_group_access
@@ -100,7 +100,7 @@ async def create_user(
         email=str(payload.email),
         username=username,
         full_name=payload.full_name,
-        hashed_password=hash_password(payload.password),
+        hashed_password=await hash_password_async(payload.password),
         is_superadmin=False,
         can_create_monitors=payload.can_create_monitors,
     )
@@ -143,7 +143,7 @@ async def update_user(
         user.full_name = payload.full_name
 
     if payload.password is not None:
-        user.hashed_password = hash_password(payload.password)
+        user.hashed_password = await hash_password_async(payload.password)
 
     if payload.is_active is not None:
         user.is_active = payload.is_active

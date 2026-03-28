@@ -2,12 +2,13 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.api.deps import get_current_user
 from whatisup.core.database import get_db
+from whatisup.core.limiter import limiter
 from whatisup.models.monitor import Monitor, MonitorGroup
 from whatisup.models.tag import Tag
 from whatisup.models.user import User
@@ -86,7 +87,9 @@ async def get_group(
 
 
 @router.patch("/{group_id}", response_model=MonitorGroupOut)
+@limiter.limit("30/minute")
 async def update_group(
+    request: Request,
     group_id: uuid.UUID,
     payload: MonitorGroupUpdate,
     current_user: User = Depends(get_current_user),
@@ -108,7 +111,9 @@ async def update_group(
 
 
 @router.delete("/{group_id}", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("30/minute")
 async def delete_group(
+    request: Request,
     group_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

@@ -101,10 +101,10 @@ async def telegram_resolve(
         try:
             resp = await client.get(f"{base_url}/getUpdates", params={"limit": 10, "offset": -10})
             resp.raise_for_status()
-        except httpx.HTTPError as exc:
+        except httpx.HTTPError:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Telegram API error: {exc}",
+                detail="Telegram API error: could not reach the bot API.",
             )
 
         data = resp.json()
@@ -153,17 +153,19 @@ async def telegram_resolve(
                 },
             )
             val_resp.raise_for_status()
-        except httpx.HTTPError as exc:
+        except httpx.HTTPError:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Could not send validation message: {exc}",
+                detail="Could not send validation message.",
             )
 
     return TelegramResolveOut(chat_id=chat_id, chat_name=chat_name)
 
 
 @router.delete("/channels/{channel_id}", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("30/minute")
 async def delete_channel(
+    request: Request,
     channel_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -264,7 +266,9 @@ async def create_rule(
 
 
 @router.patch("/rules/{rule_id}", response_model=AlertRuleOut)
+@limiter.limit("30/minute")
 async def update_rule(
+    request: Request,
     rule_id: uuid.UUID,
     payload: AlertRuleUpdate,
     current_user: User = Depends(get_current_user),
@@ -342,7 +346,9 @@ async def simulate_rule_endpoint(
 
 
 @router.delete("/rules/{rule_id}", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("30/minute")
 async def delete_rule(
+    request: Request,
     rule_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import secrets
 from datetime import UTC, datetime, timedelta
 
@@ -22,6 +23,14 @@ def hash_password(password: str) -> str:
 
 def verify_password(plain: str, hashed: str) -> bool:
     return bcrypt.checkpw(plain.encode(), hashed.encode())
+
+
+async def hash_password_async(password: str) -> str:
+    return await asyncio.to_thread(hash_password, password)
+
+
+async def verify_password_async(plain: str, hashed: str) -> bool:
+    return await asyncio.to_thread(verify_password, plain, hashed)
 
 
 # ---------------------------------------------------------------------------
@@ -167,7 +176,7 @@ def decrypt_channel_config(config: dict) -> dict:
         if k in _SECRET_FIELDS and isinstance(v, str) and v:
             try:
                 result[k] = fernet.decrypt(v.encode()).decode()
-            except (InvalidToken, Exception):
+            except InvalidToken:
                 result[k] = v  # fallback: return as-is (legacy plaintext)
         else:
             result[k] = v
@@ -213,7 +222,7 @@ def decrypt_scenario_variables(variables: list[dict]) -> list[dict]:
         if v.get("secret") and isinstance(v.get("value"), str) and v["value"]:
             try:
                 result.append({**v, "value": fernet.decrypt(v["value"].encode()).decode()})
-            except (InvalidToken, Exception):
+            except InvalidToken:
                 result.append(v)  # fallback: return as-is
         else:
             result.append(v)

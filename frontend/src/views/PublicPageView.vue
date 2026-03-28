@@ -252,7 +252,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { publicApi } from '../api/public.js'
@@ -391,6 +391,8 @@ async function subscribe() {
 // ────────────────────────────────────────────────
 // Chargement initial
 // ────────────────────────────────────────────────
+let publicWs = null
+
 onMounted(async () => {
   const slug = route.params.slug
   try {
@@ -411,12 +413,11 @@ onMounted(async () => {
 
   // Mise à jour temps réel via WebSocket (public endpoint)
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  const ws = new WebSocket(`${protocol}//${window.location.host}/ws/public/${slug}`)
-  ws.onmessage = (event) => {
+  publicWs = new WebSocket(`${protocol}//${window.location.host}/ws/public/${slug}`)
+  publicWs.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data)
       if (data.type === 'check_result') {
-        // Mise à jour statut courant du moniteur concerné
         const mon = monitors.value.find(m => m.id === data.monitor_id)
         if (mon && data.status) {
           mon.current_status = data.status
@@ -427,6 +428,13 @@ onMounted(async () => {
     } catch {
       // ignore parse errors
     }
+  }
+})
+
+onUnmounted(() => {
+  if (publicWs) {
+    publicWs.close()
+    publicWs = null
   }
 })
 </script>

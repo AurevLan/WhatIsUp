@@ -11,6 +11,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.11.0] - 2026-03-28
+
+### Added
+
+#### Smart alerts & advanced correlations
+- **Intuitive alert rules** — simplified rule creation with natural-language condition builder (any_down, all_down, performance, ssl_expiry, domain_expiry)
+- **Auto-rules** — monitors automatically get default alert rules on creation when alert channels exist; batch-apply auto-rules to existing monitors from the alerts page
+- **Multi-layer correlation engine** — dependency-based suppression, common-cause grouping (shared failing probes within 90 s), and flapping detection work together to reduce alert noise
+- **Threshold suggestions** — the backend analyses 7-day P95 response times and suggests threshold-based alert rules for monitors that lack performance alerting
+- **Alert rule simulation** — dry-run endpoint (`POST /alerts/rules/simulate`) previews which monitors a rule would match before saving
+
+#### Frontend — UI polish & design system
+- **BaseModal component** — unified modal system replacing 7 different inline modal implementations; consistent backdrop blur, animations, and styling via CSS variables
+- **Page transitions** — smooth fade + slide animations between routes (`<Transition name="page">`)
+- **Stagger animations** — list items appear progressively (monitors table, board cards, probe cards, alert channels)
+- **Enhanced empty states** — icon backgrounds, clearer titles, and call-to-action buttons across all views
+- **Skeleton loaders** — added to AlertsView and ProbesView for consistent loading experience
+- **Card shadows** — `--shadow-card` / `--shadow-card-hover` design tokens; depth on all `.card` elements
+- **Table hover** — increased to 4% opacity + blue left-border accent on hovered rows
+- **Button focus rings** — `focus-visible` glow on all button variants for accessibility
+- **Input states** — `.input-error`, `.input-success`, `.input:disabled` CSS classes
+- **LoginView refactored** — fully rebuilt with CSS variables (zero hardcoded colours), BEM scoped styles
+
+### Security
+
+#### CRITICAL fixes
+- **SSRF in OIDC discovery** — `_oidc_discover()` now validates issuer URL against private/loopback IP ranges before HTTP fetch
+- **SSRF in probe HTTP checker** — new `_validate_url_ssrf()` blocks requests to internal IPs; also validates final URL after redirects
+- **Open redirect after login** — `LoginView` validates redirect parameter starts with `/` and not `//`
+
+#### HIGH fixes
+- **Mass assignment** — all Create/Update Pydantic schemas now use `ConfigDict(extra="forbid")` to reject unexpected fields
+- **Rate limiting** — added `@limiter.limit("30/minute")` to 17 previously unprotected PATCH/DELETE endpoints; `60/minute` on public status pages
+- **bcrypt blocking** — `hash_password_async()` / `verify_password_async()` via `asyncio.to_thread()` prevent event loop starvation
+- **Secrets in error messages** — OIDC errors log `error_type` instead of full exception (which could contain tokens); Telegram bot token no longer leaked in HTTP error detail
+- **Probe ReDoS** — body regex validation now rejects responses > 5 MB before `re.search()`; catches `re.error`
+- **Probe TLS validation** — removed `ignore_https_errors=True` from Playwright browser contexts
+- **Probe scenario SSRF** — `navigate` steps now validate target URL against internal IP ranges
+
+#### MEDIUM fixes
+- **Refresh token hash** — Redis key uses `SHA-256[:32]` of the full token instead of last 12 characters
+- **OIDC callback encoding** — `_fail()` redirect now uses `urllib.parse.urlencode()` to prevent parameter injection
+- **Broad exception handling** — `security.py` `decrypt_channel_config` / `decrypt_scenario_variables` now catch only `InvalidToken` instead of `Exception`
+- **DNS timeout** — probe DNS pre-resolution wrapped in `asyncio.wait_for(timeout=5.0)`
+- **Browser cleanup** — scenario checker separates expected errors from unexpected; both paths properly close browser
+
+### Fixed
+
+- **WebSocket leak** — `PublicPageView` now closes WebSocket in `onUnmounted`
+- **Leaflet map leak** — `MonitorDetailView` calls `map.remove()` in `onUnmounted`
+- **Empty catch blocks** — `LoginView` OIDC config fetch now has explanatory comment instead of bare `catch {}`
+
+---
+
 ## [0.10.0] - 2026-03-27
 
 ### Added
@@ -566,7 +620,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docker Compose (dev + prod with Nginx + TLS)
 - Security: rate limiting, security headers, JWT validation, probe API key bcrypt hashing
 
-[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.9.1...v0.10.0
 [0.9.1]: https://github.com/AurevLan/WhatIsUp/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.8.1...v0.9.0

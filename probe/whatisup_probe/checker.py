@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import json
+import logging
 import re
 import socket
 import ssl
@@ -11,6 +13,36 @@ import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
+from urllib.parse import urlparse
+
+logger = logging.getLogger(__name__)
+
+# ── SSRF protection ──────────────────────────────────────────────────────────
+
+def _is_internal_ip(ip_str: str) -> bool:
+    """Return True if IP is private, loopback, link-local, or multicast."""
+    try:
+        ip = ipaddress.ip_address(ip_str)
+        return ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast
+    except ValueError:
+        return False
+
+
+def _validate_url_ssrf(url: str) -> str | None:
+    """Validate URL against SSRF. Returns error message or None if safe."""
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        return f"Blocked scheme: {parsed.scheme!r}"
+    hostname = parsed.hostname or ""
+    if hostname.lower() in {"localhost", "127.0.0.1", "::1", "0.0.0.0", "metadata.google.internal"}:
+        return f"Blocked host: {hostname!r}"
+    try:
+        for ai in socket.getaddrinfo(hostname, None, proto=socket.IPPROTO_TCP):
+            if _is_internal_ip(ai[4][0]):
+                return f"Host resolves to internal IP: {ai[4][0]!r}"
+    except socket.gaierror:
+        pass
+    return None
 
 
 @dataclass
@@ -126,12 +158,20 @@ async def _check_http(
     schema_drift_enabled: bool = False,
 ) -> CheckResult:
     """HTTP/HTTPS check with optional keyword and JSON path validation."""
-    from urllib.parse import urlparse
-
     import httpx
 
     checked_at = datetime.now(UTC)
     t0 = time.perf_counter()
+
+    # SSRF protection — block internal URLs
+    ssrf_err = _validate_url_ssrf(url)
+    if ssrf_err:
+        return CheckResult(
+            monitor_id=monitor_id,
+            checked_at=checked_at,
+            status="error",
+            error_message=f"SSRF blocked: {ssrf_err}",
+        )
 
     # DNS pre-resolution timing
     dns_resolve_ms: int | None = None
@@ -141,7 +181,10 @@ async def _check_http(
         if hostname:
             t_dns = time.perf_counter()
             loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, socket.getaddrinfo, hostname, None)
+            await asyncio.wait_for(
+                loop.run_in_executor(None, socket.getaddrinfo, hostname, None),
+                timeout=5.0,
+            )
             dns_resolve_ms = int((time.perf_counter() - t_dns) * 1000)
     except Exception:
         pass
@@ -165,6 +208,18 @@ async def _check_http(
         http_status = response.status_code
         redirect_count = len(response.history)
         final_url = str(response.url)
+
+        # SSRF check on final URL after redirects
+        if redirect_count > 0:
+            ssrf_final = _validate_url_ssrf(final_url)
+            if ssrf_final:
+                return CheckResult(
+                    monitor_id=monitor_id,
+                    checked_at=checked_at,
+                    status="error",
+                    response_time_ms=round(elapsed_ms, 1),
+                    error_message=f"SSRF blocked after redirect: {ssrf_final}",
+                )
 
         # Decode body for text-based checks
         try:
@@ -220,11 +275,13 @@ async def _check_http(
         # Regex body check
         if body_regex and status == "up":
             try:
-                if not re.search(body_regex, response.text or ""):
+                # Use re.search with a simple length check to mitigate catastrophic backtracking
+                if len(response.text or "") > 5_000_000:
                     status = "down"
-                    error_message = (
-                        f"body_regex_no_match: pattern {body_regex!r} not found in response body"
-                    )
+                    error_message = "Response too large for regex validation"
+                elif not re.search(body_regex, response.text or ""):
+                    status = "down"
+                    error_message = f"body_regex not matched: {body_regex!r}"
             except re.error as exc:
                 status = "down"
                 error_message = f"body_regex_invalid: {exc}"
@@ -612,7 +669,6 @@ async def _check_scenario(
             )
             context = await browser.new_context(
                 viewport={"width": 1280, "height": 720},
-                ignore_https_errors=True,
             )
             page = await context.new_page()
             page.set_default_timeout(timeout_seconds * 1000)
@@ -637,6 +693,9 @@ async def _check_scenario(
                         page.set_default_timeout(int(step_timeout_ms))
 
                     if step_type == "navigate":
+                        nav_ssrf = _validate_url_ssrf(params["url"])
+                        if nav_ssrf:
+                            raise ValueError(f"SSRF blocked in scenario navigate: {nav_ssrf}")
                         await page.goto(params["url"], wait_until="domcontentloaded")
                         current_url = page.url
                         vitals = await _capture_web_vitals(page)
@@ -766,7 +825,7 @@ async def _check_scenario(
                     )
                     steps_passed += 1
 
-                except (PlaywrightTimeout, AssertionError, KeyError, Exception) as step_err:
+                except (PlaywrightTimeout, AssertionError, KeyError, ValueError) as step_err:
                     page.set_default_timeout(timeout_seconds * 1000)
                     dur = (time.perf_counter() - step_t0) * 1000
                     if step.get("continue_on_fail", False):
@@ -805,6 +864,47 @@ async def _check_scenario(
                         response_time_ms=round(elapsed_ms, 2),
                         final_url=current_url,
                         error_message=f"Step {i + 1} ({step_type}) failed: {step_err}",
+                        scenario_result={
+                            "steps_total": steps_total,
+                            "steps_passed": steps_passed,
+                            "failed_step_index": i,
+                            "failed_step_type": step_type,
+                            "failed_step_label": step_label,
+                            "steps": step_results,
+                            "web_vitals": web_vitals,
+                        },
+                    )
+
+                except Exception as step_err:
+                    logger.warning(
+                        "unexpected_scenario_error",
+                        error=type(step_err).__name__,
+                        detail=str(step_err),
+                    )
+                    page.set_default_timeout(timeout_seconds * 1000)
+                    dur = (time.perf_counter() - step_t0) * 1000
+                    step_results.append(
+                        _make_step_result(
+                            i,
+                            step_type,
+                            step_label,
+                            dur,
+                            status="failed",
+                            error=str(step_err)[:300],
+                            screenshot=None,
+                        )
+                    )
+                    elapsed_ms = (time.perf_counter() - t0) * 1000
+                    current_url = page.url
+                    await browser.close()
+                    web_vitals = _build_web_vitals(aggregate_vitals)
+                    return CheckResult(
+                        monitor_id=monitor_id,
+                        checked_at=checked_at,
+                        status="down",
+                        response_time_ms=round(elapsed_ms, 2),
+                        final_url=current_url,
+                        error_message=f"Step {i + 1} ({step_type}) unexpected error: {step_err}",
                         scenario_result={
                             "steps_total": steps_total,
                             "steps_passed": steps_passed,

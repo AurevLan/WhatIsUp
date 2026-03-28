@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from whatisup.models.alert import AlertChannelType, AlertCondition, AlertEventStatus
 
@@ -88,6 +88,8 @@ _CONFIG_VALIDATORS: dict[AlertChannelType, type[BaseModel]] = {
 
 
 class AlertChannelCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str = Field(min_length=1, max_length=255)
     type: AlertChannelType
     config: dict
@@ -128,6 +130,8 @@ class TelegramResolveOut(BaseModel):
 
 
 class AlertRuleCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     monitor_id: uuid.UUID | None = None
     group_id: uuid.UUID | None = None
     condition: AlertCondition
@@ -148,6 +152,8 @@ class AlertRuleCreate(BaseModel):
 
 
 class AlertRuleUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     enabled: bool | None = None
     condition: AlertCondition | None = None
     min_duration_seconds: int | None = Field(default=None, ge=0)

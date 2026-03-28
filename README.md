@@ -107,12 +107,50 @@ Install the extension from `extension/` by loading it as an unpacked extension i
 
 ---
 
+## Minimum requirements
+
+### Central server (API + frontend + PostgreSQL + Redis)
+
+| Probes | Monitors | CPU | RAM | Disk | PostgreSQL | Redis |
+|--------|----------|-----|-----|------|------------|-------|
+| 1–3 | ≤ 50 | 2 vCPU | 2 GB | 20 GB SSD | shared (in-stack) | shared (in-stack) |
+| 3–10 | 50–200 | 4 vCPU | 4 GB | 40 GB SSD | shared or dedicated | shared |
+| 10–30 | 200–1 000 | 4–8 vCPU | 8 GB | 80 GB SSD | dedicated (4 GB RAM) | dedicated (1 GB) |
+| 30+ | 1 000+ | 8+ vCPU | 16 GB | 160 GB+ SSD | dedicated (8 GB+ RAM) | dedicated (2 GB+) |
+
+**Disk growth** — each check result row is ~300 bytes. With 200 monitors × 60 s interval × 5 probes, expect ~2.5 GB/month in PostgreSQL before retention purge (default: 90 days).
+
+### Probe agent
+
+| Mode | CPU | RAM | Notes |
+|------|-----|-----|-------|
+| HTTP / TCP / DNS / Ping only | 1 vCPU | 256 MB | Lightweight; runs on any VPS or Raspberry Pi |
+| With Playwright scenarios | 2 vCPU | 1 GB | Chromium loaded on demand; set `MAX_CONCURRENT_SCENARIOS=2` |
+| High-volume (100+ monitors) | 2 vCPU | 1–2 GB | Increase `MAX_CONCURRENT_CHECKS` (default: 10) |
+
+### Network
+
+| Component | Ports | Protocol |
+|-----------|-------|----------|
+| Central server (prod) | 80, 443 | HTTP/S (Nginx reverse proxy) |
+| Central server (dev) | 5173 (frontend), 8000 (API) | HTTP |
+| PostgreSQL | 5432 | TCP (internal only) |
+| Redis | 6379 | TCP (internal only) |
+| Probe → Server | 443 (or 8000 dev) | HTTPS outbound only |
+
+### Software
+
+- Docker ≥ 24 and Docker Compose v2
+- Linux amd64 or arm64 (all images are multi-arch)
+
+---
+
 ## Quick start
 
 ### Requirements
 
 - Docker ≥ 24 and Docker Compose v2
-- 1 GB RAM minimum (2 GB recommended for probe with Playwright)
+- 2 GB RAM minimum (see [Minimum requirements](#minimum-requirements) for sizing)
 - Ports 80 / 443 available (production) or 5173 / 8000 (development)
 
 ### Development (local)
@@ -391,10 +429,11 @@ alembic downgrade -1
 - **Probe auth** — `X-Probe-Api-Key` bcrypt 12 rounds + Redis cache 300 s
 - **WebSocket auth** — JSON message frame (`{"type":"auth","token":"…"}`), never URL parameter
 - **Secrets at rest** — Fernet encryption for alert channel secrets (SMTP passwords, Telegram tokens, webhook secrets, PagerDuty / Opsgenie keys), OIDC client secret, **and** scenario variables (`secret: true`); `FERNET_KEY` is required in production (server refuses to start without it)
-- **SSRF protection** — all outbound webhook URLs (generic + Slack) validated against private/loopback ranges before any HTTP request
+- **SSRF protection** — all outbound HTTP requests (webhooks, OIDC discovery, probe checks, scenario navigation) validated against private/loopback/link-local IP ranges; redirect targets re-validated after following
 - **CORS** — explicit origins only; HTTP origins rejected in production
 - **CSP** — `default-src 'self'; script-src 'self'`
-- **Rate limiting** — login 10/min, register 5/min, heartbeat 30/min, results 60/min, monitor creation 10/min
+- **Rate limiting** — all mutating endpoints rate-limited (30/min PATCH/DELETE, 60/min public pages); login 10/min, register 5/min, heartbeat 30/min, results 60/min, monitor creation 10/min
+- **Input validation** — Pydantic schemas use `extra="forbid"` to reject unexpected fields on all create/update endpoints
 - **WebSocket** — per-IP connection limit enforced before the auth handshake; public slug validated against DB before accepting
 - **Ownership enforcement** — all mutating endpoints (including alert rule delete) verify resource ownership via JOIN; superadmin bypass is explicit
 - **Docker** — non-root user in all images; CPU/memory resource limits in production

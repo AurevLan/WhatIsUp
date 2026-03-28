@@ -36,9 +36,9 @@
         <div v-for="i in 8" :key="i" class="skeleton h-14 mb-2" />
       </div>
 
-      <div v-else-if="incidents.length === 0" class="incidents__empty">
-        <AlertCircle :size="28" class="incidents__empty-icon" />
-        <p>{{ t('incidents.no_incidents') }}</p>
+      <div v-else-if="incidents.length === 0" class="empty-state">
+        <div class="empty-state__icon"><AlertCircle :size="22" /></div>
+        <p class="empty-state__title">{{ t('incidents.no_incidents') }}</p>
       </div>
 
       <div v-else>

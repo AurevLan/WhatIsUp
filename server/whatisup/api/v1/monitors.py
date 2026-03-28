@@ -279,7 +279,9 @@ async def get_monitor(
 
 
 @router.patch("/{monitor_id}", response_model=MonitorOut)
+@limiter.limit("30/minute")
 async def update_monitor(
+    request: Request,
     monitor_id: uuid.UUID,
     payload: MonitorUpdate,
     current_user: User = Depends(get_current_user),
@@ -325,7 +327,9 @@ async def update_monitor(
 
 
 @router.delete("/{monitor_id}", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("30/minute")
 async def delete_monitor(
+    request: Request,
     monitor_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

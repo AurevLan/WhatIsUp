@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import AnyHttpUrl, BaseModel, Field, field_validator, model_validator
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from whatisup.schemas.tag import TagOut
 
@@ -118,6 +118,8 @@ class MonitorCreate(BaseModel):
 
 
 class MonitorUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str | None = Field(default=None, min_length=1, max_length=255)
     url: AnyHttpUrl | None = None
     group_id: uuid.UUID | None = None
@@ -266,6 +268,8 @@ class MonitorGroupCreate(BaseModel):
 
 
 class MonitorGroupUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = None
     public_slug: str | None = Field(

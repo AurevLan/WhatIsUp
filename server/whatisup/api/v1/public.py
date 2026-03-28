@@ -35,7 +35,8 @@ async def _get_group_by_slug(slug: str, db: AsyncSession) -> MonitorGroup:
 
 
 @router.get("/pages/{slug}")
-async def get_public_page(slug: str, db: AsyncSession = Depends(get_db)) -> dict:
+@limiter.limit("60/minute")
+async def get_public_page(request: Request, slug: str, db: AsyncSession = Depends(get_db)) -> dict:
     group = await _get_group_by_slug(slug, db)
     return {"name": group.name, "slug": slug, "description": group.description}
 
@@ -145,7 +146,10 @@ async def get_public_monitors(slug: str, db: AsyncSession = Depends(get_db)) -> 
 
 
 @router.get("/pages/{slug}/status")
-async def get_public_status(slug: str, db: AsyncSession = Depends(get_db)) -> dict:
+@limiter.limit("60/minute")
+async def get_public_status(
+    request: Request, slug: str, db: AsyncSession = Depends(get_db)
+) -> dict:
     """Enriched status: page info + components + incidents_30d."""
     group = await _get_group_by_slug(slug, db)
 

@@ -29,11 +29,29 @@
       </button>
     </div>
 
+    <!-- ── Loading skeleton ── -->
+    <div v-if="loadingProbes && activeTab === 'list'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div v-for="i in 6" :key="i" class="card">
+        <div class="flex items-start justify-between">
+          <div class="flex-1 space-y-2">
+            <div class="skeleton-line w-2/3" />
+            <div class="skeleton-line w-1/2" style="height:0.5rem" />
+          </div>
+          <div class="skeleton-line w-16" style="border-radius:99px" />
+        </div>
+        <div class="mt-4 space-y-1.5">
+          <div class="skeleton-line w-3/4" style="height:0.5rem" />
+          <div class="skeleton-line w-1/2" style="height:0.5rem" />
+        </div>
+      </div>
+    </div>
+
     <!-- ── Liste ── -->
-    <div v-if="activeTab === 'list'">
+    <div v-else-if="activeTab === 'list'">
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div v-for="probe in probes" :key="probe.id"
-          class="card"
+        <div v-for="(probe, idx) in probes" :key="probe.id"
+          class="card stagger-item"
+          :style="{ animationDelay: idx * 40 + 'ms' }"
           :class="!probe.is_active ? 'opacity-60 border border-gray-700' : ''">
           <div class="flex items-start justify-between">
             <div>
@@ -131,8 +149,9 @@
           </div>
         </div>
 
-        <div v-if="probes.length === 0" class="col-span-full text-center text-gray-500 py-16">
-          {{ t('probes.no_probes') }}
+        <div v-if="probes.length === 0" class="col-span-full empty-state">
+          <div class="empty-state__icon">📡</div>
+          <p class="empty-state__title">{{ t('probes.no_probes') }}</p>
         </div>
       </div>
     </div>
@@ -198,6 +217,7 @@ const { t } = useI18n()
 const auth = useAuthStore()
 const { success, error: toastError } = useToast()
 const { confirm } = useConfirm()
+const loadingProbes = ref(true)
 const probes = ref([])
 const showRegister = ref(false)
 const newApiKey = ref(null)
@@ -269,6 +289,8 @@ async function loadProbes() {
   } catch (err) {
     showError(t('common.error'))
     console.error(err)
+  } finally {
+    loadingProbes.value = false
   }
 }
 

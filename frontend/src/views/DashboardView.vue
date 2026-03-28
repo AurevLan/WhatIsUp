@@ -35,10 +35,10 @@
           <div v-for="i in 5" :key="i" class="skeleton h-12" />
         </div>
 
-        <div v-else-if="monitors.length === 0" class="dash__empty">
-          <div class="dash__empty-icon"><Monitor :size="24" /></div>
-          <p class="dash__empty-text">{{ t('monitors.no_monitors') }}</p>
-          <router-link to="/monitors" class="btn-primary mt-4">
+        <div v-else-if="monitors.length === 0" class="empty-state">
+          <div class="empty-state__icon"><Monitor :size="22" /></div>
+          <p class="empty-state__title">{{ t('monitors.no_monitors') }}</p>
+          <router-link to="/monitors" class="btn-primary mt-3">
             <Plus :size="14" /> {{ t('monitors.add') }}
           </router-link>
         </div>

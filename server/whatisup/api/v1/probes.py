@@ -320,7 +320,9 @@ async def push_result(
 
 
 @router.get("/{probe_id}", response_model=ProbeOut)
+@limiter.limit("30/minute")
 async def get_probe(
+    request: Request,
     probe_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     _user: User = Depends(require_superadmin),
@@ -332,7 +334,9 @@ async def get_probe(
 
 
 @router.patch("/{probe_id}", response_model=ProbeOut)
+@limiter.limit("30/minute")
 async def update_probe(
+    request: Request,
     probe_id: uuid.UUID,
     payload: ProbeUpdate,
     _user: User = Depends(require_superadmin),
@@ -353,7 +357,9 @@ async def update_probe(
 
 
 @router.delete("/{probe_id}", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("30/minute")
 async def delete_probe(
+    request: Request,
     probe_id: uuid.UUID,
     _user: User = Depends(require_superadmin),
     db: AsyncSession = Depends(get_db),

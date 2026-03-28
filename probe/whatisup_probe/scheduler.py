@@ -11,7 +11,7 @@ import structlog
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
-from whatisup_probe.checker import kill_stale_chromium, perform_check
+from whatisup_probe.checker import PlaywrightPool, kill_stale_chromium, perform_check
 from whatisup_probe.config import get_settings
 from whatisup_probe.reporter import Reporter
 
@@ -30,6 +30,7 @@ class ProbeScheduler:
             self._settings.max_concurrent_scenarios
         )
         self._monitors: dict[str, dict[str, Any]] = {}  # monitor_id -> config
+        self._browser_pool = PlaywrightPool()
         psutil.cpu_percent(interval=None)  # first call always returns 0.0; discard it
 
     def _make_job_id(self, monitor_id: str) -> str:
@@ -55,9 +56,9 @@ class ProbeScheduler:
 
     async def _run_check(self, monitor: dict[str, Any]) -> None:
         is_scenario = monitor.get("check_type") == "scenario"
-        # Hard outer timeout: monitor timeout + 60 s overhead (browser launch, cleanup).
-        # Prevents a hung Playwright process from freezing the job slot forever.
-        hard_timeout = monitor["timeout_seconds"] + 60
+        # Hard outer timeout: monitor timeout + overhead to absorb async scheduling lag.
+        # Scenarios get +30 s for context creation; other checks only need +5 s.
+        hard_timeout = monitor["timeout_seconds"] + (30 if is_scenario else 5)
         async with self._semaphore:
             if is_scenario:
                 await self._scenario_semaphore.acquire()
@@ -88,6 +89,7 @@ class ProbeScheduler:
                         smtp_starttls=monitor.get("smtp_starttls", False),
                         domain_expiry_warn_days=monitor.get("domain_expiry_warn_days", 30),
                         schema_drift_enabled=monitor.get("schema_drift_enabled", False),
+                        browser_pool=self._browser_pool,
                     ),
                     timeout=hard_timeout,
                 )
@@ -97,7 +99,7 @@ class ProbeScheduler:
                     monitor_id=str(monitor["id"]),
                     hard_timeout=hard_timeout,
                 )
-                kill_stale_chromium()
+                await kill_stale_chromium()
                 return
             finally:
                 if is_scenario:
@@ -140,12 +142,12 @@ class ProbeScheduler:
             existing = self._scheduler.get_job(job_id)
 
             if existing:
-                existing.reschedule(IntervalTrigger(seconds=monitor["interval_seconds"]))
+                existing.reschedule(IntervalTrigger(seconds=monitor["interval_seconds"], jitter=10))
                 existing.modify(args=[monitor])
             else:
                 self._scheduler.add_job(
                     self._run_check,
-                    trigger=IntervalTrigger(seconds=monitor["interval_seconds"]),
+                    trigger=IntervalTrigger(seconds=monitor["interval_seconds"], jitter=10),
                     args=[monitor],
                     id=job_id,
                     name=f"check:{mid[:8]}",
@@ -172,9 +174,12 @@ class ProbeScheduler:
     async def start(self) -> None:
         """Start the scheduler and heartbeat loop."""
         # Clean up any Chromium zombies left by a previous crash
-        killed = kill_stale_chromium()
+        killed = await kill_stale_chromium()
         if killed:
             logger.info("stale_chromium_killed", count=killed)
+
+        # Start persistent browser pool (non-fatal if Playwright not installed)
+        await self._browser_pool.start()
 
         # Initial sync
         await self.sync_monitors()
@@ -182,7 +187,7 @@ class ProbeScheduler:
         # Schedule periodic heartbeat/sync
         self._scheduler.add_job(
             self.sync_monitors,
-            trigger=IntervalTrigger(seconds=self._settings.heartbeat_interval),
+            trigger=IntervalTrigger(seconds=self._settings.heartbeat_interval, jitter=5),
             id="heartbeat",
             name="heartbeat",
             max_instances=1,
@@ -197,4 +202,5 @@ class ProbeScheduler:
         logger.info("probe_scheduler_stopped")
 
     async def aclose(self) -> None:
+        await self._browser_pool.aclose()
         await self._reporter.aclose()

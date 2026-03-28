@@ -10,10 +10,13 @@ import re
 import socket
 import ssl
 import time
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import urlparse
+
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -28,14 +31,19 @@ def _is_internal_ip(ip_str: str) -> bool:
         return False
 
 
-def _validate_url_ssrf(url: str) -> str | None:
-    """Validate URL against SSRF. Returns error message or None if safe."""
+def _validate_url_ssrf_fast(url: str) -> str | None:
+    """Synchronous SSRF check — scheme and static hostname only (no DNS, non-blocking)."""
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https"):
         return f"Blocked scheme: {parsed.scheme!r}"
     hostname = parsed.hostname or ""
     if hostname.lower() in {"localhost", "127.0.0.1", "::1", "0.0.0.0", "metadata.google.internal"}:
         return f"Blocked host: {hostname!r}"
+    return None
+
+
+def _ssrf_dns_check_sync(hostname: str) -> str | None:
+    """Resolve hostname and reject internal IPs (blocking — run via executor)."""
     try:
         for ai in socket.getaddrinfo(hostname, None, proto=socket.IPPROTO_TCP):
             if _is_internal_ip(ai[4][0]):
@@ -43,6 +51,116 @@ def _validate_url_ssrf(url: str) -> str | None:
     except socket.gaierror:
         pass
     return None
+
+
+async def _validate_url_ssrf(url: str) -> str | None:
+    """Full async SSRF validation: fast string check then DNS resolution in executor."""
+    err = _validate_url_ssrf_fast(url)
+    if err:
+        return err
+    hostname = urlparse(url).hostname or ""
+    if not hostname:
+        return None
+    loop = asyncio.get_running_loop()
+    try:
+        return await asyncio.wait_for(
+            loop.run_in_executor(None, _ssrf_dns_check_sync, hostname),
+            timeout=3.0,
+        )
+    except Exception:
+        return None  # DNS timeout → don't block the check
+
+
+# ── Shared HTTP client ────────────────────────────────────────────────────────
+
+_http_client: httpx.AsyncClient | None = None
+
+
+def _get_http_client() -> httpx.AsyncClient:
+    """Return a shared AsyncClient (connection pooling across checks)."""
+    global _http_client
+    if _http_client is None or _http_client.is_closed:
+        _http_client = httpx.AsyncClient(verify=True)
+    return _http_client
+
+
+# ── Persistent Playwright browser pool ───────────────────────────────────────
+
+class PlaywrightPool:
+    """Keeps a single Chromium browser alive between scenario checks.
+
+    Each check gets an isolated BrowserContext (like an incognito session),
+    avoiding the 500 ms–2 s cold-start cost of launching a new browser per run.
+    """
+
+    def __init__(self) -> None:
+        self._pw = None
+        self._browser = None
+        self._lock = asyncio.Lock()
+
+    def is_available(self) -> bool:
+        return self._browser is not None and self._browser.is_connected()
+
+    async def start(self) -> None:
+        try:
+            from playwright.async_api import async_playwright
+            self._pw = await async_playwright().start()
+            self._browser = await self._pw.chromium.launch(
+                headless=True,
+                args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
+            )
+            logger.info("playwright_pool_started")
+        except ImportError:
+            logger.warning("playwright_not_installed_scenarios_will_fail")
+        except Exception as exc:
+            logger.warning("playwright_pool_start_failed", error=str(exc))
+
+    async def _ensure_connected(self) -> None:
+        """Relaunch browser if it crashed; protected by lock against concurrent restarts."""
+        async with self._lock:
+            if self._browser is not None and self._browser.is_connected():
+                return
+            try:
+                from playwright.async_api import async_playwright
+                if self._pw is None:
+                    self._pw = await async_playwright().start()
+                self._browser = await self._pw.chromium.launch(
+                    headless=True,
+                    args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
+                )
+                logger.info("playwright_browser_relaunched")
+            except Exception as exc:
+                logger.error("playwright_browser_relaunch_failed", error=str(exc))
+                raise
+
+    @asynccontextmanager
+    async def acquire_page(self, timeout_seconds: int):
+        """Yield a fresh Page in an isolated BrowserContext; close context on exit."""
+        await self._ensure_connected()
+        context = await self._browser.new_context(viewport={"width": 1280, "height": 720})
+        page = await context.new_page()
+        page.set_default_timeout(timeout_seconds * 1000)
+        try:
+            yield page
+        finally:
+            try:
+                await context.close()
+            except Exception:
+                pass
+
+    async def aclose(self) -> None:
+        if self._browser:
+            try:
+                await self._browser.close()
+            except Exception:
+                pass
+        if self._pw:
+            try:
+                await self._pw.stop()
+            except Exception:
+                pass
+        self._browser = None
+        self._pw = None
 
 
 @dataclass
@@ -89,11 +207,9 @@ class CheckResult:
         }
 
 
-def _extract_ssl_info(url: str) -> tuple[bool, datetime | None, int | None]:
-    """Extract SSL certificate info for an HTTPS URL."""
+def _extract_ssl_info_sync(url: str) -> tuple[bool, datetime | None, int | None]:
+    """Extract SSL certificate info for an HTTPS URL (blocking — run in executor)."""
     try:
-        from urllib.parse import urlparse
-
         parsed = urlparse(url)
         hostname = parsed.hostname or ""
         port = parsed.port or 443
@@ -116,6 +232,18 @@ def _extract_ssl_info(url: str) -> tuple[bool, datetime | None, int | None]:
         return True, None, None
     except ssl.SSLCertVerificationError:
         return False, None, None
+    except Exception:
+        return False, None, None
+
+
+async def _extract_ssl_info(url: str) -> tuple[bool, datetime | None, int | None]:
+    """Extract SSL certificate info without blocking the event loop."""
+    loop = asyncio.get_running_loop()
+    try:
+        return await asyncio.wait_for(
+            loop.run_in_executor(None, _extract_ssl_info_sync, url),
+            timeout=10.0,
+        )
     except Exception:
         return False, None, None
 
@@ -158,13 +286,11 @@ async def _check_http(
     schema_drift_enabled: bool = False,
 ) -> CheckResult:
     """HTTP/HTTPS check with optional keyword and JSON path validation."""
-    import httpx
-
     checked_at = datetime.now(UTC)
     t0 = time.perf_counter()
 
-    # SSRF protection — block internal URLs
-    ssrf_err = _validate_url_ssrf(url)
+    # SSRF protection — block internal URLs (async DNS, non-blocking)
+    ssrf_err = await _validate_url_ssrf(url)
     if ssrf_err:
         return CheckResult(
             monitor_id=monitor_id,
@@ -180,7 +306,7 @@ async def _check_http(
         hostname = parsed.hostname or ""
         if hostname:
             t_dns = time.perf_counter()
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             await asyncio.wait_for(
                 loop.run_in_executor(None, socket.getaddrinfo, hostname, None),
                 timeout=5.0,
@@ -193,16 +319,24 @@ async def _check_http(
     download_ms: int | None = None
 
     try:
-        async with httpx.AsyncClient(
-            follow_redirects=follow_redirects,
-            timeout=httpx.Timeout(timeout_seconds),
-            verify=True,
-        ) as client:
-            # Use streaming to capture TTFB and download time separately
-            async with client.stream("GET", url) as response:
-                ttfb_ms = int((time.perf_counter() - t0) * 1000)
-                body_bytes = await response.aread()
-                download_ms = int((time.perf_counter() - t0) * 1000) - ttfb_ms
+        # Retry once on stale-connection errors from the shared pool (RemoteProtocolError).
+        for _attempt in range(2):
+            try:
+                async with _get_http_client().stream(
+                    "GET",
+                    url,
+                    follow_redirects=follow_redirects,
+                    timeout=httpx.Timeout(timeout_seconds),
+                ) as response:
+                    ttfb_ms = int((time.perf_counter() - t0) * 1000)
+                    body_bytes = await response.aread()
+                    download_ms = int((time.perf_counter() - t0) * 1000) - ttfb_ms
+                break  # success
+            except httpx.RemoteProtocolError:
+                if _attempt == 0:
+                    t0 = time.perf_counter()  # reset timing for clean retry
+                    continue
+                raise
 
         elapsed_ms = (time.perf_counter() - t0) * 1000
         http_status = response.status_code
@@ -211,7 +345,7 @@ async def _check_http(
 
         # SSRF check on final URL after redirects
         if redirect_count > 0:
-            ssrf_final = _validate_url_ssrf(final_url)
+            ssrf_final = await _validate_url_ssrf(final_url)
             if ssrf_final:
                 return CheckResult(
                     monitor_id=monitor_id,
@@ -327,10 +461,10 @@ async def _check_http(
                 status = "down"
                 error_message = f"json_schema_error: {exc}"
 
-        # SSL check
+        # SSL check (non-blocking via executor)
         ssl_valid = ssl_expires_at = ssl_days_remaining = None
         if ssl_check_enabled and url.startswith("https://"):
-            ssl_valid, ssl_expires_at, ssl_days_remaining = _extract_ssl_info(final_url or url)
+            ssl_valid, ssl_expires_at, ssl_days_remaining = await _extract_ssl_info(final_url or url)
 
         # Schema fingerprint
         schema_fingerprint: str | None = None
@@ -480,7 +614,12 @@ async def _check_dns(
     try:
         resolver = dns.resolver.Resolver()
         resolver.lifetime = timeout_seconds
-        answers = resolver.resolve(host, record_type)
+
+        loop = asyncio.get_running_loop()
+        answers = await asyncio.wait_for(
+            loop.run_in_executor(None, resolver.resolve, host, record_type),
+            timeout=timeout_seconds + 2,
+        )
         elapsed_ms = (time.perf_counter() - t0) * 1000
 
         resolved_values = [str(r) for r in answers]
@@ -558,7 +697,7 @@ async def _capture_web_vitals(page) -> dict:
                 setTimeout(() => {
                     obs_lcp.disconnect(); obs_cls.disconnect(); obs_inp.disconnect();
                     resolve(vitals);
-                }, 1000);
+                }, 200);
             })
         """)
         return vitals
@@ -602,23 +741,23 @@ def _substitute_vars(text: str, variables: list[dict]) -> str:
     return text
 
 
-def kill_stale_chromium() -> int:
-    """Kill leftover chrome-headless-shell processes from previous crashed runs.
+async def kill_stale_chromium() -> int:
+    """Kill leftover chrome-headless-shell processes (non-blocking async).
 
     Should be called once at probe startup, not during normal operation.
     Returns the number of processes killed.
     """
     import os as _os
     import signal
-    import subprocess
 
     try:
-        result = subprocess.run(
-            ["pgrep", "-f", "chrome-headless-shell"],
-            capture_output=True,
-            text=True,
+        proc = await asyncio.create_subprocess_exec(
+            "pgrep", "-f", "chrome-headless-shell",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.DEVNULL,
         )
-        pids = [int(p) for p in result.stdout.split() if p.strip()]
+        stdout, _ = await proc.communicate()
+        pids = [int(p) for p in stdout.decode().split() if p.strip()]
         killed = 0
         for pid in pids:
             try:
@@ -629,6 +768,8 @@ def kill_stale_chromium() -> int:
         return killed
     except FileNotFoundError:
         return 0  # pgrep not available
+    except Exception:
+        return 0
 
 
 async def _check_scenario(
@@ -636,6 +777,7 @@ async def _check_scenario(
     steps: list[dict],
     variables: list[dict],
     timeout_seconds: int,
+    browser_pool: PlaywrightPool | None = None,
 ) -> CheckResult:
     """Execute a multi-step browser scenario using Playwright."""
     import base64
@@ -661,19 +803,11 @@ async def _check_scenario(
     # Aggregate Web Vitals from navigate steps (last wins for LCP/INP, CLS sums)
     aggregate_vitals: dict = {}
 
-    try:
-        async with async_playwright() as pw:
-            browser = await pw.chromium.launch(
-                headless=True,
-                args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
-            )
-            context = await browser.new_context(
-                viewport={"width": 1280, "height": 720},
-            )
-            page = await context.new_page()
-            page.set_default_timeout(timeout_seconds * 1000)
+    async def _run_steps(page) -> CheckResult:
+        """Execute all scenario steps on an already-open page."""
+        nonlocal steps_passed, current_url, aggregate_vitals
 
-            for i, step in enumerate(steps):
+        for i, step in enumerate(steps):
                 step_type = step.get("type", "")
                 params = step.get("params", {})
                 step_label = step.get("label", f"Step {i + 1}")
@@ -693,7 +827,7 @@ async def _check_scenario(
                         page.set_default_timeout(int(step_timeout_ms))
 
                     if step_type == "navigate":
-                        nav_ssrf = _validate_url_ssrf(params["url"])
+                        nav_ssrf = await _validate_url_ssrf(params["url"])
                         if nav_ssrf:
                             raise ValueError(f"SSRF blocked in scenario navigate: {nav_ssrf}")
                         await page.goto(params["url"], wait_until="domcontentloaded")
@@ -855,7 +989,6 @@ async def _check_scenario(
                     )
                     elapsed_ms = (time.perf_counter() - t0) * 1000
                     current_url = page.url
-                    await browser.close()
                     web_vitals = _build_web_vitals(aggregate_vitals)
                     return CheckResult(
                         monitor_id=monitor_id,
@@ -896,7 +1029,6 @@ async def _check_scenario(
                     )
                     elapsed_ms = (time.perf_counter() - t0) * 1000
                     current_url = page.url
-                    await browser.close()
                     web_vitals = _build_web_vitals(aggregate_vitals)
                     return CheckResult(
                         monitor_id=monitor_id,
@@ -916,30 +1048,48 @@ async def _check_scenario(
                         },
                     )
 
-            elapsed_ms = (time.perf_counter() - t0) * 1000
-            current_url = page.url
-            await browser.close()
+        # All steps passed
+        elapsed_ms = (time.perf_counter() - t0) * 1000
+        current_url = page.url
+        steps_warned = sum(1 for s in step_results if s.get("status") == "warned")
+        web_vitals = _build_web_vitals(aggregate_vitals)
+        return CheckResult(
+            monitor_id=monitor_id,
+            checked_at=checked_at,
+            status="up",
+            response_time_ms=round(elapsed_ms, 2),
+            final_url=current_url,
+            scenario_result={
+                "steps_total": steps_total,
+                "steps_passed": steps_passed,
+                "steps_warned": steps_warned,
+                "failed_step_index": None,
+                "failed_step_type": None,
+                "failed_step_label": None,
+                "steps": step_results,
+                "web_vitals": web_vitals,
+            },
+        )
 
-            steps_warned = sum(1 for s in step_results if s.get("status") == "warned")
-            web_vitals = _build_web_vitals(aggregate_vitals)
-            return CheckResult(
-                monitor_id=monitor_id,
-                checked_at=checked_at,
-                status="up",
-                response_time_ms=round(elapsed_ms, 2),
-                final_url=current_url,
-                scenario_result={
-                    "steps_total": steps_total,
-                    "steps_passed": steps_passed,
-                    "steps_warned": steps_warned,
-                    "failed_step_index": None,
-                    "failed_step_type": None,
-                    "failed_step_label": None,
-                    "steps": step_results,
-                    "web_vitals": web_vitals,
-                },
-            )
-
+    # ── Browser acquisition ───────────────────────────────────────────────────
+    try:
+        if browser_pool is not None and browser_pool.is_available():
+            async with browser_pool.acquire_page(timeout_seconds) as page:
+                return await _run_steps(page)
+        else:
+            # Fallback: launch a dedicated browser for this check
+            async with async_playwright() as pw:
+                browser = await pw.chromium.launch(
+                    headless=True,
+                    args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
+                )
+                context = await browser.new_context(viewport={"width": 1280, "height": 720})
+                page = await context.new_page()
+                page.set_default_timeout(timeout_seconds * 1000)
+                try:
+                    return await _run_steps(page)
+                finally:
+                    await browser.close()
     except Exception as exc:
         elapsed_ms = (time.perf_counter() - t0) * 1000
         err_msg = f"Scenario error: {type(exc).__name__}: {str(exc)[:300]}"
@@ -995,7 +1145,7 @@ async def _check_udp(
             sock.close()
 
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         status, error_message = await asyncio.wait_for(
             loop.run_in_executor(None, _udp_probe),
             timeout=timeout_seconds + 2,
@@ -1216,7 +1366,7 @@ async def _check_domain_expiry(
         )
 
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         w = await asyncio.wait_for(
             loop.run_in_executor(None, whois.whois, host),
             timeout=timeout_seconds,
@@ -1313,6 +1463,7 @@ async def perform_check(
     smtp_starttls: bool = False,
     domain_expiry_warn_days: int = 30,
     schema_drift_enabled: bool = False,
+    browser_pool: PlaywrightPool | None = None,
 ) -> CheckResult:
     """
     Dispatch to the appropriate check engine based on check_type.
@@ -1377,6 +1528,7 @@ async def perform_check(
             steps or [],
             variables or [],
             timeout_seconds,
+            browser_pool=browser_pool,
         )
 
     else:

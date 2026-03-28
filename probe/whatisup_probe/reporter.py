@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 import httpx
 import structlog
 
@@ -23,20 +25,32 @@ class Reporter:
 
     async def push_result(self, result: CheckResult) -> bool:
         url = f"{self._settings.central_api_url}/api/v1/probes/results"
-        try:
-            resp = await self._client.post(url, json=result.to_dict())
-            resp.raise_for_status()
-            return True
-        except httpx.HTTPStatusError as exc:
-            logger.error(
-                "push_result_failed",
-                monitor_id=result.monitor_id,
-                status_code=exc.response.status_code,
-            )
-            return False
-        except Exception as exc:
-            logger.error("push_result_error", monitor_id=result.monitor_id, error=str(exc))
-            return False
+        for attempt in range(3):
+            try:
+                resp = await self._client.post(url, json=result.to_dict())
+                resp.raise_for_status()
+                return True
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code < 500:
+                    # 4xx — not retryable (auth error, bad payload, etc.)
+                    logger.error(
+                        "push_result_failed",
+                        monitor_id=result.monitor_id,
+                        status_code=exc.response.status_code,
+                    )
+                    return False
+                # 5xx — server error, retry
+            except Exception as exc:
+                logger.warning(
+                    "push_result_error",
+                    monitor_id=result.monitor_id,
+                    attempt=attempt + 1,
+                    error=str(exc),
+                )
+            if attempt < 2:
+                await asyncio.sleep(0.5 * (attempt + 1))
+        logger.error("push_result_dropped", monitor_id=result.monitor_id)
+        return False
 
     async def heartbeat(self, health: dict) -> list[dict] | None:
         """Send heartbeat with system health metrics and retrieve current monitor configs."""

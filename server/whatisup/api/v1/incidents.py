@@ -32,7 +32,10 @@ async def list_incident_groups(
     """List correlation groups. Each group aggregates incidents caused by the same probes."""
     query = (
         select(IncidentGroup)
-        .options(selectinload(IncidentGroup.incidents))
+        .options(
+            selectinload(IncidentGroup.incidents),
+            selectinload(IncidentGroup.root_cause_monitor),
+        )
         .order_by(IncidentGroup.triggered_at.desc())
         .limit(limit)
     )
@@ -63,6 +66,11 @@ async def list_incident_groups(
             resolved_at=g.resolved_at,
             cause_probe_ids=g.cause_probe_ids,
             status=g.status,
+            root_cause_monitor_id=g.root_cause_monitor_id,
+            root_cause_monitor_name=(
+                g.root_cause_monitor.name if g.root_cause_monitor else None
+            ),
+            correlation_type=g.correlation_type,
             incident_ids=[inc.id for inc in g.incidents],
             incident_refs=[
                 IncidentRef(id=inc.id, monitor_id=inc.monitor_id) for inc in g.incidents
@@ -84,7 +92,10 @@ async def get_incident_group(
         await db.execute(
             select(IncidentGroup)
             .where(IncidentGroup.id == group_id)
-            .options(selectinload(IncidentGroup.incidents))
+            .options(
+                selectinload(IncidentGroup.incidents),
+                selectinload(IncidentGroup.root_cause_monitor),
+            )
         )
     ).scalar_one_or_none()
     if group is None:
@@ -108,6 +119,11 @@ async def get_incident_group(
         resolved_at=group.resolved_at,
         cause_probe_ids=group.cause_probe_ids,
         status=group.status,
+        root_cause_monitor_id=group.root_cause_monitor_id,
+        root_cause_monitor_name=(
+            group.root_cause_monitor.name if group.root_cause_monitor else None
+        ),
+        correlation_type=group.correlation_type,
         incident_ids=[inc.id for inc in group.incidents],
         incident_refs=[
             IncidentRef(id=inc.id, monitor_id=inc.monitor_id) for inc in group.incidents

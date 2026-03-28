@@ -17,6 +17,7 @@ from whatisup.models.probe import Probe
 from whatisup.models.result import CheckResult, CheckStatus
 from whatisup.services.alert import dispatch_alert, maybe_digest_or_dispatch
 from whatisup.services.anomaly import compute_zscore
+from whatisup.services.correlation import update_patterns_for_group
 from whatisup.services.maintenance import is_group_maintenance_suppressed, is_in_maintenance
 from whatisup.services.stats import invalidate_uptime_cache, latest_results_subq
 
@@ -139,10 +140,16 @@ async def _correlate_common_cause(
             group.cause_probe_ids = merged
 
     if group is None:
+        # Identify root cause: the monitor whose incident started earliest
+        all_incidents = [*correlated_incidents, incident]
+        root_incident = min(all_incidents, key=lambda i: i.started_at)
+
         group = IncidentGroup(
             triggered_at=now,
             cause_probe_ids=list(set(affected_probe_ids)),
             status="open",
+            root_cause_monitor_id=root_incident.monitor_id,
+            correlation_type="probe",
         )
         db.add(group)
         await db.flush()  # generate group.id
@@ -170,6 +177,213 @@ async def _correlate_common_cause(
             "monitor_id": str(monitor_id),
             "correlated_monitor_ids": correlated_monitor_ids,
             "shared_probe_ids": affected_probe_ids,
+        }
+    )
+
+
+async def _correlate_by_group(
+    db: AsyncSession,
+    incident: Incident,
+    monitor: Monitor,
+    publish_event,
+) -> None:
+    """
+    If ≥50% of monitors in the same group went down within 2 minutes,
+    create/join an IncidentGroup even without shared probe IDs.
+    Detects shared infrastructure failures invisible to probe-level correlation.
+    """
+    if not monitor.group_id or incident.group_id is not None:
+        return
+
+    window_start = datetime.now(UTC) - timedelta(minutes=2)
+
+    # Count enabled monitors in this group
+    group_monitors = (
+        await db.execute(
+            select(Monitor.id).where(
+                Monitor.group_id == monitor.group_id,
+                Monitor.enabled.is_(True),
+            )
+        )
+    ).scalars().all()
+
+    if len(group_monitors) < 2:
+        return
+
+    # Find open incidents from the same group started recently
+    sibling_incidents = (
+        (
+            await db.execute(
+                select(Incident).where(
+                    Incident.monitor_id.in_(group_monitors),
+                    Incident.monitor_id != monitor.id,
+                    Incident.resolved_at.is_(None),
+                    Incident.started_at >= window_start,
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    # Need ≥50% of group monitors to be down (including the current one)
+    down_count = len(sibling_incidents) + 1  # +1 for current incident
+    threshold = len(group_monitors) / 2
+    if down_count < threshold:
+        return
+
+    # Check if any sibling is already in a group
+    existing_group_id = next(
+        (inc.group_id for inc in sibling_incidents if inc.group_id is not None),
+        None,
+    )
+
+    now = datetime.now(UTC)
+    group: IncidentGroup | None = None
+
+    if existing_group_id:
+        group = await db.get(IncidentGroup, existing_group_id)
+
+    if group is None:
+        all_incidents = [*sibling_incidents, incident]
+        root_incident = min(all_incidents, key=lambda i: i.started_at)
+
+        group = IncidentGroup(
+            triggered_at=now,
+            cause_probe_ids=[],
+            status="open",
+            root_cause_monitor_id=root_incident.monitor_id,
+            correlation_type="group",
+        )
+        db.add(group)
+        await db.flush()
+        for inc in sibling_incidents:
+            if inc.group_id is None:
+                inc.group_id = group.id
+
+    incident.group_id = group.id
+    await db.flush()
+
+    correlated_monitor_ids = [str(inc.monitor_id) for inc in sibling_incidents]
+    logger.info(
+        "group_correlation_detected",
+        monitor_id=str(monitor.id),
+        group_id=str(group.id),
+        down_count=down_count,
+        group_size=len(group_monitors),
+    )
+    await publish_event(
+        {
+            "type": "common_cause_detected",
+            "group_id": str(group.id),
+            "monitor_id": str(monitor.id),
+            "correlated_monitor_ids": correlated_monitor_ids,
+            "correlation_type": "group",
+        }
+    )
+
+
+async def _correlate_by_dependency(
+    db: AsyncSession,
+    incident: Incident,
+    monitor_id: uuid.UUID,
+    publish_event,
+) -> None:
+    """
+    Cascade correlation: if a parent and its children go down within 5 minutes,
+    group them together using existing MonitorDependency edges.
+    """
+    if incident.group_id is not None:
+        return
+
+    window_start = datetime.now(UTC) - timedelta(minutes=5)
+    now = datetime.now(UTC)
+
+    # Find parent monitors for the current monitor
+    parent_deps = (
+        await db.execute(
+            select(MonitorDependency.parent_id).where(
+                MonitorDependency.child_id == monitor_id
+            )
+        )
+    ).scalars().all()
+
+    # Find child monitors for the current monitor
+    child_deps = (
+        await db.execute(
+            select(MonitorDependency.child_id).where(
+                MonitorDependency.parent_id == monitor_id
+            )
+        )
+    ).scalars().all()
+
+    related_ids = list(set(parent_deps) | set(child_deps))
+    if not related_ids:
+        return
+
+    # Find open incidents on related monitors within the cascade window
+    related_incidents = (
+        (
+            await db.execute(
+                select(Incident).where(
+                    Incident.monitor_id.in_(related_ids),
+                    Incident.resolved_at.is_(None),
+                    Incident.started_at >= window_start,
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    if not related_incidents:
+        return
+
+    # Check if any related incident is already in a group
+    existing_group_id = next(
+        (inc.group_id for inc in related_incidents if inc.group_id is not None),
+        None,
+    )
+
+    group: IncidentGroup | None = None
+    if existing_group_id:
+        group = await db.get(IncidentGroup, existing_group_id)
+        if group and incident.group_id is None:
+            incident.group_id = group.id
+
+    if group is None:
+        all_incidents = [*related_incidents, incident]
+        root_incident = min(all_incidents, key=lambda i: i.started_at)
+
+        group = IncidentGroup(
+            triggered_at=now,
+            cause_probe_ids=[],
+            status="open",
+            root_cause_monitor_id=root_incident.monitor_id,
+            correlation_type="dependency",
+        )
+        db.add(group)
+        await db.flush()
+        for inc in related_incidents:
+            if inc.group_id is None:
+                inc.group_id = group.id
+        incident.group_id = group.id
+
+    await db.flush()
+
+    logger.info(
+        "dependency_cascade_detected",
+        monitor_id=str(monitor_id),
+        group_id=str(group.id),
+        related_monitors=[str(inc.monitor_id) for inc in related_incidents],
+    )
+    await publish_event(
+        {
+            "type": "common_cause_detected",
+            "group_id": str(group.id),
+            "monitor_id": str(monitor_id),
+            "correlated_monitor_ids": [str(inc.monitor_id) for inc in related_incidents],
+            "correlation_type": "dependency",
         }
     )
 
@@ -680,6 +894,20 @@ async def process_check_result(
             # Detect common cause and group the incident BEFORE firing alerts,
             # so grouped incidents skip individual notifications.
             await _correlate_common_cause(db, incident, affected_probe_ids, publish_event)
+
+            # B2: If probe correlation didn't group it, try group-level correlation
+            if incident.group_id is None:
+                await _correlate_by_group(db, incident, monitor, publish_event)
+
+            # B3: If still ungrouped, try dependency cascade correlation (5min window)
+            if incident.group_id is None:
+                await _correlate_by_dependency(db, incident, monitor_id, publish_event)
+
+            # B4: Update co-occurrence patterns when an incident is grouped
+            if incident.group_id is not None:
+                group = await db.get(IncidentGroup, incident.group_id)
+                if group:
+                    await update_patterns_for_group(db, group)
 
             # Only fire individual alert if NOT part of a group that already notified
             if incident.group_id is None:

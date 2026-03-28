@@ -28,6 +28,8 @@ from whatisup.schemas.alert import (
     TelegramResolveOut,
 )
 from whatisup.services.alert import simulate_rule, test_channel
+from whatisup.services.alert_presets import get_presets
+from whatisup.services.threshold_advisor import compute_threshold_suggestions
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
 
@@ -407,3 +409,114 @@ async def list_events(
         )
         for event, monitor_name in rows
     ]
+
+
+# ── Presets ──────────────────────────────────────────────────────────────
+
+
+@router.get("/presets/{check_type}")
+async def get_alert_presets(
+    check_type: str,
+    current_user: User = Depends(get_current_user),
+) -> list[dict]:
+    """Return recommended alert rule presets for a given check type."""
+    return get_presets(check_type)
+
+
+@router.post("/auto-rules/{monitor_id}", response_model=list[AlertRuleOut])
+@limiter.limit("10/minute")
+async def create_auto_rules(
+    monitor_id: uuid.UUID,
+    request: Request,
+    channel_ids: list[uuid.UUID] | None = Query(default=None),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[AlertRule]:
+    """Create recommended alert rules for a monitor based on its check_type.
+
+    Only creates rules marked as default=True in the presets.
+    If no channel_ids provided, uses all channels owned by the user.
+    """
+    monitor = (
+        await db.execute(
+            select(Monitor).where(
+                Monitor.id == monitor_id,
+                Monitor.owner_id == current_user.id,
+            )
+        )
+    ).scalar_one_or_none()
+    if monitor is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Monitor not found")
+
+    # Get channels
+    if channel_ids:
+        channels = list(
+            (
+                await db.execute(
+                    select(AlertChannel).where(
+                        AlertChannel.id.in_(channel_ids),
+                        AlertChannel.owner_id == current_user.id,
+                    )
+                )
+            ).scalars().all()
+        )
+    else:
+        channels = list(
+            (
+                await db.execute(
+                    select(AlertChannel).where(AlertChannel.owner_id == current_user.id)
+                )
+            ).scalars().all()
+        )
+
+    if not channels:
+        return []
+
+    # Check existing rules to avoid duplicates
+    existing_rules = (
+        await db.execute(
+            select(AlertRule.condition).where(AlertRule.monitor_id == monitor_id)
+        )
+    ).scalars().all()
+    existing_conditions = set(existing_rules)
+
+    presets = get_presets(monitor.check_type)
+    created: list[AlertRule] = []
+
+    for preset in presets:
+        if not preset.get("default", False):
+            continue
+        if preset["condition"] in existing_conditions:
+            continue
+
+        rule = AlertRule(
+            monitor_id=monitor_id,
+            condition=preset["condition"],
+            min_duration_seconds=preset.get("min_duration_seconds", 0),
+            threshold_value=preset.get("threshold_value"),
+            channels=channels,
+        )
+        db.add(rule)
+        created.append(rule)
+
+    if created:
+        await db.flush()
+        for rule in created:
+            await db.refresh(rule, ["channels"])
+
+    return created
+
+
+# ── Threshold suggestions ────────────────────────────────────────────────
+
+
+@router.get("/suggestions/thresholds")
+@limiter.limit("10/minute")
+async def get_threshold_suggestions(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[dict]:
+    """Return monitors that could benefit from a response_time_above alert rule,
+    with a suggested threshold based on their p95 over the last 7 days."""
+    return await compute_threshold_suggestions(db, owner_id=current_user.id)

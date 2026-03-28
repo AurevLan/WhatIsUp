@@ -91,6 +91,8 @@ class MonitorCreate(BaseModel):
     # Flapping detection — per-monitor overrides
     flap_threshold: int = Field(default=5, ge=2, le=50)
     flap_window_minutes: int = Field(default=10, ge=1, le=60)
+    # Auto-alert: channel IDs to auto-create default rules at monitor creation
+    alert_channel_ids: list[uuid.UUID] = Field(default=[])
 
     @field_validator("expected_status_codes")
     @classmethod

@@ -175,6 +175,15 @@ export default {
     flapping_desc: 'Override the global flapping detection thresholds for this monitor.',
     flap_threshold: 'Transitions threshold',
     flap_window_minutes: 'Window (minutes)',
+    alert_setup: {
+      title: 'Alert on downtime',
+      desc: 'Automatically create alert rules for this monitor.',
+      no_channels: 'No alert channels configured yet. Create one in the Alerts page first.',
+      no_rules_banner: 'This monitor has no alert rules — you won\'t be notified if it goes down.',
+      setup_now: 'Set up alerts',
+      modal_title: 'Quick alert setup',
+      create_rules: 'Create rules',
+    },
   },
 
   // Monitor detail
@@ -333,6 +342,9 @@ export default {
     confirm_delete_detail: 'This action is irreversible.',
     recent_events: 'Recent events',
     no_events: 'No events yet.',
+    suggestions_title: 'Suggested alert thresholds',
+    suggested_threshold: 'Suggested threshold: {ms}ms',
+    apply_suggestion: 'Apply',
   },
 
   // Incidents
@@ -601,5 +613,12 @@ export default {
     cause_probes: 'Affected probes',
     incidents: 'Incidents',
     empty: 'No correlated incident groups.',
+    root_cause: 'Root cause',
+    correlation_type: 'Correlation',
+    type_probe: 'Shared probes',
+    type_group: 'Infrastructure group',
+    type_dependency: 'Dependency cascade',
+    type_pattern: 'Learned pattern',
+    correlated_monitors: 'Frequently fails with',
   },
 }

@@ -91,6 +91,28 @@
       </div>
     </div>
 
+    <!-- Threshold suggestions -->
+    <div v-if="thresholdSuggestions.length > 0" class="mb-8">
+      <h2 class="text-lg font-semibold text-white mb-3">{{ t('alerts.suggestions_title') }}</h2>
+      <div class="space-y-2">
+        <div v-for="s in thresholdSuggestions" :key="s.monitor_id"
+          class="card flex items-center justify-between gap-4">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm text-white font-medium truncate">{{ s.monitor_name }}</p>
+            <p class="text-xs text-gray-500">
+              p95 = {{ s.p95_ms }}ms · {{ t('alerts.suggested_threshold', { ms: s.suggested_threshold_ms }) }}
+            </p>
+          </div>
+          <button
+            @click="applySuggestion(s)"
+            :disabled="applyingSuggestion === s.monitor_id"
+            class="btn-primary text-xs whitespace-nowrap disabled:opacity-50"
+          >{{ t('alerts.apply_suggestion') }}</button>
+          <button @click="dismissSuggestion(s)" class="text-gray-600 hover:text-gray-400 text-xs">✕</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Alert Rules -->
     <div>
       <div class="flex items-center justify-between mb-4">
@@ -449,6 +471,42 @@ const simulateResults = ref({})
 const eventsFilter = ref('all')
 const confirmModal = ref(null)
 
+// Threshold suggestions (A4)
+const thresholdSuggestions = ref([])
+const applyingSuggestion = ref(null)
+
+async function loadSuggestions() {
+  try {
+    const { data } = await api.get('/alerts/suggestions/thresholds')
+    thresholdSuggestions.value = data
+  } catch {}
+}
+
+async function applySuggestion(s) {
+  if (!channels.value.length) return
+  applyingSuggestion.value = s.monitor_id
+  try {
+    await api.post('/alerts/rules', {
+      monitor_id: s.monitor_id,
+      condition: 'response_time_above',
+      threshold_value: s.suggested_threshold_ms,
+      min_duration_seconds: 0,
+      channel_ids: channels.value.map(c => c.id),
+    })
+    thresholdSuggestions.value = thresholdSuggestions.value.filter(x => x.monitor_id !== s.monitor_id)
+    await loadData()
+    success(`Alert rule created for ${s.monitor_name} (>${s.suggested_threshold_ms}ms)`)
+  } catch (err) {
+    toastError(err.response?.data?.detail || 'Error creating rule')
+  } finally {
+    applyingSuggestion.value = null
+  }
+}
+
+function dismissSuggestion(s) {
+  thresholdSuggestions.value = thresholdSuggestions.value.filter(x => x.monitor_id !== s.monitor_id)
+}
+
 const DEFAULT_SCHEDULE = { offhours_suppress: false, timezone: 'Europe/Paris', days: [0, 1, 2, 3, 4], start: '09:00', end: '18:00' }
 
 const ruleForm = ref(defaultRuleForm())
@@ -741,5 +799,7 @@ onMounted(async () => {
     allMonitors.value = mResp.data
     allGroups.value = gResp.data
   } catch {}
+  // Load threshold suggestions (non-blocking)
+  loadSuggestions()
 })
 </script>

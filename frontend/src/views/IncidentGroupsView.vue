@@ -49,6 +49,26 @@
           </span>
         </div>
 
+        <!-- Root cause + correlation type -->
+        <div v-if="group.root_cause_monitor_name || group.correlation_type" class="flex items-center gap-3 mb-3 text-xs">
+          <span v-if="group.root_cause_monitor_name" class="flex items-center gap-1.5">
+            <span class="text-gray-500">{{ t('incidentGroups.root_cause') }}:</span>
+            <router-link
+              :to="`/monitors/${group.root_cause_monitor_id}`"
+              class="text-red-400 font-semibold hover:text-red-300"
+            >{{ group.root_cause_monitor_name }}</router-link>
+          </span>
+          <span v-if="group.correlation_type"
+            class="px-2 py-0.5 rounded-full text-xs font-medium"
+            :class="{
+              'bg-blue-900/50 text-blue-300': group.correlation_type === 'probe',
+              'bg-purple-900/50 text-purple-300': group.correlation_type === 'group',
+              'bg-amber-900/50 text-amber-300': group.correlation_type === 'dependency',
+              'bg-cyan-900/50 text-cyan-300': group.correlation_type === 'pattern',
+            }"
+          >{{ t('incidentGroups.type_' + group.correlation_type) }}</span>
+        </div>
+
         <div class="grid grid-cols-2 gap-4 text-sm">
           <div>
             <p class="text-gray-500 text-xs mb-1">{{ t('incidentGroups.cause_probes') }}</p>

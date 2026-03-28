@@ -33,8 +33,17 @@ class IncidentGroup(Base):
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     cause_probe_ids: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="open", nullable=False)
+    # Root cause: the monitor that went down first in this group
+    root_cause_monitor_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("monitors.id", ondelete="SET NULL"), nullable=True
+    )
+    # Correlation source: probe | group | dependency | pattern
+    correlation_type: Mapped[str | None] = mapped_column(String(30), nullable=True)
 
     incidents: Mapped[list[Incident]] = relationship("Incident", back_populates="group")
+    root_cause_monitor: Mapped[Monitor | None] = relationship(
+        "Monitor", foreign_keys=[root_cause_monitor_id]
+    )
 
     __table_args__ = (Index("ix_incident_groups_status", "status"),)
 

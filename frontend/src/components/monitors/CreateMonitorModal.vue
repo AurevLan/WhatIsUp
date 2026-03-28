@@ -331,6 +331,46 @@
           </div>
         </div>
 
+        <!-- Alert setup -->
+        <div class="border border-gray-800 rounded-xl p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-sm font-medium text-white">{{ t('monitors.alert_setup.title') }}</h3>
+              <p class="text-xs text-gray-500 mt-0.5">{{ t('monitors.alert_setup.desc') }}</p>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" v-model="alertEnabled" class="sr-only peer" />
+              <div class="w-9 h-5 bg-gray-700 peer-checked:bg-blue-600 rounded-full
+                after:content-[''] after:absolute after:top-0.5 after:left-[2px]
+                after:bg-white after:rounded-full after:h-4 after:w-4
+                after:transition-all peer-checked:after:translate-x-full"></div>
+            </label>
+          </div>
+          <div v-if="alertEnabled">
+            <div v-if="alertChannels.length === 0" class="text-xs text-amber-400 bg-amber-900/20 border border-amber-800/40 rounded-lg px-3 py-2">
+              {{ t('monitors.alert_setup.no_channels') }}
+            </div>
+            <div v-else class="space-y-1.5">
+              <label
+                v-for="ch in alertChannels" :key="ch.id"
+                class="flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors"
+                :class="selectedChannelIds.includes(ch.id)
+                  ? 'border-blue-600/60 bg-blue-950/30'
+                  : 'border-gray-800 hover:border-gray-700'"
+              >
+                <input
+                  type="checkbox"
+                  :value="ch.id"
+                  v-model="selectedChannelIds"
+                  class="rounded bg-gray-800 border-gray-600 text-blue-500 focus:ring-blue-500/30"
+                />
+                <span class="text-sm text-gray-300">{{ ch.name }}</span>
+                <span class="text-xs text-gray-600 ml-auto">{{ ch.type }}</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
         <div v-if="error" class="bg-red-900/40 border border-red-700 rounded p-3 text-sm text-red-300">
           {{ error }}
         </div>
@@ -353,6 +393,7 @@
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useMonitorStore } from '../../stores/monitors'
+import api from '../../api/client'
 import ScenarioBuilder from './ScenarioBuilder.vue'
 
 const { t } = useI18n()
@@ -525,6 +566,21 @@ const form = ref({
   composite_aggregation: 'majority_up',
 })
 
+// Alert channels for auto-alert setup
+const alertChannels = ref([])
+const alertEnabled = ref(true)
+const selectedChannelIds = ref([])
+
+async function loadAlertChannels() {
+  try {
+    const { data } = await api.get('/alerts/channels')
+    alertChannels.value = data
+    // Pre-select all channels
+    selectedChannelIds.value = data.map(c => c.id)
+  } catch {}
+}
+loadAlertChannels()
+
 const loading = ref(false)
 const error = ref('')
 const jsonSchemaError = ref('')
@@ -643,6 +699,11 @@ function buildPayload() {
   if (form.value.check_type !== 'heartbeat') {
     p.flap_threshold = form.value.flap_threshold
     p.flap_window_minutes = form.value.flap_window_minutes
+  }
+
+  // Auto-alert: pass selected channel IDs for automatic rule creation
+  if (alertEnabled.value && selectedChannelIds.value.length > 0) {
+    p.alert_channel_ids = selectedChannelIds.value
   }
 
   return p

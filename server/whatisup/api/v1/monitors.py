@@ -204,6 +204,35 @@ async def create_monitor(
     db.add(monitor)
     await db.flush()
 
+    # Auto-create alert rules if channels were specified
+    if payload.alert_channel_ids:
+        from whatisup.models.alert import AlertChannel, AlertRule
+        from whatisup.services.alert_presets import get_presets
+
+        channels = list(
+            (
+                await db.execute(
+                    select(AlertChannel).where(
+                        AlertChannel.id.in_(payload.alert_channel_ids),
+                        AlertChannel.owner_id == current_user.id,
+                    )
+                )
+            ).scalars().all()
+        )
+        if channels:
+            for preset in get_presets(monitor.check_type):
+                if not preset.get("default", False):
+                    continue
+                rule = AlertRule(
+                    monitor_id=monitor.id,
+                    condition=preset["condition"],
+                    min_duration_seconds=preset.get("min_duration_seconds", 0),
+                    threshold_value=preset.get("threshold_value"),
+                    channels=channels,
+                )
+                db.add(rule)
+            await db.flush()
+
     from whatisup.services.audit import log_action
 
     await log_action(db, "monitor.create", "monitor", monitor.id, monitor.name, current_user)
@@ -1212,3 +1241,29 @@ async def remove_composite_member(
     if member is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Member not found")
     await db.delete(member)
+
+
+# ── Correlation patterns ─────────────────────────────────────────────────
+
+
+@router.get("/{monitor_id}/correlated")
+async def get_correlated_monitors(
+    monitor_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[dict]:
+    """Return monitors that frequently fail at the same time as this one."""
+    await _get_monitor_or_404(monitor_id, current_user, db)
+    from whatisup.services.correlation import get_correlated_monitors as _get
+
+    patterns = await _get(db, monitor_id)
+    # Enrich with monitor names
+    if patterns:
+        monitor_ids = [uuid.UUID(p["monitor_id"]) for p in patterns]
+        monitors = (
+            await db.execute(select(Monitor.id, Monitor.name).where(Monitor.id.in_(monitor_ids)))
+        ).all()
+        name_map = {str(m.id): m.name for m in monitors}
+        for p in patterns:
+            p["monitor_name"] = name_map.get(p["monitor_id"])
+    return patterns

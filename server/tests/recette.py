@@ -659,7 +659,18 @@ def test_ping() -> None:
 def test_incident_groups() -> None:
     section("Incident Groups")
     r = client.get("/api/v1/incident-groups/", headers=auth_headers())
-    check("GET /incident-groups/ (list)", r, 200)
+    data = check("GET /incident-groups/ (list)", r, 200)
+    if data and isinstance(data, list):
+        # Verify root_cause and correlation_type fields are present in schema
+        for g in data[:3]:
+            if "root_cause_monitor_id" not in g:
+                fail("IncidentGroup has root_cause_monitor_id field")
+                break
+            if "correlation_type" not in g:
+                fail("IncidentGroup has correlation_type field")
+                break
+        else:
+            ok("IncidentGroup schema includes root_cause + correlation_type")
 
 
 def test_metrics() -> None:
@@ -701,6 +712,112 @@ def test_public_pages() -> None:
             check("GET /public/pages/{slug}/status", r, 200)
 
         client.delete(f"/api/v1/groups/{pub_group['id']}", headers=auth_headers())
+
+
+def test_smart_alerts() -> None:
+    section("Smart Alerts & Correlations")
+
+    # ── Alert Presets ──────────────────────────────────────────────────────
+    r = client.get("/api/v1/alerts/presets/http", headers=auth_headers())
+    presets = check("GET /alerts/presets/http", r, 200)
+    if presets and isinstance(presets, list):
+        has_any_down = any(p["condition"] == "any_down" for p in presets)
+        has_ssl = any(p["condition"] == "ssl_expiry" for p in presets)
+        if has_any_down and has_ssl:
+            ok("HTTP presets include any_down + ssl_expiry")
+        else:
+            fail("HTTP presets content", f"any_down={has_any_down}, ssl={has_ssl}")
+
+    r = client.get("/api/v1/alerts/presets/heartbeat", headers=auth_headers())
+    check("GET /alerts/presets/heartbeat", r, 200)
+
+    r = client.get("/api/v1/alerts/presets/scenario", headers=auth_headers())
+    check("GET /alerts/presets/scenario", r, 200)
+
+    # ── Auto-rules creation ────────────────────────────────────────────────
+    # Create a fresh monitor + channel for auto-rule testing
+    ch_r = client.post("/api/v1/alerts/channels", headers=auth_headers(), json={
+        "name": "Auto-rule Channel",
+        "type": "webhook",
+        "config": {"url": "https://httpbin.org/post"},
+    })
+    ch = check("POST /alerts/channels (for auto-rules)", ch_r, 201)
+    auto_ch_id = ch["id"] if ch else None
+
+    mon_r = client.post("/api/v1/monitors/", headers=auth_headers(), json={
+        "name": "Auto-Alert Monitor",
+        "url": "https://httpbin.org/get",
+        "check_type": "http",
+    })
+    auto_mon = check("POST /monitors/ (for auto-rules)", mon_r, 201)
+    auto_mon_id = auto_mon["id"] if auto_mon else None
+
+    if auto_mon_id and auto_ch_id:
+        r = client.post(
+            f"/api/v1/alerts/auto-rules/{auto_mon_id}",
+            headers=auth_headers(),
+            params={"channel_ids": [auto_ch_id]},
+        )
+        rules = check("POST /alerts/auto-rules/{id} (create default rules)", r, 200)
+        if rules and isinstance(rules, list) and len(rules) >= 1:
+            ok(f"Auto-rules created: {len(rules)} rule(s)")
+            conditions = [r["condition"] for r in rules]
+            if "any_down" in conditions:
+                ok("Auto-rules include any_down")
+            else:
+                fail("Auto-rules include any_down", f"got {conditions}")
+        elif rules is not None:
+            fail("Auto-rules count", f"expected >=1, got {len(rules) if isinstance(rules, list) else type(rules)}")
+
+        # Calling again should create 0 (no duplicates)
+        r = client.post(
+            f"/api/v1/alerts/auto-rules/{auto_mon_id}",
+            headers=auth_headers(),
+            params={"channel_ids": [auto_ch_id]},
+        )
+        rules2 = check("POST /alerts/auto-rules/{id} (idempotent — no dups)", r, 200)
+        if rules2 is not None and isinstance(rules2, list) and len(rules2) == 0:
+            ok("Auto-rules idempotent: 0 duplicates created")
+        elif rules2 is not None:
+            fail("Auto-rules idempotent", f"expected 0, got {len(rules2)}")
+
+    # ── Monitor creation with alert_channel_ids ─────────────────────────
+    if auto_ch_id:
+        r = client.post("/api/v1/monitors/", headers=auth_headers(), json={
+            "name": "Monitor With Auto-Alert",
+            "url": "https://httpbin.org/get",
+            "check_type": "http",
+            "alert_channel_ids": [auto_ch_id],
+        })
+        mon_alert = check("POST /monitors/ (with alert_channel_ids)", r, 201)
+        if mon_alert:
+            # Verify rules were created automatically
+            rules_r = client.get("/api/v1/alerts/rules", headers=auth_headers())
+            all_rules = rules_r.json() if rules_r.status_code == 200 else []
+            mon_rules = [r for r in all_rules if r.get("monitor_id") == mon_alert["id"]]
+            if len(mon_rules) >= 1:
+                ok(f"Auto-alert at creation: {len(mon_rules)} rule(s) created")
+            else:
+                fail("Auto-alert at creation", "no rules found for new monitor")
+            # Cleanup
+            client.delete(f"/api/v1/monitors/{mon_alert['id']}", headers=auth_headers())
+
+    # ── Threshold suggestions ──────────────────────────────────────────────
+    r = client.get("/api/v1/alerts/suggestions/thresholds", headers=auth_headers())
+    check("GET /alerts/suggestions/thresholds", r, 200)
+
+    # ── Correlated monitors ────────────────────────────────────────────────
+    if auto_mon_id:
+        r = client.get(f"/api/v1/monitors/{auto_mon_id}/correlated", headers=auth_headers())
+        corr = check("GET /monitors/{id}/correlated", r, 200)
+        if corr is not None and isinstance(corr, list):
+            ok(f"Correlated monitors: {len(corr)} patterns")
+
+    # ── Cleanup auto-alert test objects ────────────────────────────────────
+    if auto_mon_id:
+        client.delete(f"/api/v1/monitors/{auto_mon_id}", headers=auth_headers())
+    if auto_ch_id:
+        client.delete(f"/api/v1/alerts/channels/{auto_ch_id}", headers=auth_headers())
 
 
 def test_cleanup() -> None:
@@ -798,6 +915,7 @@ def main() -> int:
     test_incident_groups()
     test_metrics()
     test_public_pages()
+    test_smart_alerts()
     test_cleanup()
 
     print_summary()

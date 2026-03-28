@@ -11,6 +11,7 @@ from whatisup.models.alert import (
 from whatisup.models.annotation import MonitorAnnotation
 from whatisup.models.api_key import UserApiKey
 from whatisup.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
+from whatisup.models.correlation_pattern import CorrelationPattern
 from whatisup.models.custom_metric import CustomMetric
 from whatisup.models.incident import Incident, IncidentGroup, IncidentScope
 from whatisup.models.incident_update import IncidentUpdate, IncidentUpdateStatus
@@ -60,6 +61,7 @@ __all__ = [
     "AlertEvent",
     "AlertEventStatus",
     "AlertRule",
+    "CorrelationPattern",
     "MonitorAnnotation",
     "StatusSubscription",
     "SystemSettings",

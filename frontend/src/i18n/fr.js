@@ -166,6 +166,15 @@ export default {
     flapping_desc: 'Remplace les seuils globaux de détection de flapping pour ce moniteur.',
     flap_threshold: 'Seuil de transitions',
     flap_window_minutes: 'Fenêtre (minutes)',
+    alert_setup: {
+      title: 'Alerter en cas de panne',
+      desc: 'Créer automatiquement des règles d\'alerte pour ce moniteur.',
+      no_channels: 'Aucun canal d\'alerte configuré. Créez-en un dans la page Alertes.',
+      no_rules_banner: 'Ce moniteur n\'a aucune règle d\'alerte — vous ne serez pas notifié en cas de panne.',
+      setup_now: 'Configurer les alertes',
+      modal_title: 'Configuration rapide des alertes',
+      create_rules: 'Créer les règles',
+    },
   },
   monitor_detail: {
     test_now: 'Tester maintenant',
@@ -319,6 +328,9 @@ export default {
     confirm_delete_detail: 'Cette action est irréversible.',
     recent_events: 'Événements récents',
     no_events: 'Aucun événement.',
+    suggestions_title: 'Seuils d\'alerte suggérés',
+    suggested_threshold: 'Seuil suggéré : {ms}ms',
+    apply_suggestion: 'Appliquer',
   },
   incidents: {
     title: 'Incidents',
@@ -573,5 +585,12 @@ export default {
     cause_probes: 'Sondes affectées',
     incidents: 'Incidents',
     empty: "Aucun groupe d'incidents corrélés.",
+    root_cause: 'Cause racine',
+    correlation_type: 'Corrélation',
+    type_probe: 'Sondes partagées',
+    type_group: 'Groupe d\'infrastructure',
+    type_dependency: 'Cascade de dépendance',
+    type_pattern: 'Pattern appris',
+    correlated_monitors: 'Tombe souvent avec',
   },
 }

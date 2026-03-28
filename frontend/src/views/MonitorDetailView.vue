@@ -19,6 +19,54 @@
       </div>
     </div>
 
+    <!-- No alert rules banner -->
+    <div
+      v-if="monitor && alertRulesLoaded && alertRules.length === 0"
+      class="mb-4 flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-amber-800/40 bg-amber-900/20"
+    >
+      <div class="flex items-center gap-2">
+        <span class="text-amber-400 text-lg">⚠</span>
+        <span class="text-sm text-amber-300">{{ t('monitors.alert_setup.no_rules_banner') }}</span>
+      </div>
+      <button
+        @click="showAutoAlertModal = true"
+        class="btn-primary text-xs whitespace-nowrap"
+      >{{ t('monitors.alert_setup.setup_now') }}</button>
+    </div>
+
+    <!-- Auto-alert setup modal -->
+    <div v-if="showAutoAlertModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+      <div class="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md p-6">
+        <h2 class="text-lg font-semibold text-white mb-4">{{ t('monitors.alert_setup.modal_title') }}</h2>
+        <div v-if="autoAlertChannels.length === 0" class="text-sm text-gray-400 mb-4">
+          {{ t('monitors.alert_setup.no_channels') }}
+        </div>
+        <div v-else class="space-y-2 mb-4">
+          <label
+            v-for="ch in autoAlertChannels" :key="ch.id"
+            class="flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors"
+            :class="autoAlertSelectedChannels.includes(ch.id)
+              ? 'border-blue-600/60 bg-blue-950/30'
+              : 'border-gray-800 hover:border-gray-700'"
+          >
+            <input type="checkbox" :value="ch.id" v-model="autoAlertSelectedChannels"
+              class="rounded bg-gray-800 border-gray-600 text-blue-500" />
+            <span class="text-sm text-gray-300">{{ ch.name }}</span>
+            <span class="text-xs text-gray-600 ml-auto">{{ ch.type }}</span>
+          </label>
+        </div>
+        <div class="flex gap-3">
+          <button @click="showAutoAlertModal = false" class="flex-1 px-4 py-2 border border-gray-700 text-gray-300 rounded-lg hover:bg-gray-800">
+            {{ t('common.cancel') }}
+          </button>
+          <button @click="createAutoAlertRules" :disabled="autoAlertSelectedChannels.length === 0 || autoAlertCreating"
+            class="flex-1 btn-primary disabled:opacity-50">
+            {{ autoAlertCreating ? t('common.loading') : t('monitors.alert_setup.create_rules') }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- View tabs -->
     <div class="flex gap-1 mb-6 border-b border-gray-800">
       <button
@@ -1851,6 +1899,7 @@ function chartBucketMin(h) {
 }
 
 const alertRules = ref([])
+const alertRulesLoaded = ref(false)
 
 async function loadAlertRules() {
   if (!monitor.value) return
@@ -1858,6 +1907,35 @@ async function loadAlertRules() {
     const { data } = await api.get('/alerts/rules')
     alertRules.value = data.filter(r => r.monitor_id && String(r.monitor_id) === String(monitor.value.id))
   } catch {}
+  alertRulesLoaded.value = true
+}
+
+// ── Auto-alert setup modal (A2 banner) ───────────────────────────────────────
+const showAutoAlertModal = ref(false)
+const autoAlertChannels = ref([])
+const autoAlertSelectedChannels = ref([])
+const autoAlertCreating = ref(false)
+
+watch(showAutoAlertModal, async (v) => {
+  if (!v) return
+  try {
+    const { data } = await api.get('/alerts/channels')
+    autoAlertChannels.value = data
+    autoAlertSelectedChannels.value = data.map(c => c.id)
+  } catch {}
+})
+
+async function createAutoAlertRules() {
+  if (!monitor.value || autoAlertSelectedChannels.value.length === 0) return
+  autoAlertCreating.value = true
+  try {
+    await api.post(`/alerts/auto-rules/${monitor.value.id}`, null, {
+      params: { channel_ids: autoAlertSelectedChannels.value },
+    })
+    showAutoAlertModal.value = false
+    await loadAlertRules()
+  } catch {}
+  autoAlertCreating.value = false
 }
 
 const rtThresholdMs = computed(() => {

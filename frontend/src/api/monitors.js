@@ -10,6 +10,7 @@ export const monitorsApi = {
   uptime: (id, periodHours = 24) => api.get(`/monitors/${id}/uptime`, { params: { period_hours: periodHours } }),
   incidents: (id, params = {}) => api.get(`/monitors/${id}/incidents`, { params }),
   probeStatus: (id) => api.get(`/monitors/${id}/probes`),
+  percentiles: (id, params) => api.get(`/monitors/${id}/percentiles`, { params }),
   bulkAction: (payload) => api.post('/monitors/bulk', payload),
   getPostmortem: (monitorId, incidentId) => api.get(`/monitors/${monitorId}/incidents/${incidentId}/postmortem`),
   // Dependencies

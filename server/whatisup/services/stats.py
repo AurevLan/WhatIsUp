@@ -147,3 +147,50 @@ async def compute_daily_history(
         }
         for row in rows.all()
     ]
+
+
+async def compute_percentile_timeseries(
+    db: AsyncSession,
+    monitor_id: uuid.UUID,
+    hours: int = 24,
+    bucket_minutes: int = 30,
+) -> list[dict]:
+    """Compute P50/P95/P99 response time per time bucket."""
+    since = datetime.now(UTC) - timedelta(hours=hours)
+
+    bucket = func.date_trunc(text("'hour'"), CheckResult.checked_at)
+
+    stmt = (
+        select(
+            bucket.label("bucket"),
+            func.percentile_cont(0.50)
+            .within_group(CheckResult.response_time_ms)
+            .label("p50"),
+            func.percentile_cont(0.95)
+            .within_group(CheckResult.response_time_ms)
+            .label("p95"),
+            func.percentile_cont(0.99)
+            .within_group(CheckResult.response_time_ms)
+            .label("p99"),
+            func.count().label("count"),
+        )
+        .where(
+            CheckResult.monitor_id == monitor_id,
+            CheckResult.checked_at >= since,
+            CheckResult.response_time_ms.isnot(None),
+        )
+        .group_by(bucket)
+        .order_by(bucket)
+    )
+
+    rows = (await db.execute(stmt)).all()
+    return [
+        {
+            "timestamp": row.bucket.isoformat(),
+            "p50": round(row.p50, 1) if row.p50 else None,
+            "p95": round(row.p95, 1) if row.p95 else None,
+            "p99": round(row.p99, 1) if row.p99 else None,
+            "count": row.count,
+        }
+        for row in rows
+    ]

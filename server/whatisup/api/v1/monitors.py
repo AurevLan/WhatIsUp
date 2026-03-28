@@ -116,6 +116,53 @@ async def list_monitors(
         str(r.monitor_id): round(r.up_count / r.total * 100, 2) for r in uptime_rows if r.total > 0
     }
 
+    # Last response time per monitor (reuse latest result subquery)
+    rt_rows = (
+        await db.execute(
+            select(CheckResult.monitor_id, CheckResult.response_time_ms).join(
+                max_ts_subq,
+                and_(
+                    CheckResult.monitor_id == max_ts_subq.c.monitor_id,
+                    CheckResult.checked_at == max_ts_subq.c.max_at,
+                ),
+            )
+        )
+    ).all()
+    rt_map = {
+        str(r.monitor_id): round(r.response_time_ms, 1)
+        for r in rt_rows
+        if r.response_time_ms is not None
+    }
+
+    # Sparkline: last 20 response_time_ms per monitor (single query with window function)
+    sparkline_sub = (
+        select(
+            CheckResult.monitor_id,
+            CheckResult.response_time_ms,
+            func.row_number()
+            .over(
+                partition_by=CheckResult.monitor_id,
+                order_by=CheckResult.checked_at.desc(),
+            )
+            .label("rn"),
+        )
+        .where(
+            CheckResult.monitor_id.in_(monitor_ids),
+            CheckResult.response_time_ms.isnot(None),
+        )
+        .subquery()
+    )
+    sparkline_rows = (
+        await db.execute(
+            select(sparkline_sub.c.monitor_id, sparkline_sub.c.response_time_ms)
+            .where(sparkline_sub.c.rn <= 20)
+            .order_by(sparkline_sub.c.monitor_id, sparkline_sub.c.rn.desc())
+        )
+    ).all()
+    sparkline_map: dict[str, list[float]] = {}
+    for mid_val, rt in sparkline_rows:
+        sparkline_map.setdefault(str(mid_val), []).append(round(rt, 1) if rt else 0)
+
     now = datetime.now(UTC)
     out = []
     for m in monitors:
@@ -130,6 +177,8 @@ async def list_monitors(
         else:
             d["last_status"] = None
         d["uptime_24h"] = uptime_map.get(mid)
+        d["last_response_time_ms"] = rt_map.get(mid)
+        d["sparkline"] = sparkline_map.get(mid, [])
         out.append(d)
     return out
 
@@ -384,6 +433,22 @@ async def get_history(
     from whatisup.services.stats import compute_daily_history
 
     return await compute_daily_history(db, monitor_id, days)
+
+
+@router.get("/{monitor_id}/percentiles")
+@limiter.limit("60/minute")
+async def get_percentiles(
+    monitor_id: uuid.UUID,
+    request: Request,
+    hours: int = Query(default=24, ge=1, le=720),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[dict]:
+    """P50/P95/P99 response time percentiles over time buckets."""
+    await _get_monitor_or_404(monitor_id, current_user, db)
+    from whatisup.services.stats import compute_percentile_timeseries
+
+    return await compute_percentile_timeseries(db, monitor_id, hours=hours)
 
 
 @router.get("/{monitor_id}/probes", response_model=list[ProbeMonitorStatus])

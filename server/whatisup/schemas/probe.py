@@ -126,6 +126,8 @@ class ProbeMonitorConfig(BaseModel):
     udp_port: int | None = None
     # Domain expiry checks
     domain_expiry_warn_days: int = 30
+    # Auto-pause after N consecutive failures (informational — enforced server-side)
+    auto_pause_after: int | None = None
 
 
 class ProbeMonitorStatus(BaseModel):

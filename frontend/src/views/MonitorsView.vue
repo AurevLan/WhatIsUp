@@ -134,6 +134,7 @@
             <th class="th hidden lg:table-cell cursor-pointer select-none hover:text-gray-300 transition-colors" @click="setSortKey('rt')">
               Réponse <span class="text-gray-500">{{ sortArrow('rt') }}</span>
             </th>
+            <th class="th hidden lg:table-cell">Trend</th>
             <th class="th pr-6 text-right">{{ t('common.actions') }}</th>
           </tr>
         </thead>
@@ -199,6 +200,11 @@
                   : (monitor._lastResponseTimeMs / 1000).toFixed(2) + 's' }}
               </span>
               <span v-else class="text-gray-700 text-xs">—</span>
+            </td>
+
+            <!-- Sparkline -->
+            <td class="td hidden lg:table-cell">
+              <SparklineCell :data="monitor._sparkline" />
             </td>
 
             <!-- Actions -->
@@ -290,6 +296,11 @@
               <p v-if="!monitor.enabled" class="text-xs text-gray-700 bg-gray-800 px-1.5 py-0.5 rounded">{{ t('status.paused') }}</p>
             </div>
           </div>
+
+          <!-- Sparkline -->
+          <div class="mt-2">
+            <SparklineCell :data="monitor._sparkline" />
+          </div>
         </router-link>
 
         <!-- Empty state -->
@@ -326,6 +337,7 @@ import { useToast } from '../composables/useToast'
 import { useConfirm } from '../composables/useConfirm'
 import CreateMonitorModal from '../components/monitors/CreateMonitorModal.vue'
 import EditMonitorModal from '../components/monitors/EditMonitorModal.vue'
+import SparklineCell from '../components/monitors/SparklineCell.vue'
 
 const { t } = useI18n()
 const route = useRoute()

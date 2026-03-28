@@ -322,6 +322,11 @@
                 <input v-model.number="form.flap_window_minutes" type="number" min="1" max="60" class="input w-full" />
               </div>
             </div>
+            <div class="mt-3">
+              <label class="block text-xs text-gray-400 mb-1">{{ t('monitors.auto_pause_after') }}</label>
+              <input v-model.number="form.auto_pause_after" type="number" min="2" max="100" placeholder="" class="input w-full" />
+              <p class="text-xs text-gray-500 mt-1">{{ t('monitors.auto_pause_after_hint') }}</p>
+            </div>
           </div>
         </div>
 
@@ -383,7 +388,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useMonitorStore } from '../../stores/monitors'
 import api from '../../api/client'
@@ -391,6 +396,10 @@ import ScenarioBuilder from './ScenarioBuilder.vue'
 import BaseModal from '../BaseModal.vue'
 
 const { t } = useI18n()
+
+const props = defineProps({
+  initialData: { type: Object, default: null },
+})
 
 const emit = defineEmits(['close', 'created'])
 const monitorStore = useMonitorStore()
@@ -551,6 +560,7 @@ const form = ref({
   // Flapping
   flap_threshold: 5,
   flap_window_minutes: 10,
+  auto_pause_after: null,
   // DNS drift
   dns_drift_alert: false,
   dns_split_enabled: false,
@@ -558,6 +568,24 @@ const form = ref({
   network_scope: 'all',
   // Composite
   composite_aggregation: 'majority_up',
+})
+
+// Pre-fill form when cloning (initialData prop)
+onMounted(() => {
+  if (props.initialData) {
+    const data = { ...props.initialData }
+    // Convert expected_headers object to list format used by the form
+    if (data.expected_headers && typeof data.expected_headers === 'object') {
+      data.expected_headers_list = Object.entries(data.expected_headers).map(([key, value]) => ({ key, value }))
+      delete data.expected_headers
+    }
+    // Convert json_schema object to text format used by the form
+    if (data.json_schema) {
+      data.json_schema_text = JSON.stringify(data.json_schema, null, 2)
+      delete data.json_schema
+    }
+    Object.assign(form.value, data)
+  }
 })
 
 // Alert channels for auto-alert setup
@@ -693,6 +721,11 @@ function buildPayload() {
   if (form.value.check_type !== 'heartbeat') {
     p.flap_threshold = form.value.flap_threshold
     p.flap_window_minutes = form.value.flap_window_minutes
+  }
+
+  // Auto-pause after N consecutive failures
+  if (form.value.auto_pause_after) {
+    p.auto_pause_after = form.value.auto_pause_after
   }
 
   // Auto-alert: pass selected channel IDs for automatic rule creation

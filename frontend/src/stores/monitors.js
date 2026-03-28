@@ -17,6 +17,7 @@ export const useMonitorStore = defineStore('monitors', () => {
       _uptime24h:           m.uptime_24h ?? null,
       _hasOpenIncident:     m.has_open_incident ?? false,
       _lastResponseTimeMs:  m.last_response_time_ms ?? null,
+      _sparkline:           m.sparkline ?? [],
       _isFlapping:          false,
       _healthScore:         _computeHealth(m),
     }
@@ -93,6 +94,12 @@ export const useMonitorStore = defineStore('monitors', () => {
       monitor._lastStatus          = event.status
       monitor._lastCheckedAt       = event.checked_at
       monitor._lastResponseTimeMs  = event.response_time_ms ?? monitor._lastResponseTimeMs
+      if (event.response_time_ms != null) {
+        const spark = [...(monitor._sparkline || [])]
+        spark.push(Math.round(event.response_time_ms * 10) / 10)
+        if (spark.length > 20) spark.shift()
+        monitor._sparkline = spark
+      }
       // Recalculate health score on new check result
       monitor._healthScore = _computeHealth({
         uptime_24h:           monitor._uptime24h,

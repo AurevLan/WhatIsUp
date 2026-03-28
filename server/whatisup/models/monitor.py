@@ -173,6 +173,15 @@ class MonitorGroup(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
 
+    # Status page customization
+    custom_logo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    accent_color: Mapped[str | None] = mapped_column(String(7), nullable=True)
+    announcement_banner: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Scheduled SLA reports
+    report_schedule: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    report_emails: Mapped[list | None] = mapped_column(JSON, nullable=True)
+
     tags: Mapped[list[Tag]] = relationship("Tag", secondary=monitor_group_tags, lazy="selectin")
     monitors: Mapped[list[Monitor]] = relationship("Monitor", back_populates="group")
     public_pages: Mapped[list[PublicPage]] = relationship("PublicPage", back_populates="group")
@@ -295,6 +304,9 @@ class Monitor(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     flap_window_minutes: Mapped[int] = mapped_column(
         Integer, default=10, nullable=False, server_default="10"
     )
+
+    # Auto-pause after N consecutive failures (None = disabled)
+    auto_pause_after: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
 
     # Heartbeat / cron check type
     heartbeat_slug: Mapped[str | None] = mapped_column(String(80), nullable=True, unique=True)

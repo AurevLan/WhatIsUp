@@ -6,8 +6,9 @@ from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, EmailStr
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.responses import Response
 
 from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
@@ -19,6 +20,35 @@ from whatisup.models.status_subscription import StatusSubscription
 from whatisup.services.stats import compute_daily_history, compute_uptime, latest_results_subq
 
 router = APIRouter(prefix="/public", tags=["public"])
+
+
+# ── Badge SVG helper ──────────────────────────────────────────────
+
+
+def _badge_svg(label: str, value: str, color: str) -> str:
+    label_w = len(label) * 6.5 + 12
+    value_w = len(value) * 6.5 + 12
+    total_w = label_w + value_w
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{total_w}" height="20">\n'
+        f'  <linearGradient id="a" x2="0" y2="100%">\n'
+        f'    <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>\n'
+        f'    <stop offset="1" stop-opacity=".1"/>\n'
+        f'  </linearGradient>\n'
+        f'  <rect rx="3" width="{total_w}" height="20" fill="#555"/>\n'
+        f'  <rect rx="3" x="{label_w}" width="{value_w}" height="20" fill="{color}"/>\n'
+        f'  <rect rx="3" width="{total_w}" height="20" fill="url(#a)"/>\n'
+        f'  <g fill="#fff" text-anchor="middle"'
+        f' font-family="DejaVu Sans,Verdana,Geneva,sans-serif" font-size="11">\n'
+        f'    <text x="{label_w / 2}" y="15" fill="#010101" fill-opacity=".3">{label}</text>\n'
+        f'    <text x="{label_w / 2}" y="14">{label}</text>\n'
+        f'    <text x="{label_w + value_w / 2}" y="15"'
+        f' fill="#010101" fill-opacity=".3">{value}</text>\n'
+        f'    <text x="{label_w + value_w / 2}" y="14">'
+        f"{value}</text>\n"
+        f'  </g>\n'
+        f"</svg>"
+    )
 
 
 class SubscribeRequest(BaseModel):
@@ -34,11 +64,66 @@ async def _get_group_by_slug(slug: str, db: AsyncSession) -> MonitorGroup:
     return group
 
 
+@router.get("/badge/{slug}/{monitor_name}")
+@limiter.limit("120/minute")
+async def get_uptime_badge(
+    slug: str,
+    monitor_name: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    """Return a shields.io-style SVG badge with 24h uptime for a monitor."""
+    group = await _get_group_by_slug(slug, db)
+
+    monitor = (
+        await db.execute(
+            select(Monitor).where(
+                Monitor.group_id == group.id,
+                func.lower(Monitor.name) == monitor_name.lower(),
+            )
+        )
+    ).scalar_one_or_none()
+
+    if monitor is None:
+        svg = _badge_svg("uptime", "not found", "#9f9f9f")
+        return Response(
+            content=svg,
+            media_type="image/svg+xml",
+            headers={"Cache-Control": "public, max-age=60"},
+        )
+
+    uptime = await compute_uptime(db, monitor.id, period_hours=24)
+    pct = uptime.uptime_percent
+
+    if pct >= 99.0:
+        color = "#4c1"
+    elif pct >= 95.0:
+        color = "#dfb317"
+    elif pct >= 90.0:
+        color = "#fe7d37"
+    else:
+        color = "#e05d44"
+
+    svg = _badge_svg("uptime", f"{pct:.2f}%", color)
+    return Response(
+        content=svg,
+        media_type="image/svg+xml",
+        headers={"Cache-Control": "public, max-age=60"},
+    )
+
+
 @router.get("/pages/{slug}")
 @limiter.limit("60/minute")
 async def get_public_page(request: Request, slug: str, db: AsyncSession = Depends(get_db)) -> dict:
     group = await _get_group_by_slug(slug, db)
-    return {"name": group.name, "slug": slug, "description": group.description}
+    return {
+        "name": group.name,
+        "slug": slug,
+        "description": group.description,
+        "custom_logo_url": group.custom_logo_url,
+        "accent_color": group.accent_color,
+        "announcement_banner": group.announcement_banner,
+    }
 
 
 @router.get("/pages/{slug}/monitors")
@@ -211,6 +296,9 @@ async def get_public_status(
         "name": group.name,
         "slug": slug,
         "description": group.description,
+        "custom_logo_url": group.custom_logo_url,
+        "accent_color": group.accent_color,
+        "announcement_banner": group.announcement_banner,
         "incidents_30d": incidents_30d,
     }
 

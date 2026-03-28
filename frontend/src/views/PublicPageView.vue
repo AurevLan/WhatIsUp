@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-gray-950 p-8">
+  <div class="min-h-screen bg-gray-950 p-8" :style="accentStyle">
     <div class="max-w-4xl mx-auto">
 
       <!-- Erreur de chargement (404 ou réseau) -->
@@ -11,16 +11,30 @@
 
       <template v-else>
 
+      <!-- Announcement banner -->
+      <div v-if="page?.announcement_banner && !bannerDismissed"
+        class="mb-6 flex items-start gap-3 rounded-xl border px-5 py-3 text-sm"
+        :style="page.accent_color
+          ? `background-color: ${page.accent_color}15; border-color: ${page.accent_color}40; color: ${page.accent_color}`
+          : ''"
+        :class="!page.accent_color ? 'bg-blue-900/30 border-blue-700/40 text-blue-300' : ''">
+        <span class="flex-1">{{ page.announcement_banner }}</span>
+        <button @click="bannerDismissed = true" class="shrink-0 opacity-60 hover:opacity-100 transition-opacity">&#x2715;</button>
+      </div>
+
       <!-- Header / Statut global -->
       <div class="text-center mb-10">
+        <img v-if="page?.custom_logo_url" :src="page.custom_logo_url" alt="Logo" class="mx-auto mb-4 max-h-16 object-contain" />
         <h1 class="text-3xl font-bold text-white">{{ page?.name || 'Status Page' }}</h1>
         <p v-if="page?.description" class="text-gray-400 mt-2">{{ page.description }}</p>
 
         <!-- Bandeau statut global -->
         <div class="mt-5">
           <div v-if="globalStatus === 'operational'"
-            class="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-emerald-900/40 border border-emerald-700/50 text-emerald-300 font-semibold">
-            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+            class="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-emerald-900/40 border text-emerald-300 font-semibold"
+            :style="page?.accent_color ? `border-color: ${page.accent_color}80` : ''"
+            :class="!page?.accent_color ? 'border-emerald-700/50' : ''">
+            <span class="w-2.5 h-2.5 rounded-full" :style="page?.accent_color ? `background-color: ${page.accent_color}` : ''" :class="!page?.accent_color ? 'bg-emerald-400' : ''"></span>
             {{ t('public.all_operational') }}
           </div>
           <div v-else-if="globalStatus === 'degraded'"
@@ -89,12 +103,24 @@
               </div>
             </div>
 
-            <div class="text-right shrink-0">
-              <p class="text-lg font-bold"
-                :class="m.uptime_24h >= 99 ? 'text-emerald-400' : m.uptime_24h >= 90 ? 'text-amber-400' : 'text-red-400'">
-                {{ m.uptime_24h?.toFixed(2) ?? '—' }}%
-              </p>
-              <p class="text-xs text-gray-500">{{ t('public.uptime') }} 24h</p>
+            <div class="flex items-center gap-2 shrink-0">
+              <div class="text-right">
+                <p class="text-lg font-bold"
+                  :class="m.uptime_24h >= 99 ? 'text-emerald-400' : m.uptime_24h >= 90 ? 'text-amber-400' : 'text-red-400'">
+                  {{ m.uptime_24h?.toFixed(2) ?? '—' }}%
+                </p>
+                <p class="text-xs text-gray-500">{{ t('public.uptime') }} 24h</p>
+              </div>
+              <button
+                @click.stop="copyBadgeUrl(m.name)"
+                :title="t('public.copy_badge_url') || 'Copy badge URL'"
+                class="p-1.5 rounded-lg text-gray-500 hover:text-indigo-400 hover:bg-gray-800 transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2h-1.528A6 6 0 004 9.528V4z"/>
+                  <path fill-rule="evenodd" d="M8 10a4 4 0 00-3.446 6.032l-.5.866a.75.75 0 101.3.75l.5-.866A4 4 0 108 10z" clip-rule="evenodd"/>
+                </svg>
+              </button>
             </div>
           </div>
 
@@ -256,8 +282,10 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { publicApi } from '../api/public.js'
+import { useToast } from '../composables/useToast'
 
 const { t } = useI18n()
+const { success: toastSuccess } = useToast()
 
 const route = useRoute()
 const page = ref(null)
@@ -267,6 +295,14 @@ const loading = ref(true)
 const lastUpdated = ref(new Date().toLocaleTimeString('fr-FR'))
 
 const loadError = ref(false)
+const bannerDismissed = ref(false)
+
+const accentStyle = computed(() => {
+  if (page.value?.accent_color) {
+    return { '--status-accent': page.value.accent_color }
+  }
+  return {}
+})
 
 // Incident updates (public)
 const expandedPublicIncident = ref(null)
@@ -360,6 +396,14 @@ function uptimeLast90(monitor) {
   if (!withData.length) return '—'
   const avg = withData.reduce((sum, d) => sum + (d.uptime_pct ?? 0), 0) / withData.length
   return avg.toFixed(2)
+}
+
+function copyBadgeUrl(monitorName) {
+  const slug = route.params.slug
+  const url = `${window.location.origin}/api/v1/public/badge/${slug}/${encodeURIComponent(monitorName)}`
+  navigator.clipboard.writeText(url).then(() => {
+    toastSuccess('Badge URL copied!')
+  })
 }
 
 const ninetyDaysAgo = computed(() => {

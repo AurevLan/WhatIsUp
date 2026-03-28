@@ -33,6 +33,59 @@
       </div>
     </div>
 
+    <!-- Status page customization -->
+    <div v-if="group.public_slug" class="card mb-6">
+      <h2 class="text-sm font-semibold text-gray-300 mb-4">{{ t('groups.status_page_customization') }}</h2>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">{{ t('groups.custom_logo_url') }}</label>
+          <input v-model="customization.custom_logo_url" type="url" class="input w-full" placeholder="https://example.com/logo.png" />
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">{{ t('groups.accent_color') }}</label>
+          <div class="flex items-center gap-3">
+            <input v-model="customization.accent_color" type="text" class="input flex-1" placeholder="#3B82F6" maxlength="7" />
+            <input type="color" :value="customization.accent_color || '#3B82F6'" @input="customization.accent_color = $event.target.value" class="w-10 h-10 rounded cursor-pointer border border-gray-700 bg-transparent" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">{{ t('groups.announcement_banner') }}</label>
+          <textarea v-model="customization.announcement_banner" class="input w-full" rows="2" :placeholder="t('groups.announcement_banner_hint')"></textarea>
+        </div>
+        <div class="flex justify-end">
+          <button @click="saveCustomization" :disabled="savingCustomization" class="btn-primary text-xs">
+            {{ savingCustomization ? t('common.loading') : t('common.save') }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLA Reports -->
+    <div class="card mb-6">
+      <h2 class="text-sm font-semibold text-gray-300 mb-4">{{ t('groups.sla_reports') }}</h2>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">{{ t('groups.report_schedule') }}</label>
+          <select v-model="reportConfig.report_schedule" class="input w-full">
+            <option :value="null">{{ t('groups.report_schedule_none') }}</option>
+            <option value="weekly">{{ t('groups.report_schedule_weekly') }}</option>
+            <option value="monthly">{{ t('groups.report_schedule_monthly') }}</option>
+          </select>
+        </div>
+        <div v-if="reportConfig.report_schedule">
+          <label class="block text-xs text-gray-400 mb-1">{{ t('groups.report_emails') }}</label>
+          <input v-model="reportConfig.report_emails_raw" type="text" class="input w-full"
+            :placeholder="t('groups.report_emails_hint')" />
+          <p class="text-xs text-gray-600 mt-1">{{ t('groups.report_emails_desc') }}</p>
+        </div>
+        <div class="flex justify-end">
+          <button @click="saveReportConfig" :disabled="savingReport" class="btn-primary text-xs">
+            {{ savingReport ? t('common.loading') : t('common.save') }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Monitors list -->
     <div class="card mb-6">
       <div class="flex items-center justify-between mb-4">
@@ -129,10 +182,12 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { groupsApi, monitorsApi } from '../api/monitors'
 
+const { t } = useI18n()
 const route = useRoute()
 const group = ref(null)
 const monitors = ref([])
@@ -140,6 +195,17 @@ const allMonitors = ref([])
 const showAddMonitor = ref(false)
 const selectedMonitorId = ref('')
 const errorMsg = ref('')
+const savingCustomization = ref(false)
+const savingReport = ref(false)
+const customization = reactive({
+  custom_logo_url: '',
+  accent_color: '',
+  announcement_banner: '',
+})
+const reportConfig = reactive({
+  report_schedule: null,
+  report_emails_raw: '',
+})
 
 const upCount = computed(() => monitors.value.filter(m => m.last_status === 'up').length)
 const downCount = computed(() => monitors.value.filter(m => m.last_status && m.last_status !== 'up').length)
@@ -166,6 +232,11 @@ async function load() {
     ])
     group.value = groupResp.data
     monitors.value = monitorsResp.data
+    customization.custom_logo_url = group.value.custom_logo_url || ''
+    customization.accent_color = group.value.accent_color || ''
+    customization.announcement_banner = group.value.announcement_banner || ''
+    reportConfig.report_schedule = group.value.report_schedule || null
+    reportConfig.report_emails_raw = (group.value.report_emails || []).join(', ')
   } catch (e) {
     showError('Erreur lors du chargement du groupe')
   }
@@ -173,6 +244,43 @@ async function load() {
     const { data } = await monitorsApi.list()
     allMonitors.value = data
   } catch {}
+}
+
+async function saveCustomization() {
+  savingCustomization.value = true
+  try {
+    await groupsApi.update(route.params.id, {
+      custom_logo_url: customization.custom_logo_url || null,
+      accent_color: customization.accent_color || null,
+      announcement_banner: customization.announcement_banner || null,
+    })
+    group.value.custom_logo_url = customization.custom_logo_url || null
+    group.value.accent_color = customization.accent_color || null
+    group.value.announcement_banner = customization.announcement_banner || null
+  } catch {
+    showError('Failed to save customization')
+  } finally {
+    savingCustomization.value = false
+  }
+}
+
+async function saveReportConfig() {
+  savingReport.value = true
+  try {
+    const emails = reportConfig.report_schedule && reportConfig.report_emails_raw.trim()
+      ? reportConfig.report_emails_raw.split(',').map(e => e.trim()).filter(Boolean)
+      : null
+    await groupsApi.update(route.params.id, {
+      report_schedule: reportConfig.report_schedule || null,
+      report_emails: emails,
+    })
+    group.value.report_schedule = reportConfig.report_schedule || null
+    group.value.report_emails = emails
+  } catch {
+    showError('Failed to save report configuration')
+  } finally {
+    savingReport.value = false
+  }
 }
 
 async function removeFromGroup(monitor) {

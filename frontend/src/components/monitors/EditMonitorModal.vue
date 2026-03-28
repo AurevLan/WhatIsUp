@@ -302,6 +302,11 @@
                 <input v-model.number="form.flap_window_minutes" type="number" min="1" max="60" class="input w-full" />
               </div>
             </div>
+            <div class="mt-3">
+              <label class="block text-xs text-gray-400 mb-1">{{ t('monitors.auto_pause_after') }}</label>
+              <input v-model.number="form.auto_pause_after" type="number" min="2" max="100" placeholder="" class="input w-full" />
+              <p class="text-xs text-gray-500 mt-1">{{ t('monitors.auto_pause_after_hint') }}</p>
+            </div>
           </div>
         </div>
 
@@ -505,6 +510,7 @@ const form = ref({
   json_schema_text: m.json_schema ? JSON.stringify(m.json_schema, null, 2) : '',
   flap_threshold: m.flap_threshold ?? 5,
   flap_window_minutes: m.flap_window_minutes ?? 10,
+  auto_pause_after: m.auto_pause_after ?? null,
   dns_drift_alert: m.dns_drift_alert ?? false,
   dns_split_enabled: m.dns_split_enabled ?? false,
   network_scope: m.network_scope || 'all',
@@ -630,6 +636,9 @@ function buildPayload() {
     p.flap_threshold = form.value.flap_threshold
     p.flap_window_minutes = form.value.flap_window_minutes
   }
+
+  // Auto-pause after N consecutive failures
+  p.auto_pause_after = form.value.auto_pause_after || null
 
   return p
 }

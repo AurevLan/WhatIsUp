@@ -111,8 +111,15 @@
         </div>
       </div>
 
-      <!-- Edit scenario link -->
-      <div class="flex items-center justify-end mb-3">
+      <!-- Edit / Duplicate links -->
+      <div class="flex items-center justify-end gap-2 mb-3">
+        <button
+          @click="duplicateMonitor"
+          class="btn-secondary text-xs flex items-center gap-1.5"
+          :title="t('monitors.duplicate')"
+        >
+          <Copy class="w-3.5 h-3.5" /> {{ t('monitors.duplicate') }}
+        </button>
         <button
           @click="editingMonitor = monitor"
           class="btn-secondary text-xs flex items-center gap-1.5"
@@ -926,6 +933,12 @@
       <p v-else class="text-gray-500 text-sm text-center py-6">No data yet</p>
     </div>
 
+    <!-- Response Time Percentiles (P50/P95/P99) -->
+    <div v-if="percentilesData.length && monitor.check_type !== 'dns'" class="card mb-6">
+      <h3 class="text-sm font-semibold text-gray-300 mb-3">{{ t('monitor_detail.percentiles_title') }}</h3>
+      <apexchart type="line" height="250" :options="percentileOptions" :series="percentileSeries" />
+    </div>
+
     <!-- SLO / Error Budget (visible if slo_target is set OR if editing) -->
     <div v-if="monitor.slo_target != null || sloEditing" class="card mb-6">
       <div class="flex items-center justify-between mb-4">
@@ -1315,6 +1328,7 @@
       </div>
     </div>
     <EditMonitorModal v-if="editingMonitor" :monitor="editingMonitor" @close="editingMonitor = null" @updated="onMonitorUpdated" />
+    <CreateMonitorModal v-if="showClone" :initial-data="clonePayload" @close="showClone = false" @created="onCloneCreated" />
   </div>
   <div v-else class="p-8 text-gray-400">{{ t('common.loading') }}</div>
 </template>
@@ -1323,7 +1337,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { Shield, ShieldAlert, ShieldCheck } from 'lucide-vue-next'
+import { Shield, ShieldAlert, ShieldCheck, Copy } from 'lucide-vue-next'
 import api from '../api/client'
 import { monitorsApi, triggerCheck, getSlaReport, listAnnotations, createAnnotation, deleteAnnotation, getSlo } from '../api/monitors'
 import { probesApi } from '../api/probes'
@@ -1331,6 +1345,7 @@ import { metricsApi } from '../api/metrics'
 import { incidentUpdatesApi } from '../api/incidentUpdates'
 import MonitorDependencies from '../components/monitors/MonitorDependencies.vue'
 import EditMonitorModal from '../components/monitors/EditMonitorModal.vue'
+import CreateMonitorModal from '../components/monitors/CreateMonitorModal.vue'
 import UptimeHeatmap from '../components/monitors/UptimeHeatmap.vue'
 
 const { t, locale } = useI18n()
@@ -1344,6 +1359,30 @@ const uptime7d  = ref(null)
 const probeMap  = ref({})   // probeId → { name, location_name }
 const allMonitors = ref([]) // for dependency picker
 const editingMonitor = ref(null)
+const showClone = ref(false)
+const clonePayload = ref(null)
+
+function duplicateMonitor() {
+  if (!monitor.value) return
+  const m = { ...monitor.value }
+  // Strip server-only / identity fields
+  delete m.id
+  delete m.created_at
+  delete m.updated_at
+  delete m.owner_id
+  delete m.heartbeat_slug
+  delete m.last_status
+  delete m.is_paused
+  delete m.group_id
+  m.name = 'Copy of ' + m.name
+  clonePayload.value = m
+  showClone.value = true
+}
+
+function onCloneCreated() {
+  showClone.value = false
+  router.push('/monitors')
+}
 
 function onMonitorUpdated() {
   editingMonitor.value = null
@@ -1363,6 +1402,7 @@ async function loadAll() {
   results.value  = resResp.data
   uptime24.value = up24Resp.data
   uptime7d.value = up7dResp.data
+  loadPercentiles()
 }
 
 // ── Incidents & Post-mortem ───────────────────────────────────────────────────
@@ -1545,6 +1585,36 @@ async function removeAnnotation(id) {
   await deleteAnnotation(route.params.id, id)
   await loadAnnotations()
 }
+
+// ── Percentiles P50/P95/P99 ──────────────────────────────────────────────────
+const percentilesData = ref([])
+
+async function loadPercentiles() {
+  const id = route.params.id
+  try {
+    const { data } = await monitorsApi.percentiles(id, { hours: chartWindow.value })
+    percentilesData.value = data
+  } catch { /* ignore */ }
+}
+
+const percentileSeries = computed(() => [
+  { name: 'P50', data: percentilesData.value.map(d => [new Date(d.timestamp).getTime(), d.p50]) },
+  { name: 'P95', data: percentilesData.value.map(d => [new Date(d.timestamp).getTime(), d.p95]) },
+  { name: 'P99', data: percentilesData.value.map(d => [new Date(d.timestamp).getTime(), d.p99]) },
+])
+
+const percentileOptions = computed(() => ({
+  chart: { type: 'line', height: 250, background: 'transparent', toolbar: { show: false }, zoom: { enabled: false }, animations: { enabled: false } },
+  colors: ['#34d399', '#fbbf24', '#f87171'],
+  stroke: { curve: 'smooth', width: 2 },
+  dataLabels: { enabled: false },
+  xaxis: { type: 'datetime', labels: { style: { colors: '#6b7280' }, datetimeUTC: false } },
+  yaxis: { labels: { formatter: v => v ? Math.round(v) + 'ms' : '', style: { colors: '#6b7280' } } },
+  legend: { position: 'top', labels: { colors: '#8899aa' } },
+  tooltip: { theme: 'dark', x: { format: 'dd/MM HH:mm' }, y: { formatter: v => v ? v.toFixed(1) + ' ms' : '—' } },
+  grid: { borderColor: '#1e293b' },
+  theme: { mode: 'dark' },
+}))
 
 // ── "Tester maintenant" ───────────────────────────────────────────────────────
 const testing      = ref(false)
@@ -1889,7 +1959,7 @@ const CHART_WINDOWS = [
 const chartWindow = ref(24)
 
 // Reload results when chart window changes (watch must be after chartWindow declaration)
-watch(chartWindow, loadResults)
+watch(chartWindow, () => { loadResults(); loadPercentiles() })
 
 function chartBucketMin(h) {
   if (h <= 6)  return 15
@@ -2016,17 +2086,31 @@ const rtOptions = computed(() => ({
   theme: { mode: 'dark' },
   tooltip: { x: { format: 'dd/MM HH:mm:ss' }, y: { formatter: v => v + ' ms' } },
   annotations: {
-    xaxis: annotations.value.map(a => ({
-      x: new Date(a.annotated_at).getTime(),
-      strokeDashArray: 4,
-      borderColor: '#818cf8',
-      label: {
-        text: a.content.length > 25 ? a.content.slice(0, 25) + '…' : a.content,
-        style: { color: '#fff', background: '#4f46e5', fontSize: '10px', padding: { left: 6, right: 6, top: 2, bottom: 2 } },
-        position: 'top',
-        orientation: 'vertical',
-      },
-    })),
+    xaxis: [
+      ...annotations.value.map(a => ({
+        x: new Date(a.annotated_at).getTime(),
+        strokeDashArray: 4,
+        borderColor: '#818cf8',
+        label: {
+          text: a.content.length > 25 ? a.content.slice(0, 25) + '…' : a.content,
+          style: { color: '#fff', background: '#4f46e5', fontSize: '10px', padding: { left: 6, right: 6, top: 2, bottom: 2 } },
+          position: 'top',
+          orientation: 'vertical',
+        },
+      })),
+      ...incidents.value.map(inc => ({
+        x: new Date(inc.started_at).getTime(),
+        x2: inc.resolved_at ? new Date(inc.resolved_at).getTime() : Date.now(),
+        fillColor: '#ef4444',
+        opacity: 0.08,
+        label: {
+          text: '\u26A0 Incident',
+          style: { color: '#fca5a5', background: 'transparent', fontSize: '10px' },
+          orientation: 'horizontal',
+          position: 'front',
+        },
+      })),
+    ],
     yaxis: rtThresholdMs.value != null ? [{
       y: rtThresholdMs.value,
       borderColor: '#f87171',

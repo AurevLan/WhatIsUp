@@ -11,6 +11,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.12.0] - 2026-03-28
+
+### Added
+
+#### UX — Sparkline response time trends
+- **Sparkline charts** on MonitorsView — mini area chart (ApexCharts, 30px) showing the last 20 response times per monitor, in both table and board views
+- Backend batch query using `ROW_NUMBER()` window function for efficient data loading
+- Real-time sparkline updates via WebSocket (`applyCheckResult` appends new values)
+
+#### UX — Global command palette (Ctrl+K)
+- **Command palette** — press `Ctrl+K` / `Cmd+K` from anywhere to search monitors, navigate to any page, or trigger actions
+- Keyboard navigation with arrow keys, Enter to activate, Escape to close
+- Results grouped by section: Monitors (from store), Navigation (9 routes), Actions (New Monitor)
+
+#### UX — Monitor cloning
+- **"Duplicate" button** on monitor detail page — pre-fills the create modal with the current monitor's configuration
+- Strips identity fields, prefixes name with "Copy of ", handles all check types including scenario variables
+
+#### UX — Uptime badge embeddable
+- **SVG uptime badge** endpoint — `GET /api/v1/public/badge/{slug}/{monitor_name}` returns a shields.io-style badge with 24h uptime percentage
+- Color-coded: green (≥99%), yellow (≥95%), orange (≥90%), red (<90%)
+- 60-second cache; one-click copy of badge URL on public status pages
+
+#### UX — Incident overlay on response time chart
+- **Incident ranges** overlaid as red semi-transparent zones on the ApexCharts response time graph in monitor detail
+- Shows ongoing incidents as open-ended ranges extending to "now"
+
+#### Automation — Enriched webhook payload
+- **Structured webhook payload** — `event_type` (`incident.opened` / `incident.resolved`), `monitor` object (id, name, url, check_type), `incident` object (id, started_at, resolved_at, scope)
+- **`X-WhatIsUp-Event` header** — enables webhook receivers to route by event type
+- Backward compatible: all legacy payload fields preserved
+
+#### Automation — Scheduled SLA reports
+- **Weekly / monthly SLA reports** per monitor group — HTML email with uptime %, colour-coded per monitor, auto-generated at 08:00 UTC
+- Configurable schedule (`weekly` / `monthly`) and recipient list per group
+- Background task with hourly check; uses existing SMTP infrastructure
+
+#### Reliability — Auto-pause after consecutive failures
+- **`auto_pause_after` field** on monitors — automatically pauses the monitor after N consecutive failures across all probes
+- Prevents alert fatigue on confirmed-broken services; configurable 2–100, default disabled
+- Logged as `auto_pause_triggered` audit event
+
+#### Public — Status page customization
+- **Custom logo URL**, **accent colour**, and **announcement banner** per monitor group
+- Accent colour applied as CSS variable on public status page badges/borders
+- Dismissible announcement banner shown above monitor list
+- Configuration UI in group detail view
+
+#### Analytics — Response time percentile dashboard
+- **P50 / P95 / P99** time-series chart on monitor detail — hourly buckets via PostgreSQL `percentile_cont`
+- Multi-line ApexCharts graph with colour-coded percentile lines (green/yellow/red)
+- Configurable time window (1h–30 days), matching the existing chart window selector
+
+### Database migrations
+
+| Revision | Description |
+|----------|-------------|
+| `k1l2m3n4o5p6` | Add `auto_pause_after` to `monitors`; add `custom_logo_url`, `accent_color`, `announcement_banner`, `report_schedule`, `report_emails` to `monitor_groups` |
+
+---
+
 ## [0.11.0] - 2026-03-28
 
 ### Added
@@ -620,7 +681,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docker Compose (dev + prod with Nginx + TLS)
 - Security: rate limiting, security headers, JWT validation, probe API key bcrypt hashing
 
-[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.9.1...v0.10.0
 [0.9.1]: https://github.com/AurevLan/WhatIsUp/compare/v0.9.0...v0.9.1

@@ -77,6 +77,7 @@ export default {
   monitors: {
     title: 'Moniteurs',
     add: 'Ajouter un moniteur',
+    duplicate: 'Dupliquer',
     edit_title: 'Modifier le moniteur',
     no_monitors: 'Aucun moniteur',
     no_results: 'Aucun moniteur ne correspond aux filtres',
@@ -166,6 +167,8 @@ export default {
     flapping_desc: 'Remplace les seuils globaux de détection de flapping pour ce moniteur.',
     flap_threshold: 'Seuil de transitions',
     flap_window_minutes: 'Fenêtre (minutes)',
+    auto_pause_after: 'Auto-pause après échecs consécutifs',
+    auto_pause_after_hint: 'Met automatiquement le moniteur en pause après N échecs consécutifs sur toutes les sondes (laisser vide pour désactiver)',
     alert_setup: {
       title: 'Alerter en cas de panne',
       desc: 'Créer automatiquement des règles d\'alerte pour ce moniteur.',
@@ -197,6 +200,7 @@ export default {
     sla_to: 'Au',
     sla_generate: 'Générer',
     sla_download: 'Télécharger JSON',
+    percentiles_title: 'Percentiles de temps de réponse',
     slo_title: "SLO / Budget d'erreur",
     slo_configure: 'Configurer le SLO',
     slo_target: 'Objectif SLO (%)',
@@ -456,7 +460,26 @@ export default {
     uptime: 'disponibilité',
     today: "Aujourd'hui",
     days_ago: 'il y a {n}j',
+    copy_badge_url: "Copier l'URL du badge",
   },
+
+  // Groupes
+  groups: {
+    status_page_customization: 'Personnalisation de la page de statut',
+    custom_logo_url: 'URL du logo',
+    accent_color: "Couleur d'accent",
+    announcement_banner: 'Bandeau d\'annonce',
+    announcement_banner_hint: "Affiché en haut de la page de statut publique",
+    sla_reports: 'Rapports SLA planifiés',
+    report_schedule: 'Fréquence du rapport',
+    report_schedule_none: 'Désactivé',
+    report_schedule_weekly: 'Hebdomadaire (lundi 08:00 UTC)',
+    report_schedule_monthly: 'Mensuel (1er du mois 08:00 UTC)',
+    report_emails: 'Emails destinataires',
+    report_emails_hint: 'alice@example.com, bob@example.com',
+    report_emails_desc: "Liste d'adresses email séparées par des virgules",
+  },
+
   ws: {
     reconnecting: 'Reconnexion aux mises à jour en temps réel…',
   },

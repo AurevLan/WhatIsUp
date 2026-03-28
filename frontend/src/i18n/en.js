@@ -86,6 +86,7 @@ export default {
   monitors: {
     title: 'Monitors',
     add: 'Add monitor',
+    duplicate: 'Duplicate',
     edit_title: 'Edit monitor',
     no_monitors: 'No monitors yet',
     no_results: 'No monitors match your filters',
@@ -175,6 +176,8 @@ export default {
     flapping_desc: 'Override the global flapping detection thresholds for this monitor.',
     flap_threshold: 'Transitions threshold',
     flap_window_minutes: 'Window (minutes)',
+    auto_pause_after: 'Auto-pause after consecutive failures',
+    auto_pause_after_hint: 'Automatically pause the monitor after N consecutive failures across all probes (leave empty to disable)',
     alert_setup: {
       title: 'Alert on downtime',
       desc: 'Automatically create alert rules for this monitor.',
@@ -208,6 +211,7 @@ export default {
     sla_to: 'To',
     sla_generate: 'Generate',
     sla_download: 'Download JSON',
+    percentiles_title: 'Response Time Percentiles',
     slo_title: 'SLO / Error Budget',
     slo_configure: 'Configure SLO',
     slo_target: 'SLO target (%)',
@@ -482,6 +486,24 @@ export default {
     uptime: 'uptime',
     today: 'Today',
     days_ago: '{n}d ago',
+    copy_badge_url: 'Copy badge URL',
+  },
+
+  // Groups
+  groups: {
+    status_page_customization: 'Status page customization',
+    custom_logo_url: 'Logo URL',
+    accent_color: 'Accent color',
+    announcement_banner: 'Announcement banner',
+    announcement_banner_hint: 'Shown at the top of the public status page',
+    sla_reports: 'Scheduled SLA Reports',
+    report_schedule: 'Report frequency',
+    report_schedule_none: 'Disabled',
+    report_schedule_weekly: 'Weekly (Monday 08:00 UTC)',
+    report_schedule_monthly: 'Monthly (1st day 08:00 UTC)',
+    report_emails: 'Recipient emails',
+    report_emails_hint: 'alice@example.com, bob@example.com',
+    report_emails_desc: 'Comma-separated list of email addresses',
   },
 
   // WebSocket banner

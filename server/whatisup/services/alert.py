@@ -803,11 +803,18 @@ async def _send_webhook(
 ) -> str:
     _validate_webhook_url(config["url"])
     probe_names = ctx.get("probe_names", {})
+    enriched_event_type = (
+        "incident.resolved" if incident.resolved_at else "incident.opened"
+    )
+    monitor_name = ctx.get("monitor_name", str(incident.monitor_id))
+    monitor_url = ctx.get("monitor_url")
+    check_type = ctx.get("check_type", "unknown")
     payload = {
+        # Legacy fields (backward compatibility)
         "event": event_type,
         "monitor_id": str(incident.monitor_id),
-        "monitor_name": ctx.get("monitor_name", str(incident.monitor_id)),
-        "check_type": ctx.get("check_type", "unknown"),
+        "monitor_name": monitor_name,
+        "check_type": check_type,
         "incident_id": str(incident.id),
         "scope": incident.scope.value,
         "affected_probes": [
@@ -818,10 +825,28 @@ async def _send_webhook(
         "resolved_at": incident.resolved_at.isoformat() if incident.resolved_at else None,
         "duration_seconds": incident.duration_seconds,
         "timestamp": datetime.now(UTC).isoformat(),
+        # Enriched structured payload
+        "event_type": enriched_event_type,
+        "monitor": {
+            "id": str(incident.monitor_id),
+            "name": monitor_name,
+            "url": monitor_url,
+            "check_type": check_type,
+        },
+        "incident": {
+            "id": str(incident.id),
+            "started_at": incident.started_at.isoformat() if incident.started_at else None,
+            "resolved_at": incident.resolved_at.isoformat() if incident.resolved_at else None,
+            "scope": incident.scope.value,
+        },
     }
     payload_bytes = json.dumps(payload).encode()
 
-    headers = {"Content-Type": "application/json", "User-Agent": "WhatIsUp/1.0"}
+    headers = {
+        "Content-Type": "application/json",
+        "User-Agent": "WhatIsUp/1.0",
+        "X-WhatIsUp-Event": enriched_event_type,
+    }
     if secret := config.get("secret"):
         sig = hmac.new(secret.encode(), payload_bytes, hashlib.sha256).hexdigest()
         headers["X-WhatIsUp-Signature"] = f"sha256={sig}"

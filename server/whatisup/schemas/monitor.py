@@ -91,6 +91,8 @@ class MonitorCreate(BaseModel):
     # Flapping detection — per-monitor overrides
     flap_threshold: int = Field(default=5, ge=2, le=50)
     flap_window_minutes: int = Field(default=10, ge=1, le=60)
+    # Auto-pause after N consecutive failures (None = disabled)
+    auto_pause_after: int | None = Field(default=None, ge=2, le=100)
     # Auto-alert: channel IDs to auto-create default rules at monitor creation
     alert_channel_ids: list[uuid.UUID] = Field(default=[])
 
@@ -172,6 +174,8 @@ class MonitorUpdate(BaseModel):
     # Flapping
     flap_threshold: int | None = Field(default=None, ge=2, le=50)
     flap_window_minutes: int | None = Field(default=None, ge=1, le=60)
+    # Auto-pause after N consecutive failures (None = disabled)
+    auto_pause_after: int | None = Field(default=None, ge=2, le=100)
     # Schema drift
     schema_drift_enabled: bool | None = None
 
@@ -226,6 +230,8 @@ class MonitorOut(BaseModel):
     # Flapping
     flap_threshold: int = 5
     flap_window_minutes: int = 10
+    # Auto-pause
+    auto_pause_after: int | None = None
     # Schema drift
     schema_drift_enabled: bool = False
     schema_baseline: str | None = None
@@ -233,6 +239,8 @@ class MonitorOut(BaseModel):
     # Runtime fields — populated by list_monitors, not stored in the DB row
     last_status: str | None = None
     uptime_24h: float | None = None
+    last_response_time_ms: float | None = None
+    sparkline: list[float] | None = None
 
     @field_validator("scenario_variables", mode="before")
     @classmethod
@@ -265,6 +273,11 @@ class MonitorGroupCreate(BaseModel):
         default=None, min_length=3, max_length=100, pattern=r"^[a-z0-9-]+$"
     )
     tag_ids: list[uuid.UUID] = Field(default=[])
+    custom_logo_url: str | None = Field(default=None, max_length=500)
+    accent_color: str | None = Field(default=None, max_length=7, pattern=r"^#[0-9a-fA-F]{6}$")
+    announcement_banner: str | None = None
+    report_schedule: str | None = Field(default=None, pattern=r"^(weekly|monthly)$")
+    report_emails: list[str] | None = None
 
 
 class MonitorGroupUpdate(BaseModel):
@@ -276,6 +289,11 @@ class MonitorGroupUpdate(BaseModel):
         default=None, min_length=3, max_length=100, pattern=r"^[a-z0-9-]+$"
     )
     tag_ids: list[uuid.UUID] | None = None
+    custom_logo_url: str | None = Field(default=None, max_length=500)
+    accent_color: str | None = Field(default=None, max_length=7, pattern=r"^#[0-9a-fA-F]{6}$")
+    announcement_banner: str | None = None
+    report_schedule: str | None = Field(default=None, pattern=r"^(weekly|monthly)$")
+    report_emails: list[str] | None = None
 
 
 class MonitorGroupOut(BaseModel):
@@ -285,6 +303,11 @@ class MonitorGroupOut(BaseModel):
     public_slug: str | None
     owner_id: uuid.UUID
     tags: list[TagOut]
+    custom_logo_url: str | None = None
+    accent_color: str | None = None
+    announcement_banner: str | None = None
+    report_schedule: str | None = None
+    report_emails: list[str] | None = None
 
     model_config = {"from_attributes": True}
 

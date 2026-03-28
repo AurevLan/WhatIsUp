@@ -108,11 +108,12 @@
     <!-- Global components -->
     <ToastContainer />
     <ConfirmModal />
+    <CommandPalette v-model="showPalette" />
   </div>
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
@@ -126,6 +127,7 @@ import { useMonitorStore } from '../../stores/monitors'
 import NavLink from '../../components/NavLink.vue'
 import ToastContainer from '../../components/ToastContainer.vue'
 import ConfirmModal from '../../components/ConfirmModal.vue'
+import CommandPalette from '../../components/CommandPalette.vue'
 import { setLocale, getLocale } from '../../i18n/index.js'
 
 const { t } = useI18n()
@@ -134,6 +136,16 @@ const auth = useAuthStore()
 const ws = useWebSocketStore()
 const monitorStore = useMonitorStore()
 const sidebarOpen = ref(false)
+const showPalette = ref(false)
+
+function onGlobalKeydown(e) {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+    e.preventDefault()
+    showPalette.value = !showPalette.value
+  }
+}
+onMounted(() => window.addEventListener('keydown', onGlobalKeydown))
+onUnmounted(() => window.removeEventListener('keydown', onGlobalKeydown))
 const currentLang = ref(getLocale())
 
 const downCount = computed(() =>

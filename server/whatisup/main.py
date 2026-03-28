@@ -86,6 +86,19 @@ async def lifespan(app: FastAPI):
 
     digest_flusher_task = asyncio.create_task(_digest_flusher())
 
+    # SLA report scheduler (hourly check)
+    async def _report_scheduler():
+        from whatisup.services.reports import check_and_send_reports
+
+        while True:
+            try:
+                await check_and_send_reports()
+            except Exception as exc:
+                logger.error("report_scheduler_error", error_type=type(exc).__name__)
+            await asyncio.sleep(3600)
+
+    report_task = asyncio.create_task(_report_scheduler())
+
     yield
 
     subscriber_task.cancel()
@@ -109,6 +122,12 @@ async def lifespan(app: FastAPI):
     digest_flusher_task.cancel()
     try:
         await digest_flusher_task
+    except asyncio.CancelledError:
+        pass
+
+    report_task.cancel()
+    try:
+        await report_task
     except asyncio.CancelledError:
         pass
 

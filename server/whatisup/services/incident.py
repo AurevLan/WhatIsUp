@@ -443,6 +443,7 @@ async def _fire_alerts(
 
     ctx: dict = {
         "monitor_name": monitor.name,
+        "monitor_url": monitor.url,
         "check_type": monitor.check_type,
         "probe_names": probe_names,
         **(extra_ctx or {}),
@@ -1054,3 +1055,24 @@ async def process_check_result(
                 await _create_point_in_time_incident(
                     db, monitor_id, monitor, result, extra_ctx={"zscore": zscore}
                 )
+
+    # Auto-pause: if monitor.auto_pause_after is set, check last N results
+    if monitor and monitor.auto_pause_after and monitor.enabled:
+        last_n = (
+            await db.execute(
+                select(CheckResult.status)
+                .where(CheckResult.monitor_id == monitor.id)
+                .order_by(CheckResult.checked_at.desc())
+                .limit(monitor.auto_pause_after)
+            )
+        ).scalars().all()
+        if (
+            len(last_n) >= monitor.auto_pause_after
+            and all(s != CheckStatus.up for s in last_n)
+        ):
+            monitor.enabled = False
+            logger.warning(
+                "auto_pause_triggered",
+                monitor_id=str(monitor.id),
+                consecutive_failures=len(last_n),
+            )

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -55,11 +56,27 @@ async def _is_flapping(db: AsyncSession, monitor: Monitor) -> bool:
     return transitions >= threshold
 
 
-async def _is_suppressed_by_dependency(
-    db: AsyncSession, monitor_id: uuid.UUID
+async def _has_ancestor_incident(
+    db: AsyncSession,
+    monitor_id: uuid.UUID,
+    visited: set[uuid.UUID] | None = None,
+    depth: int = 0,
 ) -> bool:
-    """Return True if any active parent monitor has an open incident with suppress enabled."""
-    deps = (
+    """Check if any ancestor in the dependency chain has an open incident.
+
+    Follows the dependency graph recursively up to 5 hops to handle transitive
+    suppression (e.g. A -> B -> C: if A is down, both B and C are suppressed).
+    """
+    if depth > 5:
+        return False
+    if visited is None:
+        visited = set()
+    if monitor_id in visited:
+        return False
+    visited.add(monitor_id)
+
+    # Get direct parents with suppression enabled
+    parents = (
         await db.execute(
             select(MonitorDependency).where(
                 MonitorDependency.child_id == monitor_id,
@@ -68,20 +85,35 @@ async def _is_suppressed_by_dependency(
         )
     ).scalars().all()
 
-    if not deps:
+    if not parents:
         return False
 
-    parent_ids = [d.parent_id for d in deps]
-    open_parent = (
-        await db.execute(
-            select(Incident.id).where(
-                Incident.monitor_id.in_(parent_ids),
-                Incident.resolved_at.is_(None),
-            ).limit(1)
-        )
-    ).scalar_one_or_none()
+    for dep in parents:
+        # Check if this parent has an open incident
+        has_incident = (
+            await db.execute(
+                select(Incident.id).where(
+                    Incident.monitor_id == dep.parent_id,
+                    Incident.resolved_at.is_(None),
+                ).limit(1)
+            )
+        ).scalar_one_or_none()
 
-    return open_parent is not None
+        if has_incident:
+            return True
+
+        # Recurse to grandparents
+        if await _has_ancestor_incident(db, dep.parent_id, visited, depth + 1):
+            return True
+
+    return False
+
+
+async def _is_suppressed_by_dependency(
+    db: AsyncSession, monitor_id: uuid.UUID
+) -> bool:
+    """Return True if any ancestor monitor in the dependency chain has an open incident."""
+    return await _has_ancestor_incident(db, monitor_id)
 
 
 async def _correlate_common_cause(
@@ -392,8 +424,8 @@ async def _fire_alerts(
     db: AsyncSession,
     incident: Incident,
     monitor: Monitor,
-    result: CheckResult,
-    event_type: str,
+    result: CheckResult | None = None,
+    event_type: str = "incident_opened",
     extra_ctx: dict | None = None,
 ) -> None:
     """Evaluate alert rules for this monitor/group and dispatch matching ones.
@@ -507,9 +539,9 @@ async def _fire_alerts(
                 recent_count = (
                     await db.execute(
                         select(func.count(AlertEvent.id)).where(
-                            AlertEvent.channel_id.in_(channel_ids),
-                            AlertEvent.sent_at >= storm_cutoff,
+                            AlertEvent.incident_id == incident.id,
                             AlertEvent.status == AlertEventStatus.sent,
+                            AlertEvent.sent_at >= storm_cutoff,
                         )
                     )
                 ).scalar_one()
@@ -728,7 +760,33 @@ async def process_check_result(
 
     in_maintenance = await is_in_maintenance(db, monitor_id, group_id)
     if in_maintenance:
-        logger.info("check_suppressed_maintenance", monitor_id=str(monitor_id))
+        # Create a suppressed incident for audit trail if result is down
+        if result.status in (CheckStatus.down, CheckStatus.timeout, CheckStatus.error):
+            _existing = (
+                await db.execute(
+                    select(Incident).where(
+                        Incident.monitor_id == monitor_id,
+                        Incident.resolved_at.is_(None),
+                    )
+                )
+            ).scalar_one_or_none()
+            if _existing is None:
+                _maint_incident = Incident(
+                    monitor_id=monitor_id,
+                    started_at=result.checked_at,
+                    scope=IncidentScope.global_,
+                    affected_probe_ids=[str(result.probe_id)] if result.probe_id else [],
+                    dependency_suppressed=True,
+                )
+                db.add(_maint_incident)
+                await db.flush()
+                logger.info(
+                    "incident_created_maintenance_suppressed",
+                    monitor_id=str(monitor_id),
+                    incident_id=str(_maint_incident.id),
+                )
+        else:
+            logger.info("check_suppressed_maintenance", monitor_id=str(monitor_id))
         return
 
     # Item 7: group-level maintenance suppression when all monitors in group are down
@@ -905,10 +963,27 @@ async def process_check_result(
                 await _correlate_by_dependency(db, incident, monitor_id, publish_event)
 
             # B4: Update co-occurrence patterns when an incident is grouped
+            # Deferred to a background task to avoid O(n^2) upserts in the
+            # critical incident pipeline path.
             if incident.group_id is not None:
-                group = await db.get(IncidentGroup, incident.group_id)
-                if group:
-                    await update_patterns_for_group(db, group)
+                _group_id = incident.group_id
+
+                async def _deferred_pattern_update() -> None:
+                    from whatisup.core.database import get_session_factory
+
+                    try:
+                        async with get_session_factory()() as bg_db:
+                            grp = await bg_db.get(IncidentGroup, _group_id)
+                            if grp:
+                                await update_patterns_for_group(bg_db, grp)
+                            await bg_db.commit()
+                    except Exception:
+                        logger.exception(
+                            "deferred_pattern_update_failed",
+                            group_id=str(_group_id),
+                        )
+
+                asyncio.create_task(_deferred_pattern_update())
 
             # Only fire individual alert if NOT part of a group that already notified
             if incident.group_id is None:

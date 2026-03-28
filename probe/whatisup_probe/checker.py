@@ -20,6 +20,23 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
+# ── DNS cache (TTL 60s) ─────────────────────────────────────────────────────
+
+_dns_cache: dict[str, tuple[list, float]] = {}
+_DNS_TTL = 60  # seconds
+
+
+def _cached_getaddrinfo(hostname: str, port: object = None, **kwargs: object) -> list:
+    """DNS resolution with 60-second TTL cache."""
+    now = time.monotonic()
+    cached = _dns_cache.get(hostname)
+    if cached and now - cached[1] < _DNS_TTL:
+        return cached[0]
+    result = socket.getaddrinfo(hostname, port, proto=socket.IPPROTO_TCP)
+    _dns_cache[hostname] = (result, now)
+    return result
+
+
 # ── SSRF protection ──────────────────────────────────────────────────────────
 
 def _is_internal_ip(ip_str: str) -> bool:
@@ -45,7 +62,7 @@ def _validate_url_ssrf_fast(url: str) -> str | None:
 def _ssrf_dns_check_sync(hostname: str) -> str | None:
     """Resolve hostname and reject internal IPs (blocking — run via executor)."""
     try:
-        for ai in socket.getaddrinfo(hostname, None, proto=socket.IPPROTO_TCP):
+        for ai in _cached_getaddrinfo(hostname):
             if _is_internal_ip(ai[4][0]):
                 return f"Host resolves to internal IP: {ai[4][0]!r}"
     except socket.gaierror:
@@ -80,7 +97,10 @@ def _get_http_client() -> httpx.AsyncClient:
     """Return a shared AsyncClient (connection pooling across checks)."""
     global _http_client
     if _http_client is None or _http_client.is_closed:
-        _http_client = httpx.AsyncClient(verify=True)
+        _http_client = httpx.AsyncClient(
+            verify=True,
+            limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
+        )
     return _http_client
 
 
@@ -308,7 +328,7 @@ async def _check_http(
             t_dns = time.perf_counter()
             loop = asyncio.get_running_loop()
             await asyncio.wait_for(
-                loop.run_in_executor(None, socket.getaddrinfo, hostname, None),
+                loop.run_in_executor(None, _cached_getaddrinfo, hostname),
                 timeout=5.0,
             )
             dns_resolve_ms = int((time.perf_counter() - t_dns) * 1000)
@@ -464,7 +484,8 @@ async def _check_http(
         # SSL check (non-blocking via executor)
         ssl_valid = ssl_expires_at = ssl_days_remaining = None
         if ssl_check_enabled and url.startswith("https://"):
-            ssl_valid, ssl_expires_at, ssl_days_remaining = await _extract_ssl_info(final_url or url)
+            ssl_info = await _extract_ssl_info(final_url or url)
+            ssl_valid, ssl_expires_at, ssl_days_remaining = ssl_info
 
         # Schema fingerprint
         schema_fingerprint: str | None = None
@@ -697,7 +718,7 @@ async def _capture_web_vitals(page) -> dict:
                 setTimeout(() => {
                     obs_lcp.disconnect(); obs_cls.disconnect(); obs_inp.disconnect();
                     resolve(vitals);
-                }, 200);
+                }, 50);
             })
         """)
         return vitals
@@ -741,35 +762,32 @@ def _substitute_vars(text: str, variables: list[dict]) -> str:
     return text
 
 
-async def kill_stale_chromium() -> int:
-    """Kill leftover chrome-headless-shell processes (non-blocking async).
+async def kill_stale_chromium(max_age_seconds: int = 120) -> int:
+    """Kill chromium processes older than *max_age_seconds*.
 
-    Should be called once at probe startup, not during normal operation.
+    At startup the default (120 s) catches zombies from a previous crash.
+    When called after a hard timeout, a tighter value avoids killing the
+    browser instance that belongs to the active PlaywrightPool.
+
     Returns the number of processes killed.
     """
-    import os as _os
-    import signal
+    import psutil as _psutil
 
-    try:
-        proc = await asyncio.create_subprocess_exec(
-            "pgrep", "-f", "chrome-headless-shell",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.DEVNULL,
-        )
-        stdout, _ = await proc.communicate()
-        pids = [int(p) for p in stdout.decode().split() if p.strip()]
-        killed = 0
-        for pid in pids:
-            try:
-                _os.kill(pid, signal.SIGKILL)
+    now = time.time()
+    killed = 0
+    for proc in _psutil.process_iter(["pid", "name", "create_time"]):
+        try:
+            name = (proc.info["name"] or "").lower()
+            if "chromium" not in name and "chrome-headless-shell" not in name:
+                continue
+            age = now - proc.info["create_time"]
+            if age > max_age_seconds:
+                proc.kill()
                 killed += 1
-            except ProcessLookupError:
-                pass
-        return killed
-    except FileNotFoundError:
-        return 0  # pgrep not available
-    except Exception:
-        return 0
+                logger.info("killed_stale_chromium", pid=proc.info["pid"], age_s=int(age))
+        except (_psutil.NoSuchProcess, _psutil.AccessDenied):
+            pass
+    return killed
 
 
 async def _check_scenario(
@@ -887,9 +905,10 @@ async def _check_scenario(
                             raise AssertionError(f"URL contains: {expected!r} not in {current!r}")
 
                     elif step_type == "screenshot":
-                        img_bytes = await page.screenshot(type="jpeg", quality=50, full_page=False)
+                        img_bytes = await page.screenshot(type="jpeg", quality=30, full_page=False)
+                        b64 = base64.b64encode(img_bytes).decode()
                         step_screenshot = (
-                            "data:image/jpeg;base64," + base64.b64encode(img_bytes).decode()
+                            f"data:image/jpeg;base64,{b64}" if len(b64) < 200_000 else None
                         )
 
                     elif step_type == "hover":

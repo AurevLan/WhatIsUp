@@ -9,6 +9,7 @@ from sqlalchemy import select
 
 from whatisup.models.incident import Incident, IncidentScope
 from whatisup.models.monitor import Monitor
+from whatisup.services.incident import _fire_alerts
 
 logger = structlog.get_logger(__name__)
 
@@ -58,6 +59,8 @@ async def check_heartbeats() -> None:
                     affected_probe_ids=[],
                 )
                 db.add(incident)
+                await db.flush()
+                await _fire_alerts(db, incident, monitor, event_type="incident_opened")
                 logger.warning(
                     "heartbeat_overdue",
                     monitor_id=str(monitor.id),
@@ -68,6 +71,9 @@ async def check_heartbeats() -> None:
                 duration = int((now - open_incident.started_at).total_seconds())
                 open_incident.resolved_at = now
                 open_incident.duration_seconds = duration
+                await _fire_alerts(
+                    db, open_incident, monitor, event_type="incident_resolved"
+                )
                 logger.info(
                     "heartbeat_recovered",
                     monitor_id=str(monitor.id),

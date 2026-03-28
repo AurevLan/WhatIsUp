@@ -7,7 +7,7 @@ import hmac
 import json
 import uuid
 import zoneinfo
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from email.message import EmailMessage
 from typing import Any
 
@@ -570,8 +570,9 @@ async def maybe_digest_or_dispatch(
     await redis.expire(events_key, ttl + 300)  # +5 min de marge pour le flusher
 
     if count == 1:
-        # Premier événement : enregistrer la fenêtre dans le sorted set
-        flush_at = datetime.now(UTC).timestamp() + ttl
+        # Premier événement : flush au prochain bucket arrondi (fenêtre glissante)
+        now_ts = datetime.now(UTC).timestamp()
+        flush_at = (int(now_ts) // ttl + 1) * ttl
         await redis.zadd(schedule_key, {rule_id_str: flush_at})
 
         # Stocker le contexte (channel_ids + monitor ctx) pour le flusher
@@ -605,6 +606,27 @@ async def dispatch_alert(
         check_type: str
         probe_names: dict[str, str]  # probe_id -> probe name
     """
+    # Deduplication: skip if same incident+channel was alerted within last 60s
+    recent_dup = (
+        await db.execute(
+            select(AlertEvent)
+            .where(
+                AlertEvent.incident_id == incident.id,
+                AlertEvent.channel_id == channel.id,
+                AlertEvent.status == AlertEventStatus.sent,
+                AlertEvent.sent_at >= datetime.now(UTC) - timedelta(seconds=60),
+            )
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if recent_dup:
+        logger.info(
+            "alert_deduplicated",
+            incident_id=str(incident.id),
+            channel_id=str(channel.id),
+        )
+        return
+
     settings = get_settings()
     now = datetime.now(UTC)
     status = AlertEventStatus.sent

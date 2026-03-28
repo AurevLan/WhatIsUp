@@ -56,9 +56,21 @@ class ProbeScheduler:
 
     async def _run_check(self, monitor: dict[str, Any]) -> None:
         is_scenario = monitor.get("check_type") == "scenario"
+
+        # Adaptive throttling: skip scenario checks when RAM is critically high
+        if is_scenario:
+            health = self._collect_health()
+            if health["ram_percent"] > 85:
+                logger.warning(
+                    "throttled_scenario_high_ram",
+                    ram=health["ram_percent"],
+                    monitor=monitor.get("name", str(monitor["id"])),
+                )
+                return  # Skip this cycle; will retry next interval
+
         # Hard outer timeout: monitor timeout + overhead to absorb async scheduling lag.
-        # Scenarios get +30 s for context creation; other checks only need +5 s.
-        hard_timeout = monitor["timeout_seconds"] + (30 if is_scenario else 5)
+        # Scenarios get +15 s for context creation; other checks only need +5 s.
+        hard_timeout = monitor["timeout_seconds"] + (15 if is_scenario else 5)
         async with self._semaphore:
             if is_scenario:
                 await self._scenario_semaphore.acquire()
@@ -180,6 +192,9 @@ class ProbeScheduler:
 
         # Start persistent browser pool (non-fatal if Playwright not installed)
         await self._browser_pool.start()
+
+        # Start batched result reporter
+        await self._reporter.start()
 
         # Initial sync
         await self.sync_monitors()

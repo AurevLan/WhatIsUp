@@ -11,6 +11,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.12.1] - 2026-03-28
+
+### Fixed
+
+#### Correlation & incident engine
+- **Heartbeat alerts** — incident creation now fires `incident_opened` / `incident_resolved` alerts through all configured channels (previously silent)
+- **Alert deduplication** — checks for recent AlertEvent (same incident + channel, <60s) before dispatch; prevents duplicates after server restart
+- **Transitive dependency suppression** — follows `MonitorDependency` chain recursively up to 5 hops (previously 1-hop only); A→B→C now correctly suppresses C when A is down
+- **Per-incident storm protection** — alert storm counter now scoped per-incident instead of globally per-rule; prevents false throttling of legitimate alerts on separate incidents
+- **Sliding digest window** — digest flush times aligned to consistent time boundaries instead of drifting from first event; eliminates alert gaps between windows
+- **Maintenance audit trail** — incidents are now created (with `dependency_suppressed=True`) during maintenance windows instead of being silently dropped; provides audit trail while still suppressing alerts
+- **Composite cycle detection** — adding a member to a composite monitor now validates the DAG; raises HTTP 400 if the addition would create a circular dependency
+
+#### Anomaly detection
+- **Wider hour bucket** — z-score baseline window widened from ±2h to ±3h, reducing timezone-related false positives for monitors checked from different regions
+
+#### Performance
+- **Flapping index** — new `ix_check_results_monitor_checked(monitor_id, checked_at DESC)` index; eliminates O(n) full-table scan on flapping detection queries
+- **Async correlation patterns** — O(n²) pattern upserts deferred to background task with batched INSERT; no longer blocks the incident pipeline
+- **Probe screenshot compression** — JPEG quality reduced to 30 + 200KB base64 cap; ~70% payload reduction
+- **Probe result batching** — queue-based reporter flushes every 5s instead of individual POST per result; ~80% reduction in HTTP requests
+- **Probe DNS caching** — 60-second TTL cache eliminates 2 of 3 redundant DNS lookups per HTTP check
+- **Web Vitals** — collection timeout reduced from 200ms to 50ms per navigate step
+- **Adaptive scenario throttling** — scenarios skipped when probe RAM >85%; prevents OOM on constrained machines
+- **Hard timeout tuning** — scenario overhead reduced from 30s to 15s for faster failure detection
+- **kill_stale_chromium** — now filters by process age (>120s) to avoid killing active browser instances
+
+### Database migrations
+
+| Revision | Description |
+|----------|-------------|
+| `l2m3n4o5p6q7` | Add index `ix_check_results_monitor_checked(monitor_id, checked_at DESC)` |
+
+---
+
 ## [0.12.0] - 2026-03-28
 
 ### Added
@@ -681,7 +716,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docker Compose (dev + prod with Nginx + TLS)
 - Security: rate limiting, security headers, JWT validation, probe API key bcrypt hashing
 
-[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v0.12.1...HEAD
+[0.12.1]: https://github.com/AurevLan/WhatIsUp/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.9.1...v0.10.0

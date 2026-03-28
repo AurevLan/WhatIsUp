@@ -37,21 +37,26 @@ async def update_patterns_for_group(
 
     now = datetime.now(UTC)
 
+    # Collect all pairs and batch-upsert in a single statement
+    rows = []
     for a, b in combinations(monitor_ids, 2):
         a_uuid, b_uuid = uuid.UUID(a), uuid.UUID(b)
         # Ensure consistent ordering (smaller UUID first)
         if a_uuid > b_uuid:
             a_uuid, b_uuid = b_uuid, a_uuid
+        rows.append(
+            {
+                "monitor_a_id": a_uuid,
+                "monitor_b_id": b_uuid,
+                "co_occurrence_count": 1,
+                "last_seen": now,
+            }
+        )
 
-        # PostgreSQL upsert: increment count if exists, insert otherwise
+    if rows:
         stmt = (
             pg_insert(CorrelationPattern)
-            .values(
-                monitor_a_id=a_uuid,
-                monitor_b_id=b_uuid,
-                co_occurrence_count=1,
-                last_seen=now,
-            )
+            .values(rows)
             .on_conflict_do_update(
                 index_elements=["monitor_a_id", "monitor_b_id"],
                 set_={

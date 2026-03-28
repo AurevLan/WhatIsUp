@@ -1171,6 +1171,35 @@ async def reset_schema_baseline(
 # ---------------------------------------------------------------------------
 
 
+async def _would_create_cycle(
+    db: AsyncSession,
+    composite_id: uuid.UUID,
+    member_id: uuid.UUID,
+    visited: set[uuid.UUID] | None = None,
+) -> bool:
+    """Check if adding member_id to composite_id would create a cycle."""
+    if visited is None:
+        visited = set()
+    if member_id in visited:
+        return False
+    if member_id == composite_id:
+        return True
+    visited.add(member_id)
+
+    children = (
+        await db.execute(
+            select(CompositeMonitorMember.member_id).where(
+                CompositeMonitorMember.composite_id == member_id
+            )
+        )
+    ).scalars().all()
+
+    for child_id in children:
+        if await _would_create_cycle(db, composite_id, child_id, visited):
+            return True
+    return False
+
+
 @router.get(
     "/{monitor_id}/composite-members",
     response_model=list[CompositeMonitorMemberOut],
@@ -1226,11 +1255,14 @@ async def add_composite_member(
         )
 
     member_monitor = await _get_monitor_or_404(payload.monitor_id, current_user, db)
+
+    # Cycle detection: if member is itself a composite, check for transitive cycles
     if member_monitor.check_type == "composite":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="A composite monitor cannot be a member of another composite",
-        )
+        if await _would_create_cycle(db, monitor_id, payload.monitor_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Adding this member would create a circular dependency",
+            )
 
     existing = (
         await db.execute(

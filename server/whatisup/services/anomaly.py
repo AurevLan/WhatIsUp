@@ -17,7 +17,7 @@ async def compute_zscore(
     monitor_id: uuid.UUID,
     current_value: float,
     window_days: int = 7,
-    hour_bucket_width: int = 2,
+    hour_bucket_width: int = 3,
 ) -> float | None:
     """
     Compute the z-score of `current_value` against recent samples for the same

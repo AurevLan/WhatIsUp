@@ -11,7 +11,8 @@ import structlog
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
-from whatisup_probe.checker import PlaywrightPool, kill_stale_chromium, perform_check
+from whatisup_probe.checkers import perform_check
+from whatisup_probe.checkers._shared import PlaywrightPool, kill_stale_chromium
 from whatisup_probe.config import get_settings
 from whatisup_probe.reporter import Reporter
 

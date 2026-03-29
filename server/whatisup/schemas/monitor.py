@@ -40,6 +40,7 @@ class MonitorCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     url: AnyHttpUrl
     group_id: uuid.UUID | None = None
+    team_id: uuid.UUID | None = None
     interval_seconds: int = Field(default=60, ge=5, le=86400)
     timeout_seconds: int = Field(default=10, ge=1, le=60)
     follow_redirects: bool = True
@@ -186,6 +187,7 @@ class MonitorOut(BaseModel):
     url: str
     group_id: uuid.UUID | None
     owner_id: uuid.UUID
+    team_id: uuid.UUID | None = None
     interval_seconds: int
     timeout_seconds: int
     follow_redirects: bool
@@ -272,6 +274,7 @@ class MonitorGroupCreate(BaseModel):
     public_slug: str | None = Field(
         default=None, min_length=3, max_length=100, pattern=r"^[a-z0-9-]+$"
     )
+    team_id: uuid.UUID | None = None
     tag_ids: list[uuid.UUID] = Field(default=[])
     custom_logo_url: str | None = Field(default=None, max_length=500)
     accent_color: str | None = Field(default=None, max_length=7, pattern=r"^#[0-9a-fA-F]{6}$")
@@ -302,6 +305,7 @@ class MonitorGroupOut(BaseModel):
     description: str | None
     public_slug: str | None
     owner_id: uuid.UUID
+    team_id: uuid.UUID | None = None
     tags: list[TagOut]
     custom_logo_url: str | None = None
     accent_color: str | None = None

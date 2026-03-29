@@ -12,7 +12,8 @@ from whatisup.models.monitor import Monitor
 from whatisup.models.probe import Probe
 from whatisup.models.result import CheckResult, CheckStatus
 from whatisup.models.user import User
-from whatisup.services.alert import _validate_webhook_url, simulate_rule
+from whatisup.services.alert import simulate_rule
+from whatisup.services.channels._helpers import validate_webhook_url as _validate_webhook_url
 
 # ── _validate_webhook_url (SSRF guard) ────────────────────────────────────────
 

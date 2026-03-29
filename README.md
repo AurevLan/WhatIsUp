@@ -81,17 +81,21 @@
 - **Email subscriptions** — visitors subscribe to outage updates; secure unsubscribe token
 
 ### Platform
+- **Teams & RBAC** — create teams, invite members with 4 roles (`owner` > `admin` > `editor` > `viewer`); monitors, groups, channels, and maintenance windows can be team-scoped; backward-compatible — single-user mode preserved when no teams are created
 - **SSO / OIDC** — OpenID Connect PKCE flow; link user accounts to any OIDC provider (Keycloak, Authentik, Auth0, Google…); optional auto-provisioning of new accounts on first login; configured entirely from the admin GUI (no restart required)
 - **Admin panel** — dedicated UI for user management (`is_active`, `can_create_monitors`), probe group access control, all-monitors view, and live OIDC settings
-- **`can_create_monitors` permission** — per-user flag; superadmin grants or revokes monitor creation rights independently of admin access
 - **Probe groups** — admin-defined groups linking probes to users; regular users see only the probes assigned to their groups
 - **Network scope** — per-monitor `network_scope` field (`all` / `internal` / `external`); restricts which probe types run each check (e.g. internal-only services stay on LAN probes)
 - **Multi-language** — English (default) and French; toggle in the top bar; persisted to `localStorage`
+- **Light / dark theme** — toggle in top bar; auto-detected from `prefers-color-scheme`; persisted to `localStorage`
+- **Onboarding wizard** — guided 4-step setup for new users (first monitor, first alert); auto-dismissed after completion
+- **Infrastructure-as-Code** — `GET /api/v1/config` exports full config as JSON; `PUT /api/v1/config` imports declaratively with diff, dry-run, and prune support; resources matched by name for idempotence
+- **Plugin architecture** — check types and alert channels use a registry-based plugin system; extend without modifying core code
 - **Bulk actions** — multi-select monitors; bulk enable / pause / delete / export CSV
 - **Audit trail** — every admin action logged with before/after diff
-- **RBAC** — superadmin + per-resource ownership enforcement
 - **Data retention** — configurable auto-purge of old check results (default: 90 days)
 - **One-command deploy** — interactive wizard generates secrets, `.env`, and starts the stack
+- **Accessibility** — `prefers-reduced-motion` support, skip-to-content link, ARIA labels on interactive elements
 
 ### Browser extension — scenario recorder
 
@@ -349,6 +353,13 @@ curl https://your-whatisup.example.com/api/v1/monitors/ \
 | `GET` | `/api/v1/public/pages/{slug}/monitors` | Public status page data (no auth) |
 | `POST` | `/api/v1/public/pages/{slug}/subscribe` | Subscribe to status page |
 | `GET` | `/api/v1/ping/{slug}` | Heartbeat ping |
+| `GET` | `/api/v1/config/` | Export full config (IaC) |
+| `PUT` | `/api/v1/config/` | Import declarative config (IaC) |
+| `POST` | `/api/v1/teams/` | Create team |
+| `GET` | `/api/v1/teams/` | List user's teams |
+| `POST` | `/api/v1/teams/{id}/members` | Add team member |
+| `GET` | `/api/v1/onboarding/status` | Onboarding progress |
+| `POST` | `/api/v1/onboarding/complete` | Mark onboarding done |
 | `GET` | `/api/v1/status/monitors` | External status API |
 
 ---
@@ -392,17 +403,32 @@ curl https://your-whatisup.example.com/api/v1/monitors/ \
 ### Tests & linting
 
 ```bash
-# Backend
+# Backend (140 tests)
 cd server
 pip install -e ".[dev]"
 pytest
 ruff check . && ruff format .
 pip-audit
 
-# Frontend
+# Probe (24 tests)
+cd probe
+pip install -e ".[dev]"
+pytest
+
+# Frontend (51 tests)
 cd frontend
+npm install
+npm test
 npm run lint
 npm audit
+```
+
+Tests also run inside Docker:
+
+```bash
+docker compose run --rm --no-deps server pytest tests/
+docker compose run --rm --no-deps probe pytest tests/
+docker run --rm -v ./frontend:/app -w /app node:25-alpine npx vitest run
 ```
 
 ### Database migrations

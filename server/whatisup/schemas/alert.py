@@ -93,6 +93,7 @@ class AlertChannelCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     type: AlertChannelType
     config: dict
+    team_id: uuid.UUID | None = None
 
     @field_validator("config")
     @classmethod
@@ -110,6 +111,7 @@ class AlertChannelOut(BaseModel):
     id: uuid.UUID
     name: str
     type: AlertChannelType
+    team_id: uuid.UUID | None = None
     # config intentionally excluded — contains secrets
 
     model_config = {"from_attributes": True}

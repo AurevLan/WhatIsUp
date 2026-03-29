@@ -7,7 +7,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import and_, case, delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from whatisup.api.deps import get_current_user, require_superadmin
+from whatisup.api.deps import (
+    build_access_filter,
+    check_resource_access,
+    get_current_user,
+    get_user_team_ids,
+    require_superadmin,
+)
 from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
 from whatisup.core.security import encrypt_scenario_variables
@@ -16,6 +22,7 @@ from whatisup.models.monitor import CompositeMonitorMember, Monitor
 from whatisup.models.probe import Probe
 from whatisup.models.result import CheckResult, CheckStatus
 from whatisup.models.tag import Tag
+from whatisup.models.team import TeamRole
 from whatisup.models.user import User
 from whatisup.schemas.annotation import AnnotationCreate, AnnotationOut
 from whatisup.schemas.incident import IncidentOut
@@ -37,15 +44,18 @@ from whatisup.services.stats import compute_uptime
 router = APIRouter(prefix="/monitors", tags=["monitors"])
 
 
-async def _get_monitor_or_404(monitor_id: uuid.UUID, user: User, db: AsyncSession) -> Monitor:
+async def _get_monitor_or_404(
+    monitor_id: uuid.UUID,
+    user: User,
+    db: AsyncSession,
+    min_role: TeamRole = TeamRole.viewer,
+) -> Monitor:
     monitor = (
         await db.execute(select(Monitor).where(Monitor.id == monitor_id))
     ).scalar_one_or_none()
     if monitor is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Monitor not found")
-    # Superadmin sees all; others see only their own
-    if not user.is_superadmin and monitor.owner_id != user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    await check_resource_access(monitor, user, db, min_role=min_role)
     return monitor
 
 
@@ -58,7 +68,8 @@ async def list_monitors(
 ) -> list[dict]:
     query = select(Monitor)
     if not current_user.is_superadmin:
-        query = query.where(Monitor.owner_id == current_user.id)
+        team_ids = await get_user_team_ids(current_user, db)
+        query = query.where(build_access_filter(Monitor, current_user, team_ids))
     if enabled is not None:
         query = query.where(Monitor.enabled == enabled)
     if group_id is not None:
@@ -210,6 +221,7 @@ async def create_monitor(
         url=str(payload.url),
         group_id=payload.group_id,
         owner_id=current_user.id,
+        team_id=payload.team_id,
         interval_seconds=payload.interval_seconds,
         timeout_seconds=payload.timeout_seconds,
         follow_redirects=payload.follow_redirects,
@@ -298,12 +310,15 @@ async def bulk_action(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Bulk enable / pause / delete monitors owned by the current user."""
-    # Ownership filter — superadmin can act on all; others only on their own
-    ownership_clause = (
-        Monitor.id.in_(payload.ids)
-        if current_user.is_superadmin
-        else and_(Monitor.id.in_(payload.ids), Monitor.owner_id == current_user.id)
-    )
+    # Access filter — superadmin can act on all; others on own + team resources
+    if current_user.is_superadmin:
+        ownership_clause = Monitor.id.in_(payload.ids)
+    else:
+        team_ids = await get_user_team_ids(current_user, db, min_role=TeamRole.editor)
+        ownership_clause = and_(
+            Monitor.id.in_(payload.ids),
+            build_access_filter(Monitor, current_user, team_ids),
+        )
 
     if payload.action == "delete":
         result = await db.execute(delete(Monitor).where(ownership_clause))

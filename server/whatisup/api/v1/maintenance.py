@@ -6,7 +6,12 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from whatisup.api.deps import get_current_user
+from whatisup.api.deps import (
+    build_access_filter,
+    check_resource_access,
+    get_current_user,
+    get_user_team_ids,
+)
 from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
 from whatisup.models.maintenance import MaintenanceWindow
@@ -24,7 +29,8 @@ async def list_windows(
 ) -> list[MaintenanceWindow]:
     q = select(MaintenanceWindow)
     if not current_user.is_superadmin:
-        q = q.where(MaintenanceWindow.owner_id == current_user.id)
+        team_ids = await get_user_team_ids(current_user, db)
+        q = q.where(build_access_filter(MaintenanceWindow, current_user, team_ids))
     result = await db.execute(q.order_by(MaintenanceWindow.starts_at.desc()))
     return list(result.scalars().all())
 
@@ -87,8 +93,7 @@ async def delete_window(
     ).scalar_one_or_none()
     if window is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Window not found")
-    if not current_user.is_superadmin and window.owner_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    await check_resource_access(window, current_user, db)
     await db.delete(window)
 
 
@@ -106,8 +111,7 @@ async def update_window(
     ).scalar_one_or_none()
     if window is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Window not found")
-    if not current_user.is_superadmin and window.owner_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    await check_resource_access(window, current_user, db)
     for field, value in payload.model_dump().items():
         setattr(window, field, value)
     await db.flush()

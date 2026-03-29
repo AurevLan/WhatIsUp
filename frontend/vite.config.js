@@ -10,6 +10,11 @@ export default defineConfig({
     tailwindcss(),
     vue(),
   ],
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    include: ['tests/**/*.test.js'],
+  },
   server: {
     port: 5173,
     proxy: {

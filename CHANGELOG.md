@@ -11,6 +11,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.0] - 2026-03-29
+
+### Added
+
+#### Plugin architecture — extensible check types and alert channels
+- **Checker plugin system** — `BaseChecker` abstract class with auto-discovery registry; each check type is now an independent module in `probe/whatisup_probe/checkers/` (http, tcp, udp, dns, smtp, ping, domain_expiry, scenario)
+- **Alert channel plugin system** — `BaseAlertChannel` abstract class with registry; each channel is a module in `server/whatisup/services/channels/` (email, webhook, telegram, slack, pagerduty, opsgenie)
+- Adding a new check type or alert channel requires only creating a file with a `setup(register)` function — no core code changes
+
+#### Teams and role-based access control (RBAC)
+- **Team model** — create teams with name/slug, invite members, assign roles
+- **4 team roles** — `owner` > `admin` > `editor` > `viewer` with hierarchical permissions
+- **Team-scoped resources** — monitors, groups, alert channels, maintenance windows, and templates can be assigned to a team via `team_id`
+- **Centralized access control** — `check_resource_access()`, `build_access_filter()`, `get_user_team_ids()` in `deps.py` replace duplicated `owner_id` checks across 11 API files
+- **Full API** — `POST/GET/PATCH/DELETE /api/v1/teams`, `GET/POST/PATCH/DELETE /api/v1/teams/{id}/members`
+- **Backward-compatible** — `team_id=NULL` preserves single-user ownership; existing installations unaffected
+
+#### Light theme and accessibility
+- **Light theme** — complete `:root[data-theme="light"]` with inverted design tokens, badge/button/skeleton overrides
+- **Theme toggle** — Sun/Moon button in top bar and login page; persisted to `localStorage`; auto-detected from `prefers-color-scheme` on first visit
+- **Flash prevention** — inline script in `index.html` applies theme before first paint
+- **Reduced motion** — `prefers-reduced-motion` media query disables all animations (pulse, shimmer, transitions)
+- **Skip-to-content** — keyboard-accessible skip link; `aria-label` on navigation, overlays, and toggles
+
+#### Onboarding wizard
+- **4-step wizard** — Welcome (display name), First Monitor (3 presets: Website/Server/API), First Alert (email setup with auto-rules), Done (summary)
+- **Backend** — `User.onboarding_completed_at` field; `GET /api/v1/onboarding/status` and `POST /api/v1/onboarding/complete` endpoints
+- **Dashboard integration** — wizard shown instead of dashboard when `onboarding_completed=false` and monitor count is 0; dismissed permanently after completion
+- **i18n** — full English and French translations (30 keys)
+
+#### Infrastructure-as-Code (declarative configuration API)
+- **Export** — `GET /api/v1/config` returns full monitoring config as JSON (groups, monitors, channels, rules); secrets redacted
+- **Import** — `PUT /api/v1/config` performs declarative diff and converges to desired state (create/update/delete)
+- **Dry run** — `?dry_run=true` previews the plan without applying changes
+- **Prune control** — `?prune=false` prevents deletion of resources not in config
+- **Name-based matching** — resources matched by name (not UUID) for portability and idempotence
+- **Cross-references** — monitors reference groups by name, rules reference monitors and channels by name
+
+#### API stability commitment
+- `/api/v1/` endpoints are now considered stable; breaking changes will use `/api/v2/` with 6-month deprecation
+- Version aligned across all components: server, probe, frontend, config → `1.0.0`
+- `UPGRADING.md` migration guide from v0.x to v1.0
+
+#### Test suite
+- **Server** — 140 tests (from 107): channel registry, teams CRUD/RBAC, onboarding flow, config export/import/dry_run/prune
+- **Probe** — 24 tests (from 15): checker registry, type aliases, fallback, keyword/JSON path checks
+- **Frontend** — 51 tests (new): Vitest + jsdom; monitors store (health scoring, enrich, sparkline, flapping), auth store (login/logout/init), composables (useToast timers, useConfirm promises), urlBase64ToUint8Array
+- **Test infrastructure** — server conftest uses savepoint pattern for per-test isolation; probe conftest forces `CENTRAL_API_URL`
+
+### Changed
+- `checker.py` (1567 lines) replaced by `checkers/` package (8 modules + registry); backward-compat shim preserved
+- `alert.py` reduced from ~1064 to ~560 lines; `test_channel()` and `dispatch_alert()` use channel registry
+- Monitor list, group list, alert channel list, maintenance window endpoints now team-aware (OR filter: `owner_id` + `team_id`)
+- `_get_monitor_or_404` and `_get_group_or_404` use centralized `check_resource_access()`
+
+### Database migrations
+
+| Revision | Description |
+|----------|-------------|
+| `m1n2o3p4q5r6` | Add `teams`, `team_memberships` tables; add `team_id` to monitors, groups, channels, maintenance, templates |
+| `n1o2p3q4r5s6` | Add `onboarding_completed_at` to users |
+
+---
+
 ## [0.12.1] - 2026-03-28
 
 ### Fixed
@@ -716,7 +780,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docker Compose (dev + prod with Nginx + TLS)
 - Security: rate limiting, security headers, JWT validation, probe API key bcrypt hashing
 
-[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v0.12.1...HEAD
+[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.12.1...v1.0.0
 [0.12.1]: https://github.com/AurevLan/WhatIsUp/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.10.0...v0.11.0

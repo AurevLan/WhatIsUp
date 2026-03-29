@@ -6,7 +6,7 @@ import httpx
 import pytest
 import respx
 
-from whatisup_probe.checker import perform_check
+from whatisup_probe.checkers import perform_check
 
 
 @pytest.mark.asyncio

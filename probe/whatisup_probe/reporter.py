@@ -7,7 +7,7 @@ import asyncio
 import httpx
 import structlog
 
-from whatisup_probe.checker import CheckResult
+from whatisup_probe.checkers import CheckResult
 from whatisup_probe.config import get_settings
 
 logger = structlog.get_logger(__name__)

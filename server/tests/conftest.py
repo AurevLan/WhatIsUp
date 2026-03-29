@@ -33,10 +33,25 @@ async def engine():
 
 @pytest_asyncio.fixture
 async def db_session(engine):
-    factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-    async with factory() as session:
+    """Wrap each test in a SAVEPOINT so committed data is rolled back."""
+    async with engine.connect() as conn:
+        trans = await conn.begin()
+        session = AsyncSession(bind=conn, expire_on_commit=False)
+        # Make session.commit() use a nested SAVEPOINT instead of real commit
+        await conn.begin_nested()
+
+        # Patch commit to re-open a savepoint after each commit
+        _orig_commit = session.commit
+
+        async def _savepoint_commit():
+            await _orig_commit()
+            await conn.begin_nested()
+
+        session.commit = _savepoint_commit  # type: ignore[assignment]
+
         yield session
-        await session.rollback()
+        await session.close()
+        await trans.rollback()
 
 
 @pytest_asyncio.fixture

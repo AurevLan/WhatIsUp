@@ -1,6 +1,15 @@
 <template>
   <div class="dash">
 
+    <!-- Onboarding wizard -->
+    <OnboardingWizard
+      v-if="showOnboarding"
+      @complete="onOnboardingComplete"
+    />
+
+    <!-- Normal dashboard -->
+    <template v-else>
+
     <!-- Header -->
     <div class="dash__header">
       <h1 class="dash__title">{{ t('dashboard.title') }}</h1>
@@ -100,6 +109,8 @@
         <ProbeMap />
       </div>
     </div>
+
+    </template>
   </div>
 </template>
 
@@ -108,8 +119,10 @@ import { computed, defineComponent, h, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { AlertTriangle, ArrowRight, CheckCircle2, Monitor, Plus, TrendingUp, WifiOff, XCircle } from 'lucide-vue-next'
 import { useMonitorStore } from '../stores/monitors'
+import { useAuthStore } from '../stores/auth'
 import MonitorRow from '../components/monitors/MonitorRow.vue'
 import ProbeMap from '../components/dashboard/ProbeMap.vue'
+import OnboardingWizard from '../components/onboarding/OnboardingWizard.vue'
 import api from '../api/client'
 
 const STATUS_PRIORITY = { down: 0, error: 1, timeout: 2, up: 3 }
@@ -132,6 +145,15 @@ const StatCard = defineComponent({
 
 const { t } = useI18n()
 const monitorStore = useMonitorStore()
+const auth = useAuthStore()
+
+// Onboarding: show wizard if user hasn't completed it and has no monitors
+const showOnboarding = ref(false)
+
+function onOnboardingComplete() {
+  showOnboarding.value = false
+  monitorStore.fetchAll()
+}
 const monitors = computed(() => monitorStore.monitors)
 const loading  = computed(() => monitorStore.loading)
 
@@ -173,7 +195,20 @@ function probeLastSeen(p) {
 }
 
 onMounted(async () => {
-  monitorStore.fetchAll()
+  await monitorStore.fetchAll()
+
+  // Check onboarding status
+  if (!auth.user?.onboarding_completed && monitorStore.monitors.length === 0) {
+    try {
+      const { data } = await api.get('/onboarding/status')
+      if (!data.completed && data.monitor_count === 0) {
+        showOnboarding.value = true
+      }
+    } catch {
+      // Onboarding endpoint not available — skip wizard
+    }
+  }
+
   try {
     const { data } = await api.get('/probes')
     probes.value = data

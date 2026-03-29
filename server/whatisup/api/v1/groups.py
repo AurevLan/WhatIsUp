@@ -6,11 +6,17 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from whatisup.api.deps import get_current_user
+from whatisup.api.deps import (
+    build_access_filter,
+    check_resource_access,
+    get_current_user,
+    get_user_team_ids,
+)
 from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
 from whatisup.models.monitor import Monitor, MonitorGroup
 from whatisup.models.tag import Tag
+from whatisup.models.team import TeamRole
 from whatisup.models.user import User
 from whatisup.schemas.monitor import (
     MonitorGroupCreate,
@@ -22,14 +28,18 @@ from whatisup.schemas.monitor import (
 router = APIRouter(prefix="/groups", tags=["groups"])
 
 
-async def _get_group_or_404(group_id: uuid.UUID, user: User, db: AsyncSession) -> MonitorGroup:
+async def _get_group_or_404(
+    group_id: uuid.UUID,
+    user: User,
+    db: AsyncSession,
+    min_role: TeamRole = TeamRole.viewer,
+) -> MonitorGroup:
     group = (
         await db.execute(select(MonitorGroup).where(MonitorGroup.id == group_id))
     ).scalar_one_or_none()
     if group is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
-    if not user.is_superadmin and group.owner_id != user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    await check_resource_access(group, user, db, min_role=min_role)
     return group
 
 
@@ -40,7 +50,8 @@ async def list_groups(
 ) -> list[MonitorGroup]:
     query = select(MonitorGroup)
     if not current_user.is_superadmin:
-        query = query.where(MonitorGroup.owner_id == current_user.id)
+        team_ids = await get_user_team_ids(current_user, db)
+        query = query.where(build_access_filter(MonitorGroup, current_user, team_ids))
     result = await db.execute(query.order_by(MonitorGroup.created_at.desc()))
     return list(result.scalars().all())
 
@@ -70,6 +81,7 @@ async def create_group(
         description=payload.description,
         public_slug=payload.public_slug,
         owner_id=current_user.id,
+        team_id=payload.team_id,
         tags=tags,
     )
     db.add(group)

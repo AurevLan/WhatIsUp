@@ -1,5 +1,9 @@
 <template>
   <div class="login">
+    <button @click="toggleTheme" class="login__theme-toggle" :aria-label="isDark ? 'Light mode' : 'Dark mode'">
+      <Sun v-if="isDark" :size="16" />
+      <Moon v-else :size="16" />
+    </button>
     <div class="login__container">
 
       <!-- Logo -->
@@ -59,7 +63,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { Activity, AlertCircle, LogIn, Shield } from 'lucide-vue-next'
+import { Activity, AlertCircle, LogIn, Moon, Shield, Sun } from 'lucide-vue-next'
 import { useAuthStore } from '../stores/auth'
 import { useWebSocketStore } from '../stores/websocket'
 import axios from 'axios'
@@ -75,6 +79,15 @@ const password = ref('')
 const error    = ref('')
 const loading  = ref(false)
 const oidcEnabled = ref(false)
+
+// Theme
+const isDark = ref(document.documentElement.getAttribute('data-theme') !== 'light')
+function toggleTheme() {
+  isDark.value = !isDark.value
+  const theme = isDark.value ? 'dark' : 'light'
+  localStorage.setItem('whatisup_theme', theme)
+  document.documentElement.setAttribute('data-theme', theme)
+}
 
 onMounted(async () => {
   try {
@@ -110,6 +123,32 @@ async function handleLogin() {
   justify-content: center;
   background: var(--bg-base);
   padding: 1rem;
+  position: relative;
+}
+.login__theme-toggle {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  color: var(--text-3);
+  border-radius: 8px;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.login__theme-toggle:hover {
+  border-color: var(--border-hover);
+  color: var(--text-2);
+  background: var(--bg-surface-2);
+}
+.login__theme-toggle:focus-visible {
+  box-shadow: var(--focus-ring);
+  outline: none;
 }
 .login__container { width: 100%; max-width: 380px; }
 .login__brand { text-align: center; margin-bottom: 2rem; }

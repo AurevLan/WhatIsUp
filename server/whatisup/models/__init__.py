@@ -29,6 +29,7 @@ from whatisup.models.result import CheckResult, CheckStatus
 from whatisup.models.status_subscription import StatusSubscription
 from whatisup.models.system_settings import SystemSettings
 from whatisup.models.tag import PermissionLevel, Tag, UserTagPermission
+from whatisup.models.team import Team, TeamMembership, TeamRole
 from whatisup.models.user import User
 from whatisup.models.web_push import WebPushSubscription
 
@@ -69,5 +70,8 @@ __all__ = [
     "IncidentUpdate",
     "IncidentUpdateStatus",
     "MonitorTemplate",
+    "Team",
+    "TeamMembership",
+    "TeamRole",
     "WebPushSubscription",
 ]

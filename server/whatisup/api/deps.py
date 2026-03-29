@@ -15,6 +15,7 @@ from whatisup.core.database import get_db
 from whatisup.core.security import decode_token, verify_api_key
 from whatisup.models.api_key import UserApiKey
 from whatisup.models.probe import Probe
+from whatisup.models.team import TeamMembership, TeamRole
 from whatisup.models.user import User
 
 logger = structlog.get_logger(__name__)
@@ -182,3 +183,115 @@ async def get_current_probe(
 
     logger.warning("probe_auth_failed", key_prefix=x_probe_api_key[:10])
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid probe API key")
+
+
+# ── Team-aware access control ────────────────────────────────────────────────
+
+# Minimum role required for each permission level
+_ROLE_HIERARCHY: dict[str, int] = {
+    TeamRole.viewer: 0,
+    TeamRole.editor: 1,
+    TeamRole.admin: 2,
+    TeamRole.owner: 3,
+}
+
+
+async def get_user_team_ids(
+    user: User,
+    db: AsyncSession,
+    min_role: TeamRole = TeamRole.viewer,
+) -> list[uuid.UUID]:
+    """Return team IDs the user belongs to with at least *min_role*.
+
+    Used as WHERE filter on list endpoints: resources visible if
+    ``owner_id == user.id OR team_id IN get_user_team_ids()``.
+    """
+    min_level = _ROLE_HIERARCHY[min_role]
+    rows = (
+        await db.execute(
+            select(TeamMembership.team_id, TeamMembership.role).where(
+                TeamMembership.user_id == user.id,
+            )
+        )
+    ).all()
+    return [
+        r.team_id
+        for r in rows
+        if _ROLE_HIERARCHY.get(r.role, 0) >= min_level
+    ]
+
+
+async def _get_user_team_ids_with_roles(
+    user: User,
+    db: AsyncSession,
+) -> dict[uuid.UUID, TeamRole]:
+    """Return {team_id: role} for all teams the user belongs to."""
+    rows = (
+        await db.execute(
+            select(TeamMembership.team_id, TeamMembership.role).where(
+                TeamMembership.user_id == user.id,
+            )
+        )
+    ).all()
+    return {r.team_id: r.role for r in rows}
+
+
+def _has_min_role(role: TeamRole, min_role: TeamRole) -> bool:
+    """Check if *role* meets the minimum required level."""
+    return _ROLE_HIERARCHY.get(role, 0) >= _ROLE_HIERARCHY.get(min_role, 0)
+
+
+async def check_resource_access(
+    resource,
+    user: User,
+    db: AsyncSession,
+    min_role: TeamRole = TeamRole.viewer,
+) -> None:
+    """Raise 403 if user cannot access resource at the given permission level.
+
+    Access is granted if ANY of:
+    - user is superadmin
+    - user is the owner (resource.owner_id == user.id)
+    - resource belongs to a team the user is a member of with >= min_role
+
+    For create/update operations, pass ``min_role=TeamRole.editor``.
+    For delete/admin operations, pass ``min_role=TeamRole.admin``.
+    """
+    if user.is_superadmin:
+        return
+
+    # Owner always has full access
+    if hasattr(resource, "owner_id") and resource.owner_id == user.id:
+        return
+
+    # Team access
+    team_id = getattr(resource, "team_id", None)
+    if team_id is not None:
+        team_roles = await _get_user_team_ids_with_roles(user, db)
+        role = team_roles.get(team_id)
+        if role is not None and _has_min_role(role, min_role):
+            return
+
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
+
+def build_access_filter(model, user: User, team_ids: list[uuid.UUID]):
+    """Build a SQLAlchemy WHERE clause for list endpoints.
+
+    Returns a filter that matches resources owned by the user OR belonging
+    to one of their teams. Superadmins should skip this filter entirely.
+
+    Usage::
+
+        if not user.is_superadmin:
+            team_ids = await get_user_team_ids(user, db)
+            query = query.where(build_access_filter(Monitor, user, team_ids))
+    """
+    from sqlalchemy import or_
+
+    conditions = [model.owner_id == user.id]
+    if team_ids:
+        conditions.append(model.team_id.in_(team_ids))
+    if len(conditions) == 1:
+        return conditions[0]
+    return or_(*conditions)

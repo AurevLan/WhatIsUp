@@ -1,13 +1,15 @@
 <template>
   <div class="app-shell">
+    <a href="#main-content" class="skip-to-content">Skip to content</a>
 
     <!-- Mobile overlay -->
-    <div v-if="sidebarOpen" class="sidebar-overlay lg:hidden" @click="sidebarOpen = false" />
+    <div v-if="sidebarOpen" class="sidebar-overlay lg:hidden" @click="sidebarOpen = false" aria-hidden="true" />
 
     <!-- Sidebar -->
     <nav
       class="sidebar"
       :class="{ 'sidebar--open': sidebarOpen }"
+      aria-label="Main navigation"
     >
       <!-- Logo -->
       <div class="sidebar__logo">
@@ -87,6 +89,12 @@
             {{ downCount > 0 ? t('dashboard.n_down', { n: downCount }) : t('dashboard.all_operational') }}
           </div>
 
+          <!-- Theme toggle -->
+          <button @click="toggleTheme" :title="isDark ? 'Light mode' : 'Dark mode'" class="topbar__theme-btn" aria-label="Toggle theme">
+            <Sun v-if="isDark" :size="15" />
+            <Moon v-else :size="15" />
+          </button>
+
           <!-- Language toggle -->
           <button @click="toggleLang" :title="t('settings.language')" class="topbar__lang-btn">
             <span>{{ currentLang === 'en' ? '🇫🇷' : '🇬🇧' }}</span>
@@ -96,7 +104,7 @@
       </header>
 
       <!-- Content -->
-      <main class="content" @click="sidebarOpen && (sidebarOpen = false)">
+      <main id="main-content" class="content" @click="sidebarOpen && (sidebarOpen = false)">
         <router-view v-slot="{ Component }">
           <Transition name="page" mode="out-in">
             <component :is="Component" />
@@ -118,8 +126,8 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
   Activity, Bell, CalendarClock, ClipboardList, Clock, Copy, GitMerge,
-  KeyRound, LayoutDashboard, Layers, LogOut, MapPin, Settings,
-  ShieldCheck, WifiOff,
+  KeyRound, LayoutDashboard, Layers, LogOut, MapPin, Moon, Settings,
+  ShieldCheck, Sun, WifiOff,
 } from 'lucide-vue-next'
 import { useAuthStore } from '../../stores/auth'
 import { useWebSocketStore } from '../../stores/websocket'
@@ -147,6 +155,28 @@ function onGlobalKeydown(e) {
 onMounted(() => window.addEventListener('keydown', onGlobalKeydown))
 onUnmounted(() => window.removeEventListener('keydown', onGlobalKeydown))
 const currentLang = ref(getLocale())
+
+// Theme management
+function getInitialTheme() {
+  const stored = localStorage.getItem('whatisup_theme')
+  if (stored === 'light' || stored === 'dark') return stored
+  return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+}
+
+const isDark = ref(getInitialTheme() !== 'light')
+
+function applyTheme(dark) {
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light')
+}
+
+function toggleTheme() {
+  isDark.value = !isDark.value
+  localStorage.setItem('whatisup_theme', isDark.value ? 'dark' : 'light')
+  applyTheme(isDark.value)
+}
+
+// Apply on mount
+applyTheme(isDark.value)
 
 const downCount = computed(() =>
   monitorStore.monitors.filter(m => ['down', 'error', 'timeout'].includes(m._lastStatus)).length
@@ -431,6 +461,29 @@ async function handleLogout() {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.topbar__theme-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: none;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  color: var(--text-3);
+  border-radius: 6px;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.topbar__theme-btn:hover {
+  border-color: var(--border-hover);
+  color: var(--text-2);
+  background: var(--bg-surface-2);
+}
+.topbar__theme-btn:focus-visible {
+  box-shadow: var(--focus-ring);
+  outline: none;
 }
 
 .topbar__lang-btn {

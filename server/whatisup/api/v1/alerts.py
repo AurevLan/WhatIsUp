@@ -7,7 +7,12 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from whatisup.api.deps import get_current_user
+from whatisup.api.deps import (
+    build_access_filter,
+    check_resource_access,
+    get_current_user,
+    get_user_team_ids,
+)
 from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
 from whatisup.core.security import encrypt_channel_config
@@ -42,7 +47,11 @@ async def list_channels(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[AlertChannel]:
-    result = await db.execute(select(AlertChannel).where(AlertChannel.owner_id == current_user.id))
+    query = select(AlertChannel)
+    if not current_user.is_superadmin:
+        team_ids = await get_user_team_ids(current_user, db)
+        query = query.where(build_access_filter(AlertChannel, current_user, team_ids))
+    result = await db.execute(query)
     return list(result.scalars().all())
 
 
@@ -54,6 +63,7 @@ async def create_channel(
 ) -> AlertChannel:
     channel = AlertChannel(
         owner_id=current_user.id,
+        team_id=payload.team_id,
         name=payload.name,
         type=payload.type,
         config=encrypt_channel_config(payload.config),
@@ -72,14 +82,11 @@ async def test_channel_endpoint(
     db: AsyncSession = Depends(get_db),
 ) -> AlertChannelTestOut:
     channel = (
-        await db.execute(
-            select(AlertChannel).where(
-                AlertChannel.id == channel_id, AlertChannel.owner_id == current_user.id
-            )
-        )
+        await db.execute(select(AlertChannel).where(AlertChannel.id == channel_id))
     ).scalar_one_or_none()
     if channel is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Channel not found")
+    await check_resource_access(channel, current_user, db)
     success, detail = await test_channel(channel)
     return AlertChannelTestOut(success=success, detail=detail)
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
 
 class UserCreate(BaseModel):
@@ -55,8 +55,27 @@ class UserOut(BaseModel):
     is_active: bool
     is_superadmin: bool
     can_create_monitors: bool
+    onboarding_completed: bool = False
 
     model_config = {"from_attributes": True}
+
+    @model_validator(mode="before")
+    @classmethod
+    def compute_onboarding(cls, data):
+        if hasattr(data, "onboarding_completed_at"):
+            # ORM model
+            obj = data
+            return {
+                "id": obj.id,
+                "email": obj.email,
+                "username": obj.username,
+                "full_name": obj.full_name,
+                "is_active": obj.is_active,
+                "is_superadmin": obj.is_superadmin,
+                "can_create_monitors": obj.can_create_monitors,
+                "onboarding_completed": obj.onboarding_completed_at is not None,
+            }
+        return data
 
 
 class AdminUserOut(UserOut):

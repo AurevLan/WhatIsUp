@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, String, Text
+from sqlalchemy import Boolean, DateTime, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from whatisup.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -13,6 +14,7 @@ if TYPE_CHECKING:
     from whatisup.models.alert import AlertChannel
     from whatisup.models.api_key import UserApiKey
     from whatisup.models.tag import UserTagPermission
+    from whatisup.models.team import TeamMembership
     from whatisup.models.web_push import WebPushSubscription
 
 
@@ -27,6 +29,10 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     is_superadmin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     can_create_monitors: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False, server_default="false"
+    )
+    # Onboarding — null means wizard not completed yet
+    onboarding_completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=None
     )
     # OIDC subject identifier — set when account is linked to an OIDC provider
     oidc_sub: Mapped[str | None] = mapped_column(
@@ -45,6 +51,9 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     push_subscriptions: Mapped[list[WebPushSubscription]] = relationship(
         "WebPushSubscription", back_populates="user", cascade="all, delete-orphan"
+    )
+    team_memberships: Mapped[list[TeamMembership]] = relationship(
+        "TeamMembership", back_populates="user", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:

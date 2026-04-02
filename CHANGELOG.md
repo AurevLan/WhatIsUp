@@ -11,6 +11,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.2] - 2026-04-02
+
+### Fixed
+- **Alembic migration chain** — auto-generated migration `283efc2c973a` (probe groups) erroneously dropped `maintenance_windows` and `audit_logs` tables, breaking `alembic upgrade head` on fresh databases since v1.0.0
+- **Incident model sync** — `first_failure_at`, `acked_at`, `acked_by_id` fields added to `Incident` model to match service code; `DigestWindow` model and migration committed
+- **Probe SSRF in tests** — SSRF DNS validation now bypassed in probe test suite (fake hostnames don't resolve in CI)
+- **Ruff lint** — 19 lint errors fixed across server and probe (unused imports, line length, import ordering)
+
+### Added
+- **Alembic migration `o1p2q3r4s5t6`** — adds `dns_nameservers` JSON column to `monitors`
+- **Alembic migration `p1q2r3s4t5u6`** — incident acknowledgment (`acked_at`, `acked_by_id`), atomic incident creation (partial unique index), SLA metric (`first_failure_at`), GIN index on `affected_probe_ids`, `digest_windows` table for persistent alert digests
+
+---
+
 ## [1.0.1] - 2026-04-02
 
 ### Security
@@ -815,7 +829,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docker Compose (dev + prod with Nginx + TLS)
 - Security: rate limiting, security headers, JWT validation, probe API key bcrypt hashing
 
-[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/AurevLan/WhatIsUp/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/AurevLan/WhatIsUp/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.12.1...v1.0.0
 [0.12.1]: https://github.com/AurevLan/WhatIsUp/compare/v0.12.0...v0.12.1

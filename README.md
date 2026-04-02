@@ -185,10 +185,10 @@ docker compose logs server | grep -E "admin|api_key|created"
 ### Production deploy
 
 ```bash
-bash scripts/deploy.sh
+bash deploy.sh
 ```
 
-The wizard generates secrets, configures Nginx + SSL (Let's Encrypt), and starts the production stack.
+The interactive wizard walks you through the full setup — see [`deploy.sh`](#deploying-with-deploysh) below for details.
 
 #### Manual production setup
 
@@ -403,7 +403,7 @@ curl https://your-whatisup.example.com/api/v1/monitors/ \
 ### Tests & linting
 
 ```bash
-# Backend (140 tests)
+# Backend (146 tests)
 cd server
 pip install -e ".[dev]"
 pytest
@@ -445,6 +445,37 @@ alembic upgrade head
 # Rollback one step
 alembic downgrade -1
 ```
+
+---
+
+## Deploying with `deploy.sh`
+
+The root `deploy.sh` script is an interactive wizard (in French) that handles the entire production setup. Run it with:
+
+```bash
+bash deploy.sh
+```
+
+### Deployment modes
+
+| Mode | Description |
+|------|-------------|
+| **1 — Serveur + sonde centrale** | Full platform with a local probe (recommended for single-server setups) |
+| **2 — Serveur seul** | Server only; add remote probes later |
+| **3 — Sonde distante** | Standalone probe agent that auto-enrolls to an existing server via API |
+
+### What the wizard does
+
+1. **Checks dependencies** — Docker, Docker Compose, `curl`, `openssl`
+2. **Generates secrets** — `SECRET_KEY` (hex), `FERNET_KEY` (Fernet), PostgreSQL and Redis passwords
+3. **Prompts for configuration** — domain name, SMTP settings, DNS servers (for probe modes), Let's Encrypt email
+4. **Generates `.env` files** — `.env` for the server stack, `.env.probe` for remote probe mode; file permissions set to `600`
+5. **Self-signed certificate** — generates a temporary TLS cert if Let's Encrypt is not configured
+6. **Probe auto-enrollment** (mode 3) — registers the probe via `POST /api/v1/probes/register` and writes the API key to `.env.probe`
+7. **Starts the stack** — builds and launches Docker Compose services
+8. **Displays credentials** — admin account and probe API key printed at the end (first boot only)
+
+> **Tip**: for Let's Encrypt, ensure port 80 is reachable from the internet and set your DNS A record before running the wizard.
 
 ---
 

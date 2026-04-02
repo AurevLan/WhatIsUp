@@ -45,14 +45,8 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('user_id', 'probe_group_id')
     )
-    op.drop_index(op.f('ix_maintenance_windows_group_id'), table_name='maintenance_windows')
-    op.drop_index(op.f('ix_maintenance_windows_monitor_id'), table_name='maintenance_windows')
-    op.drop_index(op.f('ix_maintenance_windows_owner_id'), table_name='maintenance_windows')
-    op.drop_table('maintenance_windows')
-    op.drop_index(op.f('ix_audit_logs_object'), table_name='audit_logs')
-    op.drop_index(op.f('ix_audit_logs_timestamp'), table_name='audit_logs')
-    op.drop_index(op.f('ix_audit_logs_user_id'), table_name='audit_logs')
-    op.drop_table('audit_logs')
+    # NOTE: auto-generated migration originally dropped maintenance_windows and
+    # audit_logs here.  Those tables are still in use — removed the drop statements.
     op.alter_column('alert_rules', 'schedule',
                existing_type=postgresql.JSONB(astext_type=sa.Text()),
                type_=sa.JSON(),
@@ -88,42 +82,7 @@ def downgrade() -> None:
                existing_type=sa.JSON(),
                type_=postgresql.JSONB(astext_type=sa.Text()),
                existing_nullable=True)
-    op.create_table('audit_logs',
-    sa.Column('id', sa.UUID(), autoincrement=False, nullable=False),
-    sa.Column('timestamp', postgresql.TIMESTAMP(timezone=True), autoincrement=False, nullable=False),
-    sa.Column('user_id', sa.UUID(), autoincrement=False, nullable=True),
-    sa.Column('user_email', sa.VARCHAR(length=255), autoincrement=False, nullable=True),
-    sa.Column('action', sa.VARCHAR(length=100), autoincrement=False, nullable=False),
-    sa.Column('object_type', sa.VARCHAR(length=100), autoincrement=False, nullable=False),
-    sa.Column('object_id', sa.UUID(), autoincrement=False, nullable=True),
-    sa.Column('object_name', sa.VARCHAR(length=255), autoincrement=False, nullable=True),
-    sa.Column('diff', postgresql.JSON(astext_type=sa.Text()), autoincrement=False, nullable=True),
-    sa.Column('ip_address', sa.VARCHAR(length=45), autoincrement=False, nullable=True),
-    sa.PrimaryKeyConstraint('id', name=op.f('audit_logs_pkey'))
-    )
-    op.create_index(op.f('ix_audit_logs_user_id'), 'audit_logs', ['user_id'], unique=False)
-    op.create_index(op.f('ix_audit_logs_timestamp'), 'audit_logs', ['timestamp'], unique=False)
-    op.create_index(op.f('ix_audit_logs_object'), 'audit_logs', ['object_type', 'object_id'], unique=False)
-    op.create_table('maintenance_windows',
-    sa.Column('id', sa.UUID(), autoincrement=False, nullable=False),
-    sa.Column('name', sa.VARCHAR(length=255), autoincrement=False, nullable=False),
-    sa.Column('description', sa.TEXT(), autoincrement=False, nullable=True),
-    sa.Column('owner_id', sa.UUID(), autoincrement=False, nullable=False),
-    sa.Column('monitor_id', sa.UUID(), autoincrement=False, nullable=True),
-    sa.Column('group_id', sa.UUID(), autoincrement=False, nullable=True),
-    sa.Column('starts_at', postgresql.TIMESTAMP(timezone=True), autoincrement=False, nullable=False),
-    sa.Column('ends_at', postgresql.TIMESTAMP(timezone=True), autoincrement=False, nullable=False),
-    sa.Column('suppress_alerts', sa.BOOLEAN(), server_default=sa.text('true'), autoincrement=False, nullable=False),
-    sa.Column('created_at', postgresql.TIMESTAMP(timezone=True), autoincrement=False, nullable=False),
-    sa.Column('updated_at', postgresql.TIMESTAMP(timezone=True), autoincrement=False, nullable=False),
-    sa.ForeignKeyConstraint(['group_id'], ['monitor_groups.id'], name=op.f('maintenance_windows_group_id_fkey'), ondelete='CASCADE'),
-    sa.ForeignKeyConstraint(['monitor_id'], ['monitors.id'], name=op.f('maintenance_windows_monitor_id_fkey'), ondelete='CASCADE'),
-    sa.ForeignKeyConstraint(['owner_id'], ['users.id'], name=op.f('maintenance_windows_owner_id_fkey'), ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id', name=op.f('maintenance_windows_pkey'))
-    )
-    op.create_index(op.f('ix_maintenance_windows_owner_id'), 'maintenance_windows', ['owner_id'], unique=False)
-    op.create_index(op.f('ix_maintenance_windows_monitor_id'), 'maintenance_windows', ['monitor_id'], unique=False)
-    op.create_index(op.f('ix_maintenance_windows_group_id'), 'maintenance_windows', ['group_id'], unique=False)
+    # NOTE: corresponding downgrade for removed drop statements — tables are kept.
     op.drop_table('user_probe_group_access')
     op.drop_table('probe_group_members')
     op.drop_index(op.f('ix_probe_groups_id'), table_name='probe_groups')

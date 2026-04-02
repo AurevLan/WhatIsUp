@@ -202,7 +202,7 @@ class ScenarioChecker(BaseChecker):
                             )
                             b64 = base64.b64encode(img_bytes).decode()
                             step_screenshot = (
-                                f"data:image/jpeg;base64,{b64}" if len(b64) < 200_000 else None
+                                f"data:image/jpeg;base64,{b64}" if len(b64) < 50_000 else None
                             )
 
                         elif step_type == "hover":
@@ -214,7 +214,7 @@ class ScenarioChecker(BaseChecker):
                             else:
                                 x = int(params.get("x", 0))
                                 y = int(params.get("y", 500))
-                                await page.evaluate(f"window.scrollTo({x}, {y})")
+                                await page.evaluate("([x, y]) => window.scrollTo(x, y)", [x, y])
 
                         elif step_type == "press":
                             key = params["key"]
@@ -245,6 +245,8 @@ class ScenarioChecker(BaseChecker):
                                 value = await el.get_attribute("value") or ""
                             else:
                                 value = await el.get_attribute(attribute) or ""
+                            # Limit extracted value size to prevent memory abuse
+                            value = value[:10_000]
                             if variable_name:
                                 found = False
                                 for var in variables:
@@ -374,7 +376,7 @@ class ScenarioChecker(BaseChecker):
                 async with async_playwright() as pw:
                     browser = await pw.chromium.launch(
                         headless=True,
-                        args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
+                        args=["--disable-dev-shm-usage", "--disable-gpu"],
                     )
                     context = await browser.new_context(viewport={"width": 1280, "height": 720})
                     page = await context.new_page()

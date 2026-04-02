@@ -1,5 +1,5 @@
 <template>
-  <div class="p-8">
+  <div class="page-body">
     <div class="flex items-center justify-between mb-8">
       <div>
         <h1 class="text-2xl font-bold text-white">{{ t('probes.title') }}</h1>
@@ -288,7 +288,7 @@ async function loadProbes() {
     probes.value = data
   } catch (err) {
     showError(t('common.error'))
-    console.error(err)
+    if (import.meta.env.DEV) console.error(err)
   } finally {
     loadingProbes.value = false
   }
@@ -306,7 +306,7 @@ async function toggleActive(probe, isActive) {
     refreshMap()
   } catch (err) {
     toastError(t('common.error'))
-    console.error(err)
+    if (import.meta.env.DEV) console.error(err)
   }
 }
 
@@ -324,7 +324,7 @@ async function removeProbe(probe) {
     refreshMap()
   } catch (err) {
     toastError(t('common.error'))
-    console.error(err)
+    if (import.meta.env.DEV) console.error(err)
   }
 }
 

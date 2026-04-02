@@ -93,7 +93,7 @@ async def login(
     user = (await db.execute(select(User).where(User.email == form.username))).scalar_one_or_none()
 
     if user is None or not user.is_active or not user.hashed_password:
-        logger.warning("login_failed", email=form.username[:50])
+        logger.warning("login_failed")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials",
@@ -124,7 +124,9 @@ async def login(
 
 
 @router.post("/refresh", response_model=TokenResponse)
+@limiter.limit("30/minute")
 async def refresh(
+    request: Request,
     payload: TokenRefreshRequest,
     db: AsyncSession = Depends(get_db),
 ) -> TokenResponse:
@@ -251,7 +253,7 @@ async def _oidc_discover(issuer: str) -> dict:
             if ip.is_private or ip.is_loopback or ip.is_link_local:
                 raise ValueError("OIDC issuer URL resolves to internal IP")
     except _sock.gaierror:
-        pass
+        raise ValueError("OIDC issuer URL DNS resolution failed")
 
     async with httpx.AsyncClient(timeout=10) as client:
         resp = await client.get(url)
@@ -287,7 +289,7 @@ async def oidc_login(
 
     # Persist in Redis (10-minute TTL)
     redis = get_redis()
-    await redis.setex(f"whatisup:oidc:state:{state}", 600, code_verifier)
+    await redis.setex(f"whatisup:oidc:state:{state}", 300, code_verifier)
 
     base = str(request.base_url).rstrip("/")
     redirect_uri = cfg["redirect_uri"] or f"{base}/api/v1/auth/oidc/callback"
@@ -445,7 +447,8 @@ async def oidc_callback(
     await log_action(db, "user.login_oidc", "user", user.id, user.username, None)
     await db.commit()
 
+    # Use URL fragment (#) to avoid token leakage in server logs and Referer headers
     return RedirectResponse(
-        url=f"{frontend_url}/oidc-callback?access_token={access}&refresh_token={refresh}",
+        url=f"{frontend_url}/oidc-callback#access_token={access}&refresh_token={refresh}",
         status_code=302,
     )

@@ -9,8 +9,19 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = computed(() => !!accessToken.value)
   const isSuperadmin = computed(() => user.value?.is_superadmin ?? false)
 
+  function _isTokenExpired(token) {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]))
+      return payload.exp && payload.exp * 1000 < Date.now()
+    } catch { return true }
+  }
+
   async function init() {
     if (accessToken.value) {
+      if (_isTokenExpired(accessToken.value)) {
+        logout()
+        return
+      }
       try {
         const { data } = await axios.get('/api/v1/auth/me', {
           headers: { Authorization: `Bearer ${accessToken.value}` },

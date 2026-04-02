@@ -90,12 +90,13 @@ async def send_push_to_user(
             else:
                 logger.warning("web_push_failed", user_id=str(user_id), error=str(exc))
 
-    # Remove stale subscriptions
-    for stale_id in stale_ids:
-        stale = await db.get(WebPushSubscription, stale_id)
-        if stale:
-            await db.delete(stale)
+    # Remove stale subscriptions (batch delete)
     if stale_ids:
+        from sqlalchemy import delete as sa_delete
+
+        await db.execute(
+            sa_delete(WebPushSubscription).where(WebPushSubscription.id.in_(stale_ids))
+        )
         await db.commit()
 
 

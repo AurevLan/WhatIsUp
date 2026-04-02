@@ -105,7 +105,12 @@ async function handleLogin() {
     await auth.login(email.value, password.value)
     ws.connect()
     const redirect = route.query.redirect
-    const safe = typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//')
+    let safe = false
+    if (typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//')) {
+      try {
+        safe = new URL(redirect, window.location.origin).origin === window.location.origin
+      } catch { safe = false }
+    }
     router.push(safe ? redirect : '/')
   } catch (err) {
     error.value = err.response?.data?.detail || t('auth.invalid_credentials')

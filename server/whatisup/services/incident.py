@@ -6,8 +6,11 @@ import asyncio
 import uuid
 from datetime import UTC, datetime, timedelta
 
+import sqlalchemy as sa
 import structlog
-from sqlalchemy import func, or_, select
+from sqlalchemy import cast, func, or_, select
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -133,24 +136,30 @@ async def _correlate_common_cause(
     window_start = datetime.now(UTC) - timedelta(seconds=90)
 
     # Find open incidents started recently with overlapping affected probes
-    open_incidents = (
-        (
-            await db.execute(
-                select(Incident).where(
-                    Incident.resolved_at.is_(None),
-                    Incident.started_at >= window_start,
-                    Incident.monitor_id != monitor_id,
-                )
-            )
-        )
-        .scalars()
-        .all()
+    # PostgreSQL: use JSONB ?| for efficient GIN-indexed overlap check
+    # Fallback: Python-side filtering for non-PostgreSQL (tests use SQLite)
+    base_query = select(Incident).where(
+        Incident.resolved_at.is_(None),
+        Incident.started_at >= window_start,
+        Incident.monitor_id != monitor_id,
     )
 
-    correlated_incidents = [
-        inc for inc in open_incidents
-        if set(inc.affected_probe_ids) & set(affected_probe_ids)
-    ]
+    dialect_name = db.bind.dialect.name if db.bind else ""
+    if dialect_name == "postgresql":
+        base_query = base_query.where(
+            cast(Incident.affected_probe_ids, JSONB).op("?|")(
+                cast(affected_probe_ids, ARRAY(sa.Text))
+            )
+        )
+        correlated_incidents = (await db.execute(base_query)).scalars().all()
+    else:
+        # Fallback for SQLite (tests)
+        open_incidents = (await db.execute(base_query)).scalars().all()
+        probe_set = set(affected_probe_ids)
+        correlated_incidents = [
+            inc for inc in open_incidents
+            if set(inc.affected_probe_ids) & probe_set
+        ]
 
     if not correlated_incidents:
         return
@@ -500,8 +509,8 @@ async def _fire_alerts(
         if event_type == "incident_renotify":
             if not rule.renotify_after_minutes:
                 continue
-            # Only applicable for down-type conditions
-            if rule.condition not in (AlertCondition.any_down, AlertCondition.all_down):
+            # Skip renotify if incident has been acknowledged
+            if incident.acked_at is not None:
                 continue
             # Check last sent alert event for this incident + rule channels
             channel_ids = [c.id for c in rule.channels]
@@ -673,9 +682,15 @@ async def _process_composite_result(
             started_at=now,
             scope=scope,
             affected_probe_ids=[],
+            first_failure_at=result.checked_at if result else now,
         )
         db.add(incident)
-        await db.flush()
+        try:
+            await db.flush()
+        except IntegrityError:
+            await db.rollback()
+            logger.info("composite_incident_deduplicated", monitor_id=str(monitor_id))
+            return
         logger.info("composite_incident_opened", monitor_id=str(monitor_id))
         await publish_event(
             {
@@ -923,9 +938,16 @@ async def process_check_result(
             scope=scope,
             affected_probe_ids=affected_probe_ids,
             dependency_suppressed=suppressed,
+            first_failure_at=result.checked_at if result else now,
         )
         db.add(incident)
-        await db.flush()
+        try:
+            await db.flush()
+        except IntegrityError:
+            # Race condition: another request already created an open incident
+            await db.rollback()
+            logger.info("incident_creation_deduplicated", monitor_id=str(monitor_id))
+            return
 
         logger.info(
             "incident_opened",
@@ -983,11 +1005,23 @@ async def process_check_result(
                             group_id=str(_group_id),
                         )
 
-                asyncio.create_task(_deferred_pattern_update())
+                def _log_task_exception(t):
+                    if t.cancelled():
+                        return
+                    exc = t.exception()
+                    if exc:
+                        logger.error("deferred_pattern_update_task_failed", error=str(exc))
 
-            # Only fire individual alert if NOT part of a group that already notified
-            if incident.group_id is None:
-                await _fire_alerts(db, incident, monitor, result, "incident_opened")
+                _task = asyncio.create_task(_deferred_pattern_update())
+                _task.add_done_callback(_log_task_exception)
+
+            # Fire alert for this incident — enriched with group context if correlated
+            extra_ctx = None
+            if incident.group_id is not None:
+                extra_ctx = {"correlated_group_id": str(incident.group_id)}
+            await _fire_alerts(
+                db, incident, monitor, result, "incident_opened", extra_ctx=extra_ctx
+            )
         else:
             logger.info(
                 "incident_alerts_suppressed_by_dependency",
@@ -1022,10 +1056,12 @@ async def process_check_result(
             await _fire_alerts(db, open_incident, monitor, result, "incident_renotify")
 
     elif scope is None and open_incident is not None:
-        # Resolve incident
+        # Resolve incident — clear ack on state change
         duration = int((now - open_incident.started_at).total_seconds())
         open_incident.resolved_at = now
         open_incident.duration_seconds = duration
+        open_incident.acked_at = None
+        open_incident.acked_by_id = None
         await db.flush()
 
         logger.info(

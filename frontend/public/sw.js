@@ -18,7 +18,13 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
-  const url = event.notification.data?.url || '/'
+  const rawUrl = event.notification.data?.url || '/'
+  // Validate same-origin before navigation
+  let url
+  try {
+    const parsed = new URL(rawUrl, self.location.origin)
+    url = parsed.origin === self.location.origin ? parsed.href : '/'
+  } catch { url = '/' }
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
       for (const client of windowClients) {

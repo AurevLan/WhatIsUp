@@ -59,7 +59,8 @@ class ConnectionManager:
         for ws in connections:
             try:
                 await ws.send_text(message)
-            except Exception:
+            except Exception as exc:
+                logger.debug("ws_send_failed", error=str(exc))
                 dead.append(ws)
         for ws in dead:
             await self.disconnect(ws)
@@ -70,20 +71,30 @@ manager = ConnectionManager()
 
 async def _redis_subscriber() -> None:
     """Background task: subscribe to Redis and broadcast to all WS clients."""
-    redis = get_redis()
-    pubsub = redis.pubsub()
-    await pubsub.subscribe(REDIS_CHANNEL)
-    logger.info("ws_redis_subscriber_started", channel=REDIS_CHANNEL)
-    try:
-        async for message in pubsub.listen():
-            if message["type"] == "message":
-                try:
-                    event = json.loads(message["data"])
-                    await manager.broadcast(event)
-                except Exception as exc:
-                    logger.error("ws_broadcast_error", error=str(exc))
-    finally:
-        await pubsub.unsubscribe(REDIS_CHANNEL)
+    while True:
+        try:
+            redis = get_redis()
+            pubsub = redis.pubsub()
+            await pubsub.subscribe(REDIS_CHANNEL)
+            logger.info("ws_redis_subscriber_started", channel=REDIS_CHANNEL)
+            try:
+                async for message in pubsub.listen():
+                    if message["type"] == "message":
+                        try:
+                            event = json.loads(message["data"])
+                            await manager.broadcast(event)
+                        except Exception as exc:
+                            logger.error("ws_broadcast_error", error=str(exc))
+            finally:
+                await pubsub.unsubscribe(REDIS_CHANNEL)
+        except Exception as exc:
+            logger.error("ws_redis_subscriber_crashed", error=str(exc))
+            # Exponential backoff: 2, 4, 8, 16, max 60s
+            if not hasattr(_redis_subscriber, "_backoff"):
+                _redis_subscriber._backoff = 2
+            await asyncio.sleep(_redis_subscriber._backoff)
+            _redis_subscriber._backoff = min(_redis_subscriber._backoff * 2, 60)
+            continue
 
 
 @router.websocket("/ws/dashboard")
@@ -119,6 +130,10 @@ async def websocket_dashboard(websocket: WebSocket) -> None:
             # Keep-alive: receive pings, ignore content
             await websocket.receive_text()
     except WebSocketDisconnect:
+        pass
+    except Exception as exc:
+        logger.warning("ws_dashboard_error", error=str(exc))
+    finally:
         await manager.disconnect(websocket)
 
 
@@ -152,4 +167,8 @@ async def websocket_public(
         while True:
             await websocket.receive_text()
     except WebSocketDisconnect:
+        pass
+    except Exception as exc:
+        logger.warning("ws_public_error", error=str(exc))
+    finally:
         await manager.disconnect(websocket)

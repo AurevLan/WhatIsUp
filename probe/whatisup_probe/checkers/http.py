@@ -11,6 +11,9 @@ from typing import Any
 from urllib.parse import urlparse
 
 import httpx
+import structlog
+
+logger = structlog.get_logger(__name__)
 
 from ._shared import (
     _cached_getaddrinfo,
@@ -22,10 +25,14 @@ from ._shared import (
 from .base import BaseChecker, CheckResult
 
 
+_MAX_JSON_PATH_DEPTH = 20
+
+
 def _resolve_json_path(data: Any, path: str) -> Any:
     """Simple dot-notation JSON path resolver.
 
     Supports: $.key, $.key.subkey, $.key[0].subkey
+    Max depth enforced to prevent abuse. Dunder access blocked.
     """
     try:
         if path.startswith("$."):
@@ -34,10 +41,14 @@ def _resolve_json_path(data: Any, path: str) -> Any:
             path = path[1:]
 
         parts = path.split(".")
+        if len(parts) > _MAX_JSON_PATH_DEPTH:
+            return None
         current = data
         for part in parts:
             if not part:
                 continue
+            if "__" in part:
+                return None  # Block dunder access
             if "[" in part:
                 key, idx_str = part.split("[", 1)
                 idx = int(idx_str.rstrip("]"))
@@ -100,8 +111,10 @@ class HTTPChecker(BaseChecker):
                     timeout=5.0,
                 )
                 dns_resolve_ms = int((time.perf_counter() - t_dns) * 1000)
-        except Exception:
-            pass
+        except TimeoutError:
+            logger.warning("dns_resolve_timeout", hostname=hostname)
+        except Exception as exc:
+            logger.debug("dns_resolve_error", hostname=hostname, error=str(exc))
 
         ttfb_ms: int | None = None
         download_ms: int | None = None
@@ -191,33 +204,55 @@ class HTTPChecker(BaseChecker):
                     status = "down"
                     error_message = f"JSON path check failed: {exc}"
 
-            # Regex body check
+            # Regex body check (with ReDoS protection via timeout)
             if body_regex and status == "up":
                 try:
                     if len(response.text or "") > 5_000_000:
                         status = "down"
                         error_message = "Response too large for regex validation"
-                    elif not re.search(body_regex, response.text or ""):
-                        status = "down"
-                        error_message = f"body_regex not matched: {body_regex!r}"
+                    else:
+                        compiled = re.compile(body_regex, re.DOTALL)
+                        match = await asyncio.wait_for(
+                            asyncio.get_running_loop().run_in_executor(
+                                None, compiled.search, response.text or "",
+                            ),
+                            timeout=5.0,
+                        )
+                        if not match:
+                            status = "down"
+                            error_message = f"body_regex not matched: {body_regex!r}"
+                except TimeoutError:
+                    status = "down"
+                    error_message = f"body_regex timed out (possible ReDoS): {body_regex!r}"
                 except re.error as exc:
                     status = "down"
                     error_message = f"body_regex_invalid: {exc}"
 
-            # Header assertions
+            # Header assertions (with ReDoS protection via timeout)
             if expected_headers and status == "up":
                 for header_name, expected_value in expected_headers.items():
                     actual = response.headers.get(header_name.lower(), "")
                     if expected_value.startswith("/") and expected_value.endswith("/"):
                         pattern = expected_value[1:-1]
                         try:
-                            if not re.search(pattern, actual):
+                            compiled = re.compile(pattern)
+                            match = await asyncio.wait_for(
+                                asyncio.get_running_loop().run_in_executor(
+                                    None, compiled.search, actual,
+                                ),
+                                timeout=5.0,
+                            )
+                            if not match:
                                 status = "down"
                                 error_message = (
                                     f"header_{header_name}_mismatch: expected pattern"
                                     f" {pattern!r}, got {actual!r}"
                                 )
                                 break
+                        except TimeoutError:
+                            status = "down"
+                            error_message = f"header_{header_name}_regex timed out (possible ReDoS)"
+                            break
                         except re.error as exc:
                             status = "down"
                             error_message = f"header_{header_name}_regex_invalid: {exc}"

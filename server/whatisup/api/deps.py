@@ -31,8 +31,9 @@ async def _auth_via_user_api_key(raw_key: str, db: AsyncSession) -> User:
     from whatisup.core.redis import get_redis
 
     redis = get_redis()
+    # SHA-256 used as cache index only (not for password hashing — bcrypt handles that)
     cache_key = (
-        f"whatisup:user_api:{hashlib.sha256(raw_key.encode()).hexdigest()[:32]}"
+        f"whatisup:user_api:{hashlib.sha256(raw_key.encode()).hexdigest()[:32]}"  # noqa: S324
     )
 
     cached_id = await redis.get(cache_key)
@@ -82,7 +83,7 @@ async def _auth_via_user_api_key(raw_key: str, db: AsyncSession) -> User:
 
     # Update last_used_at and populate cache
     api_key_row.last_used_at = now
-    await redis.setex(cache_key, 300, str(user.id))
+    await redis.setex(cache_key, 60, str(user.id))
     logger.info("user_api_key_auth_ok", user_id=str(user.id), key_name=api_key_row.name)
     return user
 
@@ -161,7 +162,8 @@ async def get_current_probe(
     from whatisup.core.redis import get_redis
 
     redis = get_redis()
-    cache_key = f"whatisup:probe_auth:{hashlib.sha256(x_probe_api_key.encode()).hexdigest()[:32]}"
+    # SHA-256 used as cache index only (not for password hashing — bcrypt handles that)
+    cache_key = f"whatisup:probe_auth:{hashlib.sha256(x_probe_api_key.encode()).hexdigest()[:32]}"  # noqa: S324
     cached_id = await redis.get(cache_key)
     if cached_id:
         probe = (
@@ -177,8 +179,8 @@ async def get_current_probe(
 
     for probe in probes:
         if verify_api_key(x_probe_api_key, probe.api_key_hash):
-            # Cache the result for 5 minutes
-            await redis.setex(cache_key, 300, str(probe.id))
+            # Cache the result (TTL 60s)
+            await redis.setex(cache_key, 60, str(probe.id))
             return probe
 
     logger.warning("probe_auth_failed", key_prefix=x_probe_api_key[:10])

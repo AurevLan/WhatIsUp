@@ -54,7 +54,7 @@ def _validate_url_ssrf_fast(url: str) -> str | None:
     if parsed.scheme not in ("http", "https"):
         return f"Blocked scheme: {parsed.scheme!r}"
     hostname = parsed.hostname or ""
-    if hostname.lower() in {"localhost", "127.0.0.1", "::1", "0.0.0.0", "metadata.google.internal"}:
+    if hostname.lower() in {"localhost", "127.0.0.1", "::1", "0.0.0.0", "169.254.169.254", "metadata.google.internal"}:
         return f"Blocked host: {hostname!r}"
     return None
 
@@ -66,7 +66,7 @@ def _ssrf_dns_check_sync(hostname: str) -> str | None:
             if _is_internal_ip(ai[4][0]):
                 return f"Host resolves to internal IP: {ai[4][0]!r}"
     except socket.gaierror:
-        pass
+        return f"DNS resolution failed for {hostname!r}"
     return None
 
 
@@ -84,8 +84,10 @@ async def validate_url_ssrf(url: str) -> str | None:
             loop.run_in_executor(None, _ssrf_dns_check_sync, hostname),
             timeout=3.0,
         )
-    except Exception:
-        return None  # DNS timeout → don't block the check
+    except TimeoutError:
+        return f"DNS resolution timed out for {hostname!r}"
+    except Exception as exc:
+        return f"DNS resolution error for {hostname!r}: {type(exc).__name__}"
 
 
 # ── SSL info extraction ──────────────────────────────────────────────────────
@@ -99,6 +101,7 @@ def _extract_ssl_info_sync(url: str) -> tuple[bool, datetime | None, int | None]
         port = parsed.port or 443
 
         ctx = ssl.create_default_context()
+        ctx.minimum_version = ssl.TLSVersion.TLSv1_2
         with ctx.wrap_socket(
             socket.create_connection((hostname, port), timeout=5),
             server_hostname=hostname,
@@ -189,7 +192,15 @@ class PlaywrightPool:
             self._pw = await async_playwright().start()
             self._browser = await self._pw.chromium.launch(
                 headless=True,
-                args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
+                # --no-sandbox required in Docker (container provides isolation)
+                # --disable-web-security disabled to prevent CORS bypass in scenarios
+                args=[
+                    "--disable-dev-shm-usage",
+                    "--disable-gpu",
+                    "--disable-extensions",
+                    "--disable-background-networking",
+                    "--disable-default-apps",
+                ],
             )
             logger.info("playwright_pool_started")
         except ImportError:
@@ -208,7 +219,13 @@ class PlaywrightPool:
                     self._pw = await async_playwright().start()
                 self._browser = await self._pw.chromium.launch(
                     headless=True,
-                    args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
+                args=[
+                    "--disable-dev-shm-usage",
+                    "--disable-gpu",
+                    "--disable-extensions",
+                    "--disable-background-networking",
+                    "--disable-default-apps",
+                ],
                 )
                 logger.info("playwright_browser_relaunched")
             except Exception as exc:

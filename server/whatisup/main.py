@@ -73,6 +73,31 @@ async def lifespan(app: FastAPI):
 
     heartbeat_task = asyncio.create_task(_heartbeat_checker())
 
+    # Autonomous renotify checker (every 60s)
+    async def _renotify_checker():
+        from whatisup.services.renotify import check_renotify
+
+        while True:
+            try:
+                await check_renotify()
+            except Exception as exc:
+                logger.error(
+                    "renotify_checker_error",
+                    error_type=type(exc).__name__,
+                    error=str(exc),
+                )
+            await asyncio.sleep(60)
+
+    renotify_task = asyncio.create_task(_renotify_checker())
+
+    # Recover any digest windows lost during Redis downtime
+    try:
+        from whatisup.services.alert import recover_digest_windows
+
+        await recover_digest_windows()
+    except Exception as exc:
+        logger.error("digest_recovery_error", error=str(exc))
+
     # Digest flusher (every 30s) — survives restarts via Redis sorted set
     async def _digest_flusher():
         from whatisup.services.alert import flush_pending_digests
@@ -119,6 +144,12 @@ async def lifespan(app: FastAPI):
     except asyncio.CancelledError:
         pass
 
+    renotify_task.cancel()
+    try:
+        await renotify_task
+    except asyncio.CancelledError:
+        pass
+
     digest_flusher_task.cancel()
     try:
         await digest_flusher_task
@@ -152,7 +183,8 @@ def create_app() -> FastAPI:
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
     # Trust proxy headers from nginx (fixes https:// in redirects behind reverse proxy)
-    app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
+    trusted = settings.cors_allowed_origins if settings.is_production else "*"
+    app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=trusted)
 
     # Request size limit (5 MB)
     app.add_middleware(MaxRequestSizeMiddleware)
@@ -238,15 +270,15 @@ def create_app() -> FastAPI:
         try:
             await db.execute(text("SELECT 1"))
             db_ok = True
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("health_db_error", error=str(exc))
 
         try:
             r = get_redis()
             await r.ping()
             redis_ok = True
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("health_redis_error", error=str(exc))
 
         overall = "ok" if db_ok and redis_ok else "degraded"
         return {

@@ -29,6 +29,34 @@ class DNSChecker(BaseChecker):
         try:
             resolver = dns.resolver.Resolver()
             resolver.lifetime = timeout_seconds
+            # Disable dnspython internal cache to always get fresh results
+            resolver.cache = dns.resolver.LRUCache(0)
+            # Use custom nameservers if configured, bypassing system cache
+            nameservers = config.get("dns_nameservers")
+            if nameservers:
+                import ipaddress as _ipa
+
+                ns_list = nameservers if isinstance(nameservers, list) else [nameservers]
+                validated = []
+                for ns in ns_list:
+                    try:
+                        ip = _ipa.ip_address(ns)
+                        if ip.is_private or ip.is_loopback or ip.is_link_local:
+                            return CheckResult(
+                                monitor_id=monitor_id,
+                                checked_at=checked_at,
+                                status="error",
+                                error_message=f"Blocked private/internal nameserver: {ns}",
+                            )
+                        validated.append(ns)
+                    except ValueError:
+                        return CheckResult(
+                            monitor_id=monitor_id,
+                            checked_at=checked_at,
+                            status="error",
+                            error_message=f"Invalid nameserver IP: {ns}",
+                        )
+                resolver.nameservers = validated
 
             loop = asyncio.get_running_loop()
             answers = await asyncio.wait_for(

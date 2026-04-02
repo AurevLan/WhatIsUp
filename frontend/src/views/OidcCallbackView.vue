@@ -30,8 +30,9 @@ const error = ref(false)
 const errorMessage = ref('')
 
 onMounted(async () => {
-  const params = new URLSearchParams(window.location.search)
-  const errorParam = params.get('error')
+  // Check query params for error (server may redirect with ?error=...)
+  const queryParams = new URLSearchParams(window.location.search)
+  const errorParam = queryParams.get('error')
 
   if (errorParam) {
     error.value = true
@@ -39,6 +40,9 @@ onMounted(async () => {
     return
   }
 
+  // Tokens are passed via URL fragment (#) to avoid leakage in server logs/Referer
+  const fragment = window.location.hash.substring(1)
+  const params = new URLSearchParams(fragment)
   const accessToken  = params.get('access_token')
   const refreshToken = params.get('refresh_token')
 
@@ -48,10 +52,11 @@ onMounted(async () => {
     return
   }
 
-  // Store tokens
+  // Store tokens and clear fragment from URL to prevent leakage via browser history
   localStorage.setItem('access_token', accessToken)
   localStorage.setItem('refresh_token', refreshToken)
   auth.accessToken = accessToken
+  window.history.replaceState({}, '', window.location.pathname)
 
   // Fetch user profile
   try {

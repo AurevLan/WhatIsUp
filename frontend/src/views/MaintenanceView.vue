@@ -1,5 +1,5 @@
 <template>
-  <div class="p-8">
+  <div class="page-body">
     <div class="flex items-center justify-between mb-8">
       <div>
         <h1 class="text-2xl font-bold text-white">{{ t('maintenance.title') }}</h1>
@@ -13,28 +13,51 @@
       {{ errorMsg }}
     </div>
 
+    <!-- Loading skeleton -->
+    <div v-if="loading" class="space-y-3">
+      <div v-for="i in 3" :key="i" class="card">
+        <div class="flex items-start justify-between">
+          <div class="flex-1 space-y-2">
+            <div class="skeleton-line w-1/3" />
+            <div class="skeleton-line w-2/3" style="height:.5rem" />
+            <div class="skeleton-line w-1/2" style="height:.5rem" />
+          </div>
+          <div class="skeleton-line w-16" style="height:1.5rem;border-radius:99px" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty state -->
+    <div v-else-if="windows.length === 0" class="empty-state">
+      <div class="empty-state__icon"><CalendarClock :size="22" /></div>
+      <p class="empty-state__title">{{ t('maintenance.no_windows') }}</p>
+      <p class="empty-state__text">{{ t('maintenance.empty_desc') }}</p>
+      <button @click="showCreate = true" class="btn-primary mt-2">+ {{ t('maintenance.add') }}</button>
+    </div>
+
     <!-- List -->
-    <div class="space-y-3">
-      <div v-for="w in windows" :key="w.id" class="card">
+    <div v-else class="space-y-3">
+      <div v-for="(w, idx) in windows" :key="w.id"
+        class="card stagger-item"
+        :style="{ animationDelay: idx * 40 + 'ms' }">
         <div class="flex items-start justify-between">
           <div>
             <div class="flex items-center gap-2">
               <span class="w-2 h-2 rounded-full" :class="isActive(w) ? 'bg-amber-400' : 'bg-gray-600'"></span>
-              <h3 class="font-semibold text-white">{{ w.name }}</h3>
+              <h3 class="font-semibold" style="color:var(--text-1)">{{ w.name }}</h3>
               <span v-if="isActive(w)" class="text-xs px-2 py-0.5 rounded-full bg-amber-900/50 text-amber-400">{{ t('maintenance.active') }}</span>
             </div>
-            <p v-if="w.description" class="text-sm text-gray-400 mt-1">{{ w.description }}</p>
-            <div class="mt-2 text-xs text-gray-500 space-y-0.5">
+            <p v-if="w.description" class="text-sm mt-1" style="color:var(--text-3)">{{ w.description }}</p>
+            <div class="mt-2 text-xs space-y-0.5" style="color:var(--text-3)">
               <div>{{ t('maintenance.starts') }}: {{ formatDt(w.starts_at) }}</div>
               <div>{{ t('maintenance.ends') }}: {{ formatDt(w.ends_at) }}</div>
               <div>{{ t('maintenance.alerts_suppressed') }}: {{ w.suppress_alerts ? t('common.yes') : t('common.no') }}</div>
             </div>
           </div>
-          <button @click="deleteWindow(w)" class="text-xs text-red-400 hover:text-red-300">{{ t('common.delete') }}</button>
+          <button @click="deleteWindow(w)" class="btn-ghost px-2 py-1 text-xs" style="color:var(--down)">
+            <Trash2 :size="14" />
+          </button>
         </div>
-      </div>
-      <div v-if="windows.length === 0" class="text-center text-gray-500 py-16">
-        {{ t('maintenance.no_windows') }}
       </div>
     </div>
 
@@ -80,6 +103,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { CalendarClock, Trash2 } from 'lucide-vue-next'
 import api from '../api/client'
 import { useToast } from '../composables/useToast'
 import { useConfirm } from '../composables/useConfirm'
@@ -89,6 +113,7 @@ const { success, error: toastError } = useToast()
 const { confirm } = useConfirm()
 
 const windows = ref([])
+const loading = ref(true)
 const showCreate = ref(false)
 const errorMsg = ref(null)
 
@@ -122,7 +147,9 @@ async function loadWindows() {
     windows.value = data
   } catch (err) {
     showError(t('common.error'))
-    console.error(err)
+    if (import.meta.env.DEV) console.error(err)
+  } finally {
+    loading.value = false
   }
 }
 
@@ -143,7 +170,7 @@ async function createWindow() {
     success(t('common.success'))
   } catch (err) {
     toastError(t('common.error'))
-    console.error(err)
+    if (import.meta.env.DEV) console.error(err)
   }
 }
 
@@ -160,7 +187,7 @@ async function deleteWindow(w) {
     success(t('common.success'))
   } catch (err) {
     toastError(t('common.error'))
-    console.error(err)
+    if (import.meta.env.DEV) console.error(err)
   }
 }
 

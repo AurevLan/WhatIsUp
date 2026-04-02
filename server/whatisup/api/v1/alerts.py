@@ -19,6 +19,7 @@ from whatisup.core.security import encrypt_channel_config
 from whatisup.models.alert import AlertChannel, AlertEvent, AlertRule
 from whatisup.models.incident import Incident
 from whatisup.models.monitor import Monitor, MonitorGroup
+from whatisup.models.team import TeamRole
 from whatisup.models.user import User
 from whatisup.schemas.alert import (
     AlertChannelCreate,
@@ -197,12 +198,20 @@ async def list_rules(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[AlertRule]:
-    result = await db.execute(
-        select(AlertRule)
-        .where(AlertRule.channels.any(AlertChannel.owner_id == current_user.id))
-        .options(selectinload(AlertRule.channels))
-    )
-    return list(result.scalars().all())
+    query = select(AlertRule).options(selectinload(AlertRule.channels))
+    if not current_user.is_superadmin:
+        team_ids = await get_user_team_ids(current_user, db)
+        # Rules visible if user owns the target monitor/group or is in the team
+        query = query.outerjoin(Monitor, AlertRule.monitor_id == Monitor.id).outerjoin(
+            MonitorGroup, AlertRule.group_id == MonitorGroup.id
+        ).where(
+            or_(
+                build_access_filter(Monitor, current_user, team_ids),
+                build_access_filter(MonitorGroup, current_user, team_ids),
+            )
+        )
+    result = await db.execute(query)
+    return list(result.unique().scalars().all())
 
 
 @router.post("/rules", response_model=AlertRuleOut, status_code=status.HTTP_201_CREATED)
@@ -220,33 +229,28 @@ async def create_rule(
     if payload.monitor_id is not None:
         monitor = (
             await db.execute(
-                select(Monitor).where(
-                    Monitor.id == payload.monitor_id,
-                    Monitor.owner_id == current_user.id,
-                )
+                select(Monitor).where(Monitor.id == payload.monitor_id)
             )
         ).scalar_one_or_none()
         if monitor is None:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Monitor not found")
+        await check_resource_access(monitor, current_user, db, min_role=TeamRole.editor)
 
     if payload.group_id is not None:
         group = (
             await db.execute(
-                select(MonitorGroup).where(
-                    MonitorGroup.id == payload.group_id,
-                    MonitorGroup.owner_id == current_user.id,
-                )
+                select(MonitorGroup).where(MonitorGroup.id == payload.group_id)
             )
         ).scalar_one_or_none()
         if group is None:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+        await check_resource_access(group, current_user, db, min_role=TeamRole.editor)
 
-    channels_result = await db.execute(
-        select(AlertChannel).where(
-            AlertChannel.id.in_(payload.channel_ids),
-            AlertChannel.owner_id == current_user.id,
-        )
-    )
+    ch_query = select(AlertChannel).where(AlertChannel.id.in_(payload.channel_ids))
+    if not current_user.is_superadmin:
+        ch_team_ids = await get_user_team_ids(current_user, db)
+        ch_query = ch_query.where(build_access_filter(AlertChannel, current_user, ch_team_ids))
+    channels_result = await db.execute(ch_query)
     channels = list(channels_result.scalars().all())
     if len(channels) != len(payload.channel_ids):
         raise HTTPException(

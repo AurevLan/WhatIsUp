@@ -1,5 +1,5 @@
 <template>
-  <div class="p-8">
+  <div class="page-body">
     <div class="mb-8">
       <h1 class="text-2xl font-bold text-white">{{ t('audit.title') }}</h1>
       <p class="text-gray-400 mt-1">{{ t('audit.subtitle') }}</p>
@@ -22,9 +22,14 @@
 
     <!-- Table -->
     <div class="card overflow-hidden p-0">
-      <table class="w-full text-sm">
-        <thead class="border-b border-gray-800">
-          <tr class="text-left text-gray-500">
+      <!-- Skeleton loader -->
+      <div v-if="loading" class="p-4 space-y-3">
+        <div v-for="i in 8" :key="i" class="skeleton h-10" style="border-radius:var(--radius-sm)" />
+      </div>
+
+      <table v-else class="w-full text-sm">
+        <thead class="border-b" style="border-color:var(--border)">
+          <tr class="text-left" style="color:var(--text-3)">
             <th class="px-4 py-3">{{ t('audit.col_timestamp') }}</th>
             <th class="px-4 py-3">{{ t('audit.col_action') }}</th>
             <th class="px-4 py-3">{{ t('audit.col_object') }}</th>
@@ -85,6 +90,7 @@ import api from '../api/client'
 const { t } = useI18n()
 
 const logs = ref([])
+const loading = ref(true)
 const selected = ref(null)
 const errorMsg = ref(null)
 const filterType = ref('')
@@ -108,6 +114,7 @@ function showError(msg) {
 
 async function load() {
   offset.value = 0
+  loading.value = true
   try {
     const params = { limit: limit.value, offset: 0 }
     if (filterType.value) params.object_type = filterType.value
@@ -115,7 +122,9 @@ async function load() {
     logs.value = data
   } catch (err) {
     showError(t('common.error'))
-    console.error(err)
+    if (import.meta.env.DEV) console.error(err)
+  } finally {
+    loading.value = false
   }
 }
 

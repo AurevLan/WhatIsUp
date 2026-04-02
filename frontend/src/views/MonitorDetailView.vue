@@ -1,11 +1,11 @@
 <template>
-  <div class="p-8" v-if="monitor">
+  <div class="page-body" v-if="monitor">
     <!-- Header -->
     <div class="flex items-center gap-4 mb-8">
-      <nav class="breadcrumb">
-        <router-link to="/monitors" class="breadcrumb__link">{{ t('monitors.title') }}</router-link>
-        <span class="breadcrumb__sep">/</span>
-        <span class="breadcrumb__current">{{ monitor.name }}</span>
+      <nav class="breadcrumbs">
+        <router-link to="/monitors">{{ t('monitors.title') }}</router-link>
+        <span class="breadcrumbs__sep">/</span>
+        <span class="breadcrumbs__current">{{ monitor.name }}</span>
       </nav>
       <div class="flex-1">
         <div class="flex items-center gap-3">
@@ -354,36 +354,31 @@
           {{ uptime7d?.uptime_percent?.toFixed(3) ?? '—' }}%
         </p>
       </div>
-      <div class="card text-center">
-        <!-- DNS: changements ; autres: temps de réponse -->
-        <template v-if="monitor.check_type === 'dns'">
-          <p class="text-xs text-gray-500">Changes detected</p>
-          <p class="text-2xl font-bold mt-1" :class="dnsChangelog.length > 0 ? 'text-amber-400' : 'text-emerald-400'">
-            {{ dnsChangelog.length }}
-          </p>
-        </template>
-        <template v-else>
-          <p class="text-xs text-gray-500">{{ monitor.check_type === 'tcp' ? 'Avg. latency' : 'Avg. response' }}</p>
-          <p class="text-2xl font-bold mt-1 text-gray-300">
-            {{ uptime24?.avg_response_time_ms ? Math.round(uptime24.avg_response_time_ms) + 'ms' : '—' }}
-          </p>
-        </template>
+      <div v-if="isDns" class="card text-center">
+        <p class="text-xs text-gray-500">Changes detected</p>
+        <p class="text-2xl font-bold mt-1" :class="dnsChangelog.length > 0 ? 'text-amber-400' : 'text-emerald-400'">
+          {{ dnsChangelog.length }}
+        </p>
       </div>
-      <div class="card text-center">
-        <template v-if="monitor.check_type === 'dns'">
-          <p class="text-xs text-gray-500">Last change</p>
-          <p class="text-sm font-bold mt-1 text-gray-300">
-            {{ dnsChangelog[0] ? formatDateShort(dnsChangelog[0].checked_at) : '—' }}
-          </p>
-        </template>
-        <template v-else>
-          <p class="text-xs text-gray-500">p95 response</p>
-          <p class="text-2xl font-bold mt-1 text-gray-300">
-            {{ uptime24?.p95_response_time_ms ? Math.round(uptime24.p95_response_time_ms) + 'ms' : '—' }}
-          </p>
-        </template>
+      <div v-else-if="hasResponseTime" class="card text-center">
+        <p class="text-xs text-gray-500">{{ isNetwork ? 'Avg. latency' : 'Avg. response' }}</p>
+        <p class="text-2xl font-bold mt-1 text-gray-300">
+          {{ uptime24?.avg_response_time_ms ? Math.round(uptime24.avg_response_time_ms) + 'ms' : '—' }}
+        </p>
       </div>
-      <div v-if="responseTrend" class="card text-center">
+      <div v-if="isDns" class="card text-center">
+        <p class="text-xs text-gray-500">Last change</p>
+        <p class="text-sm font-bold mt-1 text-gray-300">
+          {{ dnsChangelog[0] ? formatDateShort(dnsChangelog[0].checked_at) : '—' }}
+        </p>
+      </div>
+      <div v-else-if="hasResponseTime" class="card text-center">
+        <p class="text-xs text-gray-500">p95 response</p>
+        <p class="text-2xl font-bold mt-1 text-gray-300">
+          {{ uptime24?.p95_response_time_ms ? Math.round(uptime24.p95_response_time_ms) + 'ms' : '—' }}
+        </p>
+      </div>
+      <div v-if="responseTrend && hasResponseTime" class="card text-center">
         <p class="text-xs text-gray-500">{{ t('monitor_detail.response_time_trend') }}</p>
         <p class="text-2xl font-bold mt-1" :class="responseTrend.up ? 'text-red-400' : 'text-emerald-400'">
           {{ responseTrend.up ? '↑' : '↓' }} {{ responseTrend.pct }}%
@@ -393,7 +388,7 @@
     </div>
 
     <!-- DNS: current resolved value banner -->
-    <div v-if="monitor.check_type === 'dns'" class="card mb-6 flex flex-wrap items-center gap-4">
+    <div v-if="isDns" class="card mb-6 flex flex-wrap items-center gap-4">
       <div class="flex items-center gap-2 shrink-0">
         <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">{{ monitor.dns_record_type || 'A' }}</span>
         <span class="text-xs text-gray-600">·</span>
@@ -425,7 +420,7 @@
     </div>
 
     <!-- DNS: value changelog -->
-    <div v-if="monitor.check_type === 'dns'" class="card mb-6">
+    <div v-if="isDns" class="card mb-6">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-sm font-semibold text-gray-300">Value change history</h2>
         <span class="text-xs text-gray-500 font-mono bg-gray-800 px-2 py-1 rounded">
@@ -467,7 +462,7 @@
     </div>
 
     <!-- DNS drift card (always visible for DNS monitors) -->
-    <div v-if="monitor.check_type === 'dns'" class="card mb-6">
+    <div v-if="isDns" class="card mb-6">
       <h2 class="text-sm font-semibold text-gray-300 mb-4">{{ t('monitors.dns_drift.label') }}</h2>
 
       <!-- Toggles -->
@@ -561,7 +556,7 @@
     </div>
 
     <!-- Network scope card (not for heartbeat / composite) -->
-    <div v-if="!['heartbeat', 'composite'].includes(monitor.check_type)" class="card mb-6">
+    <div v-if="hasNetworkScope" class="card mb-6">
       <h2 class="text-sm font-semibold text-gray-300 mb-3">{{ t('monitors.network_scope.label') }}</h2>
       <div class="grid grid-cols-3 gap-2">
         <button
@@ -580,7 +575,7 @@
     </div>
 
     <!-- Schema drift card -->
-    <div v-if="['http', 'keyword', 'json_path'].includes(monitor.check_type)" class="card mb-6">
+    <div v-if="isHttpLike && monitor.schema_drift_enabled" class="card mb-6">
       <div class="flex items-center justify-between mb-3">
         <h2 class="text-sm font-semibold text-gray-300">API Schema Drift Detection</h2>
         <label class="flex items-center gap-2 cursor-pointer">
@@ -617,7 +612,7 @@
     </div>
 
     <!-- Composite members card -->
-    <div v-if="monitor.check_type === 'composite'" class="card mb-6">
+    <div v-if="isComposite" class="card mb-6">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-sm font-semibold text-gray-300">{{ t('monitors.composite.members') }}</h2>
       </div>
@@ -653,7 +648,7 @@
     </div>
 
     <!-- SSL card (HTTP checks only) -->
-    <div v-if="['http', 'keyword', 'json_path'].includes(monitor.check_type) && monitor.ssl_check_enabled && latestSsl" class="card mb-6">
+    <div v-if="isHttpLike && monitor.ssl_check_enabled && latestSsl" class="card mb-6">
       <div class="flex items-center gap-3 mb-3">
         <ShieldCheck v-if="latestSsl.ssl_valid" class="w-5 h-5 text-emerald-400" />
         <ShieldAlert v-else class="w-5 h-5 text-red-400" />
@@ -683,7 +678,7 @@
         </div>
       </div>
     </div>
-    <div v-else-if="['http', 'keyword', 'json_path'].includes(monitor.check_type) && monitor.ssl_check_enabled && !latestSsl" class="card mb-6">
+    <div v-else-if="isHttpLike && monitor.ssl_check_enabled && !latestSsl" class="card mb-6">
       <div class="flex items-center gap-2 text-gray-500 text-sm">
         <Shield class="w-4 h-4" />
         SSL check enabled — waiting for first result
@@ -691,7 +686,7 @@
     </div>
 
     <!-- Domain expiry card -->
-    <div v-if="monitor.check_type === 'domain_expiry'" class="card mb-6">
+    <div v-if="isDomainExpiry" class="card mb-6">
       <div class="flex items-center gap-3 mb-3">
         <ShieldCheck v-if="latestDomainExpiry && latestDomainExpiry.ssl_days_remaining > 0" class="w-5 h-5 text-emerald-400" />
         <ShieldAlert v-else class="w-5 h-5 text-red-400" />
@@ -907,10 +902,10 @@
     </div>
 
     <!-- Response time per probe (HTTP/TCP/Keyword/JSON only — not DNS) -->
-    <div v-if="monitor.check_type !== 'dns'" class="card mb-6">
+    <div v-if="hasResponseTime" class="card mb-6">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-sm font-semibold text-gray-300">
-          {{ monitor.check_type === 'tcp' ? t('monitor_detail.tcp_latency') : t('monitor_detail.response_time') }}
+          {{ isNetwork ? t('monitor_detail.tcp_latency') : t('monitor_detail.response_time') }}
         </h2>
         <div class="flex items-center gap-3 flex-wrap">
           <span v-if="responseTrend" class="flex items-center gap-1 text-xs font-medium"
@@ -934,13 +929,13 @@
     </div>
 
     <!-- Response Time Percentiles (P50/P95/P99) -->
-    <div v-if="percentilesData.length && monitor.check_type !== 'dns'" class="card mb-6">
+    <div v-if="percentilesData.length && hasResponseTime" class="card mb-6">
       <h3 class="text-sm font-semibold text-gray-300 mb-3">{{ t('monitor_detail.percentiles_title') }}</h3>
       <apexchart type="line" height="250" :options="percentileOptions" :series="percentileSeries" />
     </div>
 
     <!-- SLO / Error Budget (visible if slo_target is set OR if editing) -->
-    <div v-if="monitor.slo_target != null || sloEditing" class="card mb-6">
+    <div v-if="hasSlo && (monitor.slo_target != null || sloEditing)" class="card mb-6">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-sm font-semibold text-gray-300">{{ t('monitor_detail.slo_title') }}</h2>
         <div class="flex items-center gap-3">
@@ -1065,7 +1060,7 @@
     </div>
 
     <!-- DNS: resolution history table -->
-    <div v-if="monitor.check_type === 'dns'" class="card mb-6">
+    <div v-if="isDns" class="card mb-6">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-sm font-semibold text-gray-300">All resolutions</h2>
         <span v-if="monitor.dns_expected_value" class="text-xs text-gray-500 font-mono bg-gray-800 px-2 py-1 rounded">
@@ -1122,7 +1117,7 @@
     </div>
 
     <!-- Recent checks table (HTTP / TCP / Keyword / JSON — not scenario, not dns) -->
-    <div v-if="!['dns', 'scenario'].includes(monitor.check_type)" class="card">
+    <div v-if="hasRecentChecks" class="card">
       <h2 class="text-sm font-semibold text-gray-300 mb-4">{{ t('monitor_detail.recent_checks') }}</h2>
       <table class="w-full text-sm">
         <thead>
@@ -1132,7 +1127,7 @@
             <th class="pb-2 text-left">{{ t('common.status') }}</th>
             <th v-if="!noHttpTypes.includes(monitor.check_type)" class="pb-2 text-left">HTTP</th>
             <th class="pb-2 text-left">Réponse</th>
-            <th v-if="monitor.check_type === 'http' || monitor.check_type === 'keyword' || monitor.check_type === 'json_path'" class="pb-2 text-left hidden xl:table-cell">Waterfall</th>
+            <th v-if="isHttpLike" class="pb-2 text-left hidden xl:table-cell">Waterfall</th>
             <th v-if="monitor.check_type === 'scenario'" class="pb-2 text-left">Étapes</th>
             <th v-if="!noHttpTypes.includes(monitor.check_type)" class="pb-2 text-left hidden md:table-cell">Redirections</th>
             <th v-if="monitor.ssl_check_enabled" class="pb-2 text-left hidden lg:table-cell">SSL</th>
@@ -1161,7 +1156,7 @@
             <td v-if="!noHttpTypes.includes(monitor.check_type)" class="py-2 text-gray-300">{{ r.http_status ?? '—' }}</td>
             <td class="py-2 text-gray-300">{{ r.response_time_ms ? Math.round(r.response_time_ms) + 'ms' : '—' }}</td>
             <!-- Waterfall timing mini-bar -->
-            <td v-if="monitor.check_type === 'http' || monitor.check_type === 'keyword' || monitor.check_type === 'json_path'" class="py-2 hidden xl:table-cell">
+            <td v-if="isHttpLike" class="py-2 hidden xl:table-cell">
               <div v-if="r.ttfb_ms != null" class="flex items-center gap-1.5 text-xs font-mono min-w-[120px]">
                 <div class="flex h-2 rounded overflow-hidden flex-1 bg-gray-800">
                   <div class="bg-blue-500/70 h-full" :style="`width:${Math.round((r.dns_resolve_ms || 0) / r.response_time_ms * 100)}%`" title="DNS"></div>
@@ -1554,7 +1549,7 @@ async function downloadSlaReport() {
     a.click()
     URL.revokeObjectURL(url)
   } catch (e) {
-    console.error('SLA report error', e)
+    if (import.meta.env.DEV) console.error('SLA report error', e)
   } finally {
     slaLoading.value = false
   }
@@ -1706,7 +1701,10 @@ const tabLabel = (tab) => ({
 const viewTabs = computed(() => {
   const tabs = [TAB_AVAILABILITY]
   if (monitor.value?.check_type === 'scenario') tabs.push(TAB_SCENARIO)
-  tabs.push(TAB_MAP)
+  // Map only for types that use probes
+  if (!['heartbeat', 'composite', 'domain_expiry'].includes(monitor.value?.check_type)) {
+    tabs.push(TAB_MAP)
+  }
   return tabs
 })
 const activeTab = ref(TAB_AVAILABILITY)
@@ -2191,6 +2189,24 @@ const availOptions = computed(() => ({
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const noHttpTypes = ['tcp', 'udp', 'smtp', 'ping', 'domain_expiry', 'heartbeat', 'composite']
+
+// ── Check type groups (controls section visibility) ─────────────────────────
+const ct = computed(() => monitor.value?.check_type)
+const isHttpLike = computed(() => ['http', 'keyword', 'json_path'].includes(ct.value))
+const isNetwork = computed(() => ['tcp', 'udp', 'smtp', 'ping'].includes(ct.value))
+const isDns = computed(() => ct.value === 'dns')
+const isHeartbeat = computed(() => ct.value === 'heartbeat')
+const isScenario = computed(() => ct.value === 'scenario')
+const isComposite = computed(() => ct.value === 'composite')
+const isDomainExpiry = computed(() => ct.value === 'domain_expiry')
+// Has response time data (chart + percentiles + stats cards)
+const hasResponseTime = computed(() => isHttpLike.value || isNetwork.value)
+// Has network scope selector
+const hasNetworkScope = computed(() => isHttpLike.value || isNetwork.value || isDns.value)
+// Has recent checks table
+const hasRecentChecks = computed(() => isHttpLike.value || isNetwork.value)
+// Has SLO
+const hasSlo = computed(() => isHttpLike.value || isNetwork.value || isDns.value)
 
 function formatTarget(m) {
   const raw = m.url?.replace(/^https?:\/\//, '') || ''

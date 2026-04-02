@@ -56,7 +56,7 @@ export const useWebSocketStore = defineStore('websocket', () => {
           monitorStore.setFlapping(data.monitor_id)
         }
       } catch (err) {
-        console.error('[ws] message handler error:', err)
+        if (import.meta.env.DEV) console.error('[ws] message handler error:', err)
       }
     }
 

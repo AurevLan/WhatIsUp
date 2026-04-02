@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import and_, case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from whatisup.api.deps import get_current_user
+from whatisup.api.deps import build_access_filter, get_current_user, get_user_team_ids
 from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
 from whatisup.models.incident import Incident
@@ -30,7 +30,8 @@ async def status_all_monitors(
 ) -> list[dict]:
     query = select(Monitor).where(Monitor.enabled.is_(True))
     if not current_user.is_superadmin:
-        query = query.where(Monitor.owner_id == current_user.id)
+        team_ids = await get_user_team_ids(current_user, db)
+        query = query.where(build_access_filter(Monitor, current_user, team_ids))
 
     monitors = (await db.execute(query.offset(offset).limit(limit))).scalars().all()
     if not monitors:
@@ -108,8 +109,8 @@ async def status_monitor(
     ).scalar_one_or_none()
     if monitor is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Monitor not found")
-    if not current_user.is_superadmin and monitor.owner_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    from whatisup.api.deps import check_resource_access
+    await check_resource_access(monitor, current_user, db)
 
     uptime_24h = await compute_uptime(db, monitor_id, period_hours=24)
     uptime_7d = await compute_uptime(db, monitor_id, period_hours=168)
@@ -155,7 +156,8 @@ async def status_summary(
     """
     query = select(Monitor).where(Monitor.enabled.is_(True))
     if not current_user.is_superadmin:
-        query = query.where(Monitor.owner_id == current_user.id)
+        summary_team_ids = await get_user_team_ids(current_user, db)
+        query = query.where(build_access_filter(Monitor, current_user, summary_team_ids))
     monitors = (await db.execute(query)).scalars().all()
 
     if not monitors:

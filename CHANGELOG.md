@@ -11,6 +11,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.1] - 2026-04-02
+
+### Security
+
+#### Critical
+- **ReDoS protection** — `body_regex` and header regex patterns now execute with a 5-second timeout via thread executor, preventing catastrophic backtracking from blocking the probe
+- **SSRF DNS rebinding** — DNS resolution failures (`gaierror`) now raise errors instead of silently passing in both probe SSRF validation and OIDC discovery; DNS timeout returns explicit error
+- **Authorization bypass** — `AlertRule` list/create and `Status API` endpoints now use `build_access_filter()` / `check_resource_access()` with full team RBAC support instead of bare `owner_id` checks
+- **Playwright sandbox** — removed `--no-sandbox` flag from all Chromium launches (pool, standalone, reconnect); Docker containers should use `--cap-add=SYS_ADMIN` or seccomp profiles instead
+
+#### High
+- **Renotify pipeline** — changed `return` to `continue` in renotify loop so a single incident failure no longer blocks renotification for all remaining open incidents
+- **Silent exception swallowing** — added logging to bare `except` clauses in WebSocket broadcast, health endpoint, and `asyncio.create_task` callback for deferred pattern updates
+- **WebSocket subscriber** — replaced fixed 5-second retry with exponential backoff (2s → 60s) to prevent connection storms on Redis failure
+- **Web push N+1** — batch `DELETE` for stale subscriptions instead of one query per expired subscription
+
+#### Medium
+- **Nginx hardening** — added `Content-Security-Policy`, `HSTS preload`, `server_tokens off`, API rate limiting (`20r/s burst=40`), `X-Permitted-Cross-Domain-Policies: none`
+- **DNS checker** — custom nameservers are now validated against private/loopback/link-local IP ranges; invalid IPs are rejected
+- **JSON path injection** — added max depth (20 levels) and blocked dunder (`__`) attribute access in `_resolve_json_path`
+- **Scenario screenshots** — reduced base64 cap from 200 KB to 50 KB; extracted variable values capped at 10 KB
+- **OIDC callback** — URL fragment cleared after token extraction (`history.replaceState`) to prevent leakage via browser history
+- **Login redirect** — redirect validation now uses `new URL().origin` same-origin check instead of simple prefix test
+- **JWT expiry** — frontend `auth.init()` now decodes and checks token expiration before making API calls
+- **Console logging** — all `console.error()` calls in production views gated behind `import.meta.env.DEV`
+- **Service Worker** — notification click navigation validates same-origin before `client.navigate()`
+- **Trusted hosts** — `ProxyHeadersMiddleware` now uses configured origins in production instead of wildcard `*`
+- **CI permissions** — GitHub Actions CI workflow restricted to `permissions: contents: read`
+- **Probe resources** — standalone probe `docker-compose.probe.yml` now enforces `memory: 512m` and `cpus: 2.0` limits
+
+### Fixed
+- **Starlette middleware crash** — `MutableHeaders.pop()` replaced with `del` check to fix `AttributeError` on newer Starlette versions
+
+---
+
 ## [1.0.0] - 2026-03-29
 
 ### Added
@@ -780,7 +815,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docker Compose (dev + prod with Nginx + TLS)
 - Security: rate limiting, security headers, JWT validation, probe API key bcrypt hashing
 
-[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/AurevLan/WhatIsUp/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.12.1...v1.0.0
 [0.12.1]: https://github.com/AurevLan/WhatIsUp/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.11.0...v0.12.0

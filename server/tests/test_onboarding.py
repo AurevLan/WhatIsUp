@@ -3,13 +3,9 @@
 from __future__ import annotations
 
 import pytest
-import pytest_asyncio
 from httpx import AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from whatisup.models.user import User
 from whatisup.schemas.user import UserOut
-
 
 # ── UserOut.onboarding_completed computed field ──────────────────────────────
 

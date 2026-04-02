@@ -13,7 +13,9 @@ def test_registry_contains_all_builtin_channels() -> None:
 
 def test_all_channels_inherit_from_base() -> None:
     for name, channel in CHANNEL_REGISTRY.items():
-        assert isinstance(channel, BaseAlertChannel), f"{name} does not inherit from BaseAlertChannel"
+        assert isinstance(channel, BaseAlertChannel), (
+            f"{name} does not inherit from BaseAlertChannel"
+        )
 
 
 def test_each_channel_has_name() -> None:

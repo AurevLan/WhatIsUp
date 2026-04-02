@@ -13,6 +13,7 @@ from whatisup.models.api_key import UserApiKey
 from whatisup.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 from whatisup.models.correlation_pattern import CorrelationPattern
 from whatisup.models.custom_metric import CustomMetric
+from whatisup.models.digest_window import DigestWindow
 from whatisup.models.incident import Incident, IncidentGroup, IncidentScope
 from whatisup.models.incident_update import IncidentUpdate, IncidentUpdateStatus
 from whatisup.models.monitor import (
@@ -63,6 +64,7 @@ __all__ = [
     "AlertEventStatus",
     "AlertRule",
     "CorrelationPattern",
+    "DigestWindow",
     "MonitorAnnotation",
     "StatusSubscription",
     "SystemSettings",

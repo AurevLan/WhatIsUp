@@ -54,7 +54,11 @@ def _validate_url_ssrf_fast(url: str) -> str | None:
     if parsed.scheme not in ("http", "https"):
         return f"Blocked scheme: {parsed.scheme!r}"
     hostname = parsed.hostname or ""
-    if hostname.lower() in {"localhost", "127.0.0.1", "::1", "0.0.0.0", "169.254.169.254", "metadata.google.internal"}:
+    blocked = {
+        "localhost", "127.0.0.1", "::1", "0.0.0.0",
+        "169.254.169.254", "metadata.google.internal",
+    }
+    if hostname.lower() in blocked:
         return f"Blocked host: {hostname!r}"
     return None
 

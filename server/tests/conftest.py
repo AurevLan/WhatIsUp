@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest_asyncio
 from fakeredis.aioredis import FakeRedis
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 import whatisup.core.redis as redis_module
 from whatisup.core.database import get_db

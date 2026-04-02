@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from whatisup.models.alert import AlertEvent
     from whatisup.models.incident_update import IncidentUpdate
     from whatisup.models.monitor import Monitor
+    from whatisup.models.user import User
 
 
 class IncidentScope(enum.StrEnum):
@@ -69,6 +70,19 @@ class Incident(Base):
         Boolean, default=False, nullable=False, server_default="false"
     )
 
+    # Acknowledgment — stops renotify; cleared on state change
+    acked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+    acked_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+
+    # SLA: timestamp of the CheckResult that triggered the incident (for MTTD)
+    first_failure_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     # FK to correlation group (nullable — not all incidents are part of a group)
     group_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid(as_uuid=True),
@@ -83,6 +97,7 @@ class Incident(Base):
         "AlertEvent", back_populates="incident", cascade="all, delete-orphan"
     )
     group: Mapped[IncidentGroup | None] = relationship("IncidentGroup", back_populates="incidents")
+    acked_by: Mapped[User | None] = relationship("User", foreign_keys=[acked_by_id])
     updates: Mapped[list[IncidentUpdate]] = relationship(
         "IncidentUpdate", back_populates="incident", cascade="all, delete-orphan",
         order_by="IncidentUpdate.created_at.asc()"
@@ -91,6 +106,8 @@ class Incident(Base):
     __table_args__ = (
         Index("ix_incidents_monitor_started", "monitor_id", "started_at"),
         Index("ix_incidents_resolved", "resolved_at"),
+        # Partial unique index (PostgreSQL only) — created via Alembic migration
+        # to prevent duplicate open incidents for the same monitor.
     )
 
     @property

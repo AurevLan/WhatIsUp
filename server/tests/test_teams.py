@@ -8,7 +8,6 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.core.security import hash_password
-from whatisup.models.team import Team, TeamMembership, TeamRole
 from whatisup.models.user import User
 
 TEST_PASSWORD = "TestPass1!"

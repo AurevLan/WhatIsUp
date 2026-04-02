@@ -164,19 +164,22 @@ def decrypt_channel_config(config: dict) -> dict:
     """Decrypt sensitive fields in an alert channel config dict.
 
     Returns the config unchanged if FERNET_KEY is not configured.
-    Silently skips fields that cannot be decrypted (e.g. plaintext legacy values).
+    Logs a warning for fields that cannot be decrypted (e.g. plaintext legacy values).
     """
+    import structlog
     from cryptography.fernet import InvalidToken
 
     fernet = _get_fernet()
     if fernet is None:
         return config
+    _logger = structlog.get_logger(__name__)
     result = {}
     for k, v in config.items():
         if k in _SECRET_FIELDS and isinstance(v, str) and v:
             try:
                 result[k] = fernet.decrypt(v.encode()).decode()
             except InvalidToken:
+                _logger.warning("decrypt_channel_field_failed", field=k)
                 result[k] = v  # fallback: return as-is (legacy plaintext)
         else:
             result[k] = v

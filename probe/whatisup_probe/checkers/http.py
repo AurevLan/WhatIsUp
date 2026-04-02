@@ -13,8 +13,6 @@ from urllib.parse import urlparse
 import httpx
 import structlog
 
-logger = structlog.get_logger(__name__)
-
 from ._shared import (
     _cached_getaddrinfo,
     compute_schema_fingerprint,
@@ -23,6 +21,8 @@ from ._shared import (
     validate_url_ssrf,
 )
 from .base import BaseChecker, CheckResult
+
+logger = structlog.get_logger(__name__)
 
 
 _MAX_JSON_PATH_DEPTH = 20

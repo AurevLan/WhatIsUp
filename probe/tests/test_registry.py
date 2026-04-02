@@ -9,12 +9,14 @@ import respx
 from whatisup_probe.checkers import REGISTRY, perform_check
 from whatisup_probe.checkers.base import BaseChecker
 
-
 # ── Registry completeness ────────────────────────────────────────────────────
 
 
 def test_registry_contains_all_builtin_types() -> None:
-    expected = {"http", "keyword", "json_path", "tcp", "udp", "dns", "smtp", "ping", "domain_expiry", "scenario"}
+    expected = {
+        "http", "keyword", "json_path", "tcp", "udp",
+        "dns", "smtp", "ping", "domain_expiry", "scenario",
+    }
     assert expected == set(REGISTRY.keys())
 
 

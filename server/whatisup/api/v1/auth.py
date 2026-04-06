@@ -339,7 +339,7 @@ async def oidc_callback(
         )
 
     if error:
-        return _fail(error)
+        return _fail("provider_error")
     if not code or not state:
         return _fail("missing_params")
 

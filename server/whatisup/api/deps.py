@@ -32,9 +32,10 @@ async def _auth_via_user_api_key(raw_key: str, db: AsyncSession) -> User:
 
     redis = get_redis()
     # SHA-256 used as cache index only (not for password hashing — bcrypt handles that)
-    cache_key = (
-        f"whatisup:user_api:{hashlib.sha256(raw_key.encode()).hexdigest()[:32]}"  # noqa: S324
-    )
+    digest = hashlib.sha256(
+        raw_key.encode(), usedforsecurity=False,
+    ).hexdigest()[:32]
+    cache_key = f"whatisup:user_api:{digest}"
 
     cached_id = await redis.get(cache_key)
     if cached_id:
@@ -163,7 +164,10 @@ async def get_current_probe(
 
     redis = get_redis()
     # SHA-256 used as cache index only (not for password hashing — bcrypt handles that)
-    cache_key = f"whatisup:probe_auth:{hashlib.sha256(x_probe_api_key.encode()).hexdigest()[:32]}"  # noqa: S324
+    digest = hashlib.sha256(
+        x_probe_api_key.encode(), usedforsecurity=False,
+    ).hexdigest()[:32]
+    cache_key = f"whatisup:probe_auth:{digest}"
     cached_id = await redis.get(cache_key)
     if cached_id:
         probe = (

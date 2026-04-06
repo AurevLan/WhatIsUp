@@ -44,7 +44,7 @@ async def init() -> None:
                 fh.write(pwd)
 
             print("[WhatIsUp] Admin créé — email: admin@local")  # noqa: T201
-            print("[WhatIsUp] Mot de passe dans /shared/ADMIN_PASSWORD (à supprimer après lecture).")  # noqa: T201
+            print("[WhatIsUp] Mot de passe : /shared/ADMIN_PASSWORD (supprimer après lecture)")  # noqa: T201
 
         # ── Central-Probe (optionnel, activé via AUTO_REGISTER_PROBE=true) ────
         if os.getenv("AUTO_REGISTER_PROBE", "false").lower() == "true":

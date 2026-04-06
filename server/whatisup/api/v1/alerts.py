@@ -100,9 +100,17 @@ async def telegram_resolve(
     current_user: User = Depends(get_current_user),
 ) -> TelegramResolveOut:
     """Fetch the latest chat_id from a bot token via getUpdates, then send a validation message."""
+    import re
+
     import httpx
 
     token = payload.bot_token.strip()
+    # Validate token format to prevent SSRF via crafted token values
+    if not re.fullmatch(r"[0-9]+:[A-Za-z0-9_-]+", token):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid Telegram bot token format (expected 123456:ABC-DEF…).",
+        )
     base_url = f"https://api.telegram.org/bot{token}"
 
     async with httpx.AsyncClient(timeout=10) as client:

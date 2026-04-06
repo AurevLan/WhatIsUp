@@ -322,12 +322,13 @@ async def oidc_callback(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="OIDC not enabled")
 
     settings = get_settings()
-    # Determine frontend base URL from CORS origins or request
-    frontend_url = (
-        settings.cors_allowed_origins[0]
-        if settings.cors_allowed_origins
-        else str(request.base_url).rstrip("/")
-    )
+    # Determine frontend base URL — only from CORS config, never from request
+    if not settings.cors_allowed_origins:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="CORS_ALLOWED_ORIGINS must be configured for OIDC",
+        )
+    frontend_url = settings.cors_allowed_origins[0]
 
     def _fail(msg: str) -> RedirectResponse:
         from urllib.parse import urlencode

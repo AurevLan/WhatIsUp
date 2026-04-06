@@ -176,19 +176,23 @@ docker compose ps
 | API (FastAPI) | http://localhost:8000 |
 | API docs (Swagger UI) | http://localhost:8000/docs |
 
-On first start an **admin account** and a **local probe** are created automatically. Check the logs for credentials:
+On first start an **admin account** and a **local probe** are created automatically. The admin password is written to `/shared/ADMIN_PASSWORD` inside the server container:
 
 ```bash
-docker compose logs server | grep -E "admin|api_key|created"
+docker compose exec server cat /shared/ADMIN_PASSWORD
+# Delete the file after reading
+docker compose exec server rm /shared/ADMIN_PASSWORD
 ```
 
 ### Production deploy
+
+> **Recommended** — use the interactive wizard for all deployments:
 
 ```bash
 bash deploy.sh
 ```
 
-The interactive wizard walks you through the full setup — see [`deploy.sh`](#deploying-with-deploysh) below for details.
+The wizard generates secrets, writes `.env`, starts the stack, and **displays the admin password on screen** before securely deleting the temp file. See [`deploy.sh`](#deploying-with-deploysh) below for details.
 
 #### Manual production setup
 
@@ -473,7 +477,7 @@ bash deploy.sh
 5. **Self-signed certificate** — generates a temporary TLS cert if Let's Encrypt is not configured
 6. **Probe auto-enrollment** (mode 3) — registers the probe via `POST /api/v1/probes/register` and writes the API key to `.env.probe`
 7. **Starts the stack** — builds and launches Docker Compose services
-8. **Displays credentials** — admin account and probe API key printed at the end (first boot only)
+8. **Displays credentials** — reads the admin password from a temp file, displays it in a framed box, then deletes the file from the container (first boot only)
 
 > **Tip**: for Let's Encrypt, ensure port 80 is reachable from the internet and set your DNS A record before running the wizard.
 

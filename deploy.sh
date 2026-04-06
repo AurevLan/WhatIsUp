@@ -404,15 +404,26 @@ _post_server_info() {
   ok "API docs : ${DOMAIN_URL}/api/docs"
   blank
   echo -e "  ${W}Credentials admin (premier démarrage) :${X}"
-  local _admin_line
-  _admin_line=$("${DC[@]}" --env-file .env logs server 2>/dev/null | grep "Admin créé" | tail -1)
-  if [[ -n "$_admin_line" ]]; then
-    local _admin_pwd
-    _admin_pwd=$(grep -o 'password: .*' <<< "$_admin_line" | cut -d' ' -f2-)
-    ok "Email    : admin@local"
-    ok "Password : ${_admin_pwd}"
+  # Wait for server init to write the password file
+  local _admin_pwd="" _tries=0
+  while [[ $_tries -lt 30 ]]; do
+    _admin_pwd=$("${DC[@]}" --env-file .env exec -T server cat /shared/ADMIN_PASSWORD 2>/dev/null) && break
+    sleep 1
+    (( _tries++ ))
+  done
+
+  if [[ -n "$_admin_pwd" ]]; then
+    echo
+    echo -e "  ${W}╔══════════════════════════════════════════════╗${X}"
+    echo -e "  ${W}║${X}  Email    : ${G}admin@local${X}$(printf '%*s' $((24 - 11)) '')${W}║${X}"
+    echo -e "  ${W}║${X}  Password : ${G}${_admin_pwd}${X}$(printf '%*s' $((24 - ${#_admin_pwd})) '')${W}║${X}"
+    echo -e "  ${W}╚══════════════════════════════════════════════╝${X}"
+    echo
+    # Remove the temp file from the container
+    "${DC[@]}" --env-file .env exec -T server rm -f /shared/ADMIN_PASSWORD 2>/dev/null || true
   else
-    log "Consultez : ${DC[*]} --env-file .env logs server | grep '\\[WhatIsUp\\]'"
+    warn "Impossible de lire le mot de passe admin."
+    log "Le compte admin existe peut-être déjà (redéploiement)."
   fi
   blank
   warn "Actions post-déploiement :"

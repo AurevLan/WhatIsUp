@@ -34,8 +34,17 @@ async def init() -> None:
                 )
             )
             await db.flush()
-            print("[WhatIsUp] Admin créé — email: admin@local  password:", pwd)  # noqa: T201
-            print("[WhatIsUp] Changez ce mot de passe après la première connexion.")  # noqa: T201
+
+            # Write password to a temp file instead of logging it in clear text
+            shared_dir = "/shared"
+            os.makedirs(shared_dir, exist_ok=True)
+            pwd_path = os.path.join(shared_dir, "ADMIN_PASSWORD")
+            fd = os.open(pwd_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "w") as fh:
+                fh.write(pwd)
+
+            print("[WhatIsUp] Admin créé — email: admin@local")  # noqa: T201
+            print("[WhatIsUp] Mot de passe dans /shared/ADMIN_PASSWORD (à supprimer après lecture).")  # noqa: T201
 
         # ── Central-Probe (optionnel, activé via AUTO_REGISTER_PROBE=true) ────
         if os.getenv("AUTO_REGISTER_PROBE", "false").lower() == "true":
@@ -57,10 +66,9 @@ async def init() -> None:
                 shared_dir = "/shared"
                 os.makedirs(shared_dir, exist_ok=True)
                 key_path = os.path.join(shared_dir, "PROBE_API_KEY")
-                with open(key_path, "w") as fh:
+                fd = os.open(key_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+                with os.fdopen(fd, "w") as fh:
                     fh.write(api_key)
-                # world-readable so the probe user (uid 1000) can read it
-                os.chmod(key_path, 0o644)
 
                 print("[WhatIsUp] Central-Probe enregistrée, clé écrite dans /shared/PROBE_API_KEY")  # noqa: T201
 

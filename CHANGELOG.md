@@ -11,6 +11,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.3] - 2026-04-06
+
+### Security
+- **Code-scanning #7, #8** — `hashlib.sha256()` in probe/user API key cache now uses `usedforsecurity=False` to clarify non-cryptographic usage and silence CodeQL weak-hashing alert
+- **Code-scanning #6** — browser extension `_esc()` replaced with `CSS.escape()` for CSS selectors and proper XPath escaping to prevent incomplete sanitization
+
+### Fixed
+- **CI lint (ruff)** — fixed `E501` line-too-long in `init_data.py` that blocked all Dependabot PR merges
+
+### Dependencies
+- **Frontend** — vite 8.0.1 → 8.0.5 (3 high CVEs: path traversal, `server.fs.deny` bypass, WebSocket file read), vitest 3.2.4 → 4.1.2, jsdom 26.1.0 → 29.0.1
+- **Server** — uvicorn ≥0.32 <0.43 → <0.44, pywebpush <2 → <3
+- **Probe** — psutil <7 → <8
+- **CI** — actions/checkout 4 → 6, actions/setup-python 5 → 6, docker/setup-buildx-action 3 → 4, docker/metadata-action 5 → 6, docker/build-push-action 6 → 7
+
+---
+
 ## [1.0.2] - 2026-04-02
 
 ### Fixed
@@ -829,7 +846,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docker Compose (dev + prod with Nginx + TLS)
 - Security: rate limiting, security headers, JWT validation, probe API key bcrypt hashing
 
-[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v1.0.3...HEAD
+[1.0.3]: https://github.com/AurevLan/WhatIsUp/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/AurevLan/WhatIsUp/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/AurevLan/WhatIsUp/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/AurevLan/WhatIsUp/compare/v0.12.1...v1.0.0

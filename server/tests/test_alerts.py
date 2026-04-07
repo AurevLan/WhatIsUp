@@ -113,7 +113,9 @@ async def test_create_signal_channel_invalid_phone(client: AsyncClient, user_tok
 
 
 @pytest.mark.asyncio
-async def test_create_signal_channel_invalid_recipient(client: AsyncClient, user_token: str) -> None:
+async def test_create_signal_channel_invalid_recipient(
+    client: AsyncClient, user_token: str,
+) -> None:
     resp = await client.post(
         "/api/v1/alerts/channels",
         json={

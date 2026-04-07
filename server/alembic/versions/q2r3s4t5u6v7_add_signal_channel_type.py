@@ -1,7 +1,7 @@
 """add signal alert channel type
 
-Revision ID: a1b2c3d4e5f6
-Revises: 283efc2c973a
+Revision ID: q2r3s4t5u6v7
+Revises: p1q2r3s4t5u6
 Create Date: 2026-04-07 09:00:00.000000
 
 """
@@ -11,8 +11,8 @@ from typing import Sequence, Union
 
 from alembic import op
 
-revision: str = 'a1b2c3d4e5f6'
-down_revision: Union[str, None] = '283efc2c973a'
+revision: str = 'q2r3s4t5u6v7'
+down_revision: Union[str, None] = 'p1q2r3s4t5u6'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

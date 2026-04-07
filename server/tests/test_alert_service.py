@@ -18,7 +18,14 @@ from whatisup.services.channels._helpers import validate_webhook_url as _validat
 # ── _validate_webhook_url (SSRF guard) ────────────────────────────────────────
 
 
-def test_validate_webhook_public_url() -> None:
+def test_validate_webhook_public_url(monkeypatch) -> None:
+    # Mock DNS resolution so the test works even when hooks.example.com is unresolvable (CI)
+    import socket
+    monkeypatch.setattr(
+        socket,
+        "getaddrinfo",
+        lambda *a, **kw: [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 0))],
+    )
     # Should not raise
     _validate_webhook_url("https://hooks.example.com/abc")
 

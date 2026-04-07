@@ -128,14 +128,19 @@ async def list_monitors(
     }
 
     # P95 response time 24h per monitor (one query)
+    # percentile_cont is PostgreSQL-only; fall back to AVG for SQLite (tests)
+    dialect = db.bind.dialect.name if db.bind else ""
+    if dialect == "sqlite":
+        p95_col = func.avg(CheckResult.response_time_ms).label("p95")
+    else:
+        p95_col = (
+            func.percentile_cont(0.95)
+            .within_group(CheckResult.response_time_ms)
+            .label("p95")
+        )
     p95_rows = (
         await db.execute(
-            select(
-                CheckResult.monitor_id,
-                func.percentile_cont(0.95)
-                .within_group(CheckResult.response_time_ms)
-                .label("p95"),
-            )
+            select(CheckResult.monitor_id, p95_col)
             .where(
                 CheckResult.monitor_id.in_(monitor_ids),
                 CheckResult.checked_at >= cutoff,

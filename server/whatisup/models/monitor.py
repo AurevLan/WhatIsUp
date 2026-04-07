@@ -249,6 +249,7 @@ class Monitor(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         String(10), nullable=True
     )  # A, AAAA, CNAME, MX, TXT
     dns_expected_value: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    dns_nameservers: Mapped[list[str] | None] = mapped_column(_JSON, nullable=True)
 
     # DNS drift / split baseline
     dns_baseline_ips: Mapped[list[str] | None] = mapped_column(_JSON, nullable=True)

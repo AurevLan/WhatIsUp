@@ -209,6 +209,7 @@ def create_app() -> FastAPI:
         audit,
         auth,
         config,
+        extension,
         groups,
         incident_updates,
         incidents,
@@ -249,6 +250,7 @@ def create_app() -> FastAPI:
     app.include_router(teams.router, prefix="/api/v1")
     app.include_router(templates.router, prefix="/api/v1")
     app.include_router(web_push.router, prefix="/api/v1")
+    app.include_router(extension.router, prefix="/api/v1")
 
     # Prometheus metrics (optional dependency)
     try:

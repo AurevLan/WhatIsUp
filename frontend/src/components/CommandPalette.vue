@@ -24,10 +24,11 @@
                 @click="activate(item)"
                 @mouseenter="setActive(gi, ii)"
               >
-                <component :is="item.icon" :size="15" />
+                <component :is="item.icon" :size="14" />
                 <span class="palette__item-name">{{ item.name }}</span>
+                <span v-if="item.status && item.status !== 'up'" class="palette__status-dot" :class="`palette__status-dot--${item.status}`" />
                 <span v-if="item.hint" class="palette__hint">{{ item.hint }}</span>
-                <ArrowRight :size="12" class="palette__arrow" />
+                <ArrowRight :size="11" class="palette__arrow" />
               </button>
             </div>
             <p v-if="totalCount === 0" class="palette__empty">No results</p>
@@ -55,8 +56,16 @@ import {
   Activity,
   Layers,
   CalendarClock,
+  Sun,
+  Moon,
+  Globe,
+  Zap,
+  Copy,
+  KeyRound,
+  ClipboardList,
 } from 'lucide-vue-next'
 import { useMonitorStore } from '../stores/monitors'
+import { setLocale, getLocale } from '../i18n/index.js'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -99,24 +108,36 @@ const navItems = [
   { id: 'nav-alerts',       name: 'Alerts',           icon: Bell,            route: '/alerts' },
   { id: 'nav-maintenance',  name: 'Maintenance',      icon: CalendarClock,   route: '/maintenance' },
   { id: 'nav-incidents',    name: 'Incidents',         icon: Clock,           route: '/incidents' },
-  { id: 'nav-incident-groups', name: 'Incident Groups', icon: GitMerge,      route: '/incident-groups' },
+  { id: 'nav-templates',    name: 'Templates',         icon: Copy,           route: '/templates' },
+  { id: 'nav-api-keys',     name: 'API Keys',          icon: KeyRound,       route: '/api-keys' },
+  { id: 'nav-audit',        name: 'Audit Log',         icon: ClipboardList,  route: '/audit' },
   { id: 'nav-settings',     name: 'Settings',         icon: Settings,        route: '/settings' },
 ]
 
 // Action items
-const actionItems = [
+const actionItems = computed(() => [
   { id: 'action-new-monitor', name: 'New Monitor', icon: Plus, route: '/monitors', query: { create: 'true' }, hint: 'Create' },
-]
+  { id: 'action-toggle-theme', name: isDark.value ? 'Switch to Light Mode' : 'Switch to Dark Mode', icon: isDark.value ? Sun : Moon, action: 'toggle-theme', hint: 'Theme' },
+  { id: 'action-toggle-lang', name: currentLang.value === 'en' ? 'Passer en Français' : 'Switch to English', icon: Globe, action: 'toggle-lang', hint: currentLang.value === 'en' ? 'FR' : 'EN' },
+])
 
-// Build monitor items from store
+// Theme / Lang state for actions
+const isDark = ref(document.documentElement.getAttribute('data-theme') !== 'light')
+const currentLang = ref(getLocale())
+
+// Build monitor items from store — down monitors first
+const STATUS_PRIORITY = { down: 0, error: 1, timeout: 2, up: 3 }
 const monitorItems = computed(() =>
-  monitorStore.monitors.map((m) => ({
-    id: `monitor-${m.id}`,
-    name: m.name,
-    icon: Monitor,
-    route: `/monitors/${m.id}`,
-    hint: m.check_type,
-  }))
+  [...monitorStore.monitors]
+    .sort((a, b) => (STATUS_PRIORITY[a._lastStatus] ?? 4) - (STATUS_PRIORITY[b._lastStatus] ?? 4))
+    .map((m) => ({
+      id: `monitor-${m.id}`,
+      name: m.name,
+      icon: Monitor,
+      route: `/monitors/${m.id}`,
+      hint: m.check_type,
+      status: m._lastStatus,
+    }))
 )
 
 // Filter helper
@@ -131,7 +152,7 @@ const filteredGroups = computed(() => {
   // Monitors
   const mItems = q
     ? monitorItems.value.filter((i) => matchesQuery(i, q))
-    : monitorItems.value.slice(0, 5)
+    : monitorItems.value.slice(0, 8)
   if (mItems.length > 0) {
     groups.push({ label: 'Monitors', items: mItems })
   }
@@ -146,8 +167,8 @@ const filteredGroups = computed(() => {
 
   // Actions
   const aItems = q
-    ? actionItems.filter((i) => matchesQuery(i, q))
-    : actionItems
+    ? actionItems.value.filter((i) => matchesQuery(i, q))
+    : actionItems.value
   if (aItems.length > 0) {
     groups.push({ label: 'Actions', items: aItems })
   }
@@ -231,6 +252,18 @@ function scrollActiveIntoView() {
 
 function activate(item) {
   close()
+  if (item.action === 'toggle-theme') {
+    isDark.value = !isDark.value
+    localStorage.setItem('whatisup_theme', isDark.value ? 'dark' : 'light')
+    document.documentElement.setAttribute('data-theme', isDark.value ? 'dark' : 'light')
+    return
+  }
+  if (item.action === 'toggle-lang') {
+    const next = currentLang.value === 'en' ? 'fr' : 'en'
+    setLocale(next)
+    currentLang.value = next
+    return
+  }
   if (item.route) {
     const to = item.query ? { path: item.route, query: item.query } : item.route
     router.push(to)
@@ -277,8 +310,8 @@ function onKeydown(e) {
 .palette__search {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
+  gap: 8px;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--border);
   color: var(--text-3);
 }
@@ -289,7 +322,7 @@ function onKeydown(e) {
   border: none;
   outline: none;
   color: var(--text-1);
-  font-size: 14px;
+  font-size: 13px;
   font-family: inherit;
 }
 
@@ -335,13 +368,13 @@ function onKeydown(e) {
 .palette__item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
-  padding: 8px 10px;
+  padding: 6px 10px;
   border: none;
   background: none;
   color: var(--text-2);
-  font-size: 13px;
+  font-size: 12.5px;
   font-family: inherit;
   border-radius: calc(var(--radius) - 2px);
   cursor: pointer;
@@ -384,6 +417,16 @@ function onKeydown(e) {
 .palette__item:hover .palette__arrow {
   opacity: 1;
 }
+
+.palette__status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.palette__status-dot--down    { background: #f87171; box-shadow: 0 0 4px rgba(248,113,113,.5); }
+.palette__status-dot--error   { background: #fb923c; }
+.palette__status-dot--timeout { background: #fbbf24; }
 
 .palette__empty {
   padding: 24px 16px;

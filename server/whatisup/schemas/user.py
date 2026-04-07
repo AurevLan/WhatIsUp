@@ -37,6 +37,7 @@ class AdminUserCreate(BaseModel):
     password: str = Field(min_length=8, max_length=128)
     full_name: str | None = Field(default=None, max_length=255)
     can_create_monitors: bool = False
+    is_superadmin: bool = False
 
 
 class AdminUserUpdate(BaseModel):
@@ -45,6 +46,7 @@ class AdminUserUpdate(BaseModel):
     password: str | None = Field(default=None, min_length=8, max_length=128)
     is_active: bool | None = None
     can_create_monitors: bool | None = None
+    is_superadmin: bool | None = None
 
 
 class UserOut(BaseModel):

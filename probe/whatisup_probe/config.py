@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -15,7 +16,14 @@ class ProbeSettings(BaseSettings):
 
     # Central server
     central_api_url: str = "http://localhost:8000"
-    probe_api_key: str = ""  # API key provided at probe registration
+    probe_api_key: str = ""
+
+    @field_validator("probe_api_key")
+    @classmethod
+    def _validate_api_key(cls, v: str) -> str:
+        if v and not v.startswith("wiu_"):
+            raise ValueError("Invalid probe API key format (expected wiu_ prefix)")
+        return v
 
     # Probe identity
     probe_name: str = "default-probe"

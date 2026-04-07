@@ -28,9 +28,9 @@ def register(channel: BaseAlertChannel) -> BaseAlertChannel:
 
 def _load_builtins() -> None:
     """Import all built-in channel modules and call their setup(register)."""
-    from . import email, opsgenie, pagerduty, slack, telegram, webhook
+    from . import email, opsgenie, pagerduty, signal, slack, telegram, webhook
 
-    for module in (email, webhook, telegram, slack, pagerduty, opsgenie):
+    for module in (email, webhook, telegram, slack, pagerduty, opsgenie, signal):
         module.setup(register)
 
 

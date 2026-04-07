@@ -115,6 +115,11 @@
               <input v-model="form.dns_expected_value" class="input w-full" placeholder="1.2.3.4" />
             </div>
           </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">{{ t('monitors.dns_nameservers.label') }} <span class="text-gray-500">(optional)</span></label>
+            <input v-model="form.dns_nameservers_raw" class="input w-full" :placeholder="t('monitors.dns_nameservers.placeholder')" />
+            <p class="text-xs text-gray-500 mt-1">{{ t('monitors.dns_nameservers.desc') }}</p>
+          </div>
           <div class="rounded-lg border border-gray-700 p-3 space-y-3">
             <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide">{{ t('monitors.dns_drift.label') }}</p>
             <div class="flex items-start gap-3">
@@ -544,6 +549,7 @@ const form = ref({
   domain_expiry_warn_days: 30,
   dns_record_type: 'A',
   dns_expected_value: '',
+  dns_nameservers_raw: '',
   keyword: '',
   keyword_negate: false,
   expected_json_path: '',
@@ -659,6 +665,8 @@ function buildPayload() {
   if (form.value.check_type === 'dns') {
     p.dns_record_type = form.value.dns_record_type
     if (form.value.dns_expected_value) p.dns_expected_value = form.value.dns_expected_value
+    const ns = form.value.dns_nameservers_raw?.split(',').map(s => s.trim()).filter(Boolean)
+    if (ns?.length) p.dns_nameservers = ns
     p.dns_drift_alert = form.value.dns_drift_alert
     p.dns_split_enabled = form.value.dns_split_enabled
   }

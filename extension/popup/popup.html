@@ -2,17 +2,14 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; script-src 'self'" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>WhatIsUp Recorder</title>
     <style>
-      * {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
 
       body {
-        width: 380px;
+        width: 420px;
         min-height: 200px;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         font-size: 13px;
@@ -22,297 +19,246 @@
 
       /* Header */
       .header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 12px 14px;
-        border-bottom: 1px solid #1f2937;
-        background: #0f172a;
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 10px 14px; border-bottom: 1px solid #1f2937; background: #0f172a;
       }
-
-      .logo {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-weight: 600;
-        font-size: 14px;
-        color: #60a5fa;
+      .logo { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; color: #60a5fa; }
+      .logo svg { color: #3b82f6; }
+      .header-btns { display: flex; gap: 4px; }
+      .icon-btn {
+        background: none; border: none; cursor: pointer; color: #6b7280;
+        padding: 4px; border-radius: 4px; display: flex;
       }
-
-      .logo svg {
-        color: #3b82f6;
-      }
-
-      .settings-btn {
-        background: none;
-        border: none;
-        cursor: pointer;
-        color: #6b7280;
-        padding: 4px;
-        border-radius: 4px;
-        display: flex;
-      }
-
-      .settings-btn:hover {
-        color: #9ca3af;
-        background: #1f2937;
-      }
+      .icon-btn:hover { color: #9ca3af; background: #1f2937; }
 
       /* Controls */
       .controls {
-        padding: 12px 14px;
-        display: flex;
-        gap: 8px;
-        align-items: center;
+        padding: 10px 14px; display: flex; gap: 8px; align-items: center;
         border-bottom: 1px solid #1f2937;
       }
-
       .btn {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 7px 14px;
-        border-radius: 6px;
-        border: none;
-        cursor: pointer;
-        font-size: 12px;
-        font-weight: 500;
-        transition: background 0.15s;
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 6px 12px; border-radius: 6px; border: none; cursor: pointer;
+        font-size: 12px; font-weight: 500; transition: background .15s;
       }
+      .btn:disabled { opacity: .4; cursor: not-allowed; }
+      .btn-record { background: #dc2626; color: #fff; }
+      .btn-record:hover:not(:disabled) { background: #b91c1c; }
+      .btn-record.recording { background: #7f1d1d; animation: pulse 1.5s infinite; }
+      @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .7; } }
+      .btn-secondary { background: #1f2937; color: #d1d5db; }
+      .btn-secondary:hover:not(:disabled) { background: #374151; }
+      .btn-primary { background: #2563eb; color: #fff; }
+      .btn-primary:hover:not(:disabled) { background: #1d4ed8; }
+      .btn-success { background: #059669; color: #fff; }
+      .btn-success:hover:not(:disabled) { background: #047857; }
+      .btn-ghost { background: none; border: 1px solid #374151; color: #9ca3af; }
+      .btn-ghost:hover:not(:disabled) { background: #1f2937; color: #d1d5db; }
+      .btn-sm { padding: 4px 8px; font-size: 11px; }
+      .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+      .ml-auto { margin-left: auto; }
 
-      .btn:disabled {
-        opacity: 0.4;
-        cursor: not-allowed;
+      /* Assertion toolbar */
+      .assert-bar {
+        padding: 6px 14px; display: flex; gap: 4px; flex-wrap: wrap;
+        border-bottom: 1px solid #1f2937; background: #0d1117;
       }
-
-      .btn-record {
-        background: #dc2626;
-        color: #fff;
+      .assert-btn {
+        background: #1f2937; border: 1px solid #374151; border-radius: 4px;
+        color: #9ca3af; cursor: pointer; padding: 3px 7px; font-size: 11px;
+        display: flex; align-items: center; gap: 3px;
       }
+      .assert-btn:hover { background: #374151; color: #e5e7eb; }
 
-      .btn-record:hover:not(:disabled) {
-        background: #b91c1c;
-      }
-
-      .btn-record.recording {
-        background: #7f1d1d;
-        animation: pulse 1.5s infinite;
-      }
-
-      @keyframes pulse {
-        0%,
-        100% {
-          opacity: 1;
-        }
-        50% {
-          opacity: 0.7;
-        }
-      }
-
-      .btn-secondary {
-        background: #1f2937;
-        color: #d1d5db;
-      }
-
-      .btn-secondary:hover:not(:disabled) {
-        background: #374151;
-      }
-
-      .btn-primary {
-        background: #2563eb;
-        color: #fff;
-        margin-left: auto;
-      }
-
-      .btn-primary:hover:not(:disabled) {
-        background: #1d4ed8;
-      }
-
-      .dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: currentColor;
-      }
-
-      /* Steps list */
-      .steps-header {
-        padding: 8px 14px 4px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        color: #6b7280;
-        font-size: 11px;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-      }
-
-      .steps-list {
-        max-height: 260px;
-        overflow-y: auto;
-        padding: 0 14px 4px;
-      }
-
-      .step-item {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 6px 8px;
-        border-radius: 6px;
-        margin-bottom: 3px;
-        background: #1f2937;
-        border: 1px solid #374151;
-        group: true;
-      }
-
-      .step-icon {
-        font-size: 14px;
-        flex-shrink: 0;
-        width: 18px;
-        text-align: center;
-      }
-
-      .step-label {
-        flex: 1;
-        font-size: 12px;
-        color: #d1d5db;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-
-      .step-remove {
-        background: none;
-        border: none;
-        cursor: pointer;
-        color: #4b5563;
-        padding: 2px;
-        border-radius: 3px;
-        font-size: 14px;
-        line-height: 1;
-        flex-shrink: 0;
+      /* Inline form for assertions */
+      .inline-form {
+        padding: 8px 14px; background: #0d1117; border-bottom: 1px solid #1f2937;
         display: none;
       }
-
-      .step-item:hover .step-remove {
-        display: block;
+      .inline-form.visible { display: block; }
+      .inline-form label { font-size: 11px; color: #6b7280; display: block; margin-bottom: 3px; }
+      .inline-form input {
+        width: 100%; padding: 5px 8px; background: #1f2937; border: 1px solid #374151;
+        border-radius: 4px; color: #f3f4f6; font-size: 12px; margin-bottom: 6px; outline: none;
       }
+      .inline-form input:focus { border-color: #3b82f6; }
+      .inline-form .form-actions { display: flex; gap: 6px; }
 
-      .step-remove:hover {
-        color: #ef4444;
-        background: #3f1515;
+      /* Steps */
+      .steps-header {
+        padding: 6px 14px 4px; display: flex; justify-content: space-between;
+        align-items: center; color: #6b7280; font-size: 11px;
+        text-transform: uppercase; letter-spacing: .05em;
+      }
+      .steps-list { max-height: 300px; overflow-y: auto; padding: 0 14px 4px; }
+      .step-item {
+        display: flex; align-items: center; gap: 6px; padding: 5px 8px;
+        border-radius: 6px; margin-bottom: 2px; background: #1f2937;
+        border: 1px solid #374151; cursor: default;
+      }
+      .step-item.dragging { opacity: .5; }
+      .step-item.drag-over { border-color: #3b82f6; }
+      .step-grip {
+        cursor: grab; color: #4b5563; font-size: 12px; flex-shrink: 0;
+        user-select: none; line-height: 1;
+      }
+      .step-grip:hover { color: #9ca3af; }
+      .step-icon { font-size: 13px; flex-shrink: 0; width: 18px; text-align: center; }
+      .step-label {
+        flex: 1; font-size: 12px; color: #d1d5db;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        cursor: pointer;
+      }
+      .step-label:hover { color: #f3f4f6; }
+      .step-remove {
+        background: none; border: none; cursor: pointer; color: #4b5563;
+        padding: 2px; border-radius: 3px; font-size: 13px; line-height: 1;
+        flex-shrink: 0; display: none;
+      }
+      .step-item:hover .step-remove { display: block; }
+      .step-remove:hover { color: #ef4444; background: #3f1515; }
+
+      /* Step inline edit */
+      .step-edit {
+        padding: 8px; background: #0d1117; border: 1px solid #374151;
+        border-radius: 6px; margin-bottom: 3px;
+      }
+      .step-edit label { font-size: 10px; color: #6b7280; text-transform: uppercase; margin-bottom: 2px; display: block; }
+      .step-edit input {
+        width: 100%; padding: 4px 6px; background: #1f2937; border: 1px solid #374151;
+        border-radius: 4px; color: #f3f4f6; font-size: 11px; margin-bottom: 6px; outline: none; font-family: monospace;
+      }
+      .step-edit input:focus { border-color: #3b82f6; }
+      .step-edit .edit-actions { display: flex; gap: 6px; }
+      .step-edit .type-badge {
+        display: inline-block; padding: 2px 6px; background: #374151;
+        border-radius: 3px; font-size: 10px; color: #9ca3af; margin-bottom: 6px;
       }
 
       /* Empty state */
-      .empty {
-        padding: 24px 14px;
-        text-align: center;
-        color: #4b5563;
-        font-size: 12px;
-        line-height: 1.6;
+      .empty { padding: 20px 14px; text-align: center; color: #4b5563; font-size: 12px; line-height: 1.6; }
+
+      /* Tab bar */
+      .tab-bar {
+        display: flex; border-top: 1px solid #1f2937; border-bottom: 1px solid #1f2937;
       }
+      .tab-btn {
+        flex: 1; padding: 7px 0; background: none; border: none; border-bottom: 2px solid transparent;
+        color: #6b7280; cursor: pointer; font-size: 11px; font-weight: 500; text-align: center;
+      }
+      .tab-btn:hover { color: #d1d5db; }
+      .tab-btn.active { color: #60a5fa; border-bottom-color: #3b82f6; }
+
+      /* Tab panels */
+      .tab-panel { display: none; }
+      .tab-panel.visible { display: block; }
 
       /* Send panel */
-      .send-panel {
-        border-top: 1px solid #1f2937;
-        padding: 12px 14px;
-      }
-
+      .send-panel { padding: 10px 14px; }
       .send-panel input {
-        width: 100%;
-        padding: 7px 10px;
-        background: #1f2937;
-        border: 1px solid #374151;
-        border-radius: 6px;
-        color: #f3f4f6;
-        font-size: 12px;
-        margin-bottom: 8px;
-        outline: none;
+        width: 100%; padding: 6px 10px; background: #1f2937; border: 1px solid #374151;
+        border-radius: 6px; color: #f3f4f6; font-size: 12px; margin-bottom: 8px; outline: none;
       }
+      .send-panel input:focus { border-color: #3b82f6; }
+      .send-panel input::placeholder { color: #6b7280; }
+      .send-row { display: flex; gap: 8px; align-items: center; }
 
-      .send-panel input:focus {
-        border-color: #3b82f6;
+      /* Preview panel */
+      .preview-panel { padding: 10px 14px; }
+      .code-block {
+        background: #0d1117; border: 1px solid #374151; border-radius: 6px;
+        padding: 10px; font-family: monospace; font-size: 11px; color: #a5d6ff;
+        max-height: 200px; overflow: auto; white-space: pre; line-height: 1.5;
       }
+      .copy-row { display: flex; justify-content: flex-end; margin-top: 6px; }
 
-      .send-panel input::placeholder {
-        color: #6b7280;
-      }
+      /* Export panel */
+      .export-panel { padding: 10px 14px; }
+      .export-btns { display: flex; gap: 8px; flex-wrap: wrap; }
 
-      .send-row {
-        display: flex;
-        gap: 8px;
+      /* Monitor list */
+      .monitor-panel { padding: 10px 14px; max-height: 300px; overflow-y: auto; }
+      .monitor-item {
+        display: flex; align-items: center; gap: 8px; padding: 7px 10px;
+        background: #1f2937; border: 1px solid #374151; border-radius: 6px;
+        margin-bottom: 4px; cursor: pointer;
       }
+      .monitor-item:hover { background: #374151; }
+      .monitor-name { flex: 1; font-size: 12px; color: #d1d5db; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .monitor-status {
+        width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+      }
+      .monitor-status.up { background: #34d399; }
+      .monitor-status.down { background: #f87171; }
+      .monitor-status.unknown { background: #6b7280; }
+      .monitor-actions { display: flex; gap: 4px; }
 
-      .status-msg {
-        padding: 8px 14px;
-        font-size: 12px;
-        border-top: 1px solid #1f2937;
-      }
-
-      .status-ok {
-        color: #34d399;
-      }
-
-      .status-err {
-        color: #f87171;
-      }
+      /* Status message */
+      .status-msg { padding: 6px 14px; font-size: 12px; border-top: 1px solid #1f2937; }
+      .status-ok { color: #34d399; }
+      .status-err { color: #f87171; }
 
       /* Scrollbar */
-      .steps-list::-webkit-scrollbar {
-        width: 4px;
-      }
+      .steps-list::-webkit-scrollbar, .monitor-panel::-webkit-scrollbar, .code-block::-webkit-scrollbar { width: 4px; }
+      .steps-list::-webkit-scrollbar-track, .monitor-panel::-webkit-scrollbar-track, .code-block::-webkit-scrollbar-track { background: transparent; }
+      .steps-list::-webkit-scrollbar-thumb, .monitor-panel::-webkit-scrollbar-thumb, .code-block::-webkit-scrollbar-thumb { background: #374151; border-radius: 2px; }
 
-      .steps-list::-webkit-scrollbar-track {
-        background: transparent;
-      }
-
-      .steps-list::-webkit-scrollbar-thumb {
-        background: #374151;
-        border-radius: 2px;
-      }
+      .hidden { display: none !important; }
     </style>
   </head>
   <body>
     <!-- Header -->
     <div class="header">
       <div class="logo">
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-        >
-          <circle cx="12" cy="12" r="10" />
-          <polyline points="12 6 12 12 16 14" />
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
         </svg>
         WhatIsUp Recorder
       </div>
-      <button class="settings-btn" id="settingsBtn" title="Options">
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-        >
-          <circle cx="12" cy="12" r="3" />
-          <path
-            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
-          />
-        </svg>
-      </button>
+      <div class="header-btns">
+        <button class="icon-btn" id="monitorsBtn" title="Load existing scenario">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 7V5a2 2 0 012-2h6l2 2h6a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+          </svg>
+        </button>
+        <button class="icon-btn" id="settingsBtn" title="Options">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
+      </div>
     </div>
 
+    <!-- Monitor list panel (hidden by default) -->
+    <div id="monitorPanel" class="monitor-panel hidden"></div>
+
     <!-- Controls -->
-    <div class="controls">
+    <div class="controls" id="controlsBar">
       <button class="btn btn-record" id="recordBtn">
         <span class="dot"></span>
         <span id="recordLabel">Record</span>
       </button>
-      <button class="btn btn-secondary" id="clearBtn" disabled>Clear</button>
+      <button class="btn btn-secondary btn-sm" id="clearBtn" disabled>Clear</button>
+    </div>
+
+    <!-- Assertion toolbar -->
+    <div class="assert-bar" id="assertBar">
+      <button class="assert-btn" data-assert="wait_element" title="Wait for element">&#9203; Wait el</button>
+      <button class="assert-btn" data-assert="wait_time" title="Wait time">&#9201; Wait ms</button>
+      <button class="assert-btn" data-assert="assert_text" title="Assert text content">&#128270; Text</button>
+      <button class="assert-btn" data-assert="assert_visible" title="Assert visible">&#128065; Visible</button>
+      <button class="assert-btn" data-assert="assert_url" title="Assert URL">&#128279; URL</button>
+      <button class="assert-btn" data-assert="screenshot" title="Take screenshot">&#128248; Screenshot</button>
+    </div>
+
+    <!-- Inline assertion form -->
+    <div class="inline-form" id="assertForm">
+      <div id="assertFields"></div>
+      <div class="form-actions">
+        <button class="btn btn-primary btn-sm" id="assertConfirm">Add</button>
+        <button class="btn btn-ghost btn-sm" id="assertCancel">Cancel</button>
+      </div>
     </div>
 
     <!-- Steps -->
@@ -320,28 +266,51 @@
       <span>Steps</span>
       <span id="stepCount">0</span>
     </div>
-
     <div class="steps-list" id="stepsList">
       <div class="empty" id="emptyMsg">
-        Click <strong>Record</strong> then interact with any website.<br />Each action will appear
-        here.
+        Click <strong>Record</strong> then interact with any website.<br>Each action will appear here.
       </div>
     </div>
 
-    <!-- Send panel (shown when steps > 0) -->
-    <div class="send-panel" id="sendPanel" style="display: none">
-      <input
-        type="text"
-        id="monitorName"
-        placeholder="Monitor name (e.g. Login flow)"
-        maxlength="255"
-      />
-      <div class="send-row">
-        <button class="btn btn-primary" id="sendBtn">Send to WhatIsUp</button>
+    <!-- Tab bar (shown when steps > 0) -->
+    <div class="tab-bar" id="tabBar" style="display:none">
+      <button class="tab-btn active" data-tab="send">Send</button>
+      <button class="tab-btn" data-tab="preview">Preview</button>
+      <button class="tab-btn" data-tab="export">Export</button>
+    </div>
+
+    <!-- Send tab -->
+    <div class="tab-panel visible" id="panelSend" style="display:none">
+      <div class="send-panel">
+        <input type="text" id="monitorName" placeholder="Monitor name (e.g. Login flow)" maxlength="255" />
+        <div class="send-row">
+          <button class="btn btn-primary" id="sendBtn">Send to WhatIsUp</button>
+          <button class="btn btn-success btn-sm hidden" id="triggerBtn" title="Run test now">Run test</button>
+        </div>
       </div>
     </div>
 
-    <div class="status-msg" id="statusMsg" style="display: none"></div>
+    <!-- Preview tab -->
+    <div class="tab-panel" id="panelPreview">
+      <div class="preview-panel">
+        <pre class="code-block" id="codeBlock">Loading...</pre>
+        <div class="copy-row">
+          <button class="btn btn-ghost btn-sm" id="copyCodeBtn">Copy</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Export tab -->
+    <div class="tab-panel" id="panelExport">
+      <div class="export-panel">
+        <div class="export-btns">
+          <button class="btn btn-secondary" id="exportJsonBtn">Download JSON</button>
+          <button class="btn btn-secondary" id="exportPwBtn">Download Playwright</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="status-msg" id="statusMsg" style="display:none"></div>
 
     <script src="popup.js"></script>
   </body>

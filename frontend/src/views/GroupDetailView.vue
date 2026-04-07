@@ -1,8 +1,12 @@
 <template>
-  <div class="p-8" v-if="group">
+  <div class="page-body" v-if="group">
     <!-- Header -->
     <div class="flex items-center gap-4 mb-8">
-      <router-link to="/groups" class="text-gray-400 hover:text-white text-sm">← Groups</router-link>
+      <nav class="breadcrumbs">
+        <router-link to="/groups">{{ t('nav.groups') }}</router-link>
+        <span class="breadcrumbs__sep">/</span>
+        <span class="breadcrumbs__current">{{ group.name }}</span>
+      </nav>
       <div class="flex-1">
         <h1 class="text-2xl font-bold text-white">{{ group.name }}</h1>
         <p v-if="group.description" class="text-gray-400 text-sm mt-1">{{ group.description }}</p>

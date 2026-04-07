@@ -18,14 +18,57 @@
 
     <!-- Stat cards -->
     <div class="dash__stats">
-      <StatCard :label="t('dashboard.total_monitors')" :value="monitors.length"  color="#60a5fa" :bg="'rgba(79,156,249,.1)'"    :icon="Monitor" />
-      <StatCard :label="t('dashboard.monitors_up')"    :value="upCount"          color="#34d399" :bg="'rgba(52,211,153,.1)'"    :icon="CheckCircle2" />
-      <StatCard :label="t('dashboard.monitors_down')"  :value="downCount"
-        :color="downCount > 0 ? '#f87171' : '#34d399'"
-        :bg="downCount > 0 ? 'rgba(248,113,113,.1)' : 'rgba(52,211,153,.06)'"
-        :icon="XCircle" :pulse="downCount > 0" />
-      <StatCard :label="t('dashboard.active_incidents')" :value="incidentCount"  color="#fbbf24" :bg="'rgba(251,191,36,.1)'"    :icon="AlertTriangle" :pulse="incidentCount > 0" />
-      <StatCard :label="t('dashboard.global_uptime')"    :value="globalUptimeStr" color="#c084fc" :bg="'rgba(192,132,252,.1)'"   :icon="TrendingUp" />
+      <router-link to="/monitors" class="stat-card">
+        <div class="stat-card__icon" style="background:rgba(79,156,249,.1)">
+          <Monitor :size="16" color="#60a5fa" :stroke-width="2" />
+        </div>
+        <div class="stat-card__body">
+          <div class="stat-card__label">{{ t('dashboard.total_monitors') }}</div>
+          <div class="stat-card__value" style="color:#60a5fa">{{ monitors.length }}</div>
+        </div>
+      </router-link>
+
+      <router-link to="/monitors?status=up" class="stat-card">
+        <div class="stat-card__icon" style="background:rgba(52,211,153,.1)">
+          <CheckCircle2 :size="16" color="#34d399" :stroke-width="2" />
+        </div>
+        <div class="stat-card__body">
+          <div class="stat-card__label">{{ t('dashboard.monitors_up') }}</div>
+          <div class="stat-card__value" style="color:#34d399">{{ upCount }}</div>
+        </div>
+      </router-link>
+
+      <router-link to="/monitors?status=down" class="stat-card">
+        <div class="stat-card__icon" :style="`background:${downCount > 0 ? 'rgba(248,113,113,.1)' : 'rgba(52,211,153,.06)'}`">
+          <XCircle :size="16" :color="downCount > 0 ? '#f87171' : '#34d399'" :stroke-width="2" />
+          <span v-if="downCount > 0" class="stat-card__pulse" />
+        </div>
+        <div class="stat-card__body">
+          <div class="stat-card__label">{{ t('dashboard.monitors_down') }}</div>
+          <div class="stat-card__value" :style="`color:${downCount > 0 ? '#f87171' : '#34d399'}`">{{ downCount }}</div>
+        </div>
+      </router-link>
+
+      <router-link to="/incidents" class="stat-card">
+        <div class="stat-card__icon" style="background:rgba(251,191,36,.1)">
+          <AlertTriangle :size="16" color="#fbbf24" :stroke-width="2" />
+          <span v-if="incidentCount > 0" class="stat-card__pulse" />
+        </div>
+        <div class="stat-card__body">
+          <div class="stat-card__label">{{ t('dashboard.active_incidents') }}</div>
+          <div class="stat-card__value" style="color:#fbbf24">{{ incidentCount }}</div>
+        </div>
+      </router-link>
+
+      <div class="stat-card">
+        <div class="stat-card__icon" style="background:rgba(192,132,252,.1)">
+          <TrendingUp :size="16" color="#c084fc" :stroke-width="2" />
+        </div>
+        <div class="stat-card__body">
+          <div class="stat-card__label">{{ t('dashboard.global_uptime') }}</div>
+          <div class="stat-card__value" style="color:#c084fc">{{ globalUptimeStr }}</div>
+        </div>
+      </div>
     </div>
 
     <!-- Grid -->
@@ -53,9 +96,11 @@
         </div>
 
         <div v-else class="px-2 py-1.5">
-          <MonitorRow v-for="m in previewMonitors" :key="m.id" :monitor="m" />
-          <p v-if="monitors.length > 10" class="dash__more-link">
-            +{{ monitors.length - 10 }} —
+          <TransitionGroup name="list">
+            <MonitorRow v-for="m in previewMonitors" :key="m.id" :monitor="m" />
+          </TransitionGroup>
+          <p v-if="monitors.length > 15" class="dash__more-link">
+            +{{ monitors.length - 15 }} —
             <router-link to="/monitors">{{ t('common.view_all') }}</router-link>
           </p>
         </div>
@@ -115,7 +160,7 @@
 </template>
 
 <script setup>
-import { computed, defineComponent, h, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, TransitionGroup } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { AlertTriangle, ArrowRight, CheckCircle2, Monitor, Plus, TrendingUp, WifiOff, XCircle } from 'lucide-vue-next'
 import { useMonitorStore } from '../stores/monitors'
@@ -126,22 +171,6 @@ import OnboardingWizard from '../components/onboarding/OnboardingWizard.vue'
 import api from '../api/client'
 
 const STATUS_PRIORITY = { down: 0, error: 1, timeout: 2, up: 3 }
-
-const StatCard = defineComponent({
-  props: { label: String, value: [Number, String], color: String, bg: String, icon: [Object, Function], pulse: Boolean },
-  setup(p) {
-    return () => h('div', { class: 'stat-card' }, [
-      h('div', { class: 'stat-card__icon', style: `background:${p.bg};` }, [
-        h(p.icon, { size: 18, color: p.color, strokeWidth: 2 }),
-        p.pulse ? h('span', { class: 'stat-card__pulse' }) : null,
-      ]),
-      h('div', { class: 'stat-card__body' }, [
-        h('div', { class: 'stat-card__label' }, p.label),
-        h('div', { class: 'stat-card__value', style: `color:${p.color};` }, String(p.value)),
-      ]),
-    ])
-  },
-})
 
 const { t } = useI18n()
 const monitorStore = useMonitorStore()
@@ -171,7 +200,7 @@ const globalUptimeStr = computed(() => {
 const previewMonitors = computed(() =>
   [...monitors.value]
     .sort((a, b) => (STATUS_PRIORITY[a._lastStatus] ?? 4) - (STATUS_PRIORITY[b._lastStatus] ?? 4))
-    .slice(0, 10)
+    .slice(0, 15)
 )
 
 const openIncidents = computed(() => monitors.value.filter(m => m._hasOpenIncident))
@@ -225,9 +254,9 @@ onMounted(async () => {
 @media (min-width: 640px)  { .dash { padding: 1.5rem 1.5rem 2rem; } }
 @media (min-width: 1024px) { .dash { padding: 2rem 2rem 2.5rem; } }
 
-.dash__header { margin-bottom: 1.5rem; }
+.dash__header { margin-bottom: 1rem; }
 .dash__title {
-  font-size: 1.375rem;
+  font-size: 1.25rem;
   font-weight: 700;
   color: var(--text-1);
   letter-spacing: -.02em;
@@ -239,8 +268,8 @@ onMounted(async () => {
 .dash__stats {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: .75rem;
-  margin-bottom: 1.5rem;
+  gap: .625rem;
+  margin-bottom: 1.25rem;
 }
 @media (min-width: 640px)  { .dash__stats { grid-template-columns: repeat(3, 1fr); } }
 @media (min-width: 1024px) { .dash__stats { grid-template-columns: repeat(5, 1fr); } }
@@ -249,13 +278,13 @@ onMounted(async () => {
 .dash__grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 1.25rem;
+  gap: 1rem;
 }
 @media (min-width: 1024px) {
   .dash__grid { grid-template-columns: 3fr 2fr; }
 }
 
-.dash__right { display: flex; flex-direction: column; gap: 1.25rem; }
+.dash__right { display: flex; flex-direction: column; gap: 1rem; }
 
 /* Card header */
 .dash__card-header {
@@ -374,51 +403,54 @@ onMounted(async () => {
 }
 
 /* StatCard */
-:deep(.stat-card) {
+.stat-card {
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 1rem 1.125rem;
+  padding: .75rem .875rem;
   display: flex;
   align-items: center;
-  gap: 12px;
-  transition: border-color .2s;
+  gap: 10px;
+  transition: border-color .2s, background .15s;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
 }
-:deep(.stat-card:hover) { border-color: var(--border-hover); }
+.stat-card:hover { border-color: var(--border-hover); background: var(--bg-surface-2); }
 
-:deep(.stat-card__icon) {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
+.stat-card__icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   position: relative;
 }
-:deep(.stat-card__pulse) {
+.stat-card__pulse {
   position: absolute;
-  top: -3px;
-  right: -3px;
-  width: 8px;
-  height: 8px;
+  top: -2px;
+  right: -2px;
+  width: 7px;
+  height: 7px;
   background: #ef4444;
   border-radius: 50%;
-  border: 2px solid var(--bg-surface);
+  border: 1.5px solid var(--bg-surface);
   animation: pulse-ring 2s ease-out infinite;
 }
 
-:deep(.stat-card__label) {
-  font-size: .65rem;
+.stat-card__label {
+  font-size: .6rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .07em;
   color: var(--text-3);
-  margin-bottom: 3px;
+  margin-bottom: 2px;
   white-space: nowrap;
 }
-:deep(.stat-card__value) {
-  font-size: 1.625rem;
+.stat-card__value {
+  font-size: 1.375rem;
   font-weight: 700;
   line-height: 1;
   letter-spacing: -.03em;

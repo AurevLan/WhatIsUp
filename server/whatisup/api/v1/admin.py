@@ -101,7 +101,7 @@ async def create_user(
         username=username,
         full_name=payload.full_name,
         hashed_password=await hash_password_async(payload.password),
-        is_superadmin=False,
+        is_superadmin=payload.is_superadmin,
         can_create_monitors=payload.can_create_monitors,
     )
     db.add(user)
@@ -150,6 +150,14 @@ async def update_user(
 
     if payload.can_create_monitors is not None:
         user.can_create_monitors = payload.can_create_monitors
+
+    if payload.is_superadmin is not None:
+        if user.id == admin.id and not payload.is_superadmin:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot remove your own superadmin privileges",
+            )
+        user.is_superadmin = payload.is_superadmin
 
     await db.flush()
     from whatisup.services.audit import log_action

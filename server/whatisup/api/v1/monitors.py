@@ -127,6 +127,27 @@ async def list_monitors(
         str(r.monitor_id): round(r.up_count / r.total * 100, 2) for r in uptime_rows if r.total > 0
     }
 
+    # P95 response time 24h per monitor (one query)
+    p95_rows = (
+        await db.execute(
+            select(
+                CheckResult.monitor_id,
+                func.percentile_cont(0.95)
+                .within_group(CheckResult.response_time_ms)
+                .label("p95"),
+            )
+            .where(
+                CheckResult.monitor_id.in_(monitor_ids),
+                CheckResult.checked_at >= cutoff,
+                CheckResult.response_time_ms.isnot(None),
+            )
+            .group_by(CheckResult.monitor_id)
+        )
+    ).all()
+    p95_map = {
+        str(r.monitor_id): round(r.p95, 1) for r in p95_rows if r.p95 is not None
+    }
+
     # Last response time per monitor (reuse latest result subquery)
     rt_rows = (
         await db.execute(
@@ -189,6 +210,7 @@ async def list_monitors(
             d["last_status"] = None
         d["uptime_24h"] = uptime_map.get(mid)
         d["last_response_time_ms"] = rt_map.get(mid)
+        d["p95_response_time_ms"] = p95_map.get(mid)
         d["sparkline"] = sparkline_map.get(mid, [])
         out.append(d)
     return out
@@ -238,6 +260,7 @@ async def create_monitor(
         domain_expiry_warn_days=payload.domain_expiry_warn_days,
         dns_record_type=payload.dns_record_type,
         dns_expected_value=payload.dns_expected_value,
+        dns_nameservers=payload.dns_nameservers,
         keyword=payload.keyword,
         keyword_negate=payload.keyword_negate,
         expected_json_path=payload.expected_json_path,

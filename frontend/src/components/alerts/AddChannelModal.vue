@@ -17,6 +17,7 @@
             <option value="slack">💬 Slack</option>
             <option value="pagerduty">🔔 PagerDuty</option>
             <option value="opsgenie">🚨 Opsgenie</option>
+            <option value="signal">📱 Signal</option>
           </select>
         </div>
 
@@ -123,6 +124,24 @@
           </div>
         </div>
 
+        <!-- Signal config -->
+        <div v-if="form.type === 'signal'" class="space-y-3">
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Signal REST API URL *</label>
+            <input v-model="signalApiUrl" class="input w-full" placeholder="https://signal-api.example.com" type="url" required />
+            <p class="text-xs text-gray-500 mt-1">URL of your signal-cli REST API instance.</p>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Sender Number *</label>
+            <input v-model="signalSenderNumber" class="input w-full" placeholder="+33612345678" required />
+            <p class="text-xs text-gray-500 mt-1">Phone number registered in signal-cli (E.164 format).</p>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Recipients (comma-separated) *</label>
+            <input v-model="signalRecipients" class="input w-full" placeholder="+33612345678, +33698765432" required />
+          </div>
+        </div>
+
         <div v-if="error" class="bg-red-900/40 border border-red-700 rounded p-3 text-sm text-red-300">
           {{ error }}
         </div>
@@ -161,6 +180,9 @@ const pdSeverity = ref('critical')
 const opsApiKey = ref('')
 const opsRegion = ref('us')
 const opsPriority = ref('P1')
+const signalApiUrl = ref('')
+const signalSenderNumber = ref('')
+const signalRecipients = ref('')
 
 async function resolveTelegram() {
   telegramResolving.value = true
@@ -191,6 +213,8 @@ function buildConfig() {
       return { integration_key: pdIntegrationKey.value, severity: pdSeverity.value }
     case 'opsgenie':
       return { api_key: opsApiKey.value, region: opsRegion.value, priority: opsPriority.value }
+    case 'signal':
+      return { api_url: signalApiUrl.value, sender_number: signalSenderNumber.value, recipients: signalRecipients.value.split(',').map(n => n.trim()).filter(Boolean) }
     default:
       return {}
   }

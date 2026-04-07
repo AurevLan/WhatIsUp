@@ -16,7 +16,7 @@ from whatisup.models.incident import Incident
 from whatisup.models.incident_update import IncidentUpdate
 from whatisup.models.monitor import Monitor
 from whatisup.models.user import User
-from whatisup.schemas.incident import IncidentUpdateCreate, IncidentUpdateOut
+from whatisup.schemas.incident import IncidentOut, IncidentUpdateCreate, IncidentUpdateOut
 
 router = APIRouter(prefix="/incidents", tags=["incidents"])
 
@@ -34,16 +34,16 @@ async def _get_incident_for_user(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incident not found")
 
     if not current_user.is_superadmin:
+        from whatisup.api.deps import check_resource_access
+
         monitor = (
             await db.execute(
-                select(Monitor).where(
-                    Monitor.id == incident.monitor_id,
-                    Monitor.owner_id == current_user.id,
-                )
+                select(Monitor).where(Monitor.id == incident.monitor_id)
             )
         ).scalar_one_or_none()
         if monitor is None:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Monitor not found")
+        await check_resource_access(monitor, current_user, db)
 
     return incident
 
@@ -117,3 +117,62 @@ async def delete_incident_update(
 
     await db.delete(update)
     await db.commit()
+
+
+@router.post("/{incident_id}/ack", response_model=IncidentOut)
+@limiter.limit("30/minute")
+async def acknowledge_incident(
+    request: Request,
+    incident_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Incident:
+    incident = await _get_incident_for_user(incident_id, current_user, db)
+    if incident.resolved_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot ack a resolved incident"
+        )
+    incident.acked_at = datetime.now(UTC)
+    incident.acked_by_id = current_user.id
+    await db.commit()
+    await db.refresh(incident)
+    return _incident_to_out(incident)
+
+
+@router.post("/{incident_id}/unack", response_model=IncidentOut)
+@limiter.limit("30/minute")
+async def unacknowledge_incident(
+    request: Request,
+    incident_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Incident:
+    incident = await _get_incident_for_user(incident_id, current_user, db)
+    incident.acked_at = None
+    incident.acked_by_id = None
+    await db.commit()
+    await db.refresh(incident)
+    return _incident_to_out(incident)
+
+
+def _incident_to_out(inc: Incident) -> dict:
+    """Build IncidentOut-compatible dict with computed SLA metrics."""
+    mttd = None
+    if inc.first_failure_at and inc.started_at:
+        mttd = max(0, int((inc.started_at - inc.first_failure_at).total_seconds()))
+    return {
+        "id": inc.id,
+        "monitor_id": inc.monitor_id,
+        "started_at": inc.started_at,
+        "resolved_at": inc.resolved_at,
+        "duration_seconds": inc.duration_seconds,
+        "scope": inc.scope,
+        "affected_probe_ids": inc.affected_probe_ids,
+        "dependency_suppressed": inc.dependency_suppressed,
+        "group_id": inc.group_id,
+        "acked_at": inc.acked_at,
+        "acked_by_id": inc.acked_by_id,
+        "first_failure_at": inc.first_failure_at,
+        "mttd_seconds": mttd,
+        "mttr_seconds": inc.duration_seconds,
+    }

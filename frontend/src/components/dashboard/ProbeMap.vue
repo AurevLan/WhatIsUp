@@ -4,7 +4,7 @@
     <div class="flex items-center justify-between px-5 py-4 border-b border-gray-800/80">
       <div class="flex items-center gap-2">
         <Radio class="w-4 h-4 text-blue-400" />
-        <h2 class="text-sm font-semibold text-gray-100">Sondes</h2>
+        <h2 class="text-sm font-semibold text-gray-100">{{ t('nav.probes') }}</h2>
         <span class="text-xs text-gray-600 font-mono">({{ probes.length }})</span>
       </div>
       <div class="flex items-center gap-3 text-xs text-gray-600">
@@ -24,7 +24,7 @@
         <div v-for="i in 2" :key="i" class="h-9 flex-1 rounded-lg bg-gray-800/50 animate-pulse" />
       </div>
       <div v-else-if="probes.length === 0" class="py-6 text-center text-xs text-gray-600">
-        Aucune sonde enregistrée.
+        {{ t('probes.no_probes') }}
       </div>
       <template v-else>
         <div v-for="probe in probes" :key="probe.id"
@@ -43,7 +43,7 @@
             :class="probe.network_type === 'internal'
               ? 'bg-purple-500/10 text-purple-400 border-purple-500/20'
               : 'bg-blue-500/10 text-blue-400 border-blue-500/20'">
-            {{ probe.network_type === 'internal' ? 'Interne' : 'Externe' }}
+            {{ probe.network_type === 'internal' ? t('probes.internal') : t('probes.external') }}
           </span>
 
           <!-- Uptime -->
@@ -71,8 +71,11 @@
 
 <script setup>
 import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Radio } from 'lucide-vue-next'
 import { probesApi } from '../../api/probes'
+
+const { t } = useI18n()
 
 const probes  = ref([])
 const loading = ref(true)

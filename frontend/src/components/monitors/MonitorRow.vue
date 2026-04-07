@@ -1,5 +1,5 @@
 <template>
-  <router-link :to="`/monitors/${monitor.id}`" class="monitor-row">
+  <router-link :to="`/monitors/${monitor.id}`" class="monitor-row" :class="wsFlashClass">
     <!-- Status indicator -->
     <span class="monitor-row__dot" :class="dotClass" />
 
@@ -20,7 +20,9 @@
     <!-- Uptime -->
     <div class="monitor-row__uptime">
       <span class="monitor-row__uptime-val" :class="uptimeColorClass">{{ uptime }}</span>
-      <span class="monitor-row__uptime-label">24h</span>
+      <div class="monitor-row__uptime-bar">
+        <div class="monitor-row__uptime-fill" :class="uptimeColorClass" :style="`width:${Math.min(100, monitor._uptime24h ?? 0)}%`" />
+      </div>
     </div>
 
     <!-- Flapping indicator -->
@@ -39,7 +41,9 @@
 <script setup>
 import { computed } from 'vue'
 
-const props = defineProps({ monitor: Object })
+const props = defineProps({
+  monitor: { type: Object, required: true },
+})
 
 const statusCfg = {
   up:      { dot: 'dot--up',      badge: 'badge-up',      label: 'UP' },
@@ -49,6 +53,11 @@ const statusCfg = {
 }
 const defCfg = { dot: 'dot--unknown', badge: 'badge-unknown', label: 'NO DATA' }
 
+const wsFlashClass = computed(() => {
+  if (props.monitor._wsFlash === 'up') return 'ws-flash-up'
+  if (props.monitor._wsFlash === 'down') return 'ws-flash-down'
+  return ''
+})
 const cfg           = computed(() => statusCfg[props.monitor._lastStatus] ?? defCfg)
 const dotClass      = computed(() => cfg.value.dot)
 const badgeClass    = computed(() => cfg.value.badge)
@@ -76,9 +85,15 @@ const responseTimeLabel = computed(() => {
 const responseTimeClass = computed(() => {
   const ms = props.monitor._lastResponseTimeMs
   if (ms == null) return 'text-muted'
-  if (ms < 300)  return 'text-up'
-  if (ms < 1000) return 'text-warn'
-  return 'text-down'
+  const p95 = props.monitor._p95ResponseTimeMs
+  if (p95 != null && p95 > 0) {
+    const ratio = ms / p95
+    if (ratio <= 0.6)  return 'text-up'    // well below p95
+    if (ratio <= 1.2)  return 'text-warn'  // near p95
+    return 'text-down'                     // above p95
+  }
+  // Fallback: no p95 data yet → always neutral
+  return 'text-muted'
 })
 
 const target = computed(() => {
@@ -95,9 +110,9 @@ const target = computed(() => {
 .monitor-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 10px;
-  border-radius: 8px;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
   transition: background .15s;
   cursor: pointer;
   text-decoration: none;
@@ -120,7 +135,7 @@ const target = computed(() => {
 /* Info */
 .monitor-row__info { flex: 1; min-width: 0; }
 .monitor-row__name {
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
   color: var(--text-1);
   white-space: nowrap;
@@ -178,20 +193,33 @@ const target = computed(() => {
 }
 .monitor-row__uptime-val {
   display: block;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   line-height: 1.2;
 }
-.monitor-row__uptime-label {
-  font-size: 9.5px;
-  color: var(--text-3);
+.monitor-row__uptime-bar {
+  width: 100%;
+  height: 2px;
+  background: var(--bg-surface-3);
+  border-radius: 1px;
+  margin-top: 3px;
+  overflow: hidden;
 }
+.monitor-row__uptime-fill {
+  height: 100%;
+  border-radius: 1px;
+  transition: width .3s ease;
+}
+.monitor-row__uptime-fill.text-up   { background: #34d399; }
+.monitor-row__uptime-fill.text-warn { background: #fbbf24; }
+.monitor-row__uptime-fill.text-down { background: #f87171; }
+.monitor-row__uptime-fill.text-muted { background: var(--text-3); }
 
 /* Badge */
 .monitor-row__badge {
-  font-size: 9.5px;
+  font-size: 9px;
   font-weight: 700;
-  padding: 2px 7px;
+  padding: 1.5px 6px;
   border-radius: 99px;
   letter-spacing: .05em;
   text-transform: uppercase;

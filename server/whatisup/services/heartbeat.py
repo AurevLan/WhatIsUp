@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 
 import structlog
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from whatisup.models.incident import Incident, IncidentScope
 from whatisup.models.monitor import Monitor
@@ -57,9 +58,15 @@ async def check_heartbeats() -> None:
                     started_at=now,
                     scope=IncidentScope.global_,
                     affected_probe_ids=[],
+                    first_failure_at=deadline,
                 )
                 db.add(incident)
-                await db.flush()
+                try:
+                    await db.flush()
+                except IntegrityError:
+                    await db.rollback()
+                    logger.info("heartbeat_incident_deduplicated", monitor_id=str(monitor.id))
+                    continue
                 await _fire_alerts(db, incident, monitor, event_type="incident_opened")
                 logger.warning(
                     "heartbeat_overdue",

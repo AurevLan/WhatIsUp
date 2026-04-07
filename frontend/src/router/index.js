@@ -69,8 +69,7 @@ const routes = [
       },
       {
         path: 'incident-groups',
-        name: 'IncidentGroups',
-        component: () => import('../views/IncidentGroupsView.vue'),
+        redirect: '/incidents',
       },
       {
         path: 'probes/:id/timeline',

@@ -238,8 +238,8 @@ async def _flush_digest(rule_id: str, channels: list[AlertChannel], ctx: dict) -
     for raw in raw_events:
         try:
             events_data.append(json.loads(raw))
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("digest_event_parse_error", raw=str(raw)[:100], error=str(exc))
 
     if not events_data:
         return
@@ -337,6 +337,22 @@ async def _flush_digest(rule_id: str, channels: list[AlertChannel], ctx: dict) -
                     channel_id=str(channel.id),
                     error=str(exc),
                 )
+
+        # Clean up DB-persisted digest window
+        try:
+            from whatisup.models.digest_window import DigestWindow
+
+            rule_uuid = uuid.UUID(rule_id)
+            dw = (
+                await db.execute(
+                    select(DigestWindow).where(DigestWindow.rule_id == rule_uuid)
+                )
+            ).scalar_one_or_none()
+            if dw:
+                await db.delete(dw)
+        except Exception as exc:
+            logger.warning("digest_window_cleanup_failed", rule_id=rule_id, error=str(exc))
+
         await db.commit()
 
 
@@ -374,7 +390,8 @@ async def flush_pending_digests() -> None:
 
             try:
                 ctx_data = json.loads(raw_ctx)
-            except Exception:
+            except Exception as exc:
+                logger.warning("digest_ctx_parse_failed", rule_id=rule_id_str, error=str(exc))
                 continue
 
             channel_ids = [uuid.UUID(cid) for cid in ctx_data.get("channel_ids", [])]
@@ -407,8 +424,9 @@ def _is_within_business_hours(schedule: dict) -> bool:
     try:
         sh, sm = int(start_str.split(":")[0]), int(start_str.split(":")[1])
         eh, em = int(end_str.split(":")[0]), int(end_str.split(":")[1])
-    except Exception:
-        return True
+    except Exception as exc:
+        logger.error("business_hours_parse_failed", start=start_str, end=end_str, error=str(exc))
+        return False
 
     current_minutes = now_local.hour * 60 + now_local.minute
     return (sh * 60 + sm) <= current_minutes <= (eh * 60 + em)
@@ -461,23 +479,23 @@ async def maybe_digest_or_dispatch(
         }
     )
 
+    event_data = json.loads(event_payload)
     count = await redis.lpush(events_key, event_payload)
     await redis.expire(events_key, ttl + 300)  # +5 min de marge pour le flusher
+
+    # Always update context so digest reflects the latest monitor info
+    ctx_data = {
+        "channel_ids": [str(c.id) for c in rule.channels],
+        "ctx": ctx,
+    }
+    ctx_payload = json.dumps(ctx_data)
+    await redis.setex(ctx_key, ttl + 300, ctx_payload)
 
     if count == 1:
         # Premier événement : flush au prochain bucket arrondi (fenêtre glissante)
         now_ts = datetime.now(UTC).timestamp()
-        flush_at = (int(now_ts) // ttl + 1) * ttl
-        await redis.zadd(schedule_key, {rule_id_str: flush_at})
-
-        # Stocker le contexte (channel_ids + monitor ctx) pour le flusher
-        ctx_payload = json.dumps(
-            {
-                "channel_ids": [str(c.id) for c in rule.channels],
-                "ctx": ctx,
-            }
-        )
-        await redis.setex(ctx_key, ttl + 300, ctx_payload)
+        flush_at_ts = (int(now_ts) // ttl + 1) * ttl
+        await redis.zadd(schedule_key, {rule_id_str: flush_at_ts})
 
         logger.info(
             "digest_scheduled",
@@ -485,6 +503,95 @@ async def maybe_digest_or_dispatch(
             digest_minutes=rule.digest_minutes,
         )
     # count > 1 → la fenêtre est déjà ouverte, accumuler sans reprogrammer
+
+    # Dual-write to DB for persistence across Redis restarts
+    await _upsert_digest_window(db, rule.id, event_data, ctx_data, ttl)
+
+
+async def _upsert_digest_window(
+    db: AsyncSession,
+    rule_id: uuid.UUID,
+    event_data: dict,
+    ctx_data: dict,
+    ttl: int,
+) -> None:
+    """Persist digest window to DB for recovery if Redis is lost."""
+    from sqlalchemy.dialects.postgresql import insert as pg_insert
+
+    from whatisup.models.digest_window import DigestWindow
+
+    now = datetime.now(UTC)
+    flush_at = datetime.fromtimestamp((int(now.timestamp()) // ttl + 1) * ttl, tz=UTC)
+
+    stmt = pg_insert(DigestWindow).values(
+        id=uuid.uuid4(),
+        rule_id=rule_id,
+        flush_at=flush_at,
+        events_json=[event_data],
+        ctx_json=ctx_data,
+        created_at=now,
+    ).on_conflict_do_update(
+        index_elements=["rule_id"],
+        set_={
+            "events_json": DigestWindow.events_json.op("||")(
+                json.dumps([event_data])
+            ),
+            "ctx_json": ctx_data,
+        },
+    )
+    await db.execute(stmt)
+
+
+async def recover_digest_windows() -> None:
+    """On startup, flush any stale DB-persisted digest windows missed during downtime."""
+    from whatisup.core.database import get_session_factory
+    from whatisup.core.redis import get_redis
+    from whatisup.models.alert import AlertChannel as AC
+    from whatisup.models.digest_window import DigestWindow
+
+    redis = get_redis()
+    now = datetime.now(UTC)
+
+    async with get_session_factory()() as db:
+        stale_windows = (
+            (
+                await db.execute(
+                    select(DigestWindow).where(DigestWindow.flush_at <= now)
+                )
+            )
+            .scalars()
+            .all()
+        )
+
+        for window in stale_windows:
+            # Check if Redis already has events for this rule (server might still be running)
+            events_key = f"whatisup:digest:{window.rule_id}"
+            redis_count = await redis.llen(events_key)
+            if redis_count > 0:
+                # Redis has data — delete stale DB row, Redis flusher will handle it
+                await db.delete(window)
+                continue
+
+            # Redis lost data — recover from DB
+            ctx_data = window.ctx_json or {}
+            channel_ids = [uuid.UUID(cid) for cid in ctx_data.get("channel_ids", [])]
+            if channel_ids and window.events_json:
+                channels = (
+                    (await db.execute(select(AC).where(AC.id.in_(channel_ids)))).scalars().all()
+                )
+                if channels:
+                    logger.info(
+                        "digest_recovered_from_db",
+                        rule_id=str(window.rule_id),
+                        event_count=len(window.events_json),
+                    )
+                    await _flush_digest(
+                        str(window.rule_id), list(channels), ctx_data.get("ctx", {})
+                    )
+
+            await db.delete(window)
+
+        await db.commit()
 
 
 async def dispatch_alert(
@@ -534,7 +641,15 @@ async def dispatch_alert(
         from whatisup.services.channels import CHANNEL_REGISTRY
 
         handler = CHANNEL_REGISTRY.get(channel.type.value)
-        if handler is not None:
+        if handler is None:
+            logger.error(
+                "alert_handler_not_found",
+                channel_id=str(channel.id),
+                channel_type=channel.type.value,
+            )
+            status = AlertEventStatus.failed
+            response_body = f"No handler for channel type: {channel.type.value}"
+        else:
             response_body = await handler.send(
                 incident, channel, event_type, ctx, decrypted_config, settings
             )

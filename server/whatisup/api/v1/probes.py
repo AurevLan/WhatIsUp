@@ -231,6 +231,7 @@ async def heartbeat(
             tcp_port=m.tcp_port,
             dns_record_type=m.dns_record_type,
             dns_expected_value=m.dns_expected_value,
+            dns_nameservers=m.dns_nameservers,
             keyword=m.keyword,
             keyword_negate=m.keyword_negate,
             expected_json_path=m.expected_json_path,

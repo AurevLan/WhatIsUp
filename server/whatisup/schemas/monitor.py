@@ -60,6 +60,7 @@ class MonitorCreate(BaseModel):
     domain_expiry_warn_days: int = Field(default=30, ge=1, le=365)
     dns_record_type: str | None = Field(default=None, pattern=r"^(A|AAAA|CNAME|MX|TXT|NS)$")
     dns_expected_value: str | None = Field(default=None, max_length=512)
+    dns_nameservers: list[str] | None = None
     # DNS drift / split baseline
     dns_drift_alert: bool = False
     dns_split_enabled: bool = False
@@ -145,6 +146,7 @@ class MonitorUpdate(BaseModel):
     domain_expiry_warn_days: int | None = Field(default=None, ge=1, le=365)
     dns_record_type: str | None = Field(default=None, pattern=r"^(A|AAAA|CNAME|MX|TXT|NS)$")
     dns_expected_value: str | None = Field(default=None, max_length=512)
+    dns_nameservers: list[str] | None = None
     dns_drift_alert: bool | None = None
     dns_split_enabled: bool | None = None
     dns_baseline_ips_internal: list[str] | None = None
@@ -204,6 +206,7 @@ class MonitorOut(BaseModel):
     domain_expiry_warn_days: int = 30
     dns_record_type: str | None
     dns_expected_value: str | None
+    dns_nameservers: list[str] | None = None
     dns_baseline_ips: list[str] | None = None
     dns_drift_alert: bool = False
     dns_split_enabled: bool = False

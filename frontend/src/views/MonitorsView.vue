@@ -1,11 +1,13 @@
 <template>
-  <div class="p-8 max-w-6xl mx-auto">
+  <div class="page-body max-w-6xl">
 
     <!-- Header -->
-    <div class="flex items-start justify-between mb-8">
+    <div class="flex items-start justify-between mb-4">
       <div>
-        <h1 class="text-2xl font-bold text-white">{{ t('monitors.title') }}</h1>
-        <p class="text-gray-500 mt-1 text-sm">{{ monitors.length }} monitors</p>
+        <h1 class="text-xl font-bold" style="color:var(--text-1)">{{ t('monitors.title') }}</h1>
+        <p class="mt-0.5 text-xs" style="color:var(--text-3)">
+          {{ monitors.length }} monitors<template v-if="downCount > 0"> — <span style="color:var(--down)">{{ downCount }} down</span></template><template v-if="errorCount > 0">, <span style="color:#fb923c">{{ errorCount }} error</span></template>
+        </p>
       </div>
     </div>
 
@@ -31,12 +33,12 @@
     </div>
 
     <!-- Filter bar -->
-    <div class="space-y-2 mb-6">
+    <div class="space-y-1.5 mb-4">
       <!-- Row 1: search + view toggle + add -->
       <div class="flex gap-2 items-center">
         <div class="relative flex-1">
           <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
-          <input ref="searchInput" v-model="search" class="input pl-9 h-9 text-sm" :placeholder="t('common.search') + '…'" />
+          <input ref="searchInput" :value="searchInput_" @input="onSearchInput($event.target.value)" class="input pl-9 h-8 text-xs" :placeholder="t('common.search') + '…'" />
         </div>
         <div class="flex gap-0.5 bg-gray-800/60 p-0.5 rounded-lg border border-gray-700/80">
           <button @click="setViewMode('list')"
@@ -50,7 +52,7 @@
             <LayoutGrid class="w-4 h-4" />
           </button>
         </div>
-        <button @click="showCreate = true" class="btn-primary h-9">
+        <button @click="showCreate = true" class="btn-primary h-8 text-xs">
           <Plus class="w-4 h-4" />
           {{ t('monitors.add') }}
         </button>
@@ -124,15 +126,15 @@
             </th>
             <th class="th pl-2">{{ t('common.status') }}</th>
             <th class="th cursor-pointer select-none hover:text-gray-300 transition-colors" @click="setSortKey('name')">
-              {{ t('common.name') }} <span class="text-gray-500">{{ sortArrow('name') }}</span>
+              <span class="inline-flex items-center gap-0.5">{{ t('common.name') }} <component v-if="isSorted('name')" :is="sortIcon('name')" :size="11" /></span>
             </th>
             <th class="th hidden md:table-cell">Target</th>
             <th class="th hidden lg:table-cell">Interval</th>
             <th class="th hidden sm:table-cell cursor-pointer select-none hover:text-gray-300 transition-colors" @click="setSortKey('uptime')">
-              {{ t('monitors.uptime_24h') }} <span class="text-gray-500">{{ sortArrow('uptime') }}</span>
+              <span class="inline-flex items-center gap-0.5">{{ t('monitors.uptime_24h') }} <component v-if="isSorted('uptime')" :is="sortIcon('uptime')" :size="11" /></span>
             </th>
             <th class="th hidden lg:table-cell cursor-pointer select-none hover:text-gray-300 transition-colors" @click="setSortKey('rt')">
-              Réponse <span class="text-gray-500">{{ sortArrow('rt') }}</span>
+              <span class="inline-flex items-center gap-0.5">Resp. <component v-if="isSorted('rt')" :is="sortIcon('rt')" :size="11" /></span>
             </th>
             <th class="th hidden lg:table-cell">Trend</th>
             <th class="th pr-6 text-right">{{ t('common.actions') }}</th>
@@ -142,7 +144,7 @@
           <tr
             v-for="(monitor, idx) in paginatedMonitors"
             :key="monitor.id"
-            class="table-row stagger-item"
+            class="table-row stagger-item group"
             :style="{ animationDelay: idx * 20 + 'ms' }"
             :class="selectedIds.has(monitor.id) ? 'bg-blue-950/20' : ''"
           >
@@ -194,7 +196,7 @@
 
             <!-- Temps de réponse -->
             <td class="td hidden lg:table-cell">
-              <span v-if="monitor._lastResponseTimeMs != null" class="font-mono text-xs" :class="responseTimeColor(monitor._lastResponseTimeMs)">
+              <span v-if="monitor._lastResponseTimeMs != null" class="font-mono text-xs" :class="responseTimeColor(monitor._lastResponseTimeMs, monitor)">
                 {{ monitor._lastResponseTimeMs < 1000
                   ? monitor._lastResponseTimeMs + 'ms'
                   : (monitor._lastResponseTimeMs / 1000).toFixed(2) + 's' }}
@@ -209,18 +211,29 @@
 
             <!-- Actions -->
             <td class="td pr-6">
-              <div class="flex items-center justify-end gap-1">
-                <router-link :to="`/monitors/${monitor.id}`" class="btn-ghost px-2 py-1 text-xs">
+              <div class="flex items-center justify-end gap-1.5">
+                <router-link :to="`/monitors/${monitor.id}`"
+                  class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-400 hover:text-blue-400 hover:bg-blue-500/10 transition-colors"
+                  :title="t('common.view')">
                   <Eye class="w-3.5 h-3.5" />
                 </router-link>
-                <button @click="editingMonitor = monitor" class="btn-ghost px-2 py-1 text-xs" :title="t('common.edit')">
+                <button @click.stop="editingMonitor = monitor"
+                  class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
+                  :title="t('common.edit')">
                   <PencilLine class="w-3.5 h-3.5" />
                 </button>
-                <button @click="toggleEnabled(monitor)" class="btn-ghost px-2 py-1 text-xs" :title="monitor.enabled ? t('monitors.bulk_pause') : t('monitors.bulk_enable')">
+                <button @click.stop="toggleEnabled(monitor)"
+                  class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors"
+                  :class="monitor.enabled
+                    ? 'text-gray-400 hover:text-orange-400 hover:bg-orange-500/10'
+                    : 'text-emerald-600 hover:text-emerald-400 hover:bg-emerald-500/10'"
+                  :title="monitor.enabled ? t('monitors.bulk_pause') : t('monitors.bulk_enable')">
                   <Pause v-if="monitor.enabled" class="w-3.5 h-3.5" />
                   <Play v-else class="w-3.5 h-3.5" />
                 </button>
-                <button @click="handleDelete(monitor)" class="btn-ghost px-2 py-1 text-xs text-red-500 hover:text-red-400 hover:bg-red-500/10">
+                <button @click.stop="handleDelete(monitor)"
+                  class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                  :title="t('common.delete')">
                   <Trash2 class="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -230,10 +243,18 @@
       </table>
 
       <!-- Pagination (list mode) -->
-      <div v-if="totalPages > 1" class="flex items-center justify-between mt-4 px-4 pb-4 text-sm text-gray-400">
-        <button @click="currentPage--" :disabled="currentPage === 1" class="btn-ghost text-xs disabled:opacity-40">← Prev</button>
-        <span class="text-xs">{{ currentPage }} / {{ totalPages }}</span>
-        <button @click="currentPage++" :disabled="currentPage === totalPages" class="btn-ghost text-xs disabled:opacity-40">Next →</button>
+      <div v-if="totalPages > 1" class="flex items-center justify-center gap-1 mt-3 px-4 pb-3">
+        <button @click="currentPage--" :disabled="currentPage === 1" class="btn-ghost text-xs disabled:opacity-30 px-1.5">←</button>
+        <template v-for="p in pageNumbers" :key="p">
+          <span v-if="p === '...'" class="text-xs px-1" style="color:var(--text-3)">...</span>
+          <button v-else @click="currentPage = p"
+            class="text-xs w-7 h-7 rounded flex items-center justify-center transition-colors"
+            :class="p === currentPage ? 'font-bold' : 'hover:bg-white/5'"
+            :style="p === currentPage ? 'background:var(--accent-glow);color:var(--accent);border:1px solid var(--accent-border)' : 'color:var(--text-3)'">
+            {{ p }}
+          </button>
+        </template>
+        <button @click="currentPage++" :disabled="currentPage === totalPages" class="btn-ghost text-xs disabled:opacity-30 px-1.5">→</button>
       </div>
     </div>
 
@@ -288,7 +309,7 @@
               </p>
             </div>
             <div class="text-right">
-              <p v-if="monitor._lastResponseTimeMs != null" class="text-xs font-mono" :class="responseTimeColor(monitor._lastResponseTimeMs)">
+              <p v-if="monitor._lastResponseTimeMs != null" class="text-xs font-mono" :class="responseTimeColor(monitor._lastResponseTimeMs, monitor)">
                 {{ monitor._lastResponseTimeMs < 1000
                   ? monitor._lastResponseTimeMs + 'ms'
                   : (monitor._lastResponseTimeMs / 1000).toFixed(1) + 's' }}
@@ -300,6 +321,30 @@
           <!-- Sparkline -->
           <div class="mt-2">
             <SparklineCell :data="monitor._sparkline" />
+          </div>
+
+          <!-- Card actions -->
+          <div class="mt-3 pt-2 border-t border-gray-700/50 flex items-center justify-end gap-1"
+            @click.prevent @mousedown.prevent>
+            <button @click.prevent="editingMonitor = monitor"
+              class="p-1.5 rounded-md text-gray-500 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
+              :title="t('common.edit')">
+              <PencilLine class="w-3.5 h-3.5" />
+            </button>
+            <button @click.prevent="toggleEnabled(monitor)"
+              class="p-1.5 rounded-md transition-colors"
+              :class="monitor.enabled
+                ? 'text-gray-500 hover:text-orange-400 hover:bg-orange-500/10'
+                : 'text-emerald-600 hover:text-emerald-400 hover:bg-emerald-500/10'"
+              :title="monitor.enabled ? t('monitors.bulk_pause') : t('monitors.bulk_enable')">
+              <Pause v-if="monitor.enabled" class="w-3.5 h-3.5" />
+              <Play v-else class="w-3.5 h-3.5" />
+            </button>
+            <button @click.prevent="handleDelete(monitor)"
+              class="p-1.5 rounded-md text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+              :title="t('common.delete')">
+              <Trash2 class="w-3.5 h-3.5" />
+            </button>
           </div>
         </router-link>
 
@@ -314,12 +359,25 @@
       </div>
 
       <!-- Pagination (board mode) -->
-      <div v-if="totalPages > 1" class="flex items-center justify-between mt-4 text-sm text-gray-400">
-        <button @click="currentPage--" :disabled="currentPage === 1" class="btn-ghost text-xs disabled:opacity-40">← Prev</button>
-        <span class="text-xs">{{ currentPage }} / {{ totalPages }}</span>
-        <button @click="currentPage++" :disabled="currentPage === totalPages" class="btn-ghost text-xs disabled:opacity-40">Next →</button>
+      <div v-if="totalPages > 1" class="flex items-center justify-center gap-1 mt-3">
+        <button @click="currentPage--" :disabled="currentPage === 1" class="btn-ghost text-xs disabled:opacity-30 px-1.5">←</button>
+        <template v-for="p in pageNumbers" :key="p">
+          <span v-if="p === '...'" class="text-xs px-1" style="color:var(--text-3)">...</span>
+          <button v-else @click="currentPage = p"
+            class="text-xs w-7 h-7 rounded flex items-center justify-center transition-colors"
+            :class="p === currentPage ? 'font-bold' : 'hover:bg-white/5'"
+            :style="p === currentPage ? 'background:var(--accent-glow);color:var(--accent);border:1px solid var(--accent-border)' : 'color:var(--text-3)'">
+            {{ p }}
+          </button>
+        </template>
+        <button @click="currentPage++" :disabled="currentPage === totalPages" class="btn-ghost text-xs disabled:opacity-30 px-1.5">→</button>
       </div>
     </div>
+
+    <!-- Mobile FAB -->
+    <button class="fab" @click="showCreate = true" :title="t('monitors.add')">
+      <Plus class="w-6 h-6" />
+    </button>
 
     <CreateMonitorModal v-if="showCreate" @close="showCreate = false" @created="onCreated" />
     <EditMonitorModal v-if="editingMonitor" :monitor="editingMonitor" @close="editingMonitor = null" @updated="onUpdated" />
@@ -330,7 +388,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { Download, Eye, LayoutGrid, List, Monitor, Pause, PencilLine, Play, Plus, Search, Trash2, X } from 'lucide-vue-next'
+import { ChevronDown, ChevronUp, Download, Eye, LayoutGrid, List, Monitor, Pause, PencilLine, Play, Plus, Search, Trash2, X } from 'lucide-vue-next'
 import { useMonitorStore } from '../stores/monitors'
 import { monitorsApi } from '../api/monitors'
 import { useToast } from '../composables/useToast'
@@ -348,9 +406,18 @@ const { confirm } = useConfirm()
 
 const monitors = computed(() => monitorStore.monitors)
 const loading  = computed(() => monitorStore.loading)
+const downCount  = computed(() => monitors.value.filter(m => m._lastStatus === 'down').length)
+const errorCount = computed(() => monitors.value.filter(m => ['error', 'timeout'].includes(m._lastStatus)).length)
 
 // Initialize from URL query params
+const searchInput_  = ref(route.query.q || '')
 const search        = ref(route.query.q || '')
+let searchTimeout   = null
+function onSearchInput(val) {
+  searchInput_.value = val
+  clearTimeout(searchTimeout)
+  searchTimeout = setTimeout(() => { search.value = val }, 200)
+}
 const filterStatus  = ref(route.query.status || '')
 const filterType    = ref(route.query.type || '')
 const filterGroup   = ref('')
@@ -387,6 +454,7 @@ function clearFilters() {
   filterType.value   = ''
   filterGroup.value  = ''
   search.value       = ''
+  searchInput_.value = ''
 }
 
 // ── Pagination ─────────────────────────────────────────────────────────────────
@@ -406,9 +474,12 @@ function setSortKey(key) {
   }
 }
 
-function sortArrow(key) {
-  if (sortKey.value !== key) return ''
-  return sortDir.value === 'asc' ? '↑' : '↓'
+function isSorted(key) {
+  return sortKey.value === key
+}
+function sortIcon(key) {
+  if (sortKey.value !== key) return null
+  return sortDir.value === 'asc' ? ChevronUp : ChevronDown
 }
 
 // ── Sélection bulk ────────────────────────────────────────────────────────────
@@ -453,6 +524,18 @@ const filteredMonitors = computed(() => {
 })
 
 const totalPages = computed(() => Math.ceil(filteredMonitors.value.length / PAGE_SIZE))
+
+const pageNumbers = computed(() => {
+  const total = totalPages.value
+  const cur = currentPage.value
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const pages = [1]
+  if (cur > 3) pages.push('...')
+  for (let i = Math.max(2, cur - 1); i <= Math.min(total - 1, cur + 1); i++) pages.push(i)
+  if (cur < total - 2) pages.push('...')
+  pages.push(total)
+  return pages
+})
 
 const paginatedMonitors = computed(() =>
   filteredMonitors.value.slice((currentPage.value - 1) * PAGE_SIZE, currentPage.value * PAGE_SIZE)
@@ -608,11 +691,16 @@ function uptimeColor(u) {
   return 'text-red-400'
 }
 
-function responseTimeColor(ms) {
+function responseTimeColor(ms, monitor) {
   if (ms == null) return 'text-gray-600'
-  if (ms < 300)  return 'text-emerald-400'
-  if (ms < 1000) return 'text-amber-400'
-  return 'text-red-400'
+  const p95 = monitor?._p95ResponseTimeMs
+  if (p95 != null && p95 > 0) {
+    const ratio = ms / p95
+    if (ratio <= 0.6)  return 'text-emerald-400'
+    if (ratio <= 1.2)  return 'text-amber-400'
+    return 'text-red-400'
+  }
+  return 'text-gray-600'
 }
 
 async function toggleEnabled(monitor) {

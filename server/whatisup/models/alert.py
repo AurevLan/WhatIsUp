@@ -39,6 +39,7 @@ class AlertChannelType(enum.StrEnum):
     slack = "slack"
     pagerduty = "pagerduty"
     opsgenie = "opsgenie"
+    signal = "signal"
 
 
 class AlertCondition(enum.StrEnum):
@@ -93,6 +94,7 @@ class AlertChannel(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # email: {"to": ["a@b.com", ...]}
     # webhook: {"url": "...", "secret": "<fernet-encrypted>"}
     # telegram: {"bot_token": "<fernet-encrypted>", "chat_id": "..."}
+    # signal: {"api_url": "...", "sender_number": "...", "recipients": [...]}
     config: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
 
     owner: Mapped[User] = relationship("User", back_populates="alert_channels")

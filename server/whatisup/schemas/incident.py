@@ -21,6 +21,11 @@ class IncidentOut(BaseModel):
     affected_probe_ids: list[str]
     dependency_suppressed: bool = False
     group_id: uuid.UUID | None = None
+    acked_at: datetime | None = None
+    acked_by_id: uuid.UUID | None = None
+    first_failure_at: datetime | None = None
+    mttd_seconds: int | None = None
+    mttr_seconds: int | None = None
 
     model_config = {"from_attributes": True}
 

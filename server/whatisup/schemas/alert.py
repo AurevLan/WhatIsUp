@@ -74,6 +74,36 @@ class OpsgenieChannelConfig(BaseModel):
     priority: Literal["P1", "P2", "P3", "P4", "P5"] = "P1"
 
 
+class SignalChannelConfig(BaseModel):
+    api_url: str = Field(min_length=8, max_length=2048)
+    sender_number: str = Field(min_length=5, max_length=20)
+    recipients: list[str] = Field(min_length=1, max_length=20)
+
+    @field_validator("api_url")
+    @classmethod
+    def validate_api_url(cls, v: str) -> str:
+        if not v.startswith(("http://", "https://")):
+            raise ValueError("Signal API URL must start with http:// or https://")
+        return v
+
+    @field_validator("recipients")
+    @classmethod
+    def validate_recipients(cls, v: list[str]) -> list[str]:
+        pattern = re.compile(r"^\+\d{7,15}$")
+        for number in v:
+            if not pattern.match(number):
+                msg = f"Invalid phone number: {number!r} (E.164 format: +1234567890)"
+                raise ValueError(msg)
+        return v
+
+    @field_validator("sender_number")
+    @classmethod
+    def validate_sender(cls, v: str) -> str:
+        if not re.match(r"^\+\d{7,15}$", v):
+            raise ValueError("Sender number must be E.164 format: +1234567890")
+        return v
+
+
 _CONFIG_VALIDATORS: dict[AlertChannelType, type[BaseModel]] = {
     AlertChannelType.email: EmailChannelConfig,
     AlertChannelType.webhook: WebhookChannelConfig,
@@ -81,6 +111,7 @@ _CONFIG_VALIDATORS: dict[AlertChannelType, type[BaseModel]] = {
     AlertChannelType.slack: SlackChannelConfig,
     AlertChannelType.pagerduty: PagerDutyChannelConfig,
     AlertChannelType.opsgenie: OpsgenieChannelConfig,
+    AlertChannelType.signal: SignalChannelConfig,
 }
 
 

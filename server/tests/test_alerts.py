@@ -70,6 +70,84 @@ async def test_delete_other_user_channel_returns_404(
     assert resp.status_code == 404
 
 
+# ── Signal channel ───────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_create_signal_channel(client: AsyncClient, user_token: str) -> None:
+    resp = await client.post(
+        "/api/v1/alerts/channels",
+        json={
+            "name": "Signal Alerts",
+            "type": "signal",
+            "config": {
+                "api_url": "https://signal-api.example.com",
+                "sender_number": "+33612345678",
+                "recipients": ["+33698765432"],
+            },
+        },
+        headers=_auth(user_token),
+    )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["type"] == "signal"
+    assert data["name"] == "Signal Alerts"
+
+
+@pytest.mark.asyncio
+async def test_create_signal_channel_invalid_phone(client: AsyncClient, user_token: str) -> None:
+    resp = await client.post(
+        "/api/v1/alerts/channels",
+        json={
+            "name": "Bad Signal",
+            "type": "signal",
+            "config": {
+                "api_url": "https://signal-api.example.com",
+                "sender_number": "not-a-phone",
+                "recipients": ["+33698765432"],
+            },
+        },
+        headers=_auth(user_token),
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_create_signal_channel_invalid_recipient(client: AsyncClient, user_token: str) -> None:
+    resp = await client.post(
+        "/api/v1/alerts/channels",
+        json={
+            "name": "Bad Signal",
+            "type": "signal",
+            "config": {
+                "api_url": "https://signal-api.example.com",
+                "sender_number": "+33612345678",
+                "recipients": ["invalid"],
+            },
+        },
+        headers=_auth(user_token),
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_create_signal_channel_invalid_url(client: AsyncClient, user_token: str) -> None:
+    resp = await client.post(
+        "/api/v1/alerts/channels",
+        json={
+            "name": "Bad Signal",
+            "type": "signal",
+            "config": {
+                "api_url": "ftp://invalid",
+                "sender_number": "+33612345678",
+                "recipients": ["+33698765432"],
+            },
+        },
+        headers=_auth(user_token),
+    )
+    assert resp.status_code == 422
+
+
 # ── Rules ─────────────────────────────────────────────────────────────────────
 
 

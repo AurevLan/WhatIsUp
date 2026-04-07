@@ -29,10 +29,10 @@ function activeState(isActive, isExactActive) {
 .nav-link {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 7px 9px;
-  border-radius: 7px;
-  font-size: 12.5px;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 12px;
   font-weight: 500;
   font-family: inherit;
   color: var(--text-3);

@@ -24,7 +24,7 @@ _MONITOR_EXPORT_FIELDS = [
     "follow_redirects", "expected_status_codes", "enabled",
     "ssl_check_enabled", "ssl_expiry_warn_days",
     "tcp_port", "udp_port", "smtp_port", "smtp_starttls",
-    "domain_expiry_warn_days", "dns_record_type", "dns_expected_value",
+    "domain_expiry_warn_days", "dns_record_type", "dns_expected_value", "dns_nameservers",
     "dns_drift_alert", "dns_split_enabled",
     "keyword", "keyword_negate",
     "expected_json_path", "expected_json_value",

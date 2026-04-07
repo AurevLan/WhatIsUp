@@ -19,7 +19,10 @@ def validate_webhook_url(url: str) -> None:
     if not hostname:
         raise ValueError("Webhook URL has no hostname")
 
-    if hostname.lower() in {"localhost", "127.0.0.1", "::1", "0.0.0.0"}:
+    if hostname.lower() in {
+        "localhost", "127.0.0.1", "::1", "0.0.0.0",
+        "169.254.169.254", "metadata.google.internal",
+    }:
         raise ValueError(f"Webhook URL points to blocked host: {hostname!r}")
 
     try:
@@ -30,7 +33,7 @@ def validate_webhook_url(url: str) -> None:
             if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast:
                 raise ValueError(f"Webhook URL resolves to internal IP: {resolved_ip!r}")
     except socket.gaierror:
-        pass
+        raise ValueError(f"Webhook URL hostname cannot be resolved: {hostname!r}")
 
 
 def scope_label_fr(incident: Incident, ctx: dict) -> str:

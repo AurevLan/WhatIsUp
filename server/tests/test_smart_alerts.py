@@ -469,7 +469,16 @@ async def test_pattern_learning_increments(service_db: AsyncSession, test_user: 
     await service_db.flush()
 
     now = datetime.now(UTC)
-    for _ in range(2):
+    prev_incidents = []
+    for i in range(2):
+        # Resolve previous incidents to avoid unique constraint on open incidents
+        for inc in prev_incidents:
+            inc.resolved_at = now
+            inc.duration_seconds = 0
+        if prev_incidents:
+            await service_db.flush()
+        prev_incidents = []
+
         group = IncidentGroup(
             triggered_at=now,
             cause_probe_ids=[],
@@ -480,25 +489,23 @@ async def test_pattern_learning_increments(service_db: AsyncSession, test_user: 
         service_db.add(group)
         await service_db.flush()
 
-        service_db.add(
-            Incident(
-                monitor_id=mon_p.id,
-                started_at=now,
-                scope=IncidentScope.global_,
-                affected_probe_ids=[],
-                group_id=group.id,
-            )
+        inc_p = Incident(
+            monitor_id=mon_p.id,
+            started_at=now,
+            scope=IncidentScope.global_,
+            affected_probe_ids=[],
+            group_id=group.id,
         )
-        service_db.add(
-            Incident(
-                monitor_id=mon_q.id,
-                started_at=now,
-                scope=IncidentScope.global_,
-                affected_probe_ids=[],
-                group_id=group.id,
-            )
+        inc_q = Incident(
+            monitor_id=mon_q.id,
+            started_at=now,
+            scope=IncidentScope.global_,
+            affected_probe_ids=[],
+            group_id=group.id,
         )
+        service_db.add_all([inc_p, inc_q])
         await service_db.flush()
+        prev_incidents = [inc_p, inc_q]
 
         await update_patterns_for_group(service_db, group)
 

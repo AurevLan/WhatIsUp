@@ -69,6 +69,7 @@ services:
       dockerfile: Dockerfile
     volumes:
       - shared:/shared
+      - ./extension:/app/extension:ro
     ports:
       - "8000:8000"
     environment:

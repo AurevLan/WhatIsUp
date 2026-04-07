@@ -106,6 +106,7 @@ class ProbeMonitorConfig(BaseModel):
     tcp_port: int | None = None
     dns_record_type: str | None = None
     dns_expected_value: str | None = None
+    dns_nameservers: list[str] | None = None
     keyword: str | None = None
     keyword_negate: bool = False
     expected_json_path: str | None = None

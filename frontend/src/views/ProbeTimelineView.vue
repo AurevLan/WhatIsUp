@@ -1,7 +1,11 @@
 <template>
-  <div class="p-8">
+  <div class="page-body">
     <div class="flex items-center gap-4 mb-6">
-      <router-link to="/probes" class="text-gray-400 hover:text-white text-sm">← {{ t('nav.probes') }}</router-link>
+      <nav class="breadcrumbs">
+        <router-link to="/probes">{{ t('nav.probes') }}</router-link>
+        <span class="breadcrumbs__sep">/</span>
+        <span class="breadcrumbs__current">{{ t('probeTimeline.title') }}</span>
+      </nav>
       <div class="flex-1">
         <h1 class="text-2xl font-bold text-white">
           {{ t('probeTimeline.title') }}

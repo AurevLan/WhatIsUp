@@ -28,6 +28,19 @@ saveBtn.addEventListener('click', () => {
     return
   }
 
+  // Security: enforce HTTPS (allow localhost for dev)
+  try {
+    const url = new URL(serverUrl)
+    const isLocalhost = url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '::1'
+    if (url.protocol !== 'https:' && !isLocalhost) {
+      _status('Server URL must use HTTPS (HTTP allowed only for localhost).', false)
+      return
+    }
+  } catch {
+    _status('Invalid server URL.', false)
+    return
+  }
+
   if (!apiKey.startsWith('wiu_u_')) {
     _status('API key must start with wiu_u_', false)
     return

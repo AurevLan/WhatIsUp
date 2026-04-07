@@ -1,5 +1,5 @@
 <template>
-  <div class="p-8">
+  <div class="page-body">
     <div class="flex items-center justify-between mb-8">
       <div>
         <h1 class="text-2xl font-bold text-white">Monitor Templates</h1>
@@ -8,11 +8,23 @@
       <button @click="showCreate = true" class="btn-primary">+ New template</button>
     </div>
 
-    <!-- List -->
-    <div v-if="loading" class="text-center py-16 text-gray-400">{{ t('common.loading') }}</div>
+    <!-- Loading skeleton -->
+    <div v-if="loading" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div v-for="i in 6" :key="i" class="card">
+        <div class="space-y-3">
+          <div class="skeleton-line w-1/2" />
+          <div class="skeleton-line w-full" style="height:.5rem" />
+          <div class="skeleton-line w-20" style="height:1.25rem;border-radius:4px" />
+          <div class="skeleton-line w-full" style="height:2rem;border-radius:var(--radius-sm);margin-top:auto" />
+        </div>
+      </div>
+    </div>
 
-    <div v-else-if="templates.length === 0" class="text-center py-16 text-gray-500">
-      No templates yet. Create one to get started.
+    <div v-else-if="templates.length === 0" class="empty-state">
+      <div class="empty-state__icon"><Copy :size="22" /></div>
+      <p class="empty-state__title">{{ t('templates.no_templates') }}</p>
+      <p class="empty-state__text">{{ t('templates.empty_desc') }}</p>
+      <button @click="showCreate = true" class="btn-primary mt-2">+ {{ t('templates.new') }}</button>
     </div>
 
     <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -163,7 +175,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Loader2 } from 'lucide-vue-next'
+import { Copy, Loader2 } from 'lucide-vue-next'
 import { templatesApi } from '../api/templates.js'
 import { useToast } from '../composables/useToast'
 import { useConfirm } from '../composables/useConfirm'

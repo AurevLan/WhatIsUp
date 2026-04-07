@@ -1,5 +1,5 @@
 <template>
-  <div class="p-8">
+  <div class="page-body">
     <div class="flex items-center justify-between mb-8">
       <h1 class="text-2xl font-bold text-white">{{ t('apiKeys.title') }}</h1>
       <button class="btn-primary" @click="showCreate = true">
@@ -19,10 +19,22 @@
 
     <!-- Key list -->
     <div class="card space-y-3">
-      <div v-if="loading" class="text-center py-8 text-gray-400">{{ t('common.loading') }}</div>
+      <div v-if="loading" class="space-y-3">
+        <div v-for="i in 3" :key="i" class="flex items-center gap-3 p-3 rounded-lg" style="background:var(--bg-surface-2);border:1px solid var(--border)">
+          <div class="skeleton-circle" style="width:2rem;height:2rem" />
+          <div class="flex-1 space-y-1.5">
+            <div class="skeleton-line w-1/3" />
+            <div class="skeleton-line w-2/3" style="height:.5rem" />
+          </div>
+          <div class="skeleton-line w-16" style="height:1.25rem;border-radius:99px" />
+        </div>
+      </div>
 
-      <div v-else-if="keys.length === 0" class="text-center py-8 text-gray-400">
-        {{ t('apiKeys.empty') }}
+      <div v-else-if="keys.length === 0" class="empty-state">
+        <div class="empty-state__icon"><KeyRound :size="22" /></div>
+        <p class="empty-state__title">{{ t('apiKeys.empty_title') }}</p>
+        <p class="empty-state__text">{{ t('apiKeys.empty') }}</p>
+        <button @click="showCreate = true" class="btn-primary mt-2">+ {{ t('apiKeys.new') }}</button>
       </div>
 
       <div

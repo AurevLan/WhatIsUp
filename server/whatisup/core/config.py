@@ -109,6 +109,13 @@ class Settings(BaseSettings):
                     "Generate one with: python -c \"from cryptography.fernet import Fernet; "
                     "print(Fernet.generate_key().decode())\""
                 )
+            # Validate Fernet key format early to avoid runtime surprises
+            try:
+                from cryptography.fernet import Fernet
+
+                Fernet(self.fernet_key.encode())
+            except Exception as exc:
+                raise ValueError(f"FERNET_KEY is invalid: {exc}") from exc
         return self
 
     @property

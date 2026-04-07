@@ -17,6 +17,7 @@ export const useMonitorStore = defineStore('monitors', () => {
       _uptime24h:           m.uptime_24h ?? null,
       _hasOpenIncident:     m.has_open_incident ?? false,
       _lastResponseTimeMs:  m.last_response_time_ms ?? null,
+      _p95ResponseTimeMs:   m.p95_response_time_ms ?? null,
       _sparkline:           m.sparkline ?? [],
       _isFlapping:          false,
       _healthScore:         _computeHealth(m),
@@ -27,24 +28,30 @@ export const useMonitorStore = defineStore('monitors', () => {
     const uptime = m.uptime_24h ?? null
     const hasIncident = m.has_open_incident ?? false
     const rt = m.last_response_time_ms ?? null
+    const p95 = m.p95_response_time_ms ?? null
 
     if (uptime == null) return null
 
-    // Score 0-100: uptime 70%, response time 20%, incident penalty 10%
-    let score = uptime * 0.7
-    if (rt != null) {
-      if (rt < 300)       score += 20
-      else if (rt < 800)  score += 14
-      else if (rt < 2000) score += 7
+    // Score 0-100: uptime 60%, response time 25% (relative to p95), incident penalty 15%
+    let score = uptime * 0.6
+    if (rt != null && p95 != null && p95 > 0) {
+      const ratio = rt / p95
+      if (ratio <= 0.6)      score += 25  // well below p95
+      else if (ratio <= 1.0) score += 22  // normal — at or below p95
+      else if (ratio <= 1.5) score += 12  // moderately above p95
+      else if (ratio <= 2.5) score += 5   // degraded
+      // else: way above p95 → 0 points
+    } else if (rt == null) {
+      score += 15 // no data — neutral
     } else {
-      score += 10 // no data — neutral
+      score += 15 // no p95 baseline yet — neutral
     }
-    if (!hasIncident) score += 10
+    if (!hasIncident) score += 15
 
-    if (score >= 99)  return 'A'
-    if (score >= 95)  return 'B'
-    if (score >= 85)  return 'C'
-    if (score >= 70)  return 'D'
+    if (score >= 90)  return 'A'
+    if (score >= 75)  return 'B'
+    if (score >= 55)  return 'C'
+    if (score >= 35)  return 'D'
     return 'F'
   }
 
@@ -91,8 +98,14 @@ export const useMonitorStore = defineStore('monitors', () => {
   function applyCheckResult(event) {
     const monitor = monitors.value.find(m => m.id === event.monitor_id)
     if (monitor) {
+      const prevStatus = monitor._lastStatus
       monitor._lastStatus          = event.status
       monitor._lastCheckedAt       = event.checked_at
+      // Flash animation on status change
+      if (prevStatus && prevStatus !== event.status) {
+        monitor._wsFlash = event.status === 'up' ? 'up' : 'down'
+        setTimeout(() => { monitor._wsFlash = null }, 1600)
+      }
       monitor._lastResponseTimeMs  = event.response_time_ms ?? monitor._lastResponseTimeMs
       if (event.response_time_ms != null) {
         const spark = [...(monitor._sparkline || [])]
@@ -105,6 +118,7 @@ export const useMonitorStore = defineStore('monitors', () => {
         uptime_24h:           monitor._uptime24h,
         has_open_incident:    monitor._hasOpenIncident,
         last_response_time_ms: event.response_time_ms ?? monitor._lastResponseTimeMs,
+        p95_response_time_ms: monitor._p95ResponseTimeMs,
       })
     }
   }

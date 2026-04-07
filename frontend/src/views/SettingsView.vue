@@ -1,5 +1,5 @@
 <template>
-  <div class="p-8">
+  <div class="page-body">
     <h1 class="text-2xl font-bold text-white mb-8">{{ t('settings.title') }}</h1>
 
     <div class="max-w-xl space-y-6">
@@ -65,6 +65,36 @@
         </template>
       </div>
 
+      <!-- Browser Extension -->
+      <div class="card">
+        <h2 class="text-lg font-semibold text-white mb-1">{{ t('settings.extension_title') }}</h2>
+        <p class="text-sm text-gray-500 mb-4">{{ t('settings.extension_desc') }}</p>
+
+        <div class="flex gap-2 flex-wrap mb-4">
+          <button @click="downloadExtension" :disabled="extensionLoading" class="btn-primary text-sm">
+            {{ extensionLoading ? t('settings.extension_downloading') : t('settings.extension_download') }}
+          </button>
+        </div>
+
+        <details class="text-sm text-gray-400">
+          <summary class="cursor-pointer text-gray-300 hover:text-white mb-2 select-none">
+            {{ t('settings.extension_install_title') }}
+          </summary>
+          <ol class="list-decimal list-inside space-y-1 ml-1 mb-3">
+            <li v-html="t('settings.extension_install_step1')" />
+            <li v-html="t('settings.extension_install_step2')" />
+            <li v-html="t('settings.extension_install_step3')" />
+            <li v-html="t('settings.extension_install_step4')" />
+            <li v-html="t('settings.extension_install_step5')" />
+            <li v-html="t('settings.extension_install_step6')" />
+          </ol>
+          <p class="text-xs text-gray-500">
+            <strong class="text-gray-400">{{ t('settings.extension_features_title') }}:</strong>
+            {{ t('settings.extension_features') }}
+          </p>
+        </details>
+      </div>
+
       <!-- About -->
       <div class="card">
         <h2 class="text-lg font-semibold text-white mb-4">About</h2>
@@ -78,14 +108,33 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../stores/auth'
 import { useWebPushStore } from '../stores/webPush'
+import api from '../api/client'
 
 const { t } = useI18n()
 const auth = useAuthStore()
 const push = useWebPushStore()
+const extensionLoading = ref(false)
 
 onMounted(() => push.init())
+
+async function downloadExtension() {
+  extensionLoading.value = true
+  try {
+    const res = await api.get('/extension/download', { responseType: 'blob' })
+    const url = URL.createObjectURL(res.data)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'whatisup-recorder.zip'
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch {
+    // silently fail — user sees no download
+  } finally {
+    extensionLoading.value = false
+  }
+}
 </script>

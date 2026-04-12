@@ -54,7 +54,10 @@
         </div>
         <div class="sidebar__user-info">
           <div class="sidebar__user-name">{{ auth.user?.username }}</div>
-          <div class="sidebar__user-role">{{ auth.isSuperadmin ? 'Admin' : 'User' }}</div>
+          <div class="sidebar__user-role">
+            {{ auth.isSuperadmin ? 'Admin' : 'User' }}
+            <span class="sidebar__user-version">· {{ APP_VERSION }}</span>
+          </div>
         </div>
         <button @click="handleLogout" :title="t('auth.logout')" class="sidebar__logout">
           <LogOut :size="14" />
@@ -145,6 +148,7 @@ import ToastContainer from '../../components/ToastContainer.vue'
 import ConfirmModal from '../../components/ConfirmModal.vue'
 import CommandPalette from '../../components/CommandPalette.vue'
 import { setLocale, getLocale } from '../../i18n/index.js'
+import { APP_VERSION } from '../../lib/appVersion.js'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -220,6 +224,12 @@ async function handleLogout() {
   display: flex;
   min-height: 100vh;
   background: var(--bg-base);
+  /* Respect Android / iOS safe areas (status bar, gesture bar, notch) */
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  box-sizing: border-box;
 }
 
 /* ── Sidebar ── */
@@ -355,6 +365,12 @@ async function handleLogout() {
   font-size: 10.5px;
   color: var(--text-3);
   line-height: 1.3;
+}
+.sidebar__user-version {
+  opacity: .65;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9.5px;
+  margin-left: 2px;
 }
 
 .sidebar__logout {

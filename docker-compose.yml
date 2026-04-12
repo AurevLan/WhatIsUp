@@ -70,6 +70,9 @@ services:
     volumes:
       - shared:/shared
       - ./extension:/app/extension:ro
+      # FCM service account (gitignored). The path is configured in env so the
+      # server falls back gracefully when the file is missing.
+      - ./mobile/.secrets/firebase-service-account.json:/run/secrets/fcm.json:ro
     ports:
       - "8000:8000"
     environment:
@@ -96,6 +99,10 @@ services:
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_CONTACT_EMAIL: ${VAPID_CONTACT_EMAIL:-admin@example.com}
+      # FCM (native mobile push) — set FCM_SERVICE_ACCOUNT_PATH to a mounted
+      # JSON file or pass FCM_SERVICE_ACCOUNT_JSON inline. Empty = disabled.
+      FCM_SERVICE_ACCOUNT_PATH: ${FCM_SERVICE_ACCOUNT_PATH:-}
+      FCM_SERVICE_ACCOUNT_JSON: ${FCM_SERVICE_ACCOUNT_JSON:-}
     networks:
       - backend
       - frontend

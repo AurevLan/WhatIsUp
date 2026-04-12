@@ -18,8 +18,9 @@ depends_on = None
 
 
 def upgrade() -> None:
-    device_platform = sa.Enum("android", "ios", "web", name="device_platform")
-    device_platform.create(op.get_bind(), checkfirst=True)
+    # The PG enum may already exist from a previously failed run of this same
+    # migration — drop it first so the table CREATE can recreate it cleanly.
+    op.execute("DROP TYPE IF EXISTS device_platform CASCADE")
 
     op.create_table(
         "device_tokens",
@@ -34,7 +35,7 @@ def upgrade() -> None:
         sa.Column("token", sa.Text(), nullable=False),
         sa.Column(
             "platform",
-            device_platform,
+            sa.Enum("android", "ios", "web", name="device_platform"),
             nullable=False,
             server_default="android",
         ),

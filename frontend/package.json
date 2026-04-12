@@ -17,6 +17,7 @@
   "dependencies": {
     "@capacitor/android": "^7.0.0",
     "@capacitor/core": "^7.0.0",
+    "@capacitor/push-notifications": "^7.0.6",
     "@tailwindcss/vite": "^4.2.2",
     "apexcharts": "^5.10.4",
     "axios": "^1.15.0",
@@ -31,14 +32,14 @@
   "devDependencies": {
     "@capacitor/cli": "^7.0.0",
     "@vitejs/plugin-vue": "^6.0.5",
+    "@vue/test-utils": "^2.4.6",
     "autoprefixer": "^10.4.20",
     "eslint": "^10.2.0",
     "eslint-plugin-vue": "^10.8.0",
+    "jsdom": "^29.0.1",
     "postcss": "^8.5.1",
     "tailwindcss": "^4.2.2",
     "vite": "^8.0.5",
-    "vitest": "^4.1.2",
-    "jsdom": "^29.0.1",
-    "@vue/test-utils": "^2.4.6"
+    "vitest": "^4.1.2"
   }
 }

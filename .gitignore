@@ -68,3 +68,6 @@ frontend/android/captures/
 
 # ── Mobile signing secrets (NEVER commit) ─────────────────────────────────────
 mobile/.secrets/
+
+# ── Firebase / FCM client config (project_id leak; keep out of git) ──────────
+frontend/android/app/google-services.json

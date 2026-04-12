@@ -22,8 +22,41 @@
         </div>
       </div>
 
-      <!-- Push notifications -->
-      <div class="card">
+      <!-- Mobile push notifications (Capacitor / FCM) -->
+      <div v-if="mobilePush.isAvailable" class="card">
+        <h2 class="text-lg font-semibold text-white mb-1">{{ t('settings.mobile_push_title') }}</h2>
+        <p class="text-sm text-gray-500 mb-4">{{ t('settings.mobile_push_desc') }}</p>
+
+        <div class="flex items-center gap-2 mb-4">
+          <span class="w-2 h-2 rounded-full flex-shrink-0"
+            :class="mobilePush.registered ? 'bg-emerald-400' : 'bg-gray-600'" />
+          <span class="text-sm" :class="mobilePush.registered ? 'text-emerald-400' : 'text-gray-500'">
+            {{ mobilePush.registered ? t('settings.mobile_push_on') : t('settings.mobile_push_off') }}
+          </span>
+        </div>
+
+        <div v-if="mobilePush.error" class="mb-3 text-sm text-red-400">
+          {{ mobilePush.error }}
+        </div>
+
+        <div class="flex gap-2 flex-wrap">
+          <button v-if="!mobilePush.registered"
+            @click="enableMobilePush"
+            :disabled="mobilePush.loading"
+            class="btn-primary text-sm">
+            {{ mobilePush.loading ? t('common.loading') : t('settings.mobile_push_enable') }}
+          </button>
+          <button v-else
+            @click="disableMobilePush"
+            :disabled="mobilePush.loading"
+            class="btn-ghost text-sm text-red-400">
+            {{ t('settings.mobile_push_disable') }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Web push notifications (browser only) -->
+      <div v-if="!mobilePush.isAvailable" class="card">
         <h2 class="text-lg font-semibold text-white mb-1">{{ t('settings.push_title') }}</h2>
         <p class="text-sm text-gray-500 mb-4">{{ t('settings.push_desc') }}</p>
 
@@ -42,8 +75,8 @@
             </span>
           </div>
 
-          <div v-if="push.error === 'permission_denied'" class="mb-3 text-sm text-red-400">
-            {{ t('settings.push_permission_denied') }}
+          <div v-if="push.error" class="mb-3 text-sm text-red-400">
+            {{ push.error === 'permission_denied' ? t('settings.push_permission_denied') : push.error }}
           </div>
 
           <div class="flex gap-2 flex-wrap">
@@ -108,16 +141,50 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../stores/auth'
 import { useWebPushStore } from '../stores/webPush'
 import api from '../api/client'
+import {
+  isPushAvailable,
+  getRegisteredDeviceId,
+  registerPushNotifications,
+  unregisterPushNotifications,
+} from '../lib/pushNotifications'
 
 const { t } = useI18n()
 const auth = useAuthStore()
 const push = useWebPushStore()
 const extensionLoading = ref(false)
+
+const mobilePush = reactive({
+  isAvailable: isPushAvailable(),
+  registered: !!getRegisteredDeviceId(),
+  loading: false,
+  error: '',
+})
+
+async function enableMobilePush() {
+  mobilePush.loading = true
+  mobilePush.error = ''
+  const res = await registerPushNotifications()
+  if (res.ok) {
+    mobilePush.registered = true
+  } else {
+    mobilePush.error = res.reason === 'permission_denied'
+      ? t('settings.push_permission_denied')
+      : (res.error || res.reason || 'failed')
+  }
+  mobilePush.loading = false
+}
+
+async function disableMobilePush() {
+  mobilePush.loading = true
+  await unregisterPushNotifications()
+  mobilePush.registered = false
+  mobilePush.loading = false
+}
 
 onMounted(() => push.init())
 

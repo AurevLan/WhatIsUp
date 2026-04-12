@@ -40,6 +40,7 @@ class AlertChannelType(enum.StrEnum):
     pagerduty = "pagerduty"
     opsgenie = "opsgenie"
     signal = "signal"
+    fcm = "fcm"  # Native push (Capacitor mobile app via Firebase Cloud Messaging)
 
 
 class AlertCondition(enum.StrEnum):

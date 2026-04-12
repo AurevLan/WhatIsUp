@@ -149,6 +149,7 @@ import ConfirmModal from '../../components/ConfirmModal.vue'
 import CommandPalette from '../../components/CommandPalette.vue'
 import { setLocale, getLocale } from '../../i18n/index.js'
 import { APP_VERSION } from '../../lib/appVersion.js'
+import { setupForegroundListeners } from '../../lib/pushNotifications.js'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -165,7 +166,11 @@ function onGlobalKeydown(e) {
     showPalette.value = !showPalette.value
   }
 }
-onMounted(() => window.addEventListener('keydown', onGlobalKeydown))
+onMounted(() => {
+  window.addEventListener('keydown', onGlobalKeydown)
+  // Wire push notification taps to deep-link into the relevant monitor (no-op on web).
+  setupForegroundListeners(router)
+})
 onUnmounted(() => {
   window.removeEventListener('keydown', onGlobalKeydown)
   document.body.style.overflow = ''

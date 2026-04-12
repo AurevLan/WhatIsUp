@@ -7,7 +7,7 @@ from whatisup.services.channels.base import BaseAlertChannel
 
 
 def test_registry_contains_all_builtin_channels() -> None:
-    expected = {"email", "webhook", "telegram", "slack", "pagerduty", "opsgenie", "signal"}
+    expected = {"email", "webhook", "telegram", "slack", "pagerduty", "opsgenie", "signal", "fcm"}
     assert expected == set(CHANNEL_REGISTRY.keys())
 
 

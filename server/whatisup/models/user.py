@@ -13,6 +13,7 @@ from whatisup.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 if TYPE_CHECKING:
     from whatisup.models.alert import AlertChannel
     from whatisup.models.api_key import UserApiKey
+    from whatisup.models.device_token import DeviceToken
     from whatisup.models.tag import UserTagPermission
     from whatisup.models.team import TeamMembership
     from whatisup.models.web_push import WebPushSubscription
@@ -51,6 +52,9 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     push_subscriptions: Mapped[list[WebPushSubscription]] = relationship(
         "WebPushSubscription", back_populates="user", cascade="all, delete-orphan"
+    )
+    device_tokens: Mapped[list[DeviceToken]] = relationship(
+        "DeviceToken", back_populates="user", cascade="all, delete-orphan"
     )
     team_memberships: Mapped[list[TeamMembership]] = relationship(
         "TeamMembership", back_populates="user", cascade="all, delete-orphan"

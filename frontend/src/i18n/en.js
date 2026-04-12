@@ -397,6 +397,7 @@ export default {
   },
 
   // Auth
+  // (mobile push i18n keys live under settings.* — see SettingsView.vue)
   setup: {
     subtitle: 'Connect to your WhatIsUp server',
     url_label: 'Server URL',
@@ -440,6 +441,12 @@ export default {
     administration: 'Administration',
     push_title: 'Push notifications',
     push_desc: 'Receive alerts on this device even when the tab is closed.',
+    mobile_push_title: 'Mobile push notifications',
+    mobile_push_desc: 'Receive alerts via your phone even when the app is closed.',
+    mobile_push_on: 'Enabled — this device will receive alerts',
+    mobile_push_off: 'Disabled',
+    mobile_push_enable: 'Enable mobile notifications',
+    mobile_push_disable: 'Disable on this device',
     push_subscribe: 'Enable push notifications',
     push_unsubscribe: 'Disable push notifications',
     push_test: 'Send a test notification',

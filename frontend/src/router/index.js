@@ -1,7 +1,14 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { isConfigured } from '../lib/serverConfig'
 
 const routes = [
+  {
+    path: '/setup',
+    name: 'ServerSetup',
+    component: () => import('../views/ServerSetupView.vue'),
+    meta: { public: true, setup: true },
+  },
   {
     path: '/login',
     name: 'Login',
@@ -117,8 +124,12 @@ const router = createRouter({
   routes,
 })
 
-// Auth guard
+// Auth + setup guard
 router.beforeEach(async (to) => {
+  // On native builds, force the setup screen until a backend URL is configured.
+  if (!isConfigured() && !to.meta.setup) {
+    return { name: 'ServerSetup', query: { redirect: to.fullPath } }
+  }
   const auth = useAuthStore()
   if (!to.meta.public && !auth.isAuthenticated) {
     return { name: 'Login', query: { redirect: to.fullPath } }

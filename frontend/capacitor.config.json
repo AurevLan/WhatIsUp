@@ -1,0 +1,11 @@
+{
+  "appId": "io.github.aurevlan.whatisup",
+  "appName": "WhatIsUp",
+  "webDir": "dist",
+  "android": {
+    "allowMixedContent": true
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}

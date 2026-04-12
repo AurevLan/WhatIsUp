@@ -397,6 +397,17 @@ export default {
   },
 
   // Auth
+  setup: {
+    subtitle: 'Connect to your WhatIsUp server',
+    url_label: 'Server URL',
+    url_hint: 'The full URL of your self-hosted WhatIsUp instance, including https://',
+    connect: 'Connect',
+    testing: 'Testing connection…',
+    error_scheme: 'URL must start with http:// or https://',
+    error_unreachable: 'Could not reach the server. Check the URL and your network.',
+    error_not_whatisup: 'This URL did not respond like a WhatIsUp server.',
+  },
+
   auth: {
     login: 'Sign in',
     logout: 'Sign out',

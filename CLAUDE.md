@@ -148,6 +148,38 @@ Le workflow `.github/workflows/release.yml` fait automatiquement :
 - `PATCH` : bugfix / sécurité (release immédiate)
 - Pre-releases : suffixe `-alpha`, `-beta`, `-rc1` → marquées comme pre-release sur GitHub
 
+## Mobile (Capacitor / Android)
+
+App ID : `io.github.aurevlan.whatisup` (immuable, ne **jamais** changer après publication store). Capacitor 7 → exige **JDK 21** (déjà en place dans `mobile/Dockerfile` et le workflow CI).
+
+```bash
+# Premier setup (génère frontend/android/) — Docker, ne pollue pas l'hôte
+mobile/build.sh init
+
+# Après modifs frontend → resync vers le projet Android
+mobile/build.sh sync
+
+# Builder un APK debug
+mobile/build.sh apk
+# → frontend/android/app/build/outputs/apk/debug/app-debug.apk
+adb install -r frontend/android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+**Live reload sur device physique** (dev rapide) :
+```bash
+# Lancer vite avec --host pour exposer sur le LAN
+cd frontend && npm run dev -- --host
+# Puis sur le téléphone (USB + adb), faire pointer Capacitor sur l'IP du PC :
+# éditer temporairement capacitor.config.json → server.url = "http://<ip-pc>:5173"
+# puis : mobile/build.sh sync && mobile/build.sh apk
+```
+
+**URL backend** : sur build natif, l'app affiche `ServerSetupView` au 1er lancement (saisie URL serveur, validée via `/api/health`, persistée en localStorage). Sur build web, l'app utilise le `/api/v1` relatif (proxy nginx) — comportement inchangé.
+
+**Helper unique** : `frontend/src/lib/serverConfig.js` (`apiBaseUrl()`, `wsBaseUrl()`, `isNative()`, `isConfigured()`). Toute nouvelle URL backend dans le frontend doit passer par ce helper, jamais en dur.
+
+**Releases APK** : `.github/workflows/mobile-release.yml` build sur tag `v*`. Secrets requis : `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`.
+
 ## Services clés
 
 - `services/stats.py` : `compute_uptime()`, `compute_daily_history()`, `latest_results_subq()`

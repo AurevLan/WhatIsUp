@@ -9,9 +9,14 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs --fix --ignore-path .gitignore"
+    "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs --fix --ignore-path .gitignore",
+    "cap:sync": "npm run build && cap sync android",
+    "cap:open": "cap open android",
+    "cap:run": "cap run android"
   },
   "dependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/core": "^7.0.0",
     "@tailwindcss/vite": "^4.2.2",
     "apexcharts": "^5.10.4",
     "axios": "^1.14.0",
@@ -24,6 +29,7 @@
     "vue3-apexcharts": "^1.11.1"
   },
   "devDependencies": {
+    "@capacitor/cli": "^7.0.0",
     "@vitejs/plugin-vue": "^6.0.5",
     "autoprefixer": "^10.4.20",
     "eslint": "^10.2.0",

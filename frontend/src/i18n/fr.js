@@ -379,6 +379,16 @@ export default {
     correlation_group: 'Même groupe',
     correlation_dependency: 'Cascade de dépendances',
   },
+  setup: {
+    subtitle: 'Connectez-vous à votre serveur WhatIsUp',
+    url_label: 'URL du serveur',
+    url_hint: "L'URL complète de votre instance WhatIsUp auto-hébergée, https:// inclus",
+    connect: 'Se connecter',
+    testing: 'Test de connexion…',
+    error_scheme: "L'URL doit commencer par http:// ou https://",
+    error_unreachable: "Serveur inaccessible. Vérifiez l'URL et votre réseau.",
+    error_not_whatisup: 'Cette URL ne répond pas comme un serveur WhatIsUp.',
+  },
   auth: {
     login: 'Connexion',
     logout: 'Déconnexion',

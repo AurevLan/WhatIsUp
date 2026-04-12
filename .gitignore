@@ -53,3 +53,18 @@ nginx/ssl/
 
 # ── Local test artefacts ──────────────────────────────────────────────────────
 probe-*/
+
+# ── Capacitor / Android (mobile build artefacts) ──────────────────────────────
+frontend/android/.gradle/
+frontend/android/build/
+frontend/android/app/build/
+frontend/android/local.properties
+frontend/android/.idea/
+frontend/android/captures/
+*.apk
+*.aab
+*.keystore
+!debug.keystore
+
+# ── Mobile signing secrets (NEVER commit) ─────────────────────────────────────
+mobile/.secrets/

@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { useMonitorStore } from './monitors'
+import { wsBaseUrl } from '../lib/serverConfig'
 
 export const useWebSocketStore = defineStore('websocket', () => {
   const connected = ref(false)
@@ -29,8 +30,7 @@ export const useWebSocketStore = defineStore('websocket', () => {
     const token = localStorage.getItem('access_token')
     if (!token) return
 
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const url = `${protocol}//${window.location.host}/ws/dashboard`
+    const url = `${wsBaseUrl()}/ws/dashboard`
 
     ws = new WebSocket(url)
 

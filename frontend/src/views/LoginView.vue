@@ -67,6 +67,7 @@ import { Activity, AlertCircle, LogIn, Moon, Shield, Sun } from 'lucide-vue-next
 import { useAuthStore } from '../stores/auth'
 import { useWebSocketStore } from '../stores/websocket'
 import axios from 'axios'
+import { apiBaseUrl } from '../lib/serverConfig'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -91,7 +92,7 @@ function toggleTheme() {
 
 onMounted(async () => {
   try {
-    const { data } = await axios.get('/api/v1/auth/oidc/config')
+    const { data } = await axios.get(`${apiBaseUrl()}/auth/oidc/config`)
     oidcEnabled.value = data.enabled
   } catch (e) {
     // OIDC config not available — button stays hidden

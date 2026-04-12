@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import axios from 'axios'
+import { apiBaseUrl } from '../lib/serverConfig'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(null)
@@ -23,7 +24,7 @@ export const useAuthStore = defineStore('auth', () => {
         return
       }
       try {
-        const { data } = await axios.get('/api/v1/auth/me', {
+        const { data } = await axios.get(`${apiBaseUrl()}/auth/me`, {
           headers: { Authorization: `Bearer ${accessToken.value}` },
         })
         user.value = data
@@ -35,13 +36,13 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function login(email, password) {
     const form = new URLSearchParams({ username: email, password })
-    const { data } = await axios.post('/api/v1/auth/login', form)
+    const { data } = await axios.post(`${apiBaseUrl()}/auth/login`, form)
     accessToken.value = data.access_token
     localStorage.setItem('access_token', data.access_token)
     localStorage.setItem('refresh_token', data.refresh_token)
 
     // Fetch user info
-    const { data: me } = await axios.get('/api/v1/auth/me', {
+    const { data: me } = await axios.get(`${apiBaseUrl()}/auth/me`, {
       headers: { Authorization: `Bearer ${data.access_token}` },
     })
     user.value = me
@@ -51,7 +52,7 @@ export const useAuthStore = defineStore('auth', () => {
     const refresh = localStorage.getItem('refresh_token')
     if (refresh) {
       try {
-        await axios.post('/api/v1/auth/logout', { refresh_token: refresh })
+        await axios.post(`${apiBaseUrl()}/auth/logout`, { refresh_token: refresh })
       } catch {}
     }
     user.value = null

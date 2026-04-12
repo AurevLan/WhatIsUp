@@ -20,6 +20,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useWebSocketStore } from '../stores/websocket'
 import axios from 'axios'
+import { apiBaseUrl } from '../lib/serverConfig'
 
 const router = useRouter()
 const route  = useRoute()
@@ -60,7 +61,7 @@ onMounted(async () => {
 
   // Fetch user profile
   try {
-    const { data } = await axios.get('/api/v1/auth/me', {
+    const { data } = await axios.get(`${apiBaseUrl()}/auth/me`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
     auth.user = data

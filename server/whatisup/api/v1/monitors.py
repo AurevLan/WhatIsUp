@@ -4,7 +4,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import and_, case, delete, func, select, update
+from sqlalchemy import and_, delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.api.deps import (
@@ -20,7 +20,7 @@ from whatisup.core.security import encrypt_scenario_variables
 from whatisup.models.annotation import MonitorAnnotation
 from whatisup.models.monitor import CompositeMonitorMember, Monitor
 from whatisup.models.probe import Probe
-from whatisup.models.result import CheckResult, CheckStatus
+from whatisup.models.result import CheckResult
 from whatisup.models.tag import Tag
 from whatisup.models.team import TeamRole
 from whatisup.models.user import User
@@ -39,7 +39,7 @@ from whatisup.schemas.monitor import (
 )
 from whatisup.schemas.probe import ProbeMonitorStatus
 from whatisup.schemas.result import CheckResultOut, UptimeStats
-from whatisup.services.stats import compute_uptime
+from whatisup.services.stats import compute_uptime, compute_uptime_bulk, compute_uptime_in_range
 
 router = APIRouter(prefix="/monitors", tags=["monitors"])
 
@@ -105,27 +105,10 @@ async def list_monitors(
     # Map: monitor_id → (status_value, checked_at)
     latest_map = {str(r.monitor_id): (r.status.value, r.checked_at) for r in latest_rows}
 
-    # Uptime 24h per monitor (one query)
+    # Uptime 24h per monitor (multi-probe consensus, one query)
     cutoff = datetime.now(UTC) - timedelta(hours=24)
-    uptime_rows = (
-        await db.execute(
-            select(
-                CheckResult.monitor_id,
-                func.count(CheckResult.id).label("total"),
-                func.sum(case((CheckResult.status == CheckStatus.up, 1), else_=0)).label(
-                    "up_count"
-                ),
-            )
-            .where(
-                CheckResult.monitor_id.in_(monitor_ids),
-                CheckResult.checked_at >= cutoff,
-            )
-            .group_by(CheckResult.monitor_id)
-        )
-    ).all()
-    uptime_map = {
-        str(r.monitor_id): round(r.up_count / r.total * 100, 2) for r in uptime_rows if r.total > 0
-    }
+    uptime_bulk = await compute_uptime_bulk(db, monitor_ids, period_hours=24)
+    uptime_map = {mid: data["uptime_percent"] for mid, data in uptime_bulk.items()}
 
     # P95 response time 24h per monitor (one query)
     # percentile_cont is PostgreSQL-only; fall back to AVG for SQLite (tests)
@@ -754,23 +737,7 @@ async def get_sla_report(
     if to is None:
         to = datetime.now(UTC)
 
-    result = await db.execute(
-        select(
-            func.count(CheckResult.id).label("total"),
-            func.sum(case((CheckResult.status == CheckStatus.up, 1), else_=0)).label("up_count"),
-            func.avg(CheckResult.response_time_ms).label("avg_rt"),
-            func.percentile_cont(0.95).within_group(CheckResult.response_time_ms).label("p95_rt"),
-            func.min(CheckResult.response_time_ms).label("min_rt"),
-            func.max(CheckResult.response_time_ms).label("max_rt"),
-        ).where(
-            CheckResult.monitor_id == monitor_id,
-            CheckResult.checked_at >= from_,
-            CheckResult.checked_at <= to,
-        )
-    )
-    row = result.one()
-    total = int(row.total or 0)
-    up_count = int(row.up_count or 0)
+    consensus = await compute_uptime_in_range(db, monitor_id, from_, to)
 
     # Count incidents in period
     from whatisup.models.incident import Incident
@@ -791,13 +758,7 @@ async def get_sla_report(
         "monitor_id": str(monitor_id),
         "from": from_.isoformat(),
         "to": to.isoformat(),
-        "total_checks": total,
-        "up_checks": up_count,
-        "uptime_percent": round(up_count / total * 100, 4) if total > 0 else 100.0,
-        "avg_response_time_ms": float(row.avg_rt) if row.avg_rt else None,
-        "p95_response_time_ms": float(row.p95_rt) if row.p95_rt else None,
-        "min_response_time_ms": float(row.min_rt) if row.min_rt else None,
-        "max_response_time_ms": float(row.max_rt) if row.max_rt else None,
+        **consensus,
         "incident_count": int(inc_row.count or 0),
         "total_downtime_seconds": int(inc_row.total_downtime or 0),
     }
@@ -890,24 +851,9 @@ async def get_slo(
     now = datetime.now(UTC)
     window_start = now - timedelta(days=window_days)
 
-    # Uptime over the SLO window
-    uptime_row = (
-        await db.execute(
-            select(
-                func.count(CheckResult.id).label("total"),
-                func.sum(case((CheckResult.status == CheckStatus.up, 1), else_=0)).label(
-                    "up_count"
-                ),
-            ).where(
-                CheckResult.monitor_id == monitor_id,
-                CheckResult.checked_at >= window_start,
-            )
-        )
-    ).one()
-
-    total_checks = int(uptime_row.total or 0)
-    up_count = int(uptime_row.up_count or 0)
-    uptime_pct = round(up_count / total_checks * 100, 4) if total_checks > 0 else 100.0
+    # Uptime over the SLO window (multi-probe consensus)
+    consensus_slo = await compute_uptime_in_range(db, monitor_id, window_start, now)
+    uptime_pct = consensus_slo["uptime_percent"]
 
     # Downtime from resolved incidents in the window
     inc_row = (

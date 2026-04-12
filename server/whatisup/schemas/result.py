@@ -35,7 +35,12 @@ class UptimeStats(BaseModel):
     period_hours: int
     total_checks: int
     up_checks: int
+    # Multi-probe consensus: a time window is "up" if at least one probe in
+    # the same network view saw the service up. The global uptime_percent is
+    # the worst of the per-view percentages so a regional outage still shows.
     uptime_percent: float
+    internal_uptime_percent: float | None = None
+    external_uptime_percent: float | None = None
     avg_response_time_ms: float | None
     p95_response_time_ms: float | None
 

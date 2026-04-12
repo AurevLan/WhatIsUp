@@ -388,6 +388,9 @@ export default {
     error_scheme: "L'URL doit commencer par http:// ou https://",
     error_unreachable: "Serveur inaccessible. Vérifiez l'URL et votre réseau.",
     error_not_whatisup: 'Cette URL ne répond pas comme un serveur WhatIsUp.',
+    error_timeout: "Le serveur n'a pas répondu à temps.",
+    error_network: 'Erreur réseau — DNS, pare-feu, CORS ou certificat HTTPS peuvent bloquer la requête.',
+    skip_validation: 'Enregistrer quand même (ignorer le test)',
   },
   auth: {
     login: 'Connexion',

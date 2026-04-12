@@ -406,6 +406,9 @@ export default {
     error_scheme: 'URL must start with http:// or https://',
     error_unreachable: 'Could not reach the server. Check the URL and your network.',
     error_not_whatisup: 'This URL did not respond like a WhatIsUp server.',
+    error_timeout: 'The server did not answer in time.',
+    error_network: 'Network error — DNS, firewall, CORS or HTTPS certificate may be blocking the request.',
+    skip_validation: 'Save anyway (skip health check)',
   },
 
   auth: {

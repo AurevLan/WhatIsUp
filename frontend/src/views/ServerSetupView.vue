@@ -35,6 +35,16 @@
             <Check v-else :size="15" />
             {{ loading ? t('setup.testing') : t('setup.connect') }}
           </button>
+
+          <button
+            v-if="error"
+            type="button"
+            class="login__submit"
+            style="margin-top: 8px; background: transparent; border: 1px solid currentColor;"
+            @click="skipValidation"
+          >
+            {{ t('setup.skip_validation') }}
+          </button>
         </form>
       </div>
     </div>
@@ -74,9 +84,29 @@ async function handleSave() {
     const target = route.query.redirect || '/login'
     router.replace(target)
   } catch (e) {
-    error.value = e.message || t('setup.error_unreachable')
+    // Surface the real reason so users can diagnose CORS / network / cert issues.
+    if (e.response) {
+      error.value = `HTTP ${e.response.status} ${e.response.statusText || ''} — ${t('setup.error_not_whatisup')}`
+    } else if (e.code === 'ECONNABORTED') {
+      error.value = t('setup.error_timeout')
+    } else if (e.message?.includes('Network Error')) {
+      error.value = t('setup.error_network')
+    } else {
+      error.value = e.message || t('setup.error_unreachable')
+    }
   } finally {
     loading.value = false
+  }
+}
+
+function skipValidation() {
+  try {
+    const trimmed = url.value.trim().replace(/\/+$/, '')
+    setServerUrl(trimmed)
+    const target = route.query.redirect || '/login'
+    router.replace(target)
+  } catch (e) {
+    error.value = e.message
   }
 }
 </script>

@@ -13,6 +13,7 @@
         </div>
         <h1 class="login__title">WhatIsUp</h1>
         <p class="login__sub">{{ t('auth.subtitle') }}</p>
+        <p class="login__sub" style="font-size: 0.65rem; opacity: 0.6; word-break: break-all;">API: {{ debugApiUrl }}</p>
       </div>
 
       <!-- Card -->
@@ -80,6 +81,7 @@ const password = ref('')
 const error    = ref('')
 const loading  = ref(false)
 const oidcEnabled = ref(false)
+const debugApiUrl = ref(apiBaseUrl())
 
 // Theme
 const isDark = ref(document.documentElement.getAttribute('data-theme') !== 'light')
@@ -101,9 +103,10 @@ onMounted(async () => {
 
 async function handleLogin() {
   loading.value = true
-  error.value = ''
+  error.value = `[debug] click → POST ${apiBaseUrl()}/auth/login`
   try {
     await auth.login(email.value, password.value)
+    error.value = '[debug] login OK, redirecting…'
     ws.connect()
     const redirect = route.query.redirect
     let safe = false
@@ -114,7 +117,14 @@ async function handleLogin() {
     }
     router.push(safe ? redirect : '/')
   } catch (err) {
-    error.value = err.response?.data?.detail || t('auth.invalid_credentials')
+    // Surface the real error so users can diagnose without WebView access.
+    if (err.response) {
+      error.value = `HTTP ${err.response.status} ${err.response.statusText || ''} — ${err.response.data?.detail || t('auth.invalid_credentials')}`
+    } else if (err.message?.includes('Network Error')) {
+      error.value = `Network Error → ${apiBaseUrl()}/auth/login (CORS, DNS ou cert)`
+    } else {
+      error.value = `${err.name || 'Error'}: ${err.message || 'unknown'}`
+    }
   } finally {
     loading.value = false
   }

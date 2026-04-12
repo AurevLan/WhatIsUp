@@ -192,10 +192,14 @@ def create_app() -> FastAPI:
     # Security headers
     app.add_middleware(SecurityHeadersMiddleware)
 
-    # CORS — no wildcard with credentials
+    # CORS — no wildcard with credentials.
+    # Always allow the Capacitor mobile app origins so self-hosted users never
+    # have to whitelist them manually. These are stable, well-known origins
+    # baked into every Capacitor build (see frontend/capacitor.config.json).
+    mobile_app_origins = ["https://localhost", "capacitor://localhost"]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.cors_allowed_origins,
+        allow_origins=settings.cors_allowed_origins + mobile_app_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type", "X-Probe-Api-Key", "X-Api-Key"],

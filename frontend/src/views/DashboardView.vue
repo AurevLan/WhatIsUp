@@ -455,4 +455,21 @@ onMounted(async () => {
   line-height: 1;
   letter-spacing: -.03em;
 }
+
+/* Mobile: bigger stat cards, more breathing room, larger tap targets */
+@media (max-width: 640px) {
+  .stat-card {
+    padding: 14px 14px;
+    min-height: 64px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .stat-card__icon { width: 38px; height: 38px; }
+  .stat-card__icon svg { width: 20px; height: 20px; }
+  .stat-card__label { font-size: .65rem; }
+  .stat-card__value { font-size: 1.5rem; }
+  .dash__title { font-size: 1.375rem; }
+  .dash__sub { font-size: .85rem; }
+  .dash__card-header { padding: 14px 16px; }
+  .dash__card-title { font-size: 1rem; }
+}
 </style>

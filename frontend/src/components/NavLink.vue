@@ -87,4 +87,22 @@ function activeState(isActive, isExactActive) {
   flex-shrink: 0;
   letter-spacing: .01em;
 }
+
+/* Mobile: bigger touch targets and label so the drawer is comfortable to tap */
+@media (max-width: 1023px) {
+  .nav-link {
+    padding: 12px 12px;
+    font-size: 14px;
+    gap: 12px;
+    border-radius: 8px;
+    min-height: 44px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .nav-link__icon { width: 18px; height: 18px; }
+  .nav-link__badge {
+    min-width: 22px;
+    height: 22px;
+    font-size: 11px;
+  }
+}
 </style>

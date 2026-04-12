@@ -112,7 +112,48 @@
         </button>
       </div>
 
-      <table v-else class="w-full">
+      <!-- Mobile: stacked cards (visible < 768px) -->
+      <div v-else>
+      <div class="md:hidden flex flex-col divide-y divide-gray-800/60">
+        <router-link
+          v-for="monitor in paginatedMonitors"
+          :key="'m-' + monitor.id"
+          :to="`/monitors/${monitor.id}`"
+          class="block px-4 py-4 min-h-[64px] active:bg-white/[0.03] transition-colors no-underline"
+        >
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="w-2 h-2 rounded-full flex-shrink-0" :class="dotClass(monitor._lastStatus)" />
+                <span class="font-semibold text-gray-100 truncate">{{ monitor.name }}</span>
+              </div>
+              <p class="text-xs text-gray-500 truncate font-mono">
+                <span class="uppercase mr-1.5">{{ monitor.check_type }}</span>· {{ formatTarget(monitor) }}
+              </p>
+            </div>
+            <span :class="badgeClass(monitor._lastStatus)" class="flex-shrink-0">
+              {{ statusLabel(monitor._lastStatus) }}
+            </span>
+          </div>
+          <div class="flex items-center justify-between mt-3 text-xs">
+            <div>
+              <span class="text-gray-500">{{ t('monitors.uptime_24h') }}: </span>
+              <span class="font-semibold" :class="uptimeColor(monitor._uptime24h)">
+                {{ monitor._uptime24h != null ? monitor._uptime24h.toFixed(1) + '%' : '—' }}
+              </span>
+            </div>
+            <div v-if="monitor._lastResponseTimeMs != null" class="font-mono" :class="responseTimeColor(monitor._lastResponseTimeMs, monitor)">
+              {{ monitor._lastResponseTimeMs < 1000
+                ? monitor._lastResponseTimeMs + 'ms'
+                : (monitor._lastResponseTimeMs / 1000).toFixed(2) + 's' }}
+            </div>
+            <p v-if="!monitor.enabled" class="text-gray-600">{{ t('status.paused') }}</p>
+          </div>
+        </router-link>
+      </div>
+
+      <!-- Desktop: dense table (visible >= 768px) -->
+      <table class="hidden md:table w-full">
         <thead class="border-b border-gray-800">
           <tr class="px-6">
             <th class="th pl-4 w-8">
@@ -241,6 +282,7 @@
           </tr>
         </tbody>
       </table>
+      </div>
 
       <!-- Pagination (list mode) -->
       <div v-if="totalPages > 1" class="flex items-center justify-center gap-1 mt-3 px-4 pb-3">

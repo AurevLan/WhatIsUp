@@ -330,8 +330,35 @@ async function unack(inc) {
   padding: .625rem 1.125rem;
 }
 @media (max-width: 640px) {
-  .inc-row { grid-template-columns: 80px 1fr 40px; }
-  .inc-col--type, .inc-col--started { display: none; }
+  .inc-row {
+    grid-template-columns: auto 1fr 44px;
+    gap: .625rem .75rem;
+    padding: .875rem 1rem;
+    min-height: 64px;
+  }
+  /* Hide stand-alone type cell — type is shown inline next to the started_at line */
+  .inc-col--type { display: none; }
+  /* Re-flow the started/duration so they sit on a 2nd line below the monitor name */
+  .inc-col--monitor {
+    grid-column: 2 / 3;
+    grid-row: 1;
+    white-space: normal;
+  }
+  .inc-col--started {
+    grid-column: 2 / 3;
+    grid-row: 2;
+    font-size: .7rem;
+    color: var(--text-3);
+  }
+  .inc-col--duration {
+    grid-column: 2 / 3;
+    grid-row: 2;
+    justify-self: end;
+    font-size: .7rem;
+    color: var(--text-3);
+  }
+  .inc-col--status { grid-column: 1 / 2; grid-row: 1 / 3; align-self: center; }
+  .inc-col--actions { grid-column: 3 / 4; grid-row: 1 / 3; align-self: center; }
 }
 
 .inc-row--head {
@@ -413,6 +440,10 @@ async function unack(inc) {
 }
 .ack-btn:hover { border-color: var(--border-hover); color: var(--text-2); }
 .ack-btn--active { color: #fbbf24; border-color: rgba(251,191,36,.4); }
+@media (max-width: 640px) {
+  .ack-btn { width: 44px; height: 44px; -webkit-tap-highlight-color: transparent; }
+  .ack-btn svg { width: 20px; height: 20px; }
+}
 
 /* ── Correlated group row ─────────────────────────────────────────────────── */
 .inc-group {

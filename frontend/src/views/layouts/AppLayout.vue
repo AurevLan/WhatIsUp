@@ -129,7 +129,7 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
@@ -162,7 +162,15 @@ function onGlobalKeydown(e) {
   }
 }
 onMounted(() => window.addEventListener('keydown', onGlobalKeydown))
-onUnmounted(() => window.removeEventListener('keydown', onGlobalKeydown))
+onUnmounted(() => {
+  window.removeEventListener('keydown', onGlobalKeydown)
+  document.body.style.overflow = ''
+})
+
+// Lock body scroll when the mobile drawer is open so background does not scroll under the menu.
+watch(sidebarOpen, (open) => {
+  document.body.style.overflow = open ? 'hidden' : ''
+})
 const currentLang = ref(getLocale())
 
 // Theme management
@@ -240,15 +248,24 @@ async function handleLogout() {
   .main { margin-left: 0; }
 }
 
-/* Mobile: hidden off-screen */
+/* Mobile: hidden off-screen, drawer width adapts to viewport */
 @media (max-width: 1023px) {
   .sidebar {
     transform: translateX(-100%);
+    width: min(300px, 85vw);
   }
   .sidebar--open {
     transform: translateX(0);
     box-shadow: 4px 0 32px rgba(0,0,0,.5);
   }
+  /* Larger touch targets inside the drawer */
+  .sidebar__nav { padding: 10px 10px; gap: 2px; }
+  .sidebar__user { padding: 14px 12px; gap: 12px; }
+  .sidebar__user-avatar { width: 32px; height: 32px; font-size: 13px; }
+  .sidebar__user-name { font-size: 13.5px; }
+  .sidebar__user-role { font-size: 12px; }
+  .sidebar__logout { padding: 10px; min-width: 40px; min-height: 40px; }
+  .sidebar__logout svg { width: 18px; height: 18px; }
 }
 
 .sidebar__logo {
@@ -384,15 +401,20 @@ async function handleLogout() {
 .topbar__hamburger {
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
   gap: 4px;
   background: none;
   border: none;
   cursor: pointer;
-  padding: 6px 4px;
-  border-radius: 6px;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
   transition: background .15s;
+  -webkit-tap-highlight-color: transparent;
 }
 .topbar__hamburger:hover { background: var(--bg-surface-2); }
+.topbar__hamburger:active { background: var(--bg-surface-3); }
 @media (min-width: 1024px) {
   .topbar__hamburger { display: none; }
 }
@@ -484,6 +506,11 @@ async function handleLogout() {
   color: var(--text-3);
   border-radius: 6px;
   transition: border-color .15s, color .15s, background .15s;
+  -webkit-tap-highlight-color: transparent;
+}
+@media (max-width: 640px) {
+  .topbar__theme-btn { width: 40px; height: 40px; }
+  .topbar__theme-btn svg { width: 18px; height: 18px; }
 }
 .topbar__theme-btn:hover {
   border-color: var(--border-hover);
@@ -498,6 +525,7 @@ async function handleLogout() {
 .topbar__lang-btn {
   display: flex;
   align-items: center;
+  justify-content: center;
   background: none;
   border: 1px solid var(--border);
   cursor: pointer;
@@ -509,6 +537,10 @@ async function handleLogout() {
   font-weight: 600;
   letter-spacing: .04em;
   transition: border-color .15s, color .15s, background .15s;
+  -webkit-tap-highlight-color: transparent;
+}
+@media (max-width: 640px) {
+  .topbar__lang-btn { min-width: 40px; height: 40px; padding: 0 10px; font-size: 12px; }
 }
 .topbar__lang-btn:hover {
   border-color: var(--border-hover);

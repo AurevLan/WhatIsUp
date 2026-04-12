@@ -168,15 +168,21 @@ const mobilePush = reactive({
 async function enableMobilePush() {
   mobilePush.loading = true
   mobilePush.error = ''
-  const res = await registerPushNotifications()
-  if (res.ok) {
-    mobilePush.registered = true
-  } else {
-    mobilePush.error = res.reason === 'permission_denied'
-      ? t('settings.push_permission_denied')
-      : (res.error || res.reason || 'failed')
+  try {
+    const res = await registerPushNotifications()
+    if (res.ok) {
+      mobilePush.registered = true
+    } else {
+      mobilePush.error = res.reason === 'permission_denied'
+        ? t('settings.push_permission_denied')
+        : `${res.reason || 'failed'}${res.error ? ': ' + res.error : ''}`
+    }
+  } catch (e) {
+    mobilePush.error = `unexpected: ${e?.message || e}`
+  } finally {
+    // Always release the loading flag so the button never stays stuck.
+    mobilePush.loading = false
   }
-  mobilePush.loading = false
 }
 
 async function disableMobilePush() {

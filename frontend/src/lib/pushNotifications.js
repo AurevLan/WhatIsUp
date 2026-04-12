@@ -50,40 +50,58 @@ export async function registerPushNotifications({ silentIfDenied = false } = {})
     }
   }
 
-  return new Promise((resolve) => {
-    let regHandle
-    let errHandle
-    const cleanup = () => {
-      regHandle?.remove?.()
-      errHandle?.remove?.()
+  // Wire listeners *before* calling register() so the events that follow
+  // are not dropped on the floor (Capacitor 7 returns Promises from
+  // addListener and the underlying handler is only attached when they
+  // resolve).
+  let resolveOnce
+  const settled = new Promise((resolve) => { resolveOnce = resolve })
+  let done = false
+  const finish = (value) => {
+    if (done) return
+    done = true
+    resolveOnce(value)
+  }
+
+  const regHandle = await PushNotifications.addListener('registration', async (token) => {
+    try {
+      const { data } = await api.post('/notifications/devices', {
+        token: token.value,
+        platform: 'android',
+        label: 'mobile',
+      })
+      localStorage.setItem(STORAGE_DEVICE_ID, data.id)
+      localStorage.setItem(STORAGE_DEVICE_KEY, data.encryption_key)
+      finish({ ok: true, deviceId: data.id, created: data.created })
+    } catch (e) {
+      finish({
+        ok: false,
+        reason: 'register_failed',
+        error: e?.response?.status ? `HTTP ${e.response.status}` : (e?.message || 'unknown'),
+      })
     }
-
-    PushNotifications.addListener('registration', async (token) => {
-      cleanup()
-      try {
-        const { data } = await api.post('/notifications/devices', {
-          token: token.value,
-          platform: 'android',
-          label: 'mobile',
-        })
-        localStorage.setItem(STORAGE_DEVICE_ID, data.id)
-        localStorage.setItem(STORAGE_DEVICE_KEY, data.encryption_key)
-        resolve({ ok: true, deviceId: data.id, created: data.created })
-      } catch (e) {
-        resolve({ ok: false, reason: 'register_failed', error: e?.message })
-      }
-    }).then((h) => { regHandle = h })
-
-    PushNotifications.addListener('registrationError', (err) => {
-      cleanup()
-      resolve({ ok: false, reason: 'fcm_error', error: err?.error || 'unknown' })
-    }).then((h) => { errHandle = h })
-
-    PushNotifications.register().catch((e) => {
-      cleanup()
-      resolve({ ok: false, reason: 'register_call_failed', error: e?.message })
-    })
   })
+
+  const errHandle = await PushNotifications.addListener('registrationError', (err) => {
+    finish({ ok: false, reason: 'fcm_error', error: err?.error || 'unknown' })
+  })
+
+  try {
+    await PushNotifications.register()
+  } catch (e) {
+    finish({ ok: false, reason: 'register_call_failed', error: e?.message })
+  }
+
+  // Hard timeout — if FCM never answers (no Google Play Services, no internet,
+  // missing google-services.json) the user would otherwise stare at a spinner.
+  const timeout = new Promise((resolve) =>
+    setTimeout(() => resolve({ ok: false, reason: 'timeout', error: 'no FCM response after 30s' }), 30000),
+  )
+
+  const result = await Promise.race([settled, timeout])
+  try { await regHandle?.remove?.() } catch { /* noop */ }
+  try { await errHandle?.remove?.() } catch { /* noop */ }
+  return result
 }
 
 export async function unregisterPushNotifications() {

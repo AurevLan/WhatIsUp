@@ -33,7 +33,7 @@ dependencies = [
     "structlog>=25.1.0,<26",
 
     # Browser scenario checks
-    "playwright>=1.49.0,<2",
+    "playwright>=1.58.0,<2",
 
     # JSON Schema validation (advanced HTTP assertions)
     "jsonschema>=4.21,<5",

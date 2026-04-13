@@ -1,6 +1,6 @@
 # Build environment for the WhatIsUp mobile (Capacitor / Android) app.
 #
-# Provides Node 20, JDK 17 and the Android cmdline-tools + platform-tools needed
+# Provides Node 22, JDK 21 and the Android cmdline-tools + platform-tools needed
 # to run `npx cap add android`, `npx cap sync` and `./gradlew assembleDebug`.
 #
 # Build:   docker build -t whatisup-mobile mobile/
@@ -19,8 +19,8 @@ ARG CMDLINE_TOOLS_VERSION=11076708
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         curl unzip git ca-certificates \
-        # Node 20 from NodeSource
-    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+        # Node 22 from NodeSource (Capacitor 8 requires >=22)
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 

@@ -7,6 +7,7 @@ via httpx so the tests stay hermetic.
 from __future__ import annotations
 
 import json
+from urllib.parse import urlparse
 
 import httpx
 import pytest
@@ -135,8 +136,9 @@ async def test_send_to_devices_happy_path(monkeypatch, fake_redis) -> None:
     assert result == {"sent": 2, "failed": 0, "invalid_tokens": []}
     # 1 token exchange + 2 push calls
     assert len(captured_requests) == 3
-    assert any("oauth2.googleapis.com" in str(r.url) for r in captured_requests)
-    assert sum("fcm.googleapis.com" in str(r.url) for r in captured_requests) == 2
+    hosts = [urlparse(str(r.url)).hostname for r in captured_requests]
+    assert "oauth2.googleapis.com" in hosts
+    assert hosts.count("fcm.googleapis.com") == 2
 
     redis_module._redis = None
 

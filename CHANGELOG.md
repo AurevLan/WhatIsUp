@@ -11,6 +11,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.2] - 2026-04-14
+
+### Fixed
+- **Android version stuck on "1.0"** — `frontend/android/app/build.gradle` had `versionCode 1` / `versionName "1.0"` hardcoded since the project inception, so every installed APK (v1.0.0, v1.1.0, v1.1.1…) appeared as "1.0" in Android's **Settings → Apps → WhatIsUp** screen. Users had no reliable way to confirm which release was actually installed on their phone, which was misdiagnosed as "the APK did not install" when a feature (e.g. biometric unlock) did not appear.
+- **Stale in-app About version** — `SettingsView.vue` hardcoded `WhatIsUp v0.1.0` and `frontend/src/lib/appVersion.js` exported `v0.2.1-mobile`. Both are now driven from a single Vite compile-time define (`__APP_VERSION__`) sourced from `frontend/package.json`, so bumping the version is a one-line change.
+
+### Changed
+- **mobile-release workflow** now patches `build.gradle` before each Android build so `versionName` always matches `frontend/package.json#version`, and `versionCode` is set to the GitHub Actions run number (monotonically increasing across builds — required by the Play Store).
+- **Vite config** exposes `__APP_VERSION__` as a compile-time constant. The helper `lib/appVersion.js` now reads from it, consumed by both the sidebar footer and the Settings About card.
+
+---
+
 ## [1.1.1] - 2026-04-14
 
 ### Added

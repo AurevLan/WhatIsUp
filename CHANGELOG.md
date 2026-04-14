@@ -11,6 +11,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.1] - 2026-04-14
+
+### Added
+- **Biometric unlock on mobile** (#95) — Capacitor native builds can now skip the login screen on subsequent launches using Face ID / Touch ID / Android BiometricPrompt. The refresh token is stored in the device secure storage (iOS Keychain / Android Keystore-backed SharedPreferences) and only released after a successful biometric check. Opt-in from **Settings → Biometric unlock**. New deps: `@capgo/capacitor-native-biometric`, `capacitor-secure-storage-plugin`.
+- **FCM google-services.json injected in CI** (#98) — mobile-release workflow now decodes the `GOOGLE_SERVICES_JSON_BASE64` repo secret into `frontend/android/app/google-services.json` before `./gradlew assemble`, so native push notifications actually work in CI-built APKs. Graceful fallback when the secret is absent (warning in the workflow log, APK still builds).
+
+### Fixed
+- **Short session logout bug** (#94) — `authStore.init()` was calling `logout()` whenever the stored access token had expired, wiping the refresh token and revoking the session server-side. Now it rotates the access token via `/auth/refresh` on boot and only logs out when the refresh also fails, restoring the full 7-day refresh lifetime across app restarts.
+- **Mobile push "stuck on loading"** (#98) — the 30 s FCM timeout has been reduced to 12 s, reason renamed `fcm_unavailable` with a clearer message, and the UI maps every FCM failure mode to a single user-facing i18n string.
+- **CodeQL warnings #14/#15** (#93) — `tests/test_fcm.py` URL assertions now use exact hostname comparison via `urllib.parse.urlparse` instead of substring `in` checks, silencing `py/incomplete-url-substring-sanitization`.
+- **Health scoring test drift** (#97) — 5 pre-existing failures in `tests/monitors.test.js` were tracking a legacy algorithm. Rewrote them against the current rt/p95 ratio formula, 66/66 frontend tests now pass.
+
+### Documentation
+- **Signal alerts setup** (PR #92 follow-up in README) — dedicated section explaining that WhatIsUp relies on [bbernhard/signal-cli-rest-api](https://github.com/bbernhard/signal-cli-rest-api) as a gateway, with a docker-compose snippet, the number-registration flow and the channel configuration walkthrough.
+
+---
+
 ## [1.1.0] - 2026-04-14
 
 ### Added

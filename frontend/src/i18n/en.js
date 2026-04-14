@@ -541,6 +541,7 @@ export default {
     mobile_push_off: 'Disabled',
     mobile_push_enable: 'Enable mobile notifications',
     mobile_push_disable: 'Disable on this device',
+    mobile_push_fcm_unavailable: 'Firebase Cloud Messaging is not configured in this APK build — ask the admin to rebuild with a valid google-services.json (GOOGLE_SERVICES_JSON_BASE64 secret).',
     biometric_title: 'Biometric unlock',
     biometric_desc: 'Use Face ID / Touch ID / fingerprint to resume your session without typing your password. The refresh token is stored in the device secure storage (Keychain / Keystore) and only released after a successful biometric check.',
     biometric_on: 'Enabled — this device will unlock with biometrics',

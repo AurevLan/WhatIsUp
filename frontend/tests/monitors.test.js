@@ -95,100 +95,129 @@ describe('monitors store', () => {
       expect(await healthOf({ uptime_24h: null })).toBeNull()
     })
 
-    it('returns A for perfect monitor (100% uptime, fast, no incident)', async () => {
+    // Current algorithm (see _computeHealth in src/stores/monitors.js):
+    //   score = uptime * 0.6
+    //         + (rt/p95 ratio bonus: ≤0.6 → 25, ≤1.0 → 22, ≤1.5 → 12, ≤2.5 → 5, else 0)
+    //         + (15 when rt or p95 is missing — neutral)
+    //         + (15 when no open incident)
+    // Grades:  A ≥ 90 · B ≥ 75 · C ≥ 55 · D ≥ 35 · F < 35
+
+    it('returns A for perfect monitor (100% uptime, rt well under p95, no incident)', async () => {
+      // 100*0.6 + 25 (ratio 0.1) + 15 = 100 → A
       expect(await healthOf({
         uptime_24h: 100,
         last_response_time_ms: 50,
+        p95_response_time_ms: 500,
         has_open_incident: false,
       })).toBe('A')
     })
 
-    it('returns B for good monitor (97% uptime, moderate RT)', async () => {
-      // score = 97*0.7 + 14 + 10 = 67.9 + 14 + 10 = 91.9 → below 95 → not B
-      // Actually: 97*0.7 = 67.9, RT 500 → +14, no incident → +10 = 91.9 → C
-      // Let's use 99% uptime, RT 500
-      // 99*0.7 = 69.3 + 14 + 10 = 93.3 → still below 95 → C
-      // For B: need score >= 95. 99.5*0.7 = 69.65 + 14 + 10 = 93.65 → C
-      // For B with fast RT: 96*0.7 = 67.2 + 20 + 10 = 97.2 → A
-      // B range is 95-99. Let's find: uptime=98, RT<300, no incident
-      // 98*0.7 = 68.6 + 20 + 10 = 98.6 → A (>=99)
-      // uptime=97: 97*0.7 = 67.9 + 20 + 10 = 97.9 → B
+    it('returns B for good monitor (rt moderately above p95)', async () => {
+      // 98*0.6 + 12 (ratio 1.25) + 15 = 85.8 → B
       expect(await healthOf({
-        uptime_24h: 97,
-        last_response_time_ms: 100,
+        uptime_24h: 98,
+        last_response_time_ms: 500,
+        p95_response_time_ms: 400,
         has_open_incident: false,
       })).toBe('B')
     })
 
-    it('returns C for moderate monitor', async () => {
-      // uptime=90, fast RT: 90*0.7=63 + 20 + 10 = 93 → C (>=85 <95)
+    it('returns C for degraded monitor (rt 2× p95)', async () => {
+      // 90*0.6 + 5 (ratio 2.0) + 15 = 74 → C (< 75)
       expect(await healthOf({
         uptime_24h: 90,
-        last_response_time_ms: 200,
+        last_response_time_ms: 800,
+        p95_response_time_ms: 400,
         has_open_incident: false,
       })).toBe('C')
     })
 
-    it('returns D for degraded monitor', async () => {
-      // uptime=85, slow RT: 85*0.7=59.5 + 7 + 10 = 76.5 → D (>=70 <85)
+    it('returns D for unhealthy monitor (low uptime + rt way above p95)', async () => {
+      // 80*0.6 + 0 (ratio 4.0) + 15 = 63 → C (actually)
+      // 70*0.6 + 0 (ratio 4.0) + 15 = 57 → C still
+      // 65*0.6 + 0 (ratio 4.0) + 15 = 54 → D
       expect(await healthOf({
-        uptime_24h: 85,
-        last_response_time_ms: 1500,
+        uptime_24h: 65,
+        last_response_time_ms: 2000,
+        p95_response_time_ms: 500,
         has_open_incident: false,
       })).toBe('D')
     })
 
     it('returns F for failing monitor', async () => {
-      // uptime=50, slow, incident: 50*0.7=35 + 7 + 0 = 42 → F
+      // 20*0.6 + 0 (ratio 6.0) + 0 (incident) = 12 → F
       expect(await healthOf({
-        uptime_24h: 50,
-        last_response_time_ms: 1500,
+        uptime_24h: 20,
+        last_response_time_ms: 3000,
+        p95_response_time_ms: 500,
         has_open_incident: true,
       })).toBe('F')
     })
 
-    it('incident penalty reduces score by 10', async () => {
-      // Without incident: 95*0.7=66.5 + 20 + 10 = 96.5 → B
+    it('incident penalty reduces the score by 15 and drops the grade', async () => {
+      // No incident: 85*0.6 + 22 (ratio 1.0) + 15 = 88 → B
       const withoutIncident = await healthOf({
-        uptime_24h: 95,
-        last_response_time_ms: 100,
+        uptime_24h: 85,
+        last_response_time_ms: 500,
+        p95_response_time_ms: 500,
         has_open_incident: false,
       })
-      store.monitors = [] // reset
-
-      // With incident: 95*0.7=66.5 + 20 + 0 = 86.5 → C
+      store.monitors = []
+      // With incident: 85*0.6 + 22 + 0 = 73 → C
       const withIncident = await healthOf({
-        uptime_24h: 95,
-        last_response_time_ms: 100,
+        uptime_24h: 85,
+        last_response_time_ms: 500,
+        p95_response_time_ms: 500,
         has_open_incident: true,
       })
-
-      // Score difference should push to a lower grade
-      expect(withoutIncident).not.toBe(withIncident)
+      expect(withoutIncident).toBe('B')
+      expect(withIncident).toBe('C')
     })
 
-    it('no response time data gives neutral 10 points', async () => {
-      // uptime=100, no RT, no incident: 100*0.7=70 + 10 + 10 = 90 → C
+    it('no rt or no p95 baseline yields the neutral +15 bonus', async () => {
+      // 100*0.6 + 15 (neutral, rt null) + 15 = 90 → A
       expect(await healthOf({
         uptime_24h: 100,
         last_response_time_ms: null,
+        p95_response_time_ms: null,
         has_open_incident: false,
-      })).toBe('C')
+      })).toBe('A')
+      store.monitors = []
+      // 100*0.6 + 15 (neutral, p95 null) + 15 = 90 → A
+      expect(await healthOf({
+        uptime_24h: 100,
+        last_response_time_ms: 123,
+        p95_response_time_ms: null,
+        has_open_incident: false,
+      })).toBe('A')
     })
 
-    it('response time tiers: <300, <800, <2000, >=2000', async () => {
-      // All with uptime=100, no incident → base = 70 + 10 = 80
-      // RT < 300  → +20 = 100 → A
-      expect(await healthOf({ uptime_24h: 100, last_response_time_ms: 100 })).toBe('A')
+    it('response time is graded by rt/p95 ratio, not an absolute threshold', async () => {
+      // Fix uptime=100 and no incident → base = 60 + 15 = 75
+      // ratio 0.5 → +25 = 100 → A
+      expect(await healthOf({
+        uptime_24h: 100, last_response_time_ms: 500, p95_response_time_ms: 1000,
+      })).toBe('A')
       store.monitors = []
-      // RT 500 → +14 = 94 → C
-      expect(await healthOf({ uptime_24h: 100, last_response_time_ms: 500 })).toBe('C')
+      // ratio 0.9 → +22 = 97 → A
+      expect(await healthOf({
+        uptime_24h: 100, last_response_time_ms: 900, p95_response_time_ms: 1000,
+      })).toBe('A')
       store.monitors = []
-      // RT 1500 → +7 = 87 → C
-      expect(await healthOf({ uptime_24h: 100, last_response_time_ms: 1500 })).toBe('C')
+      // ratio 1.25 → +12 = 87 → B
+      expect(await healthOf({
+        uptime_24h: 100, last_response_time_ms: 1250, p95_response_time_ms: 1000,
+      })).toBe('B')
       store.monitors = []
-      // RT 3000 → +0 = 80 → D (>=70 <85)
-      expect(await healthOf({ uptime_24h: 100, last_response_time_ms: 3000 })).toBe('D')
+      // ratio 2.0 → +5 = 80 → B
+      expect(await healthOf({
+        uptime_24h: 100, last_response_time_ms: 2000, p95_response_time_ms: 1000,
+      })).toBe('B')
+      store.monitors = []
+      // ratio 3.0 (> 2.5) → +0 = 75 → B (exact boundary)
+      expect(await healthOf({
+        uptime_24h: 100, last_response_time_ms: 3000, p95_response_time_ms: 1000,
+      })).toBe('B')
     })
   })
 

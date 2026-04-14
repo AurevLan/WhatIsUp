@@ -8,6 +8,7 @@ from whatisup.models.alert import (
     AlertEventStatus,
     AlertRule,
 )
+from whatisup.models.alert_matrix_template import AlertMatrixTemplate
 from whatisup.models.annotation import MonitorAnnotation
 from whatisup.models.api_key import UserApiKey
 from whatisup.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -64,6 +65,7 @@ __all__ = [
     "AlertEvent",
     "AlertEventStatus",
     "AlertRule",
+    "AlertMatrixTemplate",
     "CorrelationPattern",
     "DigestWindow",
     "MonitorAnnotation",

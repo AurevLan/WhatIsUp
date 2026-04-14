@@ -444,12 +444,13 @@ async def _fire_alerts(
       - "incident_resolved": incident just resolved
       - "incident_renotify": incident still open, check for periodic re-notification
     """
-    # Collect applicable rules (by monitor or by group)
+    # Collect applicable rules (by monitor, group, or tag selector intersecting monitor tags)
     conditions = [AlertRule.monitor_id == monitor.id]
     if monitor.group_id:
         conditions.append(AlertRule.group_id == monitor.group_id)
+    conditions.append(AlertRule.tag_selector.isnot(None))
 
-    rules = (
+    candidate_rules = (
         (
             await db.execute(
                 select(AlertRule).where(or_(*conditions)).options(selectinload(AlertRule.channels))
@@ -458,6 +459,14 @@ async def _fire_alerts(
         .scalars()
         .all()
     )
+
+    monitor_tag_names = {t.name for t in (monitor.tags or [])}
+    rules = [
+        r for r in candidate_rules
+        if r.monitor_id == monitor.id
+        or (monitor.group_id is not None and r.group_id == monitor.group_id)
+        or (r.tag_selector and monitor_tag_names.intersection(r.tag_selector))
+    ]
 
     # Web push: notify monitor owner for open/resolve events (independent of rules)
     if event_type in ("incident_opened", "incident_resolved"):
@@ -589,9 +598,6 @@ async def _fire_alerts(
                 continue
             if result.response_time_ms is None or result.response_time_ms <= rule.threshold_value:
                 continue
-            if event_type != "incident_opened":
-                continue
-        elif rule.condition == AlertCondition.uptime_below:
             if event_type != "incident_opened":
                 continue
         elif rule.condition == AlertCondition.response_time_above_baseline:

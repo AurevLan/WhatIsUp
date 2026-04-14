@@ -22,9 +22,12 @@ from sqlalchemy import (
     Text,
     Uuid,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from whatisup.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
+
+_JSON = JSON().with_variant(JSONB(), "postgresql")
 
 if TYPE_CHECKING:
     from whatisup.models.incident import Incident
@@ -48,7 +51,6 @@ class AlertCondition(enum.StrEnum):
     any_down = "any_down"  # Any probe reports down
     ssl_expiry = "ssl_expiry"  # SSL cert expires within warn window
     response_time_above = "response_time_above"
-    uptime_below = "uptime_below"
     response_time_above_baseline = "response_time_above_baseline"  # > N× rolling 7-day avg
     anomaly_detection = "anomaly_detection"  # Z-score based anomaly on response time
     schema_drift = "schema_drift"  # JSON API structure changed vs baseline
@@ -108,6 +110,9 @@ class AlertChannel(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 class AlertRule(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "alert_rules"
 
+    owner_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )
     monitor_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("monitors.id", ondelete="CASCADE"), nullable=True, index=True
     )
@@ -135,6 +140,8 @@ class AlertRule(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     anomaly_zscore_threshold: Mapped[float | None] = mapped_column(sqlalchemy.Float, nullable=True)
     # Business hours schedule: {timezone, days: [0-6], start/end: "HH:MM", offhours_suppress: bool}
     schedule: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # Tag selector: list of tag names; rule fires for monitors carrying any matching tag.
+    tag_selector: Mapped[list[str] | None] = mapped_column(_JSON, nullable=True)
     # Enable/disable without deleting the rule
     enabled: Mapped[bool] = mapped_column(
         Boolean, default=True, nullable=False, server_default="true"

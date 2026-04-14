@@ -16,6 +16,9 @@
           <span class="text-xs px-1.5 py-0.5 rounded bg-gray-800 text-gray-500 uppercase mr-2">{{ monitor.check_type }}</span>
           {{ formatTarget(monitor) }}
         </p>
+        <div class="mt-2">
+          <TagChips :model-value="monitor.tags || []" @update:model-value="onTagsChange" />
+        </div>
       </div>
     </div>
 
@@ -90,12 +93,14 @@
           <p class="text-2xl font-bold mt-1" :class="uptime24?.uptime_percent >= 99 ? 'text-emerald-400' : 'text-red-400'">
             {{ uptime24?.uptime_percent?.toFixed(3) ?? '—' }}%
           </p>
+          <UptimeViewSplit :stats="uptime24" />
         </div>
         <div class="card text-center">
           <p class="text-xs text-gray-500">{{ t('monitor_detail.uptime_7d') }}</p>
           <p class="text-2xl font-bold mt-1 text-blue-400">
             {{ uptime7d?.uptime_percent?.toFixed(3) ?? '—' }}%
           </p>
+          <UptimeViewSplit :stats="uptime7d" />
         </div>
         <div class="card text-center">
           <p class="text-xs text-gray-500">Avg. duration</p>
@@ -347,12 +352,14 @@
         <p class="text-2xl font-bold mt-1" :class="uptime24?.uptime_percent >= 99 ? 'text-emerald-400' : 'text-red-400'">
           {{ uptime24?.uptime_percent?.toFixed(3) ?? '—' }}%
         </p>
+        <UptimeViewSplit :stats="uptime24" />
       </div>
       <div class="card text-center">
         <p class="text-xs text-gray-500">{{ t('monitor_detail.uptime_7d') }}</p>
         <p class="text-2xl font-bold mt-1 text-blue-400">
           {{ uptime7d?.uptime_percent?.toFixed(3) ?? '—' }}%
         </p>
+        <UptimeViewSplit :stats="uptime7d" />
       </div>
       <div v-if="isDns" class="card text-center">
         <p class="text-xs text-gray-500">Changes detected</p>
@@ -716,9 +723,21 @@
 
     <!-- Incidents récents -->
     <div class="card mb-6">
-      <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <h2 class="text-sm font-semibold text-gray-300">{{ t('monitor_detail.incidents') }}</h2>
         <div class="flex items-center gap-3">
+          <div class="inline-flex rounded-md border border-gray-800 overflow-hidden">
+            <button @click="viewMode = 'timeline'"
+              class="px-2.5 py-1 text-[11px] transition-colors"
+              :class="viewMode === 'timeline' ? 'bg-indigo-600/30 text-indigo-200' : 'text-gray-500 hover:text-gray-300'">
+              {{ t('monitor_detail.view_timeline') }}
+            </button>
+            <button @click="viewMode = 'list'"
+              class="px-2.5 py-1 text-[11px] transition-colors border-l border-gray-800"
+              :class="viewMode === 'list' ? 'bg-indigo-600/30 text-indigo-200' : 'text-gray-500 hover:text-gray-300'">
+              {{ t('monitor_detail.view_list') }}
+            </button>
+          </div>
           <button @click="downloadIncidentsCsv" :disabled="incidents.length === 0"
             class="text-xs text-gray-500 hover:text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed">
             {{ t('monitor_detail.export_csv') }}
@@ -726,10 +745,120 @@
           <button @click="loadIncidents" class="text-xs text-gray-500 hover:text-gray-300">Refresh</button>
         </div>
       </div>
+
       <div v-if="incidentError" class="mb-3 px-3 py-2 rounded-lg bg-red-900/50 border border-red-700 text-red-300 text-xs">
         {{ incidentError }}
       </div>
-      <div v-if="incidents.length === 0" class="text-gray-600 text-sm text-center py-4">{{ t('monitor_detail.no_incidents') }}</div>
+
+      <div v-if="incidents.length === 0" class="text-gray-600 text-sm text-center py-6">{{ t('monitor_detail.no_incidents') }}</div>
+
+      <!-- ═══ Timeline mode ═══ -->
+      <div v-else-if="viewMode === 'timeline' && timelineLayout" class="space-y-4">
+        <!-- Timeline bar -->
+        <div class="relative rounded-lg bg-gray-900/60 border border-gray-800 px-4 pt-4 pb-8">
+          <div class="relative h-12">
+            <!-- Baseline -->
+            <div class="absolute inset-x-0 top-1/2 h-px bg-gray-800" />
+            <!-- Incident segments -->
+            <button v-for="it in timelineLayout.items" :key="it.id"
+              type="button"
+              @click="selectIncident(it.id)"
+              :title="tooltipFor(it.inc)"
+              :style="{ left: it.x + '%', width: it.w + '%' }"
+              class="absolute top-2 bottom-2 rounded-md transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              :class="[
+                it.ongoing
+                  ? 'bg-red-500/80 hover:bg-red-400 animate-pulse'
+                  : 'bg-emerald-500/70 hover:bg-emerald-400',
+                selectedIncidentId === it.id
+                  ? 'ring-2 ring-white/90 shadow-lg shadow-indigo-900/50 z-10'
+                  : 'opacity-70 hover:opacity-100'
+              ]" />
+          </div>
+          <!-- Tick labels -->
+          <div class="absolute inset-x-4 bottom-2 h-4 text-[10px] text-gray-600 pointer-events-none">
+            <span v-for="(tk, i) in timelineLayout.ticks" :key="i"
+              class="absolute -translate-x-1/2 whitespace-nowrap"
+              :style="{ left: tk.x + '%' }">{{ tk.label }}</span>
+          </div>
+        </div>
+
+        <!-- Legend -->
+        <div class="flex items-center gap-4 text-[11px] text-gray-500 px-1">
+          <span class="flex items-center gap-1.5">
+            <span class="w-2.5 h-2.5 rounded-sm bg-red-500 animate-pulse" />
+            {{ t('incidents.ongoing') }}
+          </span>
+          <span class="flex items-center gap-1.5">
+            <span class="w-2.5 h-2.5 rounded-sm bg-emerald-500" />
+            {{ t('monitor_detail.resolved') }}
+          </span>
+          <span class="ml-auto">{{ incidents.length }} {{ t('monitor_detail.incidents').toLowerCase() }}</span>
+        </div>
+
+        <!-- Selected incident detail panel -->
+        <div v-if="selectedIncident" class="rounded-lg border border-gray-800 bg-gray-900/40 p-4">
+          <div class="flex items-center gap-3 flex-wrap">
+            <span class="w-2 h-2 rounded-full flex-shrink-0"
+              :class="selectedIncident.resolved_at ? 'bg-emerald-500' : 'bg-red-500 animate-pulse'" />
+            <div class="flex-1 min-w-0">
+              <p class="text-sm text-gray-200">
+                {{ new Date(selectedIncident.started_at).toLocaleString(locale) }}
+                <span v-if="selectedIncident.resolved_at" class="text-gray-500">
+                  → {{ new Date(selectedIncident.resolved_at).toLocaleString(locale) }}
+                  <span class="ml-1 text-gray-600">({{ Math.round(selectedIncident.duration_seconds / 60) }} min)</span>
+                </span>
+                <span v-else class="text-red-400 font-medium ml-1">{{ t('incidents.ongoing') }}</span>
+              </p>
+              <p class="text-xs text-gray-600 mt-0.5 capitalize">{{ selectedIncident.scope }}</p>
+            </div>
+            <button v-if="selectedIncident.resolved_at"
+              @click="openPostmortem(selectedIncident)"
+              class="btn-ghost text-xs flex-shrink-0 flex items-center gap-1.5">
+              📋 {{ t('monitor_detail.postmortem') }}
+            </button>
+          </div>
+
+          <!-- Updates -->
+          <div class="mt-4 pt-3 border-t border-gray-800 space-y-2">
+            <div v-if="incidentUpdatesLoading" class="text-xs text-gray-500">Loading…</div>
+            <template v-else>
+              <div v-for="u in incidentUpdates" :key="u.id" class="flex gap-2 text-xs">
+                <span class="text-gray-600 font-mono flex-shrink-0">{{ new Date(u.created_at).toLocaleString(locale) }}</span>
+                <span :class="{
+                  'text-amber-400': u.status === 'investigating',
+                  'text-blue-400': u.status === 'identified',
+                  'text-purple-400': u.status === 'monitoring',
+                  'text-emerald-400': u.status === 'resolved',
+                }" class="font-semibold capitalize flex-shrink-0">{{ u.status }}</span>
+                <span class="text-gray-300 break-words">{{ u.message }}</span>
+                <span v-if="!u.is_public" class="text-gray-600 italic">(private)</span>
+                <button @click="deleteIncidentUpdate(selectedIncident.id, u.id)" class="text-red-500 hover:text-red-400 ml-auto flex-shrink-0">✕</button>
+              </div>
+              <div v-if="incidentUpdates.length === 0" class="text-gray-600 italic text-xs">No updates yet</div>
+            </template>
+
+            <div class="pt-2 flex gap-2 flex-wrap">
+              <select v-model="newUpdate.status" class="input text-xs flex-shrink-0 w-36">
+                <option value="investigating">Investigating</option>
+                <option value="identified">Identified</option>
+                <option value="monitoring">Monitoring</option>
+                <option value="resolved">Resolved</option>
+              </select>
+              <input v-model="newUpdate.message" class="input text-xs flex-1 min-w-[160px]"
+                placeholder="Status update message…"
+                @keydown.enter="postIncidentUpdate(selectedIncident.id)" />
+              <label class="flex items-center gap-1 text-xs text-gray-400 flex-shrink-0">
+                <input v-model="newUpdate.is_public" type="checkbox" class="mr-1" />
+                Public
+              </label>
+              <button @click="postIncidentUpdate(selectedIncident.id)" class="btn-primary text-xs flex-shrink-0">Post</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ List mode (fallback) ═══ -->
       <div v-else class="divide-y divide-gray-800">
         <div v-for="inc in incidents" :key="inc.id" class="py-3 text-sm">
           <div class="flex items-center gap-3">
@@ -737,38 +866,30 @@
               :class="inc.resolved_at ? 'bg-emerald-500' : 'bg-red-500 animate-pulse'" />
             <div class="flex-1 min-w-0">
               <p class="text-gray-300 text-xs">
-                {{ new Date(inc.started_at).toLocaleString(locale.value) }}
+                {{ new Date(inc.started_at).toLocaleString(locale) }}
                 <span v-if="inc.resolved_at" class="text-gray-500">
-                  → {{ new Date(inc.resolved_at).toLocaleString(locale.value) }}
+                  → {{ new Date(inc.resolved_at).toLocaleString(locale) }}
                   <span class="ml-1 text-gray-600">({{ Math.round(inc.duration_seconds / 60) }} min)</span>
                 </span>
                 <span v-else class="text-red-400 font-medium ml-1">{{ t('incidents.ongoing') }}</span>
               </p>
               <p class="text-xs text-gray-600 mt-0.5 capitalize">{{ inc.scope }}</p>
             </div>
-            <button v-if="inc.resolved_at"
-              @click="openPostmortem(inc)"
+            <button v-if="inc.resolved_at" @click="openPostmortem(inc)"
               class="btn-ghost text-xs flex-shrink-0 flex items-center gap-1.5">
               📋 {{ t('monitor_detail.postmortem') }}
             </button>
-            <button
-              @click="toggleIncidentUpdates(inc.id)"
-              class="btn-ghost text-xs flex-shrink-0 flex items-center gap-1"
-            >
+            <button @click="toggleIncidentUpdates(inc.id)"
+              class="btn-ghost text-xs flex-shrink-0 flex items-center gap-1">
               📝 Updates
             </button>
           </div>
 
-          <!-- Incident updates panel -->
           <div v-if="expandedIncident === inc.id" class="mt-3 ml-5 space-y-2">
             <div v-if="incidentUpdatesLoading" class="text-xs text-gray-500">Loading…</div>
             <div v-else>
-              <div
-                v-for="u in incidentUpdates"
-                :key="u.id"
-                class="flex gap-2 text-xs"
-              >
-                <span class="text-gray-600 font-mono flex-shrink-0">{{ new Date(u.created_at).toLocaleString(locale.value) }}</span>
+              <div v-for="u in incidentUpdates" :key="u.id" class="flex gap-2 text-xs">
+                <span class="text-gray-600 font-mono flex-shrink-0">{{ new Date(u.created_at).toLocaleString(locale) }}</span>
                 <span :class="{
                   'text-amber-400': u.status === 'investigating',
                   'text-blue-400': u.status === 'identified',
@@ -781,8 +902,6 @@
               </div>
               <div v-if="incidentUpdates.length === 0" class="text-gray-600 italic">No updates yet</div>
             </div>
-
-            <!-- Add update form -->
             <div class="mt-2 pt-2 border-t border-gray-800 space-y-2">
               <div class="flex gap-2">
                 <select v-model="newUpdate.status" class="input text-xs flex-shrink-0 w-36">
@@ -793,7 +912,7 @@
                 </select>
                 <input v-model="newUpdate.message" class="input text-xs flex-1" placeholder="Status update message…" @keydown.enter="postIncidentUpdate(inc.id)" />
                 <label class="flex items-center gap-1 text-xs text-gray-400 flex-shrink-0">
-                  <input v-model="newUpdate.is_public" type="checkbox" class="mr-1" checked />
+                  <input v-model="newUpdate.is_public" type="checkbox" class="mr-1" />
                   Public
                 </label>
                 <button @click="postIncidentUpdate(inc.id)" class="btn-primary text-xs flex-shrink-0">Post</button>
@@ -1284,6 +1403,11 @@
       </div>
     </div>
 
+    <!-- ── Onglet Alertes ────────────────────────────────────────────────────── -->
+    <div v-if="activeTab === TAB_ALERTS && monitor">
+      <AlertMatrix :monitor-id="monitor.id" :check-type="monitor.check_type" />
+    </div>
+
     <!-- DNS drift alert suggestion modal -->
     <div v-if="dnsAlertModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
       <div class="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-sm p-6">
@@ -1342,6 +1466,9 @@ import MonitorDependencies from '../components/monitors/MonitorDependencies.vue'
 import EditMonitorModal from '../components/monitors/EditMonitorModal.vue'
 import CreateMonitorModal from '../components/monitors/CreateMonitorModal.vue'
 import UptimeHeatmap from '../components/monitors/UptimeHeatmap.vue'
+import UptimeViewSplit from '../components/monitors/UptimeViewSplit.vue'
+import AlertMatrix from '../components/monitors/AlertMatrix.vue'
+import TagChips from '../components/monitors/TagChips.vue'
 
 const { t, locale } = useI18n()
 
@@ -1407,6 +1534,64 @@ const expandedIncident = ref(null)
 const incidentUpdates = ref([])
 const incidentUpdatesLoading = ref(false)
 const newUpdate = ref({ status: 'investigating', message: '', is_public: true })
+const viewMode = ref('timeline')
+const selectedIncidentId = ref(null)
+
+const selectedIncident = computed(
+  () => incidents.value.find(i => i.id === selectedIncidentId.value) || null
+)
+
+const timelineLayout = computed(() => {
+  if (!incidents.value.length) return null
+  const now = Date.now()
+  const starts = incidents.value.map(i => new Date(i.started_at).getTime())
+  const ends = incidents.value.map(i => (i.resolved_at ? new Date(i.resolved_at).getTime() : now))
+  const minT = Math.min(...starts)
+  const maxT = Math.max(...ends, now)
+  const rawSpan = Math.max(maxT - minT, 3600_000) // min 1h span
+  const pad = rawSpan * 0.03
+  const t0 = minT - pad
+  const t1 = maxT + pad
+  const total = t1 - t0
+  const items = incidents.value.map(inc => {
+    const s = new Date(inc.started_at).getTime()
+    const e = inc.resolved_at ? new Date(inc.resolved_at).getTime() : now
+    const x = ((s - t0) / total) * 100
+    const w = Math.max(((e - s) / total) * 100, 0.8)
+    return { id: inc.id, inc, x, w, ongoing: !inc.resolved_at }
+  })
+  const ticks = []
+  const spanDays = total / 86400_000
+  const steps = 4
+  for (let k = 0; k <= steps; k++) {
+    const t = t0 + (total * k) / steps
+    const d = new Date(t)
+    const label = spanDays > 2
+      ? d.toLocaleDateString(locale.value, { month: 'short', day: 'numeric' })
+      : d.toLocaleTimeString(locale.value, { hour: '2-digit', minute: '2-digit' })
+    ticks.push({ x: (k / steps) * 100, label })
+  }
+  return { items, ticks }
+})
+
+function tooltipFor(inc) {
+  const start = new Date(inc.started_at).toLocaleString(locale.value)
+  if (!inc.resolved_at) return `${t('incidents.ongoing')} — ${start}`
+  const end = new Date(inc.resolved_at).toLocaleString(locale.value)
+  const mins = Math.round(inc.duration_seconds / 60)
+  return `${start} → ${end} (${mins} min) — ${inc.scope}`
+}
+
+async function selectIncident(id) {
+  selectedIncidentId.value = id
+  incidentUpdatesLoading.value = true
+  try {
+    const { data } = await incidentUpdatesApi.list(id)
+    incidentUpdates.value = data
+  } finally {
+    incidentUpdatesLoading.value = false
+  }
+}
 
 async function toggleIncidentUpdates(incidentId) {
   if (expandedIncident.value === incidentId) {
@@ -1449,6 +1634,14 @@ async function loadIncidents() {
   try {
     const { data } = await monitorsApi.incidents(route.params.id, { limit: 20 })
     incidents.value = data
+    if (data.length) {
+      const preferred = data.find(i => !i.resolved_at) || data[0]
+      if (!selectedIncidentId.value || !data.some(i => i.id === selectedIncidentId.value)) {
+        selectIncident(preferred.id)
+      }
+    } else {
+      selectedIncidentId.value = null
+    }
   } catch {
     incidents.value = []
     incidentError.value = t('common.error')
@@ -1691,11 +1884,13 @@ async function handleTriggerCheck() {
 const TAB_AVAILABILITY = 'availability'
 const TAB_SCENARIO = 'scenario'
 const TAB_MAP = 'map'
+const TAB_ALERTS = 'alerts'
 
 const tabLabel = (tab) => ({
   [TAB_AVAILABILITY]: t('monitor_detail.tab_availability'),
   [TAB_SCENARIO]: t('monitor_detail.tab_scenario'),
   [TAB_MAP]: t('monitor_detail.tab_map'),
+  [TAB_ALERTS]: t('monitor_detail.tab_alerts'),
 }[tab] ?? tab)
 
 const viewTabs = computed(() => {
@@ -1705,6 +1900,7 @@ const viewTabs = computed(() => {
   if (!['heartbeat', 'composite', 'domain_expiry'].includes(monitor.value?.check_type)) {
     tabs.push(TAB_MAP)
   }
+  tabs.push(TAB_ALERTS)
   return tabs
 })
 const activeTab = ref(TAB_AVAILABILITY)
@@ -2310,6 +2506,16 @@ const dnsAlertModal = ref(false)
 const dnsAlertChannels = ref([])
 const dnsAlertChannelId = ref('')
 const dnsAlertCreating = ref(false)
+
+async function onTagsChange(newTags) {
+  const previous = monitor.value.tags || []
+  monitor.value.tags = newTags
+  try {
+    await monitorsApi.update(monitor.value.id, { tag_ids: newTags.map(t => t.id) })
+  } catch (e) {
+    monitor.value.tags = previous
+  }
+}
 
 async function toggleDnsSetting(field) {
   const newVal = !monitor.value[field]

@@ -1,12 +1,74 @@
-# WhatIsUp
+<h1 align="center">WhatIsUp</h1>
 
-> Open-source uptime monitoring with multi-probe geographic correlation, real-time dashboard, SLO tracking, alerting, and public status pages.
+<p align="center">
+  <strong>The self-hosted uptime platform that actually tells you <em>where</em> things break — and stops shouting when it shouldn't.</strong>
+</p>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Python 3.14](https://img.shields.io/badge/Python-3.14-blue)](https://python.org)
-[![Vue 3](https://img.shields.io/badge/Vue-3.5-42b883)](https://vuejs.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.125+-009688)](https://fastapi.tiangolo.com)
-[![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16-336791)](https://postgresql.org)
+<p align="center">
+  Multi-probe geographic correlation · real-time dashboard · SLO tracking · intelligent alerting · public status pages · mobile app.
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg"></a>
+  <img alt="Version" src="https://img.shields.io/badge/version-1.1.0-4f9cf9">
+  <img alt="Python 3.14" src="https://img.shields.io/badge/Python-3.14-blue">
+  <img alt="Vue 3" src="https://img.shields.io/badge/Vue-3.5-42b883">
+  <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-0.125+-009688">
+  <img alt="PostgreSQL 16" src="https://img.shields.io/badge/PostgreSQL-16-336791">
+</p>
+
+<p align="center">
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#whats-new-in-11">What's new in 1.1</a> ·
+  <a href="#why-whatisup">Why WhatIsUp</a> ·
+  <a href="#features">Features</a> ·
+  <a href="#architecture">Architecture</a> ·
+  <a href="CHANGELOG.md">Changelog</a>
+</p>
+
+---
+
+## Why WhatIsUp
+
+There's no shortage of uptime tools. WhatIsUp focuses on three things most of them don't do well at once:
+
+- 🌍 **Real multi-probe correlation** — deploy lightweight probes in any datacenter, office, or region, and let WhatIsUp tell you if an outage is global, regional, or probe-local. One failed probe no longer means one false page.
+- 🔕 **Alerting that shuts up** — flapping suppression, incident groups, dependency-aware cascade suppression, maintenance windows, storm protection, and a brand-new **impact preview** (see v1.1 below) so you calibrate thresholds with data instead of vibes.
+- 🎛 **Self-hosted, batteries included** — one `docker compose up`, no SaaS lock-in, no per-monitor pricing. Playwright scenarios, SSO/OIDC, teams & RBAC, IaC import/export, and a mobile app all ship in the box.
+
+It's built for teams who want Datadog-grade monitoring without Datadog-grade bills, and who'd rather own their data than rent it.
+
+---
+
+## What's new in 1.1
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/alert-matrix-cards.svg" alt="Alert matrix with cards and impact preview"></td>
+    <td width="50%"><img src="docs/screenshots/alert-templates.svg" alt="One-click alerting templates"></td>
+  </tr>
+  <tr>
+    <td>
+      <strong>Alert matrix v2 — cards + impact preview</strong><br>
+      The per-monitor alerting panel is now a stack of collapsible cards: one card per condition, coloured channel chips, an "Advanced" section that hides noise, and a live <code>≈ N / 30j</code> badge that replays the last 30 days of data through your rules so you can calibrate thresholds <em>before</em> they page you.
+    </td>
+    <td>
+      <strong>One-click alerting templates</strong><br>
+      Apply a preset (Standard, Strict/Paging, Low noise) in a single click. Built-in templates ship seeded in the database and admins can create, edit and delete their own from a dedicated section in the Alerts page. Channels stay empty — you still decide where alerts fire.
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="docs/screenshots/tags-rbac.svg" alt="Monitor tags and tag-scoped RBAC"></td>
+  </tr>
+  <tr>
+    <td colspan="2">
+      <strong>Monitor tags & tag-scoped RBAC</strong><br>
+      Label monitors with <code>env:prod</code>, <code>team:backend</code>, <code>tier:critical</code>, whatever makes sense. Filter dashboards and lists by tag. Target alert rules at a tag (<code>AlertRule.tag_selector</code>) so one rule covers every monitor that carries it. Grant users <code>view</code>/<code>edit</code>/<code>admin</code> access scoped to a tag via <code>UserTagPermission</code>.
+    </td>
+  </tr>
+</table>
+
+See the full [CHANGELOG](CHANGELOG.md#110---2026-04-14) for the complete list, including the removal of the never-implemented `uptime_below` condition.
 
 ---
 
@@ -24,9 +86,13 @@
 |-------------------|-----------------|
 | ![Status page](docs/screenshots/public-status.svg) | ![Scenario](docs/screenshots/scenario-builder.svg) |
 
-| Browser extension recorder | |
-|---------------------------|---|
-| ![Extension](docs/screenshots/extension-recorder.svg) | |
+| Alert matrix v2 | Alerting templates |
+|-----------------|-------------------|
+| ![Alert matrix](docs/screenshots/alert-matrix-cards.svg) | ![Templates](docs/screenshots/alert-templates.svg) |
+
+| Tags & RBAC | Browser extension recorder |
+|-------------|----------------------------|
+| ![Tags](docs/screenshots/tags-rbac.svg) | ![Extension](docs/screenshots/extension-recorder.svg) |
 
 ---
 
@@ -64,13 +130,18 @@
 - **Response time trend** — 6-hour rolling comparison with colour-coded indicator
 
 ### Incidents & alerting
+- **Alert matrix v2 (1.1)** — card-based editor: one card per condition, coloured channel chips, repliable "Advanced" params (threshold, min-duration, re-notify, business-hours schedule), multi-select condition picker, and per-condition "How it works" help in plain language
+- **Impact preview (1.1)** — live `≈ N / 30j` badge on each rule, computed server-side by replaying the proposed configuration against the last 30 days of check results and incidents (statistical tail estimate for anomaly detection)
+- **Alerting templates (1.1)** — apply a preset (Standard, Strict/Paging, Low noise) in one click; templates are stored in DB and managed from a dedicated section in the Alerts page; superadmins create/edit their own, built-in templates are read-only
 - **Automatic incident lifecycle** — open on failure, resolve on recovery, flapping detection with per-monitor thresholds
 - **Incident groups** — monitors sharing the same failing probes within a 90 s window are grouped into one persistent incident group; one notification instead of N
 - **Monitor dependencies** — when a parent monitor is down, child incidents are automatically suppressed; eliminates cascade alert storms
 - **Alert storm protection** — per-rule rate cap (`storm_max_alerts` within `storm_window_seconds`); forced digest when threshold is exceeded
 - **Performance baseline alerting** — alert when response time exceeds a configurable multiple of the 7-day rolling hourly baseline
+- **Anomaly detection** — z-score against a 7-day rolling mean ± stddev, filtered to the same ±3 h window of the day so day/night traffic patterns are respected
+- **Tag-scoped alert rules (1.1)** — target a single rule at every monitor carrying a given tag via `AlertRule.tag_selector`
 - **Auto post-mortem** — Markdown report generated on incident resolution (timeline, alerts, metrics)
-- **Alert channels** — Email (SMTP), Webhook (HMAC-SHA256), Telegram Bot, Slack, PagerDuty, Opsgenie
+- **Alert channels** — Email (SMTP), Webhook (HMAC-SHA256), Telegram Bot, Slack, PagerDuty, Opsgenie, [Signal](#signal-alerts), FCM (native mobile push)
 - **Persistent digest** — digest scheduling stored in Redis; survives server restarts
 - **Maintenance windows** — suppress alerts during planned downtime; group-level suppression support
 
@@ -81,6 +152,7 @@
 - **Email subscriptions** — visitors subscribe to outage updates; secure unsubscribe token
 
 ### Platform
+- **Monitor tags & tag-scoped RBAC (1.1)** — label monitors with free-form `key:value` tags (`env:prod`, `team:backend`, `tier:critical`); filter lists and dashboards by tag; grant users `view`/`edit`/`admin` access scoped to a tag via `UserTagPermission`; one alert rule can target every monitor carrying a given tag
 - **Teams & RBAC** — create teams, invite members with 4 roles (`owner` > `admin` > `editor` > `viewer`); monitors, groups, channels, and maintenance windows can be team-scoped; backward-compatible — single-user mode preserved when no teams are created
 - **SSO / OIDC** — OpenID Connect PKCE flow; link user accounts to any OIDC provider (Keycloak, Authentik, Auth0, Google…); optional auto-provisioning of new accounts on first login; configured entirely from the admin GUI (no restart required)
 - **Admin panel** — dedicated UI for user management (`is_active`, `can_create_monitors`), probe group access control, all-monitors view, and live OIDC settings
@@ -296,6 +368,54 @@ services:
 
 ---
 
+## Signal alerts
+
+WhatIsUp sends Signal messages through a small REST gateway that runs alongside the server — it does not talk to Signal directly. The gateway project is [**bbernhard/signal-cli-rest-api**](https://github.com/bbernhard/signal-cli-rest-api), a maintained wrapper around the official `signal-cli`.
+
+### 1. Run the gateway
+
+Add a service to your `docker-compose.yml`:
+
+```yaml
+signal-api:
+  image: bbernhard/signal-cli-rest-api:latest
+  restart: unless-stopped
+  environment:
+    - MODE=normal
+  volumes:
+    - ./signal-data:/home/.local/share/signal-cli
+  ports:
+    - "8080:8080"
+```
+
+### 2. Register a phone number
+
+Follow the [gateway's README](https://github.com/bbernhard/signal-cli-rest-api#register-a-number). Typical flow:
+
+```bash
+# Request the SMS code
+curl -X POST "http://localhost:8080/v1/register/+33612345678"
+
+# Enter the code you received
+curl -X POST "http://localhost:8080/v1/register/+33612345678/verify/123456"
+```
+
+### 3. Add a Signal channel in WhatIsUp
+
+In the UI: **Alerts → Add channel → Signal**, then fill:
+
+| Field | Example |
+|---|---|
+| **API URL** | `http://signal-api:8080` (internal hostname if the gateway is in the same Compose network) |
+| **Sender number** | `+33612345678` (E.164 format, the number you registered above) |
+| **Recipients** | `+33612345678, +33698765432` (comma-separated; Signal group IDs are also accepted as recipients) |
+
+Click **Test** to send a confirmation message. The channel configuration (`api_url`, `sender_number`, `recipients`) is encrypted at rest with Fernet like every other alert channel.
+
+Implementation: [`server/whatisup/services/channels/signal.py`](server/whatisup/services/channels/signal.py).
+
+---
+
 ## Heartbeat monitoring (cron jobs)
 
 Create a monitor of type **Heartbeat**, copy the generated ping URL, then call it from your job:
@@ -407,19 +527,13 @@ curl https://your-whatisup.example.com/api/v1/monitors/ \
 ### Tests & linting
 
 ```bash
-# Backend (146 tests)
-cd server
-pip install -e ".[dev]"
-pytest
+# Backend (server + probe)
+cd server && pip install -e ".[dev]" && pytest
+cd probe && pip install -e ".[dev]" && pytest
 ruff check . && ruff format .
 pip-audit
 
-# Probe (24 tests)
-cd probe
-pip install -e ".[dev]"
-pytest
-
-# Frontend (51 tests)
+# Frontend (Vitest + jsdom)
 cd frontend
 npm install
 npm test

@@ -42,18 +42,24 @@ export const useWebPushStore = defineStore('webPush', () => {
     error.value = null
     loading.value = true
     try {
+      console.log('[WebPush] Requesting permission...')
       const permission = await Notification.requestPermission()
+      console.log('[WebPush] Permission:', permission)
       if (permission !== 'granted') {
         error.value = 'permission_denied'
         return
       }
 
+      console.log('[WebPush] Fetching VAPID key...')
       const { data: keyData } = await webPushApi.getPublicKey()
+      console.log('[WebPush] VAPID key received, waiting for SW ready...')
       const reg = await navigator.serviceWorker.ready
+      console.log('[WebPush] SW ready, subscribing to push...')
       const pushSub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(keyData.public_key),
       })
+      console.log('[WebPush] Push subscription created:', pushSub.endpoint.slice(0, 60))
 
       const subJson = pushSub.toJSON()
       await webPushApi.subscribe({
@@ -62,8 +68,10 @@ export const useWebPushStore = defineStore('webPush', () => {
         auth: subJson.keys.auth,
         user_agent: navigator.userAgent.slice(0, 255),
       })
+      console.log('[WebPush] Subscription registered on server')
       isSubscribed.value = true
     } catch (err) {
+      console.error('[WebPush] Subscribe error:', err)
       error.value = err.message || 'unknown_error'
     } finally {
       loading.value = false

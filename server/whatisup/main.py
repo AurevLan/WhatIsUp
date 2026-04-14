@@ -226,6 +226,7 @@ def create_app() -> FastAPI:
         probes,
         public,
         status,
+        tags,
         teams,
         templates,
         web_push,
@@ -251,6 +252,7 @@ def create_app() -> FastAPI:
     app.include_router(incident_updates.router, prefix="/api/v1")
     app.include_router(config.router, prefix="/api/v1")
     app.include_router(onboarding.router, prefix="/api/v1")
+    app.include_router(tags.router, prefix="/api/v1")
     app.include_router(teams.router, prefix="/api/v1")
     app.include_router(templates.router, prefix="/api/v1")
     app.include_router(web_push.router, prefix="/api/v1")

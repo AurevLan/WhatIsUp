@@ -1,5 +1,7 @@
 # WhatIsUp — Guide Claude Code
 
+> **Codemap** : lire `.claude/codemap.md` avant toute exploration large (index file→rôle). Mettre à jour à chaque ajout/suppression/renommage de fichier structurel.
+
 ## Stack & ports de développement
 
 | Service | URL | Commande |

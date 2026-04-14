@@ -228,6 +228,11 @@
       </div>
     </div>
 
+    <!-- Alerting Templates (superadmin) -->
+    <div v-if="isSuperadmin" class="mt-10">
+      <AlertTemplatesSection />
+    </div>
+
     <!-- Add/Edit Rule Modal -->
     <div v-if="showRuleModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
       <div class="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
@@ -287,7 +292,6 @@
               <option value="all_down">Alerte si toutes les sondes détectent une panne (panne globale)</option>
               <option value="ssl_expiry">Expiration du certificat SSL imminente</option>
               <option value="response_time_above">Temps de réponse / résolution dépassé(e)</option>
-              <option value="uptime_below">Uptime inférieur au seuil</option>
               <option value="response_time_above_baseline">Temps de réponse > N× la moyenne 7j</option>
               <option value="anomaly_detection">Détection d'anomalie (z-score)</option>
               <option value="schema_drift">Dérive du schéma API</option>
@@ -323,10 +327,6 @@
           <div v-if="ruleForm.condition === 'response_time_above'">
             <label class="block text-sm font-medium text-gray-300 mb-1">Seuil (ms) *</label>
             <input v-model.number="ruleForm.threshold_value" class="input w-full" type="number" min="1" max="60000" placeholder="ex: 2000" required />
-          </div>
-          <div v-if="ruleForm.condition === 'uptime_below'">
-            <label class="block text-sm font-medium text-gray-300 mb-1">Seuil uptime (%) *</label>
-            <input v-model.number="ruleForm.threshold_value" class="input w-full" type="number" min="0" max="100" step="0.1" placeholder="ex: 95" required />
           </div>
 
           <!-- Min duration -->
@@ -477,6 +477,11 @@ import api from '../api/client'
 import { monitorsApi, groupsApi } from '../api/monitors'
 import { useToast } from '../composables/useToast'
 import AddChannelModal from '../components/alerts/AddChannelModal.vue'
+import AlertTemplatesSection from '../components/alerts/AlertTemplatesSection.vue'
+import { useAuthStore } from '../stores/auth'
+
+const authStore = useAuthStore()
+const isSuperadmin = computed(() => authStore.isSuperadmin)
 
 const { t } = useI18n()
 const { success, error: toastError } = useToast()
@@ -598,7 +603,6 @@ const messagePreview = computed(() => {
   else if (cond === 'all_down') lines.push('Panne globale — toutes les sondes détectent une panne')
   else if (cond === 'ssl_expiry') lines.push('Expiration du certificat SSL imminente')
   else if (cond === 'response_time_above') lines.push(`Temps de réponse > ${threshold || '…'}ms`)
-  else if (cond === 'uptime_below') lines.push(`Uptime < ${threshold || '…'}%`)
   else if (cond === 'response_time_above_baseline') lines.push(`Temps de réponse > ${ruleForm.value.baseline_factor || '…'}× la moyenne habituelle (7j)`)
   else if (cond === 'anomaly_detection') lines.push(`Temps de réponse anormal détecté (z-score > ${ruleForm.value.anomaly_zscore_threshold || 3.5})`)
   else if (cond === 'schema_drift') lines.push('La structure de la réponse API a changé')
@@ -635,7 +639,6 @@ function conditionLabel(cond) {
     all_down: 'Panne globale (all)',
     ssl_expiry: 'Expiration SSL',
     response_time_above: 'Temps de réponse >',
-    uptime_below: 'Uptime <',
     response_time_above_baseline: 'Temps de réponse > N× moy. 7j',
     anomaly_detection: 'Anomalie z-score',
     schema_drift: 'Dérive schéma API',
@@ -645,7 +648,6 @@ function conditionLabel(cond) {
 
 function conditionUnit(cond, val) {
   if (cond === 'response_time_above') return ` ${val}ms`
-  if (cond === 'uptime_below') return ` ${val}%`
   return ''
 }
 

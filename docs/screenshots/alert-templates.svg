@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" width="1200" height="675" style="font-family:'Plus Jakarta Sans',system-ui,sans-serif;">
+  <rect width="1200" height="675" fill="#0c1117"/>
+
+  <!-- Dim overlay -->
+  <rect width="1200" height="675" fill="#000" fill-opacity="0.4"/>
+
+  <!-- Modal panel -->
+  <rect x="300" y="80" width="600" height="510" rx="16" fill="#131920" stroke="#1e2d3d" stroke-width="1.5"/>
+
+  <!-- Modal header -->
+  <text x="332" y="120" fill="#e4ecf4" font-size="16" font-weight="700">Alerting templates</text>
+  <text x="868" y="120" text-anchor="end" fill="#6c7a89" font-size="14">✕</text>
+  <text x="332" y="146" fill="#6c7a89" font-size="11">Pick a preset tuned for a common use case. Channels stay empty.</text>
+
+  <!-- Template card 1: Standard (selected) -->
+  <rect x="332" y="166" width="536" height="98" rx="10" fill="#4f9cf9" fill-opacity="0.10" stroke="#4f9cf9" stroke-opacity="0.6"/>
+  <text x="352" y="190" fill="#e4ecf4" font-size="13" font-weight="600">Standard</text>
+  <rect x="422" y="178" width="60" height="16" rx="3" fill="#1e2d3d" stroke="#2a3a4a"/>
+  <text x="452" y="190" text-anchor="middle" fill="#6c7a89" font-size="9">BUILT-IN</text>
+  <text x="848" y="190" text-anchor="end" fill="#4a5a6c" font-size="10">3 RULES</text>
+  <text x="352" y="210" fill="#6c7a89" font-size="11">Sensible defaults: fast detection, SSL expiry, baseline drift.</text>
+  <rect x="352" y="226" width="74" height="20" rx="3" fill="#1e2d3d" stroke="#2a3a4a"/>
+  <text x="389" y="240" text-anchor="middle" fill="#c5d0dc" font-size="9" font-family="monospace">any_down</text>
+  <rect x="432" y="226" width="70" height="20" rx="3" fill="#1e2d3d" stroke="#2a3a4a"/>
+  <text x="467" y="240" text-anchor="middle" fill="#c5d0dc" font-size="9" font-family="monospace">ssl_expiry</text>
+  <rect x="508" y="226" width="158" height="20" rx="3" fill="#1e2d3d" stroke="#2a3a4a"/>
+  <text x="587" y="240" text-anchor="middle" fill="#c5d0dc" font-size="9" font-family="monospace">response_time_above_baseline</text>
+
+  <!-- Template card 2: Strict -->
+  <rect x="332" y="278" width="536" height="98" rx="10" fill="#131920" stroke="#1e2d3d"/>
+  <text x="352" y="302" fill="#e4ecf4" font-size="13" font-weight="600">Strict / Paging</text>
+  <text x="848" y="302" text-anchor="end" fill="#4a5a6c" font-size="10">5 RULES</text>
+  <text x="352" y="322" fill="#6c7a89" font-size="11">Aggressive setup for critical services. Use with on-call channels.</text>
+  <rect x="352" y="338" width="80" height="20" rx="3" fill="#1e2d3d" stroke="#2a3a4a"/>
+  <text x="392" y="352" text-anchor="middle" fill="#c5d0dc" font-size="9" font-family="monospace">all_down</text>
+  <rect x="438" y="338" width="74" height="20" rx="3" fill="#1e2d3d" stroke="#2a3a4a"/>
+  <text x="475" y="352" text-anchor="middle" fill="#c5d0dc" font-size="9" font-family="monospace">any_down</text>
+  <rect x="518" y="338" width="70" height="20" rx="3" fill="#1e2d3d" stroke="#2a3a4a"/>
+  <text x="553" y="352" text-anchor="middle" fill="#c5d0dc" font-size="9" font-family="monospace">ssl_expiry</text>
+  <rect x="594" y="338" width="116" height="20" rx="3" fill="#1e2d3d" stroke="#2a3a4a"/>
+  <text x="652" y="352" text-anchor="middle" fill="#c5d0dc" font-size="9" font-family="monospace">response_time_above</text>
+  <rect x="716" y="338" width="120" height="20" rx="3" fill="#1e2d3d" stroke="#2a3a4a"/>
+  <text x="776" y="352" text-anchor="middle" fill="#c5d0dc" font-size="9" font-family="monospace">anomaly_detection</text>
+
+  <!-- Template card 3: Silent -->
+  <rect x="332" y="390" width="536" height="82" rx="10" fill="#131920" stroke="#1e2d3d"/>
+  <text x="352" y="414" fill="#e4ecf4" font-size="13" font-weight="600">Low noise</text>
+  <text x="848" y="414" text-anchor="end" fill="#4a5a6c" font-size="10">2 RULES</text>
+  <text x="352" y="434" fill="#6c7a89" font-size="11">Tolerant setup for dev/staging. Long grace period, rare re-notifications.</text>
+  <rect x="352" y="448" width="74" height="20" rx="3" fill="#1e2d3d" stroke="#2a3a4a"/>
+  <text x="389" y="462" text-anchor="middle" fill="#c5d0dc" font-size="9" font-family="monospace">any_down</text>
+  <rect x="432" y="448" width="70" height="20" rx="3" fill="#1e2d3d" stroke="#2a3a4a"/>
+  <text x="467" y="462" text-anchor="middle" fill="#c5d0dc" font-size="9" font-family="monospace">ssl_expiry</text>
+
+  <!-- Footer -->
+  <rect x="300" y="530" width="600" height="60" rx="0" fill="#0c1117"/>
+  <rect x="300" y="530" width="600" height="1" fill="#1e2d3d"/>
+  <rect x="716" y="548" width="72" height="28" rx="7" fill="#131920" stroke="#2a3a4a"/>
+  <text x="752" y="566" text-anchor="middle" fill="#c5d0dc" font-size="11">Cancel</text>
+  <rect x="796" y="548" width="72" height="28" rx="7" fill="#4f9cf9"/>
+  <text x="832" y="566" text-anchor="middle" fill="#0c1117" font-size="11" font-weight="700">Apply</text>
+
+  <!-- Caption -->
+  <text x="600" y="630" text-anchor="middle" fill="#4a5a6c" font-size="11">v1.1 · one-click alerting presets, manageable in the admin panel</text>
+</svg>

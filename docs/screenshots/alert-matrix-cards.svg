@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" width="1200" height="675" style="font-family:'Plus Jakarta Sans',system-ui,sans-serif;">
+  <rect width="1200" height="675" fill="#0c1117"/>
+
+  <!-- Header bar -->
+  <rect x="24" y="24" width="1152" height="56" rx="10" fill="#131920" stroke="#1e2d3d"/>
+  <text x="44" y="50" fill="#e4ecf4" font-size="15" font-weight="700">Alerting matrix</text>
+  <text x="44" y="70" fill="#6c7a89" font-size="11">Add a rule per condition, pick the channels that should fire.</text>
+  <rect x="944" y="38" width="120" height="28" rx="8" fill="#131920" stroke="#2a3a4a"/>
+  <text x="1004" y="56" text-anchor="middle" fill="#c5d0dc" font-size="11">✨ Apply template</text>
+  <rect x="1076" y="38" width="100" height="28" rx="8" fill="#4f9cf9"/>
+  <text x="1126" y="56" text-anchor="middle" fill="#0c1117" font-size="11" font-weight="700">Save alerting</text>
+
+  <!-- Card 1: any_down -->
+  <rect x="24" y="104" width="1152" height="128" rx="12" fill="#131920" stroke="#1e2d3d"/>
+  <rect x="48" y="124" width="14" height="14" rx="3" fill="#4f9cf9"/>
+  <text x="78" y="136" fill="#e4ecf4" font-size="12" font-family="monospace">any_down</text>
+  <text x="78" y="152" fill="#6c7a89" font-size="11">Any probe reports the monitor down</text>
+
+  <!-- impact badge -->
+  <rect x="948" y="120" width="110" height="22" rx="11" fill="#065f46" fill-opacity="0.25" stroke="#10b981" stroke-opacity="0.6"/>
+  <text x="1003" y="135" text-anchor="middle" fill="#6ee7b7" font-size="10">≈ 3 / 30j</text>
+  <text x="1140" y="135" fill="#3a4a5c" font-size="14">✕</text>
+
+  <!-- channel chips -->
+  <rect x="78" y="168" width="78" height="22" rx="11" fill="#7c3aed" fill-opacity="0.15" stroke="#7c3aed" stroke-opacity="0.6"/>
+  <circle cx="89" cy="179" r="3" fill="#7c3aed"/>
+  <text x="100" y="183" fill="#c4b5fd" font-size="10">slack-ops</text>
+
+  <rect x="162" y="168" width="96" height="22" rx="11" fill="#dc2626" fill-opacity="0.15" stroke="#dc2626" stroke-opacity="0.6"/>
+  <circle cx="173" cy="179" r="3" fill="#dc2626"/>
+  <text x="184" y="183" fill="#fca5a5" font-size="10">PagerDuty P1</text>
+
+  <rect x="264" y="168" width="72" height="22" rx="11" fill="#131920" stroke="#2a3a4a" stroke-dasharray="2,2"/>
+  <circle cx="275" cy="179" r="3" fill="#9ca3af"/>
+  <text x="286" y="183" fill="#6c7a89" font-size="10">email-dev</text>
+
+  <text x="78" y="212" fill="#4f9cf9" font-size="10">▸ Advanced</text>
+
+  <!-- Card 2: ssl_expiry -->
+  <rect x="24" y="252" width="1152" height="128" rx="12" fill="#131920" stroke="#1e2d3d"/>
+  <rect x="48" y="272" width="14" height="14" rx="3" fill="#4f9cf9"/>
+  <text x="78" y="284" fill="#e4ecf4" font-size="12" font-family="monospace">ssl_expiry</text>
+  <text x="78" y="300" fill="#6c7a89" font-size="11">SSL certificate expiring soon</text>
+
+  <rect x="948" y="268" width="110" height="22" rx="11" fill="#78350f" fill-opacity="0.25" stroke="#f59e0b" stroke-opacity="0.6"/>
+  <text x="1003" y="283" text-anchor="middle" fill="#fcd34d" font-size="10">≈ 12 / 30j</text>
+  <text x="1140" y="283" fill="#3a4a5c" font-size="14">✕</text>
+
+  <rect x="78" y="316" width="78" height="22" rx="11" fill="#06b6d4" fill-opacity="0.15" stroke="#06b6d4" stroke-opacity="0.6"/>
+  <circle cx="89" cy="327" r="3" fill="#06b6d4"/>
+  <text x="100" y="331" fill="#67e8f9" font-size="10">telegram</text>
+
+  <rect x="162" y="316" width="80" height="22" rx="11" fill="#131920" stroke="#2a3a4a" stroke-dasharray="2,2"/>
+  <circle cx="173" cy="327" r="3" fill="#7c3aed"/>
+  <text x="184" y="331" fill="#6c7a89" font-size="10">slack-ops</text>
+
+  <text x="78" y="360" fill="#4f9cf9" font-size="10">▾ Advanced  •</text>
+  <text x="164" y="360" fill="#6c7a89" font-size="10">Threshold 14 days · After 0 s · Re-notify 1440 min</text>
+
+  <!-- Card 3: anomaly_detection -->
+  <rect x="24" y="400" width="1152" height="140" rx="12" fill="#131920" stroke="#1e2d3d"/>
+  <rect x="48" y="420" width="14" height="14" rx="3" fill="#4f9cf9"/>
+  <text x="78" y="432" fill="#e4ecf4" font-size="12" font-family="monospace">anomaly_detection</text>
+  <text x="78" y="448" fill="#6c7a89" font-size="11">Statistical anomaly on response time (z-score)</text>
+
+  <rect x="948" y="416" width="110" height="22" rx="11" fill="#7f1d1d" fill-opacity="0.25" stroke="#dc2626" stroke-opacity="0.6"/>
+  <text x="1003" y="431" text-anchor="middle" fill="#fca5a5" font-size="10">≈ 84 / 30j</text>
+  <text x="1140" y="431" fill="#3a4a5c" font-size="14">✕</text>
+
+  <rect x="78" y="464" width="78" height="22" rx="11" fill="#7c3aed" fill-opacity="0.15" stroke="#7c3aed" stroke-opacity="0.6"/>
+  <circle cx="89" cy="475" r="3" fill="#7c3aed"/>
+  <text x="100" y="479" fill="#c4b5fd" font-size="10">slack-ops</text>
+
+  <text x="78" y="508" fill="#4f9cf9" font-size="10">▾ Advanced  •</text>
+  <text x="164" y="508" fill="#6c7a89" font-size="10">Z-score threshold 2.5 · After 60 s · Re-notify 60 min</text>
+  <text x="78" y="526" fill="#60a5fa" font-size="10">ℹ How it works — 7-day rolling mean ± stddev, same ±3h window</text>
+
+  <!-- Add rule button -->
+  <rect x="24" y="564" width="156" height="40" rx="10" fill="#0c1117" stroke="#2a3a4a" stroke-dasharray="4,4"/>
+  <text x="102" y="588" text-anchor="middle" fill="#9ca3af" font-size="12">+ Add rules</text>
+
+  <!-- Footer caption -->
+  <text x="600" y="645" text-anchor="middle" fill="#4a5a6c" font-size="11">v1.1 · card-based alert matrix with live impact preview</text>
+</svg>

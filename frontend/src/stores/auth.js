@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import axios from 'axios'
 import { apiBaseUrl } from '../lib/serverConfig'
+import api from '../api/client'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(null)
@@ -17,20 +18,42 @@ export const useAuthStore = defineStore('auth', () => {
     } catch { return true }
   }
 
+  async function _refreshAccess() {
+    const refresh = localStorage.getItem('refresh_token')
+    if (!refresh) return false
+    try {
+      const { data } = await axios.post(`${apiBaseUrl()}/auth/refresh`, { refresh_token: refresh })
+      accessToken.value = data.access_token
+      localStorage.setItem('access_token', data.access_token)
+      localStorage.setItem('refresh_token', data.refresh_token)
+      return true
+    } catch {
+      return false
+    }
+  }
+
   async function init() {
-    if (accessToken.value) {
-      if (_isTokenExpired(accessToken.value)) {
-        logout()
+    if (!accessToken.value && !localStorage.getItem('refresh_token')) return
+
+    // If the stored access token has already expired, try to rotate it via
+    // the refresh token BEFORE touching any endpoint. Only a failed refresh
+    // (refresh expired / revoked / absent) should log the user out — a
+    // stale-but-still-rotatable session must survive an app restart.
+    if (!accessToken.value || _isTokenExpired(accessToken.value)) {
+      const ok = await _refreshAccess()
+      if (!ok) {
+        await logout()
         return
       }
-      try {
-        const { data } = await axios.get(`${apiBaseUrl()}/auth/me`, {
-          headers: { Authorization: `Bearer ${accessToken.value}` },
-        })
-        user.value = data
-      } catch {
-        logout()
-      }
+    }
+
+    try {
+      // Use the shared api client so the 401 interceptor picks up any
+      // remaining edge cases (e.g. token revoked between refresh and /me).
+      const { data } = await api.get('/auth/me')
+      user.value = data
+    } catch {
+      await logout()
     }
   }
 

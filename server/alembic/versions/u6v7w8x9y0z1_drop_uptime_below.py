@@ -22,7 +22,11 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.execute("DELETE FROM alert_rules WHERE condition = 'uptime_below'")
+    # Cast to text to avoid "unsafe use of new enum value" when the
+    # alert_condition enum value was added in a previous migration within
+    # the same transaction chain. PostgreSQL forbids using a newly-added
+    # enum literal until the transaction that added it has committed.
+    op.execute("DELETE FROM alert_rules WHERE condition::text = 'uptime_below'")
 
 
 def downgrade() -> None:

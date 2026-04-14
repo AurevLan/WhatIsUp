@@ -515,6 +515,7 @@ export default {
     mobile_push_off: 'Désactivées',
     mobile_push_enable: 'Activer les notifications mobiles',
     mobile_push_disable: 'Désactiver sur ce téléphone',
+    mobile_push_fcm_unavailable: "Firebase Cloud Messaging n'est pas configuré dans cet APK — demandez à l'administrateur de le rebuild avec un google-services.json valide (secret GOOGLE_SERVICES_JSON_BASE64).",
     biometric_title: 'Déverrouillage biométrique',
     biometric_desc: "Utilisez Face ID / Touch ID / empreinte pour reprendre votre session sans retaper votre mot de passe. Le refresh token est stocké dans le coffre sécurisé du téléphone (Keychain / Keystore) et n'est libéré qu'après une authentification biométrique réussie.",
     biometric_on: "Activé — ce téléphone déverrouille WhatIsUp par biométrie",

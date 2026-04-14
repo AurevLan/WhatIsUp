@@ -245,10 +245,12 @@ async function enableMobilePush() {
     const res = await registerPushNotifications()
     if (res.ok) {
       mobilePush.registered = true
+    } else if (res.reason === 'permission_denied') {
+      mobilePush.error = t('settings.push_permission_denied')
+    } else if (res.reason === 'fcm_unavailable' || res.reason === 'fcm_error' || res.reason === 'register_call_failed') {
+      mobilePush.error = t('settings.mobile_push_fcm_unavailable')
     } else {
-      mobilePush.error = res.reason === 'permission_denied'
-        ? t('settings.push_permission_denied')
-        : `${res.reason || 'failed'}${res.error ? ': ' + res.error : ''}`
+      mobilePush.error = `${res.reason || 'failed'}${res.error ? ': ' + res.error : ''}`
     }
   } catch (e) {
     mobilePush.error = `unexpected: ${e?.message || e}`

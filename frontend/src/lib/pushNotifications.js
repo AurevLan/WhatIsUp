@@ -94,8 +94,13 @@ export async function registerPushNotifications({ silentIfDenied = false } = {})
 
   // Hard timeout — if FCM never answers (no Google Play Services, no internet,
   // missing google-services.json) the user would otherwise stare at a spinner.
+  // 12 s is long enough for a cold start on slow networks but short enough to
+  // keep the UI snappy when Firebase is simply not configured in the APK.
   const timeout = new Promise((resolve) =>
-    setTimeout(() => resolve({ ok: false, reason: 'timeout', error: 'no FCM response after 30s' }), 30000),
+    setTimeout(
+      () => resolve({ ok: false, reason: 'fcm_unavailable', error: 'no FCM response after 12s — Firebase likely not configured in this APK' }),
+      12000,
+    ),
   )
 
   const result = await Promise.race([settled, timeout])

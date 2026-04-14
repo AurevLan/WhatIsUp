@@ -141,7 +141,7 @@ See the full [CHANGELOG](CHANGELOG.md#110---2026-04-14) for the complete list, i
 - **Anomaly detection** — z-score against a 7-day rolling mean ± stddev, filtered to the same ±3 h window of the day so day/night traffic patterns are respected
 - **Tag-scoped alert rules (1.1)** — target a single rule at every monitor carrying a given tag via `AlertRule.tag_selector`
 - **Auto post-mortem** — Markdown report generated on incident resolution (timeline, alerts, metrics)
-- **Alert channels** — Email (SMTP), Webhook (HMAC-SHA256), Telegram Bot, Slack, PagerDuty, Opsgenie, Signal, FCM (native mobile push)
+- **Alert channels** — Email (SMTP), Webhook (HMAC-SHA256), Telegram Bot, Slack, PagerDuty, Opsgenie, [Signal](#signal-alerts), FCM (native mobile push)
 - **Persistent digest** — digest scheduling stored in Redis; survives server restarts
 - **Maintenance windows** — suppress alerts during planned downtime; group-level suppression support
 
@@ -365,6 +365,54 @@ services:
 | `MAX_CONCURRENT_CHECKS` | — | `10` | Max parallel checks |
 | `MAX_CONCURRENT_SCENARIOS` | — | `2` | Max concurrent Playwright/Chromium instances (subset of `MAX_CONCURRENT_CHECKS`; reduce on low-memory machines) |
 | `HEARTBEAT_INTERVAL` | — | `15` | Seconds between server heartbeats |
+
+---
+
+## Signal alerts
+
+WhatIsUp sends Signal messages through a small REST gateway that runs alongside the server — it does not talk to Signal directly. The gateway project is [**bbernhard/signal-cli-rest-api**](https://github.com/bbernhard/signal-cli-rest-api), a maintained wrapper around the official `signal-cli`.
+
+### 1. Run the gateway
+
+Add a service to your `docker-compose.yml`:
+
+```yaml
+signal-api:
+  image: bbernhard/signal-cli-rest-api:latest
+  restart: unless-stopped
+  environment:
+    - MODE=normal
+  volumes:
+    - ./signal-data:/home/.local/share/signal-cli
+  ports:
+    - "8080:8080"
+```
+
+### 2. Register a phone number
+
+Follow the [gateway's README](https://github.com/bbernhard/signal-cli-rest-api#register-a-number). Typical flow:
+
+```bash
+# Request the SMS code
+curl -X POST "http://localhost:8080/v1/register/+33612345678"
+
+# Enter the code you received
+curl -X POST "http://localhost:8080/v1/register/+33612345678/verify/123456"
+```
+
+### 3. Add a Signal channel in WhatIsUp
+
+In the UI: **Alerts → Add channel → Signal**, then fill:
+
+| Field | Example |
+|---|---|
+| **API URL** | `http://signal-api:8080` (internal hostname if the gateway is in the same Compose network) |
+| **Sender number** | `+33612345678` (E.164 format, the number you registered above) |
+| **Recipients** | `+33612345678, +33698765432` (comma-separated; Signal group IDs are also accepted as recipients) |
+
+Click **Test** to send a confirmation message. The channel configuration (`api_url`, `sender_number`, `recipients`) is encrypted at rest with Fernet like every other alert channel.
+
+Implementation: [`server/whatisup/services/channels/signal.py`](server/whatisup/services/channels/signal.py).
 
 ---
 

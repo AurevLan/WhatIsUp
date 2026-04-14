@@ -167,6 +167,7 @@ class AlertRuleCreate(BaseModel):
 
     monitor_id: uuid.UUID | None = None
     group_id: uuid.UUID | None = None
+    tag_selector: list[str] | None = Field(default=None, max_length=32)
     condition: AlertCondition
     min_duration_seconds: int = Field(default=0, ge=0)
     channel_ids: list[uuid.UUID] = Field(min_length=1)
@@ -189,6 +190,7 @@ class AlertRuleUpdate(BaseModel):
 
     enabled: bool | None = None
     condition: AlertCondition | None = None
+    tag_selector: list[str] | None = Field(default=None, max_length=32)
     min_duration_seconds: int | None = Field(default=None, ge=0)
     channel_ids: list[uuid.UUID] | None = Field(default=None, min_length=1)
     renotify_after_minutes: int | None = Field(default=None, ge=1, le=10080)
@@ -205,6 +207,7 @@ class AlertRuleOut(BaseModel):
     id: uuid.UUID
     monitor_id: uuid.UUID | None
     group_id: uuid.UUID | None
+    tag_selector: list[str] | None = None
     condition: AlertCondition
     min_duration_seconds: int
     channels: list[AlertChannelOut]
@@ -219,6 +222,31 @@ class AlertRuleOut(BaseModel):
     enabled: bool = True
 
     model_config = {"from_attributes": True}
+
+
+class AlertMatrixRow(AlertRuleUpdate):
+    """One row of the alerting matrix.
+
+    Inherits every mutable rule field (and their bounds) from `AlertRuleUpdate`
+    so constraints can never drift between the single-rule and matrix endpoints.
+    """
+
+    condition: AlertCondition
+    channel_ids: list[uuid.UUID] = Field(default_factory=list)
+    enabled: bool = True
+    min_duration_seconds: int = Field(default=0, ge=0)
+    digest_minutes: int = Field(default=0, ge=0, le=1440)
+
+
+class AlertMatrixIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    rows: list[AlertMatrixRow] = Field(default_factory=list)
+
+
+class AlertMatrixOut(BaseModel):
+    monitor_id: uuid.UUID
+    rows: list[AlertRuleOut]
 
 
 class AlertRuleSimulateOut(BaseModel):

@@ -98,6 +98,39 @@
         </template>
       </div>
 
+      <!-- Biometric unlock (Capacitor native only) -->
+      <div v-if="biometric.isAvailable" class="card">
+        <h2 class="text-lg font-semibold text-white mb-1">{{ t('settings.biometric_title') }}</h2>
+        <p class="text-sm text-gray-500 mb-4">{{ t('settings.biometric_desc') }}</p>
+
+        <div class="flex items-center gap-2 mb-4">
+          <span class="w-2 h-2 rounded-full flex-shrink-0"
+            :class="biometric.enabled ? 'bg-emerald-400' : 'bg-gray-600'" />
+          <span class="text-sm" :class="biometric.enabled ? 'text-emerald-400' : 'text-gray-500'">
+            {{ biometric.enabled ? t('settings.biometric_on') : t('settings.biometric_off') }}
+          </span>
+        </div>
+
+        <div v-if="biometric.error" class="mb-3 text-sm text-red-400">
+          {{ biometric.error }}
+        </div>
+
+        <div class="flex gap-2 flex-wrap">
+          <button v-if="!biometric.enabled"
+            @click="enableBiometricUnlock"
+            :disabled="biometric.loading"
+            class="btn-primary text-sm">
+            {{ biometric.loading ? t('common.loading') : t('settings.biometric_enable') }}
+          </button>
+          <button v-else
+            @click="disableBiometricUnlock"
+            :disabled="biometric.loading"
+            class="btn-ghost text-sm text-red-400">
+            {{ t('settings.biometric_disable') }}
+          </button>
+        </div>
+      </div>
+
       <!-- Browser Extension -->
       <div class="card">
         <h2 class="text-lg font-semibold text-white mb-1">{{ t('settings.extension_title') }}</h2>
@@ -152,6 +185,12 @@ import {
   registerPushNotifications,
   unregisterPushNotifications,
 } from '../lib/pushNotifications'
+import {
+  disableBiometric,
+  enableBiometric,
+  isBiometricAvailable,
+  isBiometricEnabled,
+} from '../lib/biometricAuth'
 
 const { t } = useI18n()
 const auth = useAuthStore()
@@ -164,6 +203,40 @@ const mobilePush = reactive({
   loading: false,
   error: '',
 })
+
+const biometric = reactive({
+  isAvailable: false,
+  enabled: isBiometricEnabled(),
+  loading: false,
+  error: '',
+})
+
+async function enableBiometricUnlock() {
+  biometric.loading = true
+  biometric.error = ''
+  try {
+    const refresh = localStorage.getItem('refresh_token')
+    if (!refresh) {
+      biometric.error = t('settings.biometric_no_session')
+      return
+    }
+    const ok = await enableBiometric(refresh, { reason: t('settings.biometric_reason_enable') })
+    if (!ok) {
+      biometric.error = t('settings.biometric_enroll_failed')
+      return
+    }
+    biometric.enabled = true
+  } finally {
+    biometric.loading = false
+  }
+}
+
+async function disableBiometricUnlock() {
+  biometric.loading = true
+  await disableBiometric()
+  biometric.enabled = false
+  biometric.loading = false
+}
 
 async function enableMobilePush() {
   mobilePush.loading = true
@@ -192,7 +265,10 @@ async function disableMobilePush() {
   mobilePush.loading = false
 }
 
-onMounted(() => push.init())
+onMounted(async () => {
+  push.init()
+  biometric.isAvailable = await isBiometricAvailable()
+})
 
 async function downloadExtension() {
   extensionLoading.value = true

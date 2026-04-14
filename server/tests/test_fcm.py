@@ -137,7 +137,7 @@ async def test_send_to_devices_happy_path(monkeypatch, fake_redis) -> None:
     # 1 token exchange + 2 push calls
     assert len(captured_requests) == 3
     hosts = [urlparse(str(r.url)).hostname for r in captured_requests]
-    assert "oauth2.googleapis.com" in hosts
+    assert hosts.count("oauth2.googleapis.com") == 1
     assert hosts.count("fcm.googleapis.com") == 2
 
     redis_module._redis = None

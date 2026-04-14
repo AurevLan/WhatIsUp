@@ -1,8 +1,15 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import axios from 'axios'
-import { apiBaseUrl } from '../lib/serverConfig'
+import { apiBaseUrl, isNative } from '../lib/serverConfig'
 import api from '../api/client'
+import {
+  disableBiometric,
+  isBiometricAvailable,
+  isBiometricEnabled,
+  syncRefreshToken,
+  unlockRefreshToken,
+} from '../lib/biometricAuth'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(null)
@@ -26,20 +33,34 @@ export const useAuthStore = defineStore('auth', () => {
       accessToken.value = data.access_token
       localStorage.setItem('access_token', data.access_token)
       localStorage.setItem('refresh_token', data.refresh_token)
+      // Keep the secure-storage copy in sync so biometric unlock stays valid.
+      await syncRefreshToken(data.refresh_token)
       return true
     } catch {
       return false
     }
   }
 
-  async function init() {
-    if (!accessToken.value && !localStorage.getItem('refresh_token')) return
+  async function _tryBiometricUnlock() {
+    if (!isNative() || !isBiometricEnabled()) return false
+    const storedRefresh = await unlockRefreshToken()
+    if (!storedRefresh) return false
+    // Seed localStorage with the unlocked refresh so _refreshAccess() picks it up.
+    localStorage.setItem('refresh_token', storedRefresh)
+    return await _refreshAccess()
+  }
 
-    // If the stored access token has already expired, try to rotate it via
-    // the refresh token BEFORE touching any endpoint. Only a failed refresh
-    // (refresh expired / revoked / absent) should log the user out — a
-    // stale-but-still-rotatable session must survive an app restart.
-    if (!accessToken.value || _isTokenExpired(accessToken.value)) {
+  async function init() {
+    // On native, if the user enabled biometric unlock, try that path first —
+    // even if no localStorage tokens are present (they may have been cleared
+    // between app launches while the secure-storage copy survives).
+    if (!accessToken.value && !localStorage.getItem('refresh_token')) {
+      const unlocked = await _tryBiometricUnlock()
+      if (!unlocked) return
+    } else if (!accessToken.value || _isTokenExpired(accessToken.value)) {
+      // Standard web / non-biometric path: rotate the expired access token
+      // via the stored refresh token BEFORE touching any protected endpoint.
+      // Only a failed refresh logs the user out.
       const ok = await _refreshAccess()
       if (!ok) {
         await logout()
@@ -82,7 +103,21 @@ export const useAuthStore = defineStore('auth', () => {
     accessToken.value = null
     localStorage.removeItem('access_token')
     localStorage.removeItem('refresh_token')
+    // Also drop the biometric-secured copy — the server-side refresh token
+    // has just been revoked, keeping the local copy would be useless.
+    await disableBiometric()
   }
 
-  return { user, accessToken, isAuthenticated, isSuperadmin, init, login, logout }
+  return {
+    user,
+    accessToken,
+    isAuthenticated,
+    isSuperadmin,
+    init,
+    login,
+    logout,
+    // Re-export for the Settings UI and the post-login opt-in prompt.
+    isBiometricAvailable,
+    isBiometricEnabled,
+  }
 })

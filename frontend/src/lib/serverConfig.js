@@ -12,7 +12,19 @@ export function isNative() {
 
 export function getServerUrl() {
   if (typeof localStorage === 'undefined') return ''
-  return localStorage.getItem(STORAGE_KEY) || ''
+  const stored = localStorage.getItem(STORAGE_KEY) || ''
+  if (!stored) return ''
+  // Mixed-content guard: a stored HTTP URL is unusable when the page is HTTPS,
+  // and every axios call would be blocked. Discard it silently.
+  if (
+    typeof window !== 'undefined'
+    && window.location?.protocol === 'https:'
+    && stored.startsWith('http://')
+  ) {
+    localStorage.removeItem(STORAGE_KEY)
+    return ''
+  }
+  return stored
 }
 
 export function setServerUrl(url) {

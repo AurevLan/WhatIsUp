@@ -1,5 +1,16 @@
 // WhatIsUp Service Worker — handles Web Push notifications
 
+const CACHE_NAME = 'whatisup-v1'
+
+// Activate immediately — don't wait for old SW to be released
+self.addEventListener('install', (event) => {
+  self.skipWaiting()
+})
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(self.clients.claim())
+})
+
 self.addEventListener('push', (event) => {
   let data = { title: 'WhatIsUp', body: 'New notification', url: '/' }
   if (event.data) {
@@ -11,7 +22,9 @@ self.addEventListener('push', (event) => {
       icon: '/favicon.ico',
       badge: '/favicon.ico',
       data: { url: data.url || '/' },
-      requireInteraction: false,
+      requireInteraction: true,
+      vibrate: [200, 100, 200],
+      tag: 'whatisup-alert',
     })
   )
 })

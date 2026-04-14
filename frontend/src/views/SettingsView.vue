@@ -165,7 +165,7 @@
       <div class="card">
         <h2 class="text-lg font-semibold text-white mb-4">About</h2>
         <div class="space-y-2 text-sm text-gray-400">
-          <p>WhatIsUp v0.1.0</p>
+          <p>WhatIsUp v{{ APP_VERSION }}</p>
           <p>Web monitoring platform with multi-probe geographic correlation</p>
         </div>
       </div>
@@ -191,6 +191,7 @@ import {
   isBiometricAvailable,
   isBiometricEnabled,
 } from '../lib/biometricAuth'
+import { APP_VERSION } from '../lib/appVersion'
 
 const { t } = useI18n()
 const auth = useAuthStore()

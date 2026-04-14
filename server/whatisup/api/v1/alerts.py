@@ -180,16 +180,18 @@ async def telegram_resolve(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=(
-                    "Could not extract a chat from bot updates"
-                    " — send a text message to your bot."
+                    "Could not extract a chat from bot updates — send a text message to your bot."
                 ),
             )
 
         chat = msg["chat"]
         chat_id = str(chat["id"])
-        chat_name = chat.get("title") or " ".join(
-            filter(None, [chat.get("first_name"), chat.get("last_name")])
-        ) or chat.get("username") or chat_id
+        chat_name = (
+            chat.get("title")
+            or " ".join(filter(None, [chat.get("first_name"), chat.get("last_name")]))
+            or chat.get("username")
+            or chat_id
+        )
 
         # Send validation message
         try:
@@ -198,8 +200,7 @@ async def telegram_resolve(
                 json={
                     "chat_id": chat_id,
                     "text": (
-                        "✅ <b>WhatIsUp</b> — bot connected successfully!"
-                        " Alerts will be sent here."
+                        "✅ <b>WhatIsUp</b> — bot connected successfully! Alerts will be sent here."
                     ),
                     "parse_mode": "HTML",
                 },
@@ -246,12 +247,14 @@ async def list_rules(
     if not current_user.is_superadmin:
         team_ids = await get_user_team_ids(current_user, db)
         # Rules visible if user owns the target monitor/group or is in the team
-        query = query.outerjoin(Monitor, AlertRule.monitor_id == Monitor.id).outerjoin(
-            MonitorGroup, AlertRule.group_id == MonitorGroup.id
-        ).where(
-            or_(
-                build_access_filter(Monitor, current_user, team_ids),
-                build_access_filter(MonitorGroup, current_user, team_ids),
+        query = (
+            query.outerjoin(Monitor, AlertRule.monitor_id == Monitor.id)
+            .outerjoin(MonitorGroup, AlertRule.group_id == MonitorGroup.id)
+            .where(
+                or_(
+                    build_access_filter(Monitor, current_user, team_ids),
+                    build_access_filter(MonitorGroup, current_user, team_ids),
+                )
             )
         )
     result = await db.execute(query)
@@ -264,11 +267,7 @@ async def create_rule(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> AlertRule:
-    if (
-        payload.monitor_id is None
-        and payload.group_id is None
-        and not payload.tag_selector
-    ):
+    if payload.monitor_id is None and payload.group_id is None and not payload.tag_selector:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Specify monitor_id, group_id, or tag_selector",
@@ -276,9 +275,7 @@ async def create_rule(
 
     if payload.monitor_id is not None:
         monitor = (
-            await db.execute(
-                select(Monitor).where(Monitor.id == payload.monitor_id)
-            )
+            await db.execute(select(Monitor).where(Monitor.id == payload.monitor_id))
         ).scalar_one_or_none()
         if monitor is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Monitor not found")
@@ -286,9 +283,7 @@ async def create_rule(
 
     if payload.group_id is not None:
         group = (
-            await db.execute(
-                select(MonitorGroup).where(MonitorGroup.id == payload.group_id)
-            )
+            await db.execute(select(MonitorGroup).where(MonitorGroup.id == payload.group_id))
         ).scalar_one_or_none()
         if group is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
@@ -317,9 +312,7 @@ async def create_rule(
     return rule
 
 
-async def _load_rule_for_owner(
-    rule_id: uuid.UUID, user: User, db: AsyncSession
-) -> AlertRule:
+async def _load_rule_for_owner(rule_id: uuid.UUID, user: User, db: AsyncSession) -> AlertRule:
     """Load a rule and verify the caller owns it via `owner_id` or resource access.
 
     Legacy rules without owner_id fall back to the monitor/group ownership check.
@@ -509,15 +502,15 @@ async def create_auto_rules(
                         AlertChannel.owner_id == current_user.id,
                     )
                 )
-            ).scalars().all()
+            )
+            .scalars()
+            .all()
         )
     else:
         channels = list(
-            (
-                await db.execute(
-                    select(AlertChannel).where(AlertChannel.owner_id == current_user.id)
-                )
-            ).scalars().all()
+            (await db.execute(select(AlertChannel).where(AlertChannel.owner_id == current_user.id)))
+            .scalars()
+            .all()
         )
 
     if not channels:
@@ -525,10 +518,10 @@ async def create_auto_rules(
 
     # Check existing rules to avoid duplicates
     existing_rules = (
-        await db.execute(
-            select(AlertRule.condition).where(AlertRule.monitor_id == monitor_id)
-        )
-    ).scalars().all()
+        (await db.execute(select(AlertRule.condition).where(AlertRule.monitor_id == monitor_id)))
+        .scalars()
+        .all()
+    )
     existing_conditions = set(existing_rules)
 
     presets = get_presets(monitor.check_type)
@@ -627,7 +620,9 @@ async def list_matrix_templates(
     return list(result.scalars().all())
 
 
-@router.post("/matrix-templates", response_model=AlertMatrixTemplateOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/matrix-templates", response_model=AlertMatrixTemplateOut, status_code=status.HTTP_201_CREATED
+)
 @limiter.limit("30/minute")
 async def create_matrix_template(
     payload: AlertMatrixTemplateIn,
@@ -712,9 +707,7 @@ async def put_alert_matrix(
 
     One row per condition; rows absent from the payload are deleted.
     """
-    monitor = await _load_monitor_with_rules(
-        monitor_id, current_user, db, min_role=TeamRole.editor
-    )
+    monitor = await _load_monitor_with_rules(monitor_id, current_user, db, min_role=TeamRole.editor)
 
     seen_conditions: set[AlertCondition] = set()
     for row in payload.rows:

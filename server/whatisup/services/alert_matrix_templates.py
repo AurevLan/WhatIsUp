@@ -85,32 +85,61 @@ TEMPLATES: dict[str, list[dict[str, Any]]] = {
     ],
     "tcp": [
         {"id": "standard", "rows": [_row("any_down_quick"), _row("response_time_above_2s")]},
-        {"id": "strict", "rows": [_row("all_down_immediate"), _row("any_down_quick", min_duration_seconds=30)]},
+        {
+            "id": "strict",
+            "rows": [_row("all_down_immediate"), _row("any_down_quick", min_duration_seconds=30)],
+        },
         {"id": "silent", "rows": [_row("any_down_patient")]},
     ],
     "dns": [
         {"id": "standard", "rows": [_row("any_down_quick")]},
-        {"id": "strict", "rows": [_row("all_down_immediate"), _row("any_down_quick", min_duration_seconds=30)]},
+        {
+            "id": "strict",
+            "rows": [_row("all_down_immediate"), _row("any_down_quick", min_duration_seconds=30)],
+        },
         {"id": "silent", "rows": [_row("any_down_patient")]},
     ],
     "keyword": [
         {"id": "standard", "rows": [_row("any_down_quick")]},
-        {"id": "strict", "rows": [_row("all_down_immediate"), _row("any_down_quick", min_duration_seconds=30)]},
+        {
+            "id": "strict",
+            "rows": [_row("all_down_immediate"), _row("any_down_quick", min_duration_seconds=30)],
+        },
         {"id": "silent", "rows": [_row("any_down_patient")]},
     ],
     "json_path": [
         {"id": "standard", "rows": [_row("any_down_quick"), _row("schema_drift")]},
-        {"id": "strict", "rows": [_row("all_down_immediate"), _row("any_down_quick", min_duration_seconds=30), _row("schema_drift")]},
+        {
+            "id": "strict",
+            "rows": [
+                _row("all_down_immediate"),
+                _row("any_down_quick", min_duration_seconds=30),
+                _row("schema_drift"),
+            ],
+        },
         {"id": "silent", "rows": [_row("any_down_patient")]},
     ],
     "scenario": [
-        {"id": "standard", "rows": [_row("any_down_quick"), _row("response_time_above_2s", threshold_value=10000)]},
-        {"id": "strict", "rows": [_row("all_down_immediate"), _row("any_down_quick", min_duration_seconds=30), _row("response_time_above_2s", threshold_value=5000)]},
+        {
+            "id": "standard",
+            "rows": [_row("any_down_quick"), _row("response_time_above_2s", threshold_value=10000)],
+        },
+        {
+            "id": "strict",
+            "rows": [
+                _row("all_down_immediate"),
+                _row("any_down_quick", min_duration_seconds=30),
+                _row("response_time_above_2s", threshold_value=5000),
+            ],
+        },
         {"id": "silent", "rows": [_row("any_down_patient")]},
     ],
     "heartbeat": [
         {"id": "standard", "rows": [_row("any_down_quick", min_duration_seconds=0)]},
-        {"id": "strict", "rows": [_row("any_down_quick", min_duration_seconds=0, renotify_after_minutes=10)]},
+        {
+            "id": "strict",
+            "rows": [_row("any_down_quick", min_duration_seconds=0, renotify_after_minutes=10)],
+        },
         {"id": "silent", "rows": [_row("any_down_patient")]},
     ],
 }

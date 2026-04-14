@@ -11,6 +11,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.0] - 2026-04-14
+
+### Added
+- **Alert matrix v2 — cards layout** (`frontend/src/components/monitors/AlertMatrix.vue` + `alert-matrix/*.vue`) — the per-monitor alerting panel is now a stack of collapsible cards instead of a dense table: one card per active condition, coloured channel chips, repliable "Advanced" section with threshold / min-duration / renotify / schedule, and a condition picker that lets you add multiple rules in one click. Per-condition "How it works" help explains each condition's semantics in plain language (z-score window, SSL warn-days, baseline factor…).
+- **One-click alerting templates** — `GET /api/v1/alerts/matrix-templates/{check_type}` returns admin-managed presets; three built-in templates per check type (`standard`, `strict / paging`, `low noise`) are seeded at install time. Superadmins can create, edit and delete their own templates from a dedicated section in the **Alerts** page (`AlertTemplatesSection.vue`).
+- **Alerting impact preview** — `POST /api/v1/alerts/monitors/{id}/matrix/preview` replays the proposed rule set against the last 30 days of `CheckResult` / `Incident` data and returns a would-fire count per condition. The count appears as a coloured badge (`≈ N / 30j`) on each condition card, refreshes debounced as you edit, and uses a statistical tail estimate (`0.5 · erfc(z/√2)`) for `anomaly_detection`.
+- **Monitor tags + RBAC** — new `Tag` model with per-user `UserTagPermission` (view / edit / admin). Monitors carry a `tags` many-to-many relationship, `TagChips.vue` in the monitor header lets you attach/detach tags inline, and `AlertRule.tag_selector` (migration `t5u6v7w8x9y0`) allows a single alert rule to target every monitor carrying a given tag.
+- **New backend surface**:
+  - `server/whatisup/models/tag.py`, `schemas/tag.py`, `api/v1/tags.py` — CRUD for tags and permissions
+  - `server/whatisup/models/alert_matrix_template.py`, `schemas/alert_matrix_template.py`, `services/alert_matrix_templates.py` — DB-backed templates with seeded system presets
+  - `server/whatisup/services/alert_matrix_preview.py` — historical replay for the impact preview
+  - `server/whatisup/api/v1/alerts.py` — `/matrix-templates` CRUD (superadmin-only for write), `/monitors/{id}/matrix/preview`
+- **New migrations**:
+  - `t5u6v7w8x9y0_alert_tag_selector.py` — adds `alert_rules.tag_selector` JSONB column
+  - `u6v7w8x9y0z1_drop_uptime_below.py` — removes the legacy `uptime_below` condition (see Removed)
+  - `v7w8x9y0z1a2_alert_matrix_templates.py` — creates `alert_matrix_templates` table and seeds system presets
+- **Shared frontend constants** — `frontend/src/constants/alertMatrix.js` centralises `CHECK_TYPES`, `CONDITIONS_BY_TYPE`, `THRESHOLD_CONDITIONS` (previously duplicated across 3 components).
+- **Frontend tests** — `frontend/tests/alert_matrix.test.js` (14 tests covering `ChannelChip`, `AddRuleMenu`, `ConditionCard`, `TemplatePicker` and the `AlertMatrix` integration incl. preview flow).
+- **Server tests** — `server/tests/test_tags.py`.
+
+### Changed
+- **Monitor detail page** — `MonitorDetailView.vue` now renders the new card-based alert matrix and surfaces `TagChips` in the header for inline tag edition.
+- **Alerts page** — `AlertsView.vue` gains a new **Alerting templates** section, visible to superadmins only, for managing DB-backed templates (create / edit / delete, with read-only system templates marked `Built-in`).
+- **Schemas** — `AlertMatrixRow` now inherits from `AlertRuleUpdate` so constraints stay in sync between the per-rule and matrix endpoints.
+
+### Removed
+- **`uptime_below` alert condition** — the handler in `services/incident.py` had never actually evaluated the rolling uptime percentage against its threshold; it was a confusing duplicate of `any_down`. Migration `u6v7w8x9y0z1` deletes any existing rules using it before the Python enum is trimmed. Removed from the matrix UI, the legacy `AlertsView` rule form, and all i18n strings.
+
+### Fixed
+- **Session leak in `AlertMatrix.vue`** — the debounced impact-preview timer is now cleared on `onUnmounted`.
+- **Redundant preview call** — `load()` + explicit `refreshPreview()` on mount fired two preview requests within 500 ms; the explicit call was removed, the deep `watch` on `activeRows` now handles it.
+
+### Performance
+- **Impact preview** — the `up_rt_samples()` count used by the `anomaly_detection` tail estimate is memoised per preview call, eliminating a repeat `COUNT(*)` when multiple rules in the same matrix need it.
+
+---
+
 ## [1.0.3] - 2026-04-06
 
 ### Security

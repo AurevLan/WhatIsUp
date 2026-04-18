@@ -2,8 +2,6 @@
 
 import socket
 
-import pytest
-
 from whatisup_probe.checkers._shared import validate_host_ssrf
 
 

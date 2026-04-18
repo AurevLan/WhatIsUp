@@ -195,7 +195,7 @@ async def update_team(
     if payload.name is not None:
         team.name = payload.name
 
-    await db.refresh(team)
+    await db.flush()
     count = (
         await db.execute(
             select(func.count()).select_from(TeamMembership).where(

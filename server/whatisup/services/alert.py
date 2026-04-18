@@ -518,28 +518,51 @@ async def _upsert_digest_window(
     """Persist digest window to DB for recovery if Redis is lost."""
     from sqlalchemy.dialects.postgresql import insert as pg_insert
 
+    from whatisup.core.database import dialect_name
     from whatisup.models.digest_window import DigestWindow
 
     now = datetime.now(UTC)
     flush_at = datetime.fromtimestamp((int(now.timestamp()) // ttl + 1) * ttl, tz=UTC)
 
-    stmt = pg_insert(DigestWindow).values(
-        id=uuid.uuid4(),
-        rule_id=rule_id,
-        flush_at=flush_at,
-        events_json=[event_data],
-        ctx_json=ctx_data,
-        created_at=now,
-    ).on_conflict_do_update(
-        index_elements=["rule_id"],
-        set_={
-            "events_json": DigestWindow.events_json.op("||")(
-                json.dumps([event_data])
-            ),
-            "ctx_json": ctx_data,
-        },
-    )
-    await db.execute(stmt)
+    if dialect_name(db) == "postgresql":
+        stmt = pg_insert(DigestWindow).values(
+            id=uuid.uuid4(),
+            rule_id=rule_id,
+            flush_at=flush_at,
+            events_json=[event_data],
+            ctx_json=ctx_data,
+            created_at=now,
+        ).on_conflict_do_update(
+            index_elements=["rule_id"],
+            set_={
+                "events_json": DigestWindow.events_json.op("||")(
+                    json.dumps([event_data])
+                ),
+                "ctx_json": ctx_data,
+            },
+        )
+        await db.execute(stmt)
+    else:
+        # SQLite fallback — no JSONB `||` operator, so append in Python.
+        existing = (
+            await db.execute(
+                select(DigestWindow).where(DigestWindow.rule_id == rule_id)
+            )
+        ).scalar_one_or_none()
+        if existing is None:
+            db.add(
+                DigestWindow(
+                    id=uuid.uuid4(),
+                    rule_id=rule_id,
+                    flush_at=flush_at,
+                    events_json=[event_data],
+                    ctx_json=ctx_data,
+                    created_at=now,
+                )
+            )
+        else:
+            existing.events_json = [*(existing.events_json or []), event_data]
+            existing.ctx_json = ctx_data
 
 
 async def recover_digest_windows() -> None:

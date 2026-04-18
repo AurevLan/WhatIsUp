@@ -318,9 +318,11 @@ async def create_rule(
 
 
 async def _load_rule_for_owner(rule_id: uuid.UUID, user: User, db: AsyncSession) -> AlertRule:
-    """Load a rule and verify the caller owns it via `owner_id` or resource access.
+    """Load a rule and verify the caller owns it.
 
-    Legacy rules without owner_id fall back to the monitor/group ownership check.
+    Since v1.2.1 alert_rules.owner_id is NOT NULL (migration a0b1c2d3e4f5),
+    so ownership is a simple uuid comparison — the legacy monitor/group
+    fallback path has been removed.
     """
     rule = (
         await db.execute(
@@ -332,25 +334,8 @@ async def _load_rule_for_owner(rule_id: uuid.UUID, user: User, db: AsyncSession)
     if rule is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rule not found")
 
-    if user.is_superadmin:
+    if user.is_superadmin or rule.owner_id == user.id:
         return rule
-    if rule.owner_id == user.id:
-        return rule
-    # Legacy fallback: resource-access check via monitor/group
-    if rule.monitor_id is not None:
-        target = (
-            await db.execute(select(Monitor).where(Monitor.id == rule.monitor_id))
-        ).scalar_one_or_none()
-        if target:
-            await check_resource_access(target, user, db, min_role=TeamRole.editor)
-            return rule
-    if rule.group_id is not None:
-        target = (
-            await db.execute(select(MonitorGroup).where(MonitorGroup.id == rule.group_id))
-        ).scalar_one_or_none()
-        if target:
-            await check_resource_access(target, user, db, min_role=TeamRole.editor)
-            return rule
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rule not found")
 
 

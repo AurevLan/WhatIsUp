@@ -51,3 +51,14 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         except Exception:
             await session.rollback()
             raise
+
+
+def dialect_name(session_or_engine) -> str:
+    """Return the SQLAlchemy dialect name (e.g. 'postgresql', 'sqlite').
+
+    Works on AsyncSession, AsyncEngine, or any object exposing `.bind.dialect`
+    or `.dialect`. Returns an empty string if the binding is unavailable.
+    """
+    target = getattr(session_or_engine, "bind", session_or_engine)
+    dialect = getattr(target, "dialect", None)
+    return dialect.name if dialect is not None else ""

@@ -112,8 +112,8 @@ class AlertChannel(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 class AlertRule(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "alert_rules"
 
-    owner_id: Mapped[uuid.UUID | None] = mapped_column(
-        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     monitor_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("monitors.id", ondelete="CASCADE"), nullable=True, index=True

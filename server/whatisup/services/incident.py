@@ -14,6 +14,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from whatisup.core.database import dialect_name
 from whatisup.models.alert import AlertCondition, AlertEvent, AlertEventStatus, AlertRule
 from whatisup.models.incident import Incident, IncidentGroup, IncidentScope
 from whatisup.models.monitor import Monitor, MonitorDependency
@@ -144,8 +145,7 @@ async def _correlate_common_cause(
         Incident.monitor_id != monitor_id,
     )
 
-    dialect_name = db.bind.dialect.name if db.bind else ""
-    if dialect_name == "postgresql":
+    if dialect_name(db) == "postgresql":
         base_query = base_query.where(
             cast(Incident.affected_probe_ids, JSONB).op("?|")(
                 cast(affected_probe_ids, ARRAY(sa.Text))

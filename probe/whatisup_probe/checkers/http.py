@@ -28,21 +28,6 @@ logger = structlog.get_logger(__name__)
 _MAX_JSON_PATH_DEPTH = 20
 
 
-class _FakeResponse:
-    """Lightweight response wrapper preserving attributes after httpx stream closes."""
-
-    def __init__(self, orig, text_content, raw_bytes):
-        self._orig = orig
-        self.text = text_content
-        self.status_code = orig.status_code
-        self.history = orig.history
-        self.url = orig.url
-        self.headers = orig.headers
-
-    def json(self):
-        return json.loads(self.text)
-
-
 def _resolve_json_path(data: Any, path: str) -> Any:
     """Simple dot-notation JSON path resolver.
 
@@ -133,6 +118,10 @@ class HTTPChecker(BaseChecker):
 
         ttfb_ms: int | None = None
         download_ms: int | None = None
+        http_status: int | None = None
+        redirect_count = 0
+        final_url: str = url
+        response_headers: httpx.Headers | None = None
 
         try:
             for _attempt in range(2):
@@ -146,6 +135,12 @@ class HTTPChecker(BaseChecker):
                         ttfb_ms = int((time.perf_counter() - t0) * 1000)
                         body_bytes = await response.aread()
                         download_ms = int((time.perf_counter() - t0) * 1000) - ttfb_ms
+                        # Snapshot response attrs while the stream is still open —
+                        # some httpx internals may reset after __aexit__.
+                        http_status = response.status_code
+                        redirect_count = len(response.history)
+                        final_url = str(response.url)
+                        response_headers = response.headers
                     break
                 except httpx.RemoteProtocolError:
                     if _attempt == 0:
@@ -154,9 +149,6 @@ class HTTPChecker(BaseChecker):
                     raise
 
             elapsed_ms = (time.perf_counter() - t0) * 1000
-            http_status = response.status_code
-            redirect_count = len(response.history)
-            final_url = str(response.url)
 
             # SSRF check on final URL after redirects
             if redirect_count > 0:
@@ -175,16 +167,13 @@ class HTTPChecker(BaseChecker):
             except Exception:
                 body_text = ""
 
-            response = _FakeResponse(response, body_text, body_bytes)
-
             is_up = http_status in expected_status_codes
             status = "up" if is_up else "down"
             error_message = None
 
             # Keyword check
             if is_up and keyword:
-                body = response.text
-                found = keyword in body
+                found = keyword in body_text
                 if keyword_negate and found:
                     status = "down"
                     error_message = f"Forbidden keyword found: {keyword!r}"
@@ -195,7 +184,7 @@ class HTTPChecker(BaseChecker):
             # JSON path check
             if is_up and status == "up" and expected_json_path:
                 try:
-                    data = response.json()
+                    data = json.loads(body_text)
                     actual_value = _resolve_json_path(data, expected_json_path)
                     if expected_json_value is not None and str(actual_value) != expected_json_value:
                         status = "down"
@@ -210,14 +199,14 @@ class HTTPChecker(BaseChecker):
             # Regex body check (with ReDoS protection via timeout)
             if body_regex and status == "up":
                 try:
-                    if len(response.text or "") > 5_000_000:
+                    if len(body_text) > 5_000_000:
                         status = "down"
                         error_message = "Response too large for regex validation"
                     else:
                         compiled = re.compile(body_regex, re.DOTALL)
                         match = await asyncio.wait_for(
                             asyncio.get_running_loop().run_in_executor(
-                                None, compiled.search, response.text or "",
+                                None, compiled.search, body_text,
                             ),
                             timeout=5.0,
                         )
@@ -232,9 +221,9 @@ class HTTPChecker(BaseChecker):
                     error_message = f"body_regex_invalid: {exc}"
 
             # Header assertions (with ReDoS protection via timeout)
-            if expected_headers and status == "up":
+            if expected_headers and status == "up" and response_headers is not None:
                 for header_name, expected_value in expected_headers.items():
-                    actual = response.headers.get(header_name.lower(), "")
+                    actual = response_headers.get(header_name.lower(), "")
                     if expected_value.startswith("/") and expected_value.endswith("/"):
                         pattern = expected_value[1:-1]
                         try:
@@ -274,7 +263,7 @@ class HTTPChecker(BaseChecker):
                 try:
                     from jsonschema import ValidationError, validate  # type: ignore[import]
 
-                    body = json.loads(response.text or "")
+                    body = json.loads(body_text)
                     validate(instance=body, schema=json_schema)
                 except ValidationError as exc:
                     status = "down"

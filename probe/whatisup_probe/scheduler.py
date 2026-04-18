@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+from contextlib import AsyncExitStack
 from typing import Any
 
 import psutil
@@ -73,11 +74,15 @@ class ProbeScheduler:
         # Hard outer timeout: monitor timeout + overhead to absorb async scheduling lag.
         # Scenarios get +15 s for context creation; other checks only need +5 s.
         hard_timeout = monitor["timeout_seconds"] + (15 if is_scenario else 5)
-        async with self._semaphore:
+        async with AsyncExitStack() as stack:
+            await stack.enter_async_context(self._semaphore)
+            if is_scenario:
+                # `async with` on the scenario semaphore via AsyncExitStack ensures
+                # the release runs even if acquire returns and we get cancelled
+                # before the next line — no leak.
+                await stack.enter_async_context(self._scenario_semaphore)
             self._active_checks += 1
             try:
-                if is_scenario:
-                    await self._scenario_semaphore.acquire()
                 try:
                     result = await asyncio.wait_for(
                         perform_check(
@@ -117,9 +122,6 @@ class ProbeScheduler:
                     )
                     await kill_stale_chromium()
                     return
-                finally:
-                    if is_scenario:
-                        self._scenario_semaphore.release()
             finally:
                 self._active_checks -= 1
             logger.debug(

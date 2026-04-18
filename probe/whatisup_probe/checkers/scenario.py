@@ -7,8 +7,12 @@ import time
 from datetime import UTC, datetime
 from typing import Any
 
+import structlog
+
 from ._shared import BROWSER_LAUNCH_ARGS, validate_url_ssrf
 from .base import BaseChecker, CheckResult
+
+logger = structlog.get_logger(__name__)
 
 
 async def _capture_web_vitals(page) -> dict:
@@ -201,9 +205,15 @@ class ScenarioChecker(BaseChecker):
                                 type="jpeg", quality=30, full_page=False
                             )
                             b64 = base64.b64encode(img_bytes).decode()
-                            step_screenshot = (
-                                f"data:image/jpeg;base64,{b64}" if len(b64) < 50_000 else None
-                            )
+                            if len(b64) < 50_000:
+                                step_screenshot = f"data:image/jpeg;base64,{b64}"
+                            else:
+                                step_screenshot = None
+                                logger.debug(
+                                    "screenshot_truncated",
+                                    step=step_label,
+                                    size_kb=round(len(b64) / 1024, 1),
+                                )
 
                         elif step_type == "hover":
                             await page.hover(params["selector"])
@@ -309,8 +319,7 @@ class ScenarioChecker(BaseChecker):
                         )
 
                     except Exception as step_err:
-                        import structlog
-                        structlog.get_logger(__name__).warning(
+                        logger.warning(
                             "unexpected_scenario_error",
                             error=type(step_err).__name__,
                             detail=str(step_err),

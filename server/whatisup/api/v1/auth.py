@@ -15,7 +15,7 @@ from jwt.exceptions import InvalidTokenError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from whatisup.api.deps import get_current_user, require_superadmin
+from whatisup.api.deps import get_current_user
 from whatisup.core.config import get_settings
 from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
@@ -24,11 +24,10 @@ from whatisup.core.security import (
     create_access_token,
     create_refresh_token,
     decode_token,
-    hash_password_async,
     verify_password_async,
 )
 from whatisup.models.user import User
-from whatisup.schemas.user import TokenRefreshRequest, TokenResponse, UserCreate, UserOut
+from whatisup.schemas.user import TokenRefreshRequest, TokenResponse, UserOut
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -41,42 +40,6 @@ async def register() -> None:
         status_code=status.HTTP_403_FORBIDDEN,
         detail="Public registration is disabled. Ask an administrator for an invite.",
     )
-
-
-@router.post("/users", response_model=UserOut, status_code=status.HTTP_201_CREATED)
-async def create_user(
-    payload: UserCreate,
-    _admin: User = Depends(require_superadmin),
-    db: AsyncSession = Depends(get_db),
-) -> User:
-    """Create a user account (superadmin only — for invite-only deployments)."""
-    existing = (
-        await db.execute(
-            select(User).where((User.email == payload.email) | (User.username == payload.username))
-        )
-    ).scalar_one_or_none()
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Email or username already registered",
-        )
-
-    user = User(
-        email=str(payload.email),
-        username=payload.username,
-        full_name=payload.full_name,
-        hashed_password=await hash_password_async(payload.password),
-        is_superadmin=False,  # Admin explicitly sets superadmin if needed
-    )
-    db.add(user)
-    await db.flush()
-
-    from whatisup.services.audit import log_action
-
-    await log_action(db, "user.create", "user", user.id, user.username, None)
-
-    logger.info("user_created_by_admin", user_id=str(user.id), admin_id=str(_admin.id))
-    return user
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -289,7 +252,7 @@ async def oidc_login(
         hashlib.sha256(code_verifier.encode()).digest()
     ).rstrip(b"=").decode()
 
-    # Persist in Redis (10-minute TTL)
+    # Persist in Redis (5-minute TTL)
     redis = get_redis()
     await redis.setex(f"whatisup:oidc:state:{state}", 300, code_verifier)
 

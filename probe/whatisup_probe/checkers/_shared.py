@@ -305,21 +305,33 @@ class PlaywrightPool:
 
 
 async def kill_stale_chromium(max_age_seconds: int = 120) -> int:
-    """Kill chromium processes older than *max_age_seconds*."""
+    """Kill chromium processes older than *max_age_seconds*.
+
+    Scoped to descendants of the current probe process so it never reaches a
+    chromium owned by another process on the host (relevant outside Docker).
+    """
+    import os
+
     import psutil as _psutil
 
     now = time.time()
     killed = 0
-    for proc in _psutil.process_iter(["pid", "name", "create_time"]):
+    try:
+        me = _psutil.Process(os.getpid())
+        descendants = me.children(recursive=True)
+    except _psutil.Error:
+        return 0
+
+    for proc in descendants:
         try:
-            name = (proc.info["name"] or "").lower()
+            name = (proc.name() or "").lower()
             if "chromium" not in name and "chrome-headless-shell" not in name:
                 continue
-            age = now - proc.info["create_time"]
+            age = now - proc.create_time()
             if age > max_age_seconds:
                 proc.kill()
                 killed += 1
-                logger.info("killed_stale_chromium", pid=proc.info["pid"], age_s=int(age))
+                logger.info("killed_stale_chromium", pid=proc.pid, age_s=int(age))
         except (_psutil.NoSuchProcess, _psutil.AccessDenied):
             pass
     return killed

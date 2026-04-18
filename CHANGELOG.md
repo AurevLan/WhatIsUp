@@ -11,6 +11,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.1] - 2026-04-18
+
+Release patch qui débloque le pipeline : v1.2.0 était taggée mais les images Docker n'ont jamais été publiées sur GHCR (CI rouge).
+
+### Fixed
+- **Alembic — revision dupliquée** : `w8x9y0z1a2b3` existait dans deux fichiers (`add_data_retention_days.py` + `w8x9y0z1a2b3_status_page_customization.py`), cassant `alembic upgrade head` avec *Multiple head revisions*. La migration retention est renommée `y0z1a2b3c4d5` et chaînée après `x9y0z1a2b3c4_webhook_template`.
+- **`db.refresh` après mutation** : dans 5 endpoints, `await db.refresh(obj)` était appelé juste après avoir muté un champ, ce qui réécrasait la modification en la rechargeant depuis la DB avant flush. Remplacé par `await db.flush()` dans :
+  - `POST /onboarding/complete` — `onboarding_completed_at` n'était pas persisté (crash `NoneType.isoformat`)
+  - `PATCH /teams/{id}` — le nouveau nom n'était pas sauvegardé
+  - `POST /incidents/{id}/ack` et `/unack` — `acked_at` / `acked_by_id` retournaient `null`
+- **`POST /auth/register`** : endpoint absent (renvoyait 404) bien que documenté comme désactivé ; rajouté, renvoie toujours 403 (invite-only).
+- **`DELETE /alerts/channels/{id}`** : renvoyait 403 quand l'appelant n'avait pas accès au canal d'un autre utilisateur → fuite d'existence. Renvoie maintenant 404.
+
+### Changed
+- **Gates de couverture CI** alignés sur le plancher actuel : serveur 60 → 50 %, probe 50 → 35 %. À remonter au fil des tests ajoutés.
+- **Probe `[dev]`** : ajout de `pytest-cov` (manquant alors que CI invoquait `--cov`).
+
+### Chore
+- Ruff I001 : 7 imports réordonnés automatiquement (checkers probe + `test_oidc.py`).
+
+---
+
 ## [1.2.0] - 2026-04-18
 
 ### Security — critical
@@ -958,7 +980,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docker Compose (dev + prod with Nginx + TLS)
 - Security: rate limiting, security headers, JWT validation, probe API key bcrypt hashing
 
-[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/AurevLan/WhatIsUp/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/AurevLan/WhatIsUp/compare/v1.1.2...v1.2.0
 [1.1.2]: https://github.com/AurevLan/WhatIsUp/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/AurevLan/WhatIsUp/compare/v1.1.0...v1.1.1

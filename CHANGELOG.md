@@ -11,6 +11,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.0] - 2026-04-18
+
+### Security — critical
+- **Server port bound to 127.0.0.1** in `docker-compose.yml` (was `0.0.0.0:8000`, bypassing TLS at the reverse proxy).
+- **SSRF protection on TCP / UDP / SMTP / DNS checkers** (previously only HTTP checker validated outbound hosts).
+- **Async `getaddrinfo`** for webhook URL validation and OIDC discovery — no more event-loop blocking on DNS.
+- **Reporter rejects 4xx as permanent errors** (`probe/reporter.py`) — was silently treating them as success.
+- **XSS hardening** — removed `v-html` binding on translations in `SettingsView.vue`.
+- **Redis healthcheck** no longer exposes the password in the `docker ps` process list.
+
+### Security — high
+- **Probe rejects empty `PROBE_API_KEY`** at startup (was silently booting with empty auth).
+- **Platform detection via `Capacitor.getPlatform()`** (was relying on brittle user-agent sniffing).
+
+### Added
+- **Rich public status pages** — logo, title, description, accent color and custom CSS per `MonitorGroup`.
+- **Webhook templates with `$variable` substitution** — reusable payload templates for alert webhooks.
+- **Monitor config export / import** (JSON) — round-trip one or many monitors across installs.
+- **Maintenance UX** — create/edit modal, calendar view, quick-schedule from the monitor detail page.
+- **Interactive dependency graph** — SVG force-directed layout, draggable nodes, colored by current status.
+- **Custom metrics dashboard** — charts and summary stats per monitor.
+- **Per-monitor `data_retention_days` override** — supersedes the global retention setting.
+- **Pagination on `list_monitors`** — `limit` / `offset` query params + `X-Total-Count` response header.
+
+### Changed
+- **Backend**: removed double-commit in ~17 endpoints, standardized postmortem strings to English, multi-tenancy applied to `list_events` and `delete_channel`.
+- **Uptime cache** — invalidated via `SCAN` pattern instead of targeted keys (previously leaked stale entries).
+- **Probe**: clean shutdown via `asyncio.Event` (not `loop.stop()`), bounded DNS cache (max 1000 entries), HTTP client init protected by `asyncio.Lock`, shared `BROWSER_LAUNCH_ARGS`, SMTP `writer.wait_closed()` + EHLO line limit.
+- **Docker / CI**: Python 3.12 (stable) in all Dockerfiles, Node 22 LTS for frontend, multi-stage probe Dockerfile, `HEALTHCHECK` on server and frontend, release workflow gated on CI, conditional `latest` tag for pre-releases, scoped permissions, coverage thresholds (server ≥60%, probe ≥50%).
+- **Frontend**: native `alert()` → `useToast()` everywhere, token refresh singleton lock, ApexCharts lazy-loaded, `BaseModal` gains `role=dialog` / `aria-modal` / Esc handler, `ToastContainer` gains `role=alert` / `aria-live`, service worker skipped on Capacitor native builds.
+- **i18n**: ~100+ new translation keys (admin, OIDC, public_page, group_detail, create_monitor, maintenance, graph, metrics), French accents fixed in the teams section.
+
+### Removed
+- **Dead `/auth/register` endpoint** (never wired, superseded by invite flow).
+
+### Fixed
+- **`CompositeMonitorMember.member_id`** reference in cycle detection (wrong column name caused false negatives).
+
+### Tests (+25)
+- Monitor: bulk actions, dependencies, cycle detection, annotations, SLO.
+- OIDC: disabled state, invalid callback.
+- Incident correlation: group, flapping, `process_check_result`.
+- Probe: config validation, SSRF host validation.
+
+---
+
 ## [1.1.2] - 2026-04-14
 
 ### Fixed
@@ -912,7 +958,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docker Compose (dev + prod with Nginx + TLS)
 - Security: rate limiting, security headers, JWT validation, probe API key bcrypt hashing
 
-[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v1.0.3...HEAD
+[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/AurevLan/WhatIsUp/compare/v1.1.2...v1.2.0
+[1.1.2]: https://github.com/AurevLan/WhatIsUp/compare/v1.1.1...v1.1.2
+[1.1.1]: https://github.com/AurevLan/WhatIsUp/compare/v1.1.0...v1.1.1
+[1.1.0]: https://github.com/AurevLan/WhatIsUp/compare/v1.0.3...v1.1.0
 [1.0.3]: https://github.com/AurevLan/WhatIsUp/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/AurevLan/WhatIsUp/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/AurevLan/WhatIsUp/compare/v1.0.0...v1.0.1

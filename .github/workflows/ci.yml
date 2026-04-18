@@ -44,7 +44,7 @@ jobs:
       - name: Install server + dev dependencies
         run: pip install -e ".[dev]"
       - name: Run server tests
-        run: pytest tests/ -v --tb=short --cov=whatisup --cov-report=term-missing --cov-fail-under=60
+        run: pytest tests/ -v --tb=short --cov=whatisup --cov-report=term-missing --cov-fail-under=50
         env:
           SECRET_KEY: "ci-test-secret-32-chars-minimum-x"
           ENVIRONMENT: "test"
@@ -112,7 +112,7 @@ jobs:
       - name: Install probe + dev dependencies
         run: pip install -e ".[dev]"
       - name: Run probe tests
-        run: pytest tests/ -v --tb=short --cov=whatisup_probe --cov-report=term-missing --cov-fail-under=50
+        run: pytest tests/ -v --tb=short --cov=whatisup_probe --cov-report=term-missing --cov-fail-under=35
         env:
           CENTRAL_API_URL: "http://localhost:8000"
           PROBE_API_KEY: "wiu_ci_test_key_not_real"

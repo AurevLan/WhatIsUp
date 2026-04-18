@@ -34,6 +34,14 @@ logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
+@router.post("/register")
+async def register() -> None:
+    """Public registration is disabled on this instance (invite-only)."""
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Public registration is disabled. Ask an administrator for an invite.",
+    )
+
 
 @router.post("/users", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 async def create_user(

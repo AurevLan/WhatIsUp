@@ -133,7 +133,7 @@ async def acknowledge_incident(
         )
     incident.acked_at = datetime.now(UTC)
     incident.acked_by_id = current_user.id
-    await db.refresh(incident)
+    await db.flush()
     return _incident_to_out(incident)
 
 
@@ -148,7 +148,7 @@ async def unacknowledge_incident(
     incident = await _get_incident_for_user(incident_id, current_user, db)
     incident.acked_at = None
     incident.acked_by_id = None
-    await db.refresh(incident)
+    await db.flush()
     return _incident_to_out(incident)
 
 

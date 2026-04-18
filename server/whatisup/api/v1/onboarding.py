@@ -82,7 +82,7 @@ async def complete_onboarding(
     """Mark onboarding as completed for the current user."""
     if current_user.onboarding_completed_at is None:
         current_user.onboarding_completed_at = datetime.now(UTC)
-        await db.refresh(current_user)
+        await db.flush()
 
     # Return fresh status
     monitor_count = (

@@ -229,7 +229,14 @@ async def delete_channel(
     ).scalar_one_or_none()
     if channel is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Channel not found")
-    await check_resource_access(channel, current_user, db, min_role=TeamRole.admin)
+    try:
+        await check_resource_access(channel, current_user, db, min_role=TeamRole.admin)
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_403_FORBIDDEN:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Channel not found"
+            ) from None
+        raise
     await db.delete(channel)
 
 

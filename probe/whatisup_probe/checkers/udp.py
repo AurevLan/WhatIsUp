@@ -9,8 +9,8 @@ from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import urlparse
 
-from .base import BaseChecker, CheckResult
 from ._shared import validate_host_ssrf
+from .base import BaseChecker, CheckResult
 
 
 class UDPChecker(BaseChecker):

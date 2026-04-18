@@ -1,7 +1,7 @@
 """Add data_retention_days column to monitors.
 
-Revision ID: w8x9y0z1a2b3
-Revises: v7w8x9y0z1a2
+Revision ID: y0z1a2b3c4d5
+Revises: x9y0z1a2b3c4
 Create Date: 2026-04-18
 """
 
@@ -12,8 +12,8 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "w8x9y0z1a2b3"
-down_revision: str | None = "v7w8x9y0z1a2"
+revision: str = "y0z1a2b3c4d5"
+down_revision: str | None = "x9y0z1a2b3c4"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

@@ -74,3 +74,6 @@ frontend/android/app/google-services.json
 
 # Local Claude Code artifacts
 .claude/
+
+# ── Local planning docs (working notes, not shipped) ──────────────────────────
+plan_*.md

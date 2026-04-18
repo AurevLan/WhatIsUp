@@ -1,6 +1,6 @@
 <template>
   <Teleport to="body">
-    <div style="position:fixed;bottom:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none;">
+    <div role="alert" aria-live="polite" style="position:fixed;bottom:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none;">
       <TransitionGroup name="toast">
         <div
           v-for="toast in toasts"

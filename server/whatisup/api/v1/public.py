@@ -34,7 +34,7 @@ def _badge_svg(label: str, value: str, color: str) -> str:
         f'  <linearGradient id="a" x2="0" y2="100%">\n'
         f'    <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>\n'
         f'    <stop offset="1" stop-opacity=".1"/>\n'
-        f'  </linearGradient>\n'
+        f"  </linearGradient>\n"
         f'  <rect rx="3" width="{total_w}" height="20" fill="#555"/>\n'
         f'  <rect rx="3" x="{label_w}" width="{value_w}" height="20" fill="{color}"/>\n'
         f'  <rect rx="3" width="{total_w}" height="20" fill="url(#a)"/>\n'
@@ -46,7 +46,7 @@ def _badge_svg(label: str, value: str, color: str) -> str:
         f' fill="#010101" fill-opacity=".3">{value}</text>\n'
         f'    <text x="{label_w + value_w / 2}" y="14">'
         f"{value}</text>\n"
-        f'  </g>\n'
+        f"  </g>\n"
         f"</svg>"
     )
 
@@ -123,6 +123,11 @@ async def get_public_page(request: Request, slug: str, db: AsyncSession = Depend
         "custom_logo_url": group.custom_logo_url,
         "accent_color": group.accent_color,
         "announcement_banner": group.announcement_banner,
+        "public_title": group.public_title,
+        "public_description": group.public_description,
+        "public_logo_url": group.public_logo_url,
+        "public_accent_color": group.public_accent_color,
+        "public_custom_css": group.public_custom_css,
     }
 
 
@@ -299,6 +304,11 @@ async def get_public_status(
         "custom_logo_url": group.custom_logo_url,
         "accent_color": group.accent_color,
         "announcement_banner": group.announcement_banner,
+        "public_title": group.public_title,
+        "public_description": group.public_description,
+        "public_logo_url": group.public_logo_url,
+        "public_accent_color": group.public_accent_color,
+        "public_custom_css": group.public_custom_css,
         "incidents_30d": incidents_30d,
     }
 
@@ -329,15 +339,19 @@ async def get_public_incident_updates(
         raise HTTPException(status_code=404, detail="Incident not found on this page")
 
     updates = (
-        await db.execute(
-            select(IncidentUpdate)
-            .where(
-                IncidentUpdate.incident_id == incident_id,
-                IncidentUpdate.is_public.is_(True),
+        (
+            await db.execute(
+                select(IncidentUpdate)
+                .where(
+                    IncidentUpdate.incident_id == incident_id,
+                    IncidentUpdate.is_public.is_(True),
+                )
+                .order_by(IncidentUpdate.created_at.asc())
             )
-            .order_by(IncidentUpdate.created_at.asc())
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     return [
         {
@@ -379,7 +393,6 @@ async def subscribe_status(
     token = secrets.token_urlsafe(32)
     sub = StatusSubscription(group_id=group.id, email=email, token=token)
     db.add(sub)
-    await db.commit()
     return {"message": "Inscription confirmée"}
 
 
@@ -404,5 +417,4 @@ async def unsubscribe_status(
     if sub is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Token invalide")
     await db.delete(sub)
-    await db.commit()
     return {"message": "Désabonnement effectué"}

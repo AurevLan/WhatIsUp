@@ -366,6 +366,9 @@
 
 <script setup>
 import { ref, watch } from 'vue'
+import { useToast } from '../../composables/useToast'
+
+const { error: toastError } = useToast()
 
 const props = defineProps({
   modelValue: { type: Array, default: () => [] },
@@ -571,13 +574,13 @@ function importJSON(event) {
     try {
       const parsed = JSON.parse(e.target.result)
       if (!Array.isArray(parsed)) {
-        alert('The JSON file must contain an array of steps.')
+        toastError('The JSON file must contain an array of steps.')
         return
       }
       localSteps.value = parsed.map(hydrateStep)
       emitSteps()
     } catch {
-      alert('Could not read the JSON file.')
+      toastError('Could not read the JSON file.')
     }
   }
   reader.readAsText(file)

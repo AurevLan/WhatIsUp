@@ -7,7 +7,7 @@ import time
 from datetime import UTC, datetime
 from typing import Any
 
-from ._shared import validate_url_ssrf
+from ._shared import BROWSER_LAUNCH_ARGS, validate_url_ssrf
 from .base import BaseChecker, CheckResult
 
 
@@ -376,7 +376,7 @@ class ScenarioChecker(BaseChecker):
                 async with async_playwright() as pw:
                     browser = await pw.chromium.launch(
                         headless=True,
-                        args=["--disable-dev-shm-usage", "--disable-gpu"],
+                        args=BROWSER_LAUNCH_ARGS,
                     )
                     context = await browser.new_context(viewport={"width": 1280, "height": 720})
                     page = await context.new_page()

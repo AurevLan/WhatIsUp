@@ -103,6 +103,7 @@ async def create_channel(
         name=payload.name,
         type=payload.type,
         config=encrypt_channel_config(payload.config),
+        webhook_template=payload.webhook_template,
     )
     db.add(channel)
     await db.flush()
@@ -224,14 +225,11 @@ async def delete_channel(
     db: AsyncSession = Depends(get_db),
 ) -> None:
     channel = (
-        await db.execute(
-            select(AlertChannel).where(
-                AlertChannel.id == channel_id, AlertChannel.owner_id == current_user.id
-            )
-        )
+        await db.execute(select(AlertChannel).where(AlertChannel.id == channel_id))
     ).scalar_one_or_none()
     if channel is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Channel not found")
+    await check_resource_access(channel, current_user, db, min_role=TeamRole.admin)
     await db.delete(channel)
 
 
@@ -431,10 +429,13 @@ async def list_events(
         .join(AlertChannel, AlertEvent.channel_id == AlertChannel.id)
         .join(Incident, AlertEvent.incident_id == Incident.id)
         .outerjoin(Monitor, Incident.monitor_id == Monitor.id)
-        .where(AlertChannel.owner_id == current_user.id)
         .order_by(AlertEvent.sent_at.desc())
         .limit(limit)
     )
+
+    if not current_user.is_superadmin:
+        team_ids = await get_user_team_ids(current_user, db)
+        stmt = stmt.where(build_access_filter(AlertChannel, current_user, team_ids))
 
     if status_filter in ("sent", "failed"):
         stmt = stmt.where(AlertEvent.status == AlertEventStatus(status_filter))

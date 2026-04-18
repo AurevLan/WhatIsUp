@@ -20,7 +20,7 @@
     <!-- Stats -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
       <div class="card text-center">
-        <p class="text-xs text-gray-500">Monitors</p>
+        <p class="text-xs text-gray-500">{{ t('monitors.title') }}</p>
         <p class="text-2xl font-bold mt-1 text-white">{{ monitors.length }}</p>
       </div>
       <div class="card text-center">
@@ -28,11 +28,11 @@
         <p class="text-2xl font-bold mt-1 text-emerald-400">{{ upCount }}</p>
       </div>
       <div class="card text-center">
-        <p class="text-xs text-gray-500">DOWN / Alerte</p>
+        <p class="text-xs text-gray-500">{{ t('group_detail.down_alert') }}</p>
         <p class="text-2xl font-bold mt-1 text-red-400">{{ downCount }}</p>
       </div>
       <div class="card text-center">
-        <p class="text-xs text-gray-500">Uptime moy. 24h</p>
+        <p class="text-xs text-gray-500">{{ t('group_detail.avg_uptime_24h') }}</p>
         <p class="text-2xl font-bold mt-1 text-blue-400">{{ avgUptime !== null ? avgUptime.toFixed(1) + '%' : '—' }}</p>
       </div>
     </div>
@@ -93,22 +93,22 @@
     <!-- Monitors list -->
     <div class="card mb-6">
       <div class="flex items-center justify-between mb-4">
-        <h2 class="text-sm font-semibold text-gray-300">Monitors du groupe</h2>
-        <button @click="showAddMonitor = true" class="text-xs btn-primary">+ Ajouter un monitor</button>
+        <h2 class="text-sm font-semibold text-gray-300">{{ t('group_detail.group_monitors') }}</h2>
+        <button @click="showAddMonitor = true" class="text-xs btn-primary">+ {{ t('group_detail.add_monitor') }}</button>
       </div>
 
       <div v-if="monitors.length === 0" class="text-center text-gray-500 py-8 text-sm">
-        Aucun monitor dans ce groupe.
+        {{ t('group_detail.no_monitors') }}
       </div>
 
       <table v-else class="w-full text-sm">
         <thead>
           <tr class="text-xs text-gray-500 border-b border-gray-800">
-            <th class="pb-2 text-left">Nom</th>
-            <th class="pb-2 text-left">Type</th>
-            <th class="pb-2 text-left">URL / Hôte</th>
-            <th class="pb-2 text-left">Statut</th>
-            <th class="pb-2 text-left">Uptime 24h</th>
+            <th class="pb-2 text-left">{{ t('common.name') }}</th>
+            <th class="pb-2 text-left">{{ t('incidents.type') }}</th>
+            <th class="pb-2 text-left">{{ t('group_detail.url_host') }}</th>
+            <th class="pb-2 text-left">{{ t('common.status') }}</th>
+            <th class="pb-2 text-left">{{ t('monitors.uptime_24h') }}</th>
             <th class="pb-2"></th>
           </tr>
         </thead>
@@ -136,7 +136,7 @@
                   'bg-orange-900/50 text-orange-400': m.last_status === 'error',
                   'bg-gray-800 text-gray-500': !m.last_status,
                 }">
-                {{ m.last_status || 'no data' }}
+                {{ m.last_status || t('status.no_data') }}
               </span>
             </td>
             <td class="py-2 text-gray-300 text-xs">
@@ -144,7 +144,7 @@
             </td>
             <td class="py-2 text-right">
               <button @click="removeFromGroup(m)" class="text-gray-600 hover:text-red-400 text-xs transition-colors">
-                Retirer
+                {{ t('group_detail.remove') }}
               </button>
             </td>
           </tr>
@@ -161,28 +161,28 @@
     <div v-if="showAddMonitor" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
       <div class="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md p-6">
         <div class="flex items-center justify-between mb-4">
-          <h2 class="text-lg font-semibold text-white">Ajouter un monitor</h2>
+          <h2 class="text-lg font-semibold text-white">{{ t('group_detail.add_monitor_title') }}</h2>
           <button @click="showAddMonitor = false" class="text-gray-400 hover:text-white">✕</button>
         </div>
-        <p class="text-sm text-gray-400 mb-4">Sélectionne un monitor à ajouter à ce groupe.</p>
+        <p class="text-sm text-gray-400 mb-4">{{ t('group_detail.select_monitor_hint') }}</p>
         <select v-model="selectedMonitorId" class="input w-full mb-4">
-          <option value="">-- Choisir un monitor --</option>
+          <option value="">{{ t('group_detail.choose_monitor') }}</option>
           <option v-for="m in availableMonitors" :key="m.id" :value="m.id">
             {{ m.name }} ({{ m.check_type }})
           </option>
         </select>
         <div class="flex gap-3">
           <button @click="showAddMonitor = false" class="flex-1 px-4 py-2 border border-gray-700 text-gray-300 rounded-lg hover:bg-gray-800">
-            Annuler
+            {{ t('common.cancel') }}
           </button>
           <button @click="addMonitor" :disabled="!selectedMonitorId" class="flex-1 btn-primary">
-            Ajouter
+            {{ t('common.add') }}
           </button>
         </div>
       </div>
     </div>
   </div>
-  <div v-else class="p-8 text-gray-400">Chargement…</div>
+  <div v-else class="p-8 text-gray-400">{{ t('common.loading') }}</div>
 </template>
 
 <script setup>
@@ -242,7 +242,7 @@ async function load() {
     reportConfig.report_schedule = group.value.report_schedule || null
     reportConfig.report_emails_raw = (group.value.report_emails || []).join(', ')
   } catch (e) {
-    showError('Erreur lors du chargement du groupe')
+    showError(t('group_detail.error_load'))
   }
   try {
     const { data } = await monitorsApi.list()
@@ -262,7 +262,7 @@ async function saveCustomization() {
     group.value.accent_color = customization.accent_color || null
     group.value.announcement_banner = customization.announcement_banner || null
   } catch {
-    showError('Failed to save customization')
+    showError(t('group_detail.error_save_customization'))
   } finally {
     savingCustomization.value = false
   }
@@ -281,7 +281,7 @@ async function saveReportConfig() {
     group.value.report_schedule = reportConfig.report_schedule || null
     group.value.report_emails = emails
   } catch {
-    showError('Failed to save report configuration')
+    showError(t('group_detail.error_save_report'))
   } finally {
     savingReport.value = false
   }
@@ -292,7 +292,7 @@ async function removeFromGroup(monitor) {
     await monitorsApi.update(monitor.id, { group_id: null })
     monitors.value = monitors.value.filter(m => m.id !== monitor.id)
   } catch {
-    showError('Impossible de retirer le monitor du groupe')
+    showError(t('group_detail.error_remove'))
   }
 }
 
@@ -304,7 +304,7 @@ async function addMonitor() {
     selectedMonitorId.value = ''
     await load()
   } catch {
-    showError('Impossible d\'ajouter le monitor au groupe')
+    showError(t('group_detail.error_add'))
   }
 }
 

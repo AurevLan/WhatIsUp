@@ -1,5 +1,5 @@
 # ── Stage 1: Build ─────────────────────────────────────────────────────────────
-FROM python:3.14-slim AS builder
+FROM python:3.12-slim AS builder
 
 WORKDIR /build
 
@@ -13,9 +13,9 @@ COPY whatisup/ whatisup/
 RUN pip install --no-cache-dir --prefix=/install .
 
 # ── Stage 2: Runtime ───────────────────────────────────────────────────────────
-FROM python:3.14-slim
+FROM python:3.12-slim
 
-RUN apt-get update && apt-get install -y --no-install-recommends libssl-dev \
+RUN apt-get update && apt-get install -y --no-install-recommends libssl3 curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -40,6 +40,9 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
 EXPOSE 8000
+
+HEALTHCHECK --interval=15s --timeout=5s --retries=3 --start-period=30s \
+    CMD curl -f http://localhost:8000/api/health || exit 1
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["whatisup-server"]

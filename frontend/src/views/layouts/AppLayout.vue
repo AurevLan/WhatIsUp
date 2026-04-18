@@ -28,6 +28,7 @@
         <NavLink to="/"         :icon="LayoutDashboard" :label="t('nav.dashboard')" :exact="true" />
         <NavLink to="/monitors" :icon="Activity"        :label="t('nav.monitors')" :badge="downCount" />
         <NavLink to="/groups"   :icon="Layers"          :label="t('nav.groups')" />
+        <NavLink to="/graph"    :icon="Network"         :label="t('nav.graph')" />
 
         <div class="nav-section">{{ t('nav.infrastructure') }}</div>
         <NavLink to="/probes"          :icon="MapPin"        :label="t('nav.probes')" />
@@ -137,7 +138,7 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
   Activity, Bell, CalendarClock, ClipboardList, Clock, Copy, GitMerge,
-  KeyRound, LayoutDashboard, Layers, LogOut, MapPin, Moon, Search, Settings,
+  KeyRound, LayoutDashboard, Layers, LogOut, MapPin, Moon, Network, Search, Settings,
   ShieldCheck, Sun, WifiOff,
 } from 'lucide-vue-next'
 import { useAuthStore } from '../../stores/auth'

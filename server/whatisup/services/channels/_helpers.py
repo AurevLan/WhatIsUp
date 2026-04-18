@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import ipaddress
 import socket
 from urllib.parse import urlparse
@@ -9,8 +10,8 @@ from urllib.parse import urlparse
 from whatisup.models.incident import Incident, IncidentScope
 
 
-def validate_webhook_url(url: str) -> None:
-    """Reject webhook URLs pointing to internal/private IP ranges (SSRF prevention)."""
+def _validate_webhook_url_sync(url: str) -> None:
+    """Blocking SSRF check — meant to be called via run_in_executor."""
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https"):
         raise ValueError(f"Webhook URL scheme must be http or https, got: {parsed.scheme!r}")
@@ -34,6 +35,15 @@ def validate_webhook_url(url: str) -> None:
                 raise ValueError(f"Webhook URL resolves to internal IP: {resolved_ip!r}")
     except socket.gaierror:
         raise ValueError(f"Webhook URL hostname cannot be resolved: {hostname!r}")
+
+
+async def validate_webhook_url(url: str) -> None:
+    """Reject webhook URLs pointing to internal/private IP ranges (SSRF prevention).
+
+    DNS resolution runs in an executor to avoid blocking the event loop.
+    """
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, _validate_webhook_url_sync, url)
 
 
 def scope_label_fr(incident: Incident, ctx: dict) -> str:

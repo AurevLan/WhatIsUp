@@ -19,19 +19,24 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-# ── DNS cache (TTL 60s) ─────────────────────────────────────────────────────
+# ── DNS cache (TTL 60s, max 1000 entries) ───────────────────────────────────
 
 _dns_cache: dict[str, tuple[list, float]] = {}
 _DNS_TTL = 60  # seconds
+_DNS_CACHE_MAX = 1000
 
 
 def _cached_getaddrinfo(hostname: str, port: object = None, **kwargs: object) -> list:
-    """DNS resolution with 60-second TTL cache."""
+    """DNS resolution with 60-second TTL cache (bounded to 1000 entries)."""
     now = time.monotonic()
     cached = _dns_cache.get(hostname)
     if cached and now - cached[1] < _DNS_TTL:
         return cached[0]
     result = socket.getaddrinfo(hostname, port, proto=socket.IPPROTO_TCP)
+    # Evict oldest entries when cache is full
+    if len(_dns_cache) >= _DNS_CACHE_MAX:
+        oldest_key = min(_dns_cache, key=lambda k: _dns_cache[k][1])
+        del _dns_cache[oldest_key]
     _dns_cache[hostname] = (result, now)
     return result
 
@@ -46,6 +51,34 @@ def _is_internal_ip(ip_str: str) -> bool:
         return ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast
     except ValueError:
         return False
+
+
+def validate_host_ssrf(hostname: str) -> str | None:
+    """Reject hostnames that resolve to internal/private IPs.
+
+    Returns an error message if blocked, None if safe.
+    Works for non-HTTP checkers (TCP, UDP, SMTP, DNS).
+    """
+    blocked = {
+        "localhost", "127.0.0.1", "::1", "0.0.0.0",
+        "169.254.169.254", "metadata.google.internal",
+    }
+    if hostname.lower() in blocked:
+        return f"Blocked host: {hostname!r}"
+    # Check if hostname is a raw IP address
+    try:
+        if _is_internal_ip(hostname):
+            return f"Blocked internal IP: {hostname!r}"
+    except Exception:
+        pass
+    # Resolve and check
+    try:
+        for ai in socket.getaddrinfo(hostname, None, proto=socket.IPPROTO_TCP):
+            if _is_internal_ip(ai[4][0]):
+                return f"Host resolves to internal IP: {ai[4][0]!r}"
+    except socket.gaierror:
+        return f"DNS resolution failed for {hostname!r}"
+    return None
 
 
 def _validate_url_ssrf_fast(url: str) -> str | None:
@@ -142,12 +175,18 @@ async def extract_ssl_info(url: str) -> tuple[bool, datetime | None, int | None]
 # ── Shared HTTP client ────────────────────────────────────────────────────────
 
 _http_client: httpx.AsyncClient | None = None
+_http_client_lock = asyncio.Lock()
 
 
-def get_http_client() -> httpx.AsyncClient:
+async def get_http_client() -> httpx.AsyncClient:
     """Return a shared AsyncClient (connection pooling across checks)."""
     global _http_client
-    if _http_client is None or _http_client.is_closed:
+    if _http_client is not None and not _http_client.is_closed:
+        return _http_client
+    async with _http_client_lock:
+        # Double-check after acquiring lock
+        if _http_client is not None and not _http_client.is_closed:
+            return _http_client
         _http_client = httpx.AsyncClient(
             verify=True,
             limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
@@ -176,6 +215,17 @@ def compute_schema_fingerprint(data: Any) -> str:
     return hashlib.sha256(canonical.encode()).hexdigest()[:16]
 
 
+# ── Playwright browser args (shared between pool and fallback) ───────────────
+
+BROWSER_LAUNCH_ARGS = [
+    "--disable-dev-shm-usage",
+    "--disable-gpu",
+    "--disable-extensions",
+    "--disable-background-networking",
+    "--disable-default-apps",
+]
+
+
 # ── Playwright browser pool ──────────────────────────────────────────────────
 
 
@@ -198,13 +248,7 @@ class PlaywrightPool:
                 headless=True,
                 # --no-sandbox required in Docker (container provides isolation)
                 # --disable-web-security disabled to prevent CORS bypass in scenarios
-                args=[
-                    "--disable-dev-shm-usage",
-                    "--disable-gpu",
-                    "--disable-extensions",
-                    "--disable-background-networking",
-                    "--disable-default-apps",
-                ],
+                args=BROWSER_LAUNCH_ARGS,
             )
             logger.info("playwright_pool_started")
         except ImportError:
@@ -223,13 +267,7 @@ class PlaywrightPool:
                     self._pw = await async_playwright().start()
                 self._browser = await self._pw.chromium.launch(
                     headless=True,
-                args=[
-                    "--disable-dev-shm-usage",
-                    "--disable-gpu",
-                    "--disable-extensions",
-                    "--disable-background-networking",
-                    "--disable-default-apps",
-                ],
+                args=BROWSER_LAUNCH_ARGS,
                 )
                 logger.info("playwright_browser_relaunched")
             except Exception as exc:

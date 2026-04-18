@@ -9,6 +9,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from .base import BaseChecker, CheckResult
+from ._shared import validate_host_ssrf
 
 
 class SMTPChecker(BaseChecker):
@@ -22,6 +23,16 @@ class SMTPChecker(BaseChecker):
         starttls = config.get("smtp_starttls", False)
 
         checked_at = datetime.now(UTC)
+
+        ssrf_err = validate_host_ssrf(host)
+        if ssrf_err:
+            return CheckResult(
+                monitor_id=monitor_id,
+                checked_at=checked_at,
+                status="error",
+                error_message=f"SSRF blocked: {ssrf_err}",
+            )
+
         t0 = time.perf_counter()
 
         try:
@@ -35,6 +46,7 @@ class SMTPChecker(BaseChecker):
             banner = banner_line.decode(errors="replace").strip()
             if not banner.startswith("220"):
                 writer.close()
+                await writer.wait_closed()
                 return CheckResult(
                     monitor_id=monitor_id,
                     checked_at=checked_at,
@@ -46,7 +58,7 @@ class SMTPChecker(BaseChecker):
             # EHLO
             writer.write(b"EHLO whatisup-monitor\r\n")
             await writer.drain()
-            while True:
+            for _ehlo_line in range(50):  # guard against infinite continuation
                 line = await asyncio.wait_for(reader.readline(), timeout=timeout_seconds)
                 decoded = line.decode(errors="replace")
                 if decoded.startswith("250 ") or not decoded.startswith("250"):
@@ -59,6 +71,7 @@ class SMTPChecker(BaseChecker):
                 starttls_resp = starttls_line.decode(errors="replace").strip()
                 if not starttls_resp.startswith("220"):
                     writer.close()
+                    await writer.wait_closed()
                     return CheckResult(
                         monitor_id=monitor_id,
                         checked_at=checked_at,

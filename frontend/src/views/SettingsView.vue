@@ -147,12 +147,25 @@
             {{ t('settings.extension_install_title') }}
           </summary>
           <ol class="list-decimal list-inside space-y-1 ml-1 mb-3">
-            <li v-html="t('settings.extension_install_step1')" />
-            <li v-html="t('settings.extension_install_step2')" />
-            <li v-html="t('settings.extension_install_step3')" />
-            <li v-html="t('settings.extension_install_step4')" />
-            <li v-html="t('settings.extension_install_step5')" />
-            <li v-html="t('settings.extension_install_step6')" />
+            <li>{{ t('settings.extension_install_step1') }}</li>
+            <li>{{ t('settings.extension_install_step2') }}</li>
+            <li>
+              <i18n-t keypath="settings.extension_install_step3" tag="span">
+                <template #bold1><strong>{{ t('settings.extension_install_step3_bold1') }}</strong></template>
+                <template #bold2><strong>{{ t('settings.extension_install_step3_bold2') }}</strong></template>
+              </i18n-t>
+            </li>
+            <li>
+              <i18n-t keypath="settings.extension_install_step4" tag="span">
+                <template #bold><strong>{{ t('settings.extension_install_step4_bold') }}</strong></template>
+              </i18n-t>
+            </li>
+            <li>
+              <i18n-t keypath="settings.extension_install_step5" tag="span">
+                <template #bold><strong>{{ t('settings.extension_install_step5_bold') }}</strong></template>
+              </i18n-t>
+            </li>
+            <li>{{ t('settings.extension_install_step6') }}</li>
           </ol>
           <p class="text-xs text-gray-500">
             <strong class="text-gray-400">{{ t('settings.extension_features_title') }}:</strong>

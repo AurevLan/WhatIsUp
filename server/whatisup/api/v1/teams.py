@@ -147,7 +147,6 @@ async def create_team(
         role=TeamRole.owner,
     )
     db.add(membership)
-    await db.commit()
     await db.refresh(team)
 
     return TeamOut(
@@ -196,7 +195,6 @@ async def update_team(
     if payload.name is not None:
         team.name = payload.name
 
-    await db.commit()
     await db.refresh(team)
     count = (
         await db.execute(
@@ -223,7 +221,6 @@ async def delete_team(
     team = await _get_team_or_404(team_id, db)
     await _get_membership_or_403(team_id, current_user, db, min_role=TeamRole.owner)
     await db.delete(team)
-    await db.commit()
 
 
 # ── Members ──────────────────────────────────────────────────────────────────
@@ -294,7 +291,6 @@ async def add_member(
         role=TeamRole(payload.role),
     )
     db.add(membership)
-    await db.commit()
 
     return TeamMemberOut(
         user_id=target_user.id,
@@ -337,7 +333,6 @@ async def update_member_role(
             raise HTTPException(status_code=403, detail="Cannot assign a role higher than your own")
 
     target_membership.role = new_role
-    await db.commit()
 
     target_user = (
         await db.execute(select(User).where(User.id == user_id))
@@ -390,4 +385,3 @@ async def remove_member(
             )
 
     await db.delete(membership)
-    await db.commit()

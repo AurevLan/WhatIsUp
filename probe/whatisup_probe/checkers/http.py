@@ -28,6 +28,21 @@ logger = structlog.get_logger(__name__)
 _MAX_JSON_PATH_DEPTH = 20
 
 
+class _FakeResponse:
+    """Lightweight response wrapper preserving attributes after httpx stream closes."""
+
+    def __init__(self, orig, text_content, raw_bytes):
+        self._orig = orig
+        self.text = text_content
+        self.status_code = orig.status_code
+        self.history = orig.history
+        self.url = orig.url
+        self.headers = orig.headers
+
+    def json(self):
+        return json.loads(self.text)
+
+
 def _resolve_json_path(data: Any, path: str) -> Any:
     """Simple dot-notation JSON path resolver.
 
@@ -122,7 +137,7 @@ class HTTPChecker(BaseChecker):
         try:
             for _attempt in range(2):
                 try:
-                    async with get_http_client().stream(
+                    async with (await get_http_client()).stream(
                         "GET",
                         url,
                         follow_redirects=follow_redirects,
@@ -159,18 +174,6 @@ class HTTPChecker(BaseChecker):
                 body_text = body_bytes.decode("utf-8", errors="replace")
             except Exception:
                 body_text = ""
-
-            class _FakeResponse:
-                def __init__(self, orig, text_content, raw_bytes):
-                    self._orig = orig
-                    self.text = text_content
-                    self.status_code = orig.status_code
-                    self.history = orig.history
-                    self.url = orig.url
-                    self.headers = orig.headers
-
-                def json(self):
-                    return json.loads(self.text)
 
             response = _FakeResponse(response, body_text, body_bytes)
 

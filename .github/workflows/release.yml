@@ -3,13 +3,14 @@ name: Release
 on:
   push:
     tags:
-      - "v[0-9]+.[0-9]+.[0-9]+"
-
-permissions:
-  contents: write
-  packages: write
+      - "v[0-9]+.[0-9]+.[0-9]+*"
 
 jobs:
+  # ── Run CI checks before releasing ──────────────────────────────────────────
+  ci-gate:
+    name: CI gate
+    uses: ./.github/workflows/ci.yml
+
   # ── Extract changelog for this version ──────────────────────────────────────
   release-notes:
     name: Extract release notes
@@ -40,7 +41,9 @@ jobs:
   docker:
     name: Build & push ${{ matrix.image_name }}
     runs-on: ubuntu-latest
-    needs: release-notes
+    needs: [release-notes, ci-gate]
+    permissions:
+      packages: write
     strategy:
       matrix:
         include:
@@ -71,7 +74,7 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest
+            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
 
       - name: Build and push
         uses: docker/build-push-action@v7
@@ -89,6 +92,8 @@ jobs:
     name: Create GitHub Release
     runs-on: ubuntu-latest
     needs: [release-notes, docker]
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v6
 

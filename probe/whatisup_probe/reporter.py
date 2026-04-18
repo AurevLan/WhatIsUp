@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import random
 
 import httpx
 import structlog
@@ -59,8 +60,8 @@ class Reporter:
     async def _flush_loop(self) -> None:
         """Flush queued results every *_FLUSH_INTERVAL* seconds."""
         while True:
-            await asyncio.sleep(_FLUSH_INTERVAL)
             await self._flush_batch()
+            await asyncio.sleep(_FLUSH_INTERVAL)
 
     async def _flush_batch(self) -> None:
         """Send all queued results concurrently in chunks."""
@@ -86,8 +87,16 @@ class Reporter:
         for attempt in range(3):
             try:
                 resp = await self._client.post(url, json=payload)
-                if resp.status_code < 500:
+                if 200 <= resp.status_code < 300:
                     return True
+                if resp.status_code < 500:
+                    # 4xx — permanent error (bad key, forbidden…), no retry
+                    logger.warning(
+                        "push_rejected",
+                        monitor_id=payload.get("monitor_id"),
+                        status=resp.status_code,
+                    )
+                    return False
                 # 5xx — retry
             except (httpx.ConnectError, httpx.TimeoutException):
                 pass
@@ -99,7 +108,7 @@ class Reporter:
                     error=str(exc),
                 )
             if attempt < 2:
-                await asyncio.sleep(1 * (attempt + 1))
+                await asyncio.sleep(random.uniform(0.5, attempt + 1.5))
         logger.error("push_result_dropped", monitor_id=payload.get("monitor_id"))
         return False
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import string
 from datetime import UTC, datetime
 from typing import Any
 
@@ -18,7 +19,7 @@ class WebhookChannel(BaseAlertChannel):
     name = "webhook"
 
     async def test(self, config: dict[str, Any], settings: Any) -> tuple[bool, str]:
-        validate_webhook_url(config["url"])
+        await validate_webhook_url(config["url"])
         payload = {
             "event": "test",
             "message": "WhatIsUp — test de canal",
@@ -43,49 +44,73 @@ class WebhookChannel(BaseAlertChannel):
         config: dict[str, Any],
         settings: Any,
     ) -> str | None:
-        validate_webhook_url(config["url"])
+        await validate_webhook_url(config["url"])
         probe_names = ctx.get("probe_names", {})
-        enriched_event_type = (
-            "incident.resolved" if incident.resolved_at else "incident.opened"
-        )
+        enriched_event_type = "incident.resolved" if incident.resolved_at else "incident.opened"
         monitor_name = ctx.get("monitor_name", str(incident.monitor_id))
         monitor_url = ctx.get("monitor_url")
         check_type = ctx.get("check_type", "unknown")
-        payload = {
-            # Legacy fields (backward compatibility)
-            "event": event_type,
-            "monitor_id": str(incident.monitor_id),
+        # Template variables available for custom webhook templates
+        template_vars = {
             "monitor_name": monitor_name,
+            "monitor_id": str(incident.monitor_id),
             "check_type": check_type,
-            "incident_id": str(incident.id),
+            "status": "resolved" if incident.resolved_at else "down",
+            "started_at": incident.started_at.isoformat() if incident.started_at else "",
+            "resolved_at": incident.resolved_at.isoformat() if incident.resolved_at else "",
+            "duration": str(incident.duration_seconds or 0),
             "scope": incident.scope.value,
-            "affected_probes": [
-                {"id": pid, "name": probe_names.get(pid, pid)}
-                for pid in (incident.affected_probe_ids or [])
-            ],
-            "started_at": incident.started_at.isoformat(),
-            "resolved_at": incident.resolved_at.isoformat() if incident.resolved_at else None,
-            "duration_seconds": incident.duration_seconds,
-            "timestamp": datetime.now(UTC).isoformat(),
-            # Enriched structured payload
             "event_type": enriched_event_type,
-            "monitor": {
-                "id": str(incident.monitor_id),
-                "name": monitor_name,
-                "url": monitor_url,
-                "check_type": check_type,
-            },
-            "incident": {
-                "id": str(incident.id),
-                "started_at": incident.started_at.isoformat() if incident.started_at else None,
-                "resolved_at": incident.resolved_at.isoformat() if incident.resolved_at else None,
-                "scope": incident.scope.value,
-            },
         }
-        payload_bytes = json.dumps(payload).encode()
+
+        # Check for custom webhook template on the channel model
+        webhook_tpl = getattr(channel, "webhook_template", None)
+        if webhook_tpl:
+            tpl = string.Template(webhook_tpl)
+            rendered = tpl.safe_substitute(template_vars)
+            payload_bytes = rendered.encode()
+            # Detect content type: if it looks like JSON, use application/json
+            stripped = rendered.strip()
+            content_type = "application/json" if stripped.startswith(("{", "[")) else "text/plain"
+        else:
+            payload = {
+                # Legacy fields (backward compatibility)
+                "event": event_type,
+                "monitor_id": str(incident.monitor_id),
+                "monitor_name": monitor_name,
+                "check_type": check_type,
+                "incident_id": str(incident.id),
+                "scope": incident.scope.value,
+                "affected_probes": [
+                    {"id": pid, "name": probe_names.get(pid, pid)}
+                    for pid in (incident.affected_probe_ids or [])
+                ],
+                "started_at": incident.started_at.isoformat(),
+                "resolved_at": incident.resolved_at.isoformat() if incident.resolved_at else None,
+                "duration_seconds": incident.duration_seconds,
+                "timestamp": datetime.now(UTC).isoformat(),
+                # Enriched structured payload
+                "event_type": enriched_event_type,
+                "monitor": {
+                    "id": str(incident.monitor_id),
+                    "name": monitor_name,
+                    "url": monitor_url,
+                    "check_type": check_type,
+                },
+                "incident": {
+                    "id": str(incident.id),
+                    "started_at": incident.started_at.isoformat() if incident.started_at else None,
+                    "resolved_at": (
+                        incident.resolved_at.isoformat() if incident.resolved_at else None
+                    ),
+                    "scope": incident.scope.value,
+                },
+            }
+            payload_bytes = json.dumps(payload).encode()
+            content_type = "application/json"
 
         headers = {
-            "Content-Type": "application/json",
+            "Content-Type": content_type,
             "User-Agent": "WhatIsUp/1.0",
             "X-WhatIsUp-Event": enriched_event_type,
         }

@@ -80,15 +80,13 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function login(email, password) {
     const form = new URLSearchParams({ username: email, password })
-    const { data } = await axios.post(`${apiBaseUrl()}/auth/login`, form)
+    const { data } = await api.post('/auth/login', form)
     accessToken.value = data.access_token
     localStorage.setItem('access_token', data.access_token)
     localStorage.setItem('refresh_token', data.refresh_token)
 
-    // Fetch user info
-    const { data: me } = await axios.get(`${apiBaseUrl()}/auth/me`, {
-      headers: { Authorization: `Bearer ${data.access_token}` },
-    })
+    // Fetch user info — token is now in localStorage so the api interceptor adds it
+    const { data: me } = await api.get('/auth/me')
     user.value = me
   }
 

@@ -294,14 +294,14 @@ async def _flush_digest(rule_id: str, channels: list[AlertChannel], ctx: dict) -
                             },
                         )
                 elif channel.type == AlertChannelType.slack:
-                    _validate_webhook_url(decrypted_config["webhook_url"])
+                    await _validate_webhook_url(decrypted_config["webhook_url"])
                     async with httpx.AsyncClient(timeout=10) as client:
                         await client.post(
                             decrypted_config["webhook_url"],
                             json={"text": summary_text},
                         )
                 elif channel.type == AlertChannelType.webhook:
-                    _validate_webhook_url(decrypted_config["url"])
+                    await _validate_webhook_url(decrypted_config["url"])
                     payload_bytes = json.dumps(
                         {
                             "event": "digest",

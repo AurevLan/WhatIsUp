@@ -125,6 +125,7 @@ class AlertChannelCreate(BaseModel):
     type: AlertChannelType
     config: dict
     team_id: uuid.UUID | None = None
+    webhook_template: str | None = None
 
     @field_validator("config")
     @classmethod
@@ -138,11 +139,20 @@ class AlertChannelCreate(BaseModel):
         return validated.model_dump(exclude_none=True)
 
 
+class AlertChannelUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    config: dict | None = None
+    webhook_template: str | None = None
+
+
 class AlertChannelOut(BaseModel):
     id: uuid.UUID
     name: str
     type: AlertChannelType
     team_id: uuid.UUID | None = None
+    webhook_template: str | None = None
     # config intentionally excluded — contains secrets
 
     model_config = {"from_attributes": True}

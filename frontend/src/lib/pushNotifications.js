@@ -9,6 +9,7 @@
 // or decrypt payloads in a future release. Listeners route notification taps
 // to the corresponding monitor detail page.
 
+import { Capacitor } from '@capacitor/core'
 import api from '../api/client'
 import { isNative } from './serverConfig'
 
@@ -67,7 +68,7 @@ export async function registerPushNotifications({ silentIfDenied = false } = {})
     try {
       const { data } = await api.post('/notifications/devices', {
         token: token.value,
-        platform: 'android',
+        platform: Capacitor.getPlatform(),
         label: 'mobile',
       })
       localStorage.setItem(STORAGE_DEVICE_ID, data.id)

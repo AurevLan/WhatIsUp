@@ -64,9 +64,7 @@ class MonitorDependency(Base):
 
     __tablename__ = "monitor_dependencies"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     parent_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True),
         ForeignKey("monitors.id", ondelete="CASCADE"),
@@ -77,9 +75,7 @@ class MonitorDependency(Base):
         ForeignKey("monitors.id", ondelete="CASCADE"),
         nullable=False,
     )
-    suppress_on_parent_down: Mapped[bool] = mapped_column(
-        Boolean, default=True, nullable=False
-    )
+    suppress_on_parent_down: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     parent: Mapped[Monitor] = relationship(
         "Monitor", foreign_keys=[parent_id], back_populates="child_dependencies"
@@ -100,9 +96,7 @@ class CompositeMonitorMember(Base):
 
     __tablename__ = "composite_monitor_members"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     composite_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True),
         ForeignKey("monitors.id", ondelete="CASCADE"),
@@ -180,6 +174,11 @@ class MonitorGroup(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     custom_logo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     accent_color: Mapped[str | None] = mapped_column(String(7), nullable=True)
     announcement_banner: Mapped[str | None] = mapped_column(Text, nullable=True)
+    public_title: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    public_description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    public_logo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    public_accent_color: Mapped[str | None] = mapped_column(String(7), nullable=True)  # #hex
+    public_custom_css: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Scheduled SLA reports
     report_schedule: Mapped[str | None] = mapped_column(String(20), nullable=True)
@@ -314,6 +313,9 @@ class Monitor(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     # Auto-pause after N consecutive failures (None = disabled)
     auto_pause_after: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
+
+    # Per-monitor data retention override (None = use global default)
+    data_retention_days: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
 
     # Heartbeat / cron check type
     heartbeat_slug: Mapped[str | None] = mapped_column(String(80), nullable=True, unique=True)

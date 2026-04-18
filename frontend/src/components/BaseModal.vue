@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <Transition name="modal">
-      <div v-if="modelValue" class="modal-overlay" @click.self="close">
+      <div v-if="modelValue" class="modal-overlay" role="dialog" aria-modal="true" @click.self="close" @keydown.esc="close">
         <div class="modal-panel" :class="[sizeClass]">
           <div v-if="title || $slots.header" class="flex items-center justify-between mb-5">
             <slot name="header">

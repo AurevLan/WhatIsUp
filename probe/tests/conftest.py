@@ -5,8 +5,17 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+import whatisup_probe.config as config_module
+
 # Force localhost URL for tests (Docker image sets CENTRAL_API_URL=http://server:8000)
 os.environ["CENTRAL_API_URL"] = "http://localhost:8000"
+
+
+@pytest.fixture(autouse=True)
+def _reset_settings():
+    """Reset cached settings singleton after each test."""
+    yield
+    config_module._settings = None
 
 
 @pytest.fixture(autouse=True)

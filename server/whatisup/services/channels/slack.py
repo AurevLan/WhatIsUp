@@ -14,7 +14,7 @@ class SlackChannel(BaseAlertChannel):
     name = "slack"
 
     async def test(self, config: dict[str, Any], settings: Any) -> tuple[bool, str]:
-        validate_webhook_url(config["webhook_url"])
+        await validate_webhook_url(config["webhook_url"])
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.post(
                 config["webhook_url"],
@@ -76,7 +76,7 @@ class SlackChannel(BaseAlertChannel):
             ]
         }
 
-        validate_webhook_url(config["webhook_url"])
+        await validate_webhook_url(config["webhook_url"])
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.post(config["webhook_url"], json=payload)
             resp.raise_for_status()

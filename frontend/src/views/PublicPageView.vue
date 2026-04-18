@@ -5,8 +5,8 @@
       <!-- Erreur de chargement (404 ou réseau) -->
       <div v-if="loadError" class="text-center py-32">
         <p class="text-4xl mb-4">🔍</p>
-        <h1 class="text-2xl font-bold text-white mb-2">Status page introuvable</h1>
-        <p class="text-gray-500 text-sm">Aucune page publique ne correspond à cette URL.</p>
+        <h1 class="text-2xl font-bold text-white mb-2">{{ t('public_page.not_found_title') }}</h1>
+        <p class="text-gray-500 text-sm">{{ t('public_page.not_found_desc') }}</p>
       </div>
 
       <template v-else>
@@ -24,9 +24,9 @@
 
       <!-- Header / Statut global -->
       <div class="text-center mb-10">
-        <img v-if="page?.custom_logo_url" :src="page.custom_logo_url" alt="Logo" class="mx-auto mb-4 max-h-16 object-contain" />
-        <h1 class="text-3xl font-bold text-white">{{ page?.name || 'Status Page' }}</h1>
-        <p v-if="page?.description" class="text-gray-400 mt-2">{{ page.description }}</p>
+        <img v-if="page?.public_logo_url || page?.custom_logo_url" :src="page.public_logo_url || page.custom_logo_url" alt="Logo" class="mx-auto mb-4 max-h-16 object-contain" />
+        <h1 class="text-3xl font-bold text-white">{{ page?.public_title || page?.name || 'Status Page' }}</h1>
+        <p v-if="page?.public_description || page?.description" class="text-gray-400 mt-2">{{ page.public_description || page.description }}</p>
 
         <!-- Bandeau statut global -->
         <div class="mt-5">
@@ -50,7 +50,7 @@
           <div v-else
             class="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-gray-800/60 border border-gray-700/50 text-gray-400 font-semibold">
             <span class="w-2.5 h-2.5 rounded-full bg-gray-500"></span>
-            No data available
+            {{ t('public_page.no_data') }}
           </div>
         </div>
       </div>
@@ -61,7 +61,7 @@
 
         <div v-if="!loading && monitors.length === 0"
           class="bg-gray-900 border border-gray-800 rounded-xl p-8 text-center text-gray-500 text-sm">
-          Aucun monitor dans ce groupe pour le moment.
+          {{ t('public_page.no_monitors') }}
         </div>
 
         <div v-for="m in monitors" :key="m.id"
@@ -274,6 +274,8 @@
 
       </template>
     </div>
+    <!-- Inject custom CSS from status page settings -->
+    <component v-if="page?.public_custom_css" :is="'style'" v-text="page.public_custom_css" />
   </div>
 </template>
 
@@ -298,8 +300,9 @@ const loadError = ref(false)
 const bannerDismissed = ref(false)
 
 const accentStyle = computed(() => {
-  if (page.value?.accent_color) {
-    return { '--status-accent': page.value.accent_color }
+  const color = page.value?.public_accent_color || page.value?.accent_color
+  if (color) {
+    return { '--status-accent': color }
   }
   return {}
 })

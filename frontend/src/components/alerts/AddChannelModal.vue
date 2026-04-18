@@ -39,6 +39,16 @@
             <label class="block text-sm font-medium text-gray-300 mb-1">Secret (for HMAC signature)</label>
             <input v-model="webhookSecret" class="input w-full" placeholder="Optional secret" />
           </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">{{ t('alerts.webhook_template') }}</label>
+            <textarea
+              v-model="webhookTemplate"
+              class="input w-full font-mono text-xs"
+              rows="5"
+              :placeholder="t('alerts.webhook_template_placeholder')"
+            ></textarea>
+            <p class="text-xs text-gray-500 mt-1">{{ t('alerts.webhook_template_hint') }}</p>
+          </div>
         </div>
 
         <!-- Slack config -->
@@ -158,8 +168,11 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import api from '../../api/client'
 import BaseModal from '../BaseModal.vue'
+
+const { t } = useI18n()
 
 const emit = defineEmits(['close', 'created'])
 const form = ref({ name: '', type: '' })
@@ -169,6 +182,7 @@ const error = ref('')
 const emailTo = ref('')
 const webhookUrl = ref('')
 const webhookSecret = ref('')
+const webhookTemplate = ref('')
 const telegramToken = ref('')
 const telegramChatId = ref('')
 const telegramChatName = ref('')
@@ -224,7 +238,11 @@ async function handleSubmit() {
   loading.value = true
   error.value = ''
   try {
-    await api.post('/alerts/channels', { ...form.value, config: buildConfig() })
+    const payload = { ...form.value, config: buildConfig() }
+    if (form.value.type === 'webhook' && webhookTemplate.value) {
+      payload.webhook_template = webhookTemplate.value
+    }
+    await api.post('/alerts/channels', payload)
     emit('created')
   } catch (err) {
     error.value = err.response?.data?.detail || 'Failed to add channel'

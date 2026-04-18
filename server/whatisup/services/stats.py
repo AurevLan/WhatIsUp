@@ -61,12 +61,13 @@ def latest_results_subq(*where_clauses: Any, group_col: Any) -> Any:
 
 
 async def invalidate_uptime_cache(monitor_id: uuid.UUID) -> None:
-    """Delete cached uptime entries for a monitor (called on new check result)."""
+    """Delete all cached uptime entries for a monitor (called on new check result)."""
     from whatisup.core.redis import get_redis
 
     redis = get_redis()
-    keys = [f"whatisup:uptime:{monitor_id}:24", f"whatisup:uptime:{monitor_id}:168"]
-    await redis.delete(*keys)
+    pattern = f"whatisup:uptime:{monitor_id}:*"
+    async for key in redis.scan_iter(match=pattern):
+        await redis.delete(key)
 
 
 def _aggregate_consensus(
@@ -322,7 +323,6 @@ async def compute_percentile_timeseries(
     db: AsyncSession,
     monitor_id: uuid.UUID,
     hours: int = 24,
-    bucket_minutes: int = 30,
 ) -> list[dict]:
     """Compute P50/P95/P99 response time per time bucket."""
     since = datetime.now(UTC) - timedelta(hours=hours)

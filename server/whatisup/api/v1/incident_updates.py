@@ -88,7 +88,7 @@ async def create_incident_update(
         created_at=datetime.now(UTC),
     )
     db.add(update)
-    await db.commit()
+    await db.flush()
     await db.refresh(update)
     return update
 
@@ -116,7 +116,6 @@ async def delete_incident_update(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Update not found")
 
     await db.delete(update)
-    await db.commit()
 
 
 @router.post("/{incident_id}/ack", response_model=IncidentOut)
@@ -134,7 +133,6 @@ async def acknowledge_incident(
         )
     incident.acked_at = datetime.now(UTC)
     incident.acked_by_id = current_user.id
-    await db.commit()
     await db.refresh(incident)
     return _incident_to_out(incident)
 
@@ -150,7 +148,6 @@ async def unacknowledge_incident(
     incident = await _get_incident_for_user(incident_id, current_user, db)
     incident.acked_at = None
     incident.acked_by_id = None
-    await db.commit()
     await db.refresh(incident)
     return _incident_to_out(incident)
 

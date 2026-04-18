@@ -19,7 +19,7 @@ class SignalChannel(BaseAlertChannel):
 
     async def test(self, config: dict[str, Any], settings: Any) -> tuple[bool, str]:
         api_url = config["api_url"].rstrip("/")
-        validate_webhook_url(api_url)
+        await validate_webhook_url(api_url)
 
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.post(
@@ -63,7 +63,7 @@ class SignalChannel(BaseAlertChannel):
         message = "\n".join(lines)
 
         api_url = config["api_url"].rstrip("/")
-        validate_webhook_url(api_url)
+        await validate_webhook_url(api_url)
 
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.post(

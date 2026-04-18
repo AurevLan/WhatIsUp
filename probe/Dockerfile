@@ -1,17 +1,28 @@
-FROM python:3.14-slim
+# ── Stage 1: Build ─────────────────────────────────────────────────────────────
+FROM python:3.12-slim AS builder
 
-WORKDIR /app
+WORKDIR /build
 
 # System deps for SSL/cryptography
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libssl-dev \
+    gcc libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install probe package
 COPY pyproject.toml README.md ./
 COPY whatisup_probe/ whatisup_probe/
 
-RUN pip install --no-cache-dir -e .
+RUN pip install --no-cache-dir --prefix=/install .
+
+# ── Stage 2: Runtime ───────────────────────────────────────────────────────────
+FROM python:3.12-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libssl3 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /install /usr/local
 
 # Install Playwright browsers in a shared path accessible to any user
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright

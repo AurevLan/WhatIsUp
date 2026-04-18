@@ -21,7 +21,12 @@ class ProbeSettings(BaseSettings):
     @field_validator("probe_api_key")
     @classmethod
     def _validate_api_key(cls, v: str) -> str:
-        if v and not v.startswith("wiu_"):
+        if not v:
+            raise ValueError(
+                "PROBE_API_KEY is required. "
+                "Set it in the environment or .env file."
+            )
+        if not v.startswith("wiu_"):
             raise ValueError("Invalid probe API key format (expected wiu_ prefix)")
         return v
 

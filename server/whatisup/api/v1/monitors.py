@@ -2,8 +2,10 @@
 
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, Response, status
+from pydantic import BaseModel
 from sqlalchemy import and_, delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -61,8 +63,11 @@ async def _get_monitor_or_404(
 
 @router.get("/", response_model=list[MonitorOut])
 async def list_monitors(
+    response: Response,
     enabled: bool | None = None,
     group_id: uuid.UUID | None = None,
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[dict]:
@@ -74,7 +79,18 @@ async def list_monitors(
         query = query.where(Monitor.enabled == enabled)
     if group_id is not None:
         query = query.where(Monitor.group_id == group_id)
-    monitors = list((await db.execute(query.order_by(Monitor.created_at.desc()))).scalars().all())
+
+    # Total count before pagination
+    total_count = (
+        await db.execute(select(func.count()).select_from(query.subquery()))
+    ).scalar_one()
+    response.headers["X-Total-Count"] = str(total_count)
+
+    monitors = list(
+        (await db.execute(query.order_by(Monitor.created_at.desc()).limit(limit).offset(offset)))
+        .scalars()
+        .all()
+    )
 
     if not monitors:
         return []
@@ -116,11 +132,7 @@ async def list_monitors(
     if dialect == "sqlite":
         p95_col = func.avg(CheckResult.response_time_ms).label("p95")
     else:
-        p95_col = (
-            func.percentile_cont(0.95)
-            .within_group(CheckResult.response_time_ms)
-            .label("p95")
-        )
+        p95_col = func.percentile_cont(0.95).within_group(CheckResult.response_time_ms).label("p95")
     p95_rows = (
         await db.execute(
             select(CheckResult.monitor_id, p95_col)
@@ -132,9 +144,7 @@ async def list_monitors(
             .group_by(CheckResult.monitor_id)
         )
     ).all()
-    p95_map = {
-        str(r.monitor_id): round(r.p95, 1) for r in p95_rows if r.p95 is not None
-    }
+    p95_map = {str(r.monitor_id): round(r.p95, 1) for r in p95_rows if r.p95 is not None}
 
     # Last response time per monitor (reuse latest result subquery)
     rt_rows = (
@@ -204,6 +214,170 @@ async def list_monitors(
     return out
 
 
+# ── Export / Import configuration ──────────────────────────────────────────
+
+
+# Fields to strip from export (runtime / server-managed)
+_EXPORT_STRIP_FIELDS = {
+    "id",
+    "owner_id",
+    "team_id",
+    "created_at",
+    "updated_at",
+    "last_status",
+    "uptime_24h",
+    "last_response_time_ms",
+    "p95_response_time_ms",
+    "sparkline",
+    "last_heartbeat_at",
+    "schema_baseline",
+    "schema_baseline_updated_at",
+    "dns_baseline_ips",
+}
+
+
+@router.get("/export")
+@limiter.limit("10/minute")
+async def export_monitors(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[dict]:
+    """Export all user's monitors as a JSON array of configurations."""
+    query = select(Monitor)
+    if not current_user.is_superadmin:
+        team_ids = await get_user_team_ids(current_user, db)
+        query = query.where(build_access_filter(Monitor, current_user, team_ids))
+    monitors = list((await db.execute(query.order_by(Monitor.created_at.desc()))).scalars().all())
+    out = []
+    for m in monitors:
+        d = MonitorOut.model_validate(m).model_dump(mode="json")
+        for key in _EXPORT_STRIP_FIELDS:
+            d.pop(key, None)
+        out.append(d)
+    return out
+
+
+class ImportResult(BaseModel):
+    imported: int = 0
+    updated: int = 0
+    errors: list[str] = []
+
+
+@router.post("/import", response_model=ImportResult)
+@limiter.limit("5/minute")
+async def import_monitors(
+    request: Request,
+    monitors_data: list[dict[str, Any]] = Body(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Import monitors from a JSON array. Upserts by name."""
+    if not current_user.is_superadmin and not current_user.can_create_monitors:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Monitor creation not allowed for your account",
+        )
+
+    imported = 0
+    updated = 0
+    errors: list[str] = []
+
+    # Pre-load existing monitors by name for this user
+    existing_query = select(Monitor)
+    if not current_user.is_superadmin:
+        team_ids = await get_user_team_ids(current_user, db)
+        existing_query = existing_query.where(build_access_filter(Monitor, current_user, team_ids))
+    existing = (await db.execute(existing_query)).scalars().all()
+    existing_by_name = {m.name: m for m in existing}
+
+    # Config fields that map to Monitor columns
+    config_fields = {
+        "name",
+        "url",
+        "group_id",
+        "interval_seconds",
+        "timeout_seconds",
+        "follow_redirects",
+        "expected_status_codes",
+        "enabled",
+        "ssl_check_enabled",
+        "ssl_expiry_warn_days",
+        "check_type",
+        "tcp_port",
+        "udp_port",
+        "smtp_port",
+        "smtp_starttls",
+        "domain_expiry_warn_days",
+        "dns_record_type",
+        "dns_expected_value",
+        "dns_nameservers",
+        "dns_drift_alert",
+        "dns_split_enabled",
+        "dns_baseline_ips_internal",
+        "dns_baseline_ips_external",
+        "composite_aggregation",
+        "keyword",
+        "keyword_negate",
+        "expected_json_path",
+        "expected_json_value",
+        "scenario_steps",
+        "scenario_variables",
+        "heartbeat_slug",
+        "heartbeat_interval_seconds",
+        "heartbeat_grace_seconds",
+        "body_regex",
+        "expected_headers",
+        "json_schema",
+        "slo_target",
+        "slo_window_days",
+        "network_scope",
+        "flap_threshold",
+        "flap_window_minutes",
+        "auto_pause_after",
+        "data_retention_days",
+        "schema_drift_enabled",
+    }
+
+    for idx, entry in enumerate(monitors_data):
+        name = entry.get("name")
+        if not name:
+            errors.append(f"Entry {idx}: missing 'name' field")
+            continue
+        url = entry.get("url")
+        if not url:
+            errors.append(f"Entry {idx} ({name}): missing 'url' field")
+            continue
+
+        try:
+            data = {k: v for k, v in entry.items() if k in config_fields and v is not None}
+
+            if name in existing_by_name:
+                # Update existing
+                monitor = existing_by_name[name]
+                for field, value in data.items():
+                    if field in ("name",):
+                        continue
+                    if field == "url":
+                        value = str(value)
+                    setattr(monitor, field, value)
+                updated += 1
+            else:
+                # Create new
+                monitor = Monitor(
+                    owner_id=current_user.id,
+                    **{k: (str(v) if k == "url" else v) for k, v in data.items()},
+                )
+                db.add(monitor)
+                existing_by_name[name] = monitor
+                imported += 1
+        except Exception as exc:
+            errors.append(f"Entry {idx} ({name}): {exc!s}")
+
+    await db.flush()
+    return {"imported": imported, "updated": updated, "errors": errors}
+
+
 @router.post("/", response_model=MonitorOut, status_code=status.HTTP_201_CREATED)
 @limiter.limit("10/minute")
 async def create_monitor(
@@ -254,13 +428,13 @@ async def create_monitor(
         expected_json_path=payload.expected_json_path,
         expected_json_value=payload.expected_json_value,
         scenario_steps=(
-            [s.model_dump() for s in payload.scenario_steps]
-            if payload.scenario_steps
-            else None
+            [s.model_dump() for s in payload.scenario_steps] if payload.scenario_steps else None
         ),
         scenario_variables=encrypt_scenario_variables(
             [v.model_dump() for v in payload.scenario_variables]
-        ) if payload.scenario_variables else None,
+        )
+        if payload.scenario_variables
+        else None,
         heartbeat_slug=payload.heartbeat_slug,
         heartbeat_interval_seconds=payload.heartbeat_interval_seconds,
         heartbeat_grace_seconds=payload.heartbeat_grace_seconds,
@@ -289,7 +463,9 @@ async def create_monitor(
                         AlertChannel.owner_id == current_user.id,
                     )
                 )
-            ).scalars().all()
+            )
+            .scalars()
+            .all()
         )
         if channels:
             for preset in get_presets(monitor.check_type):
@@ -599,7 +775,7 @@ async def get_postmortem(
         )
     ).scalar_one_or_none()
     if incident is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incident introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incident not found")
 
     now_utc = datetime.now(UTC)
     window_start = incident.started_at - timedelta(minutes=5)
@@ -662,25 +838,25 @@ async def get_postmortem(
         downtime_minutes = round(dur_secs / 60, 1)
         resolved_str = incident.resolved_at.strftime("%Y-%m-%d %H:%M UTC")
     else:
-        dur_label = "en cours"
+        dur_label = "in progress"
         downtime_minutes = round((now_utc - incident.started_at).total_seconds() / 60, 1)
-        resolved_str = "_en cours_"
+        resolved_str = "_in progress_"
 
     started_str = incident.started_at.strftime("%Y-%m-%d %H:%M UTC")
 
     # Construction de la chronologie
     timeline_rows = [
         f"| {incident.started_at.strftime('%H:%M UTC')}"
-        f" | ❌ Incident ouvert — {incident.scope.value} |"
+        f" | ❌ Incident opened — {incident.scope.value} |"
     ]
     for evt, ch_name in alert_events_rows:
         icon = "📧" if evt.status.value == "sent" else "⚠️"
         timeline_rows.append(
-            f"| {evt.sent_at.strftime('%H:%M UTC')} | {icon} Alerte envoyée via {ch_name} |"
+            f"| {evt.sent_at.strftime('%H:%M UTC')} | {icon} Alert sent via {ch_name} |"
         )
     if incident.resolved_at:
         timeline_rows.append(
-            f"| {incident.resolved_at.strftime('%H:%M UTC')} | ✅ Incident résolu |"
+            f"| {incident.resolved_at.strftime('%H:%M UTC')} | ✅ Incident resolved |"
         )
     timeline_md = "\n".join(timeline_rows)
 
@@ -688,29 +864,29 @@ async def get_postmortem(
     if annotations_rows:
         ann_lines = "\n".join(
             f"- **{a.annotated_at.strftime('%H:%M UTC')}** — {a.content}"
-            + (f" _(par {a.created_by})_" if a.created_by else "")
+            + (f" _(by {a.created_by})_" if a.created_by else "")
             for a in annotations_rows
         )
     else:
-        ann_lines = "_Aucune annotation dans cette période._"
+        ann_lines = "_No annotations in this period._"
 
-    markdown = f"""# Post-mortem : {monitor.name}
+    markdown = f"""# Post-mortem: {monitor.name}
 
-**Durée** : {started_str} → {resolved_str} ({dur_label})
-**Impact** : {downtime_minutes} minutes d'indisponibilité
+**Duration**: {started_str} → {resolved_str} ({dur_label})
+**Impact**: {downtime_minutes} minutes of downtime
 
-## Chronologie
-| Heure | Événement |
-|-------|-----------|
+## Timeline
+| Time | Event |
+|------|-------|
 {timeline_md}
 
-## Métriques pendant l'incident
-- Checks effectués : {total_checks}
-- Taux d'échec : {failure_pct}%
-- Temps de réponse moyen : {avg_rt if avg_rt is not None else "—"}ms
+## Metrics during the incident
+- Checks performed: {total_checks}
+- Failure rate: {failure_pct}%
+- Average response time: {avg_rt if avg_rt is not None else "—"}ms
 
-## Actions correctives
-<!-- À compléter -->
+## Corrective actions
+<!-- To be filled in -->
 
 ## Annotations
 {ann_lines}
@@ -903,6 +1079,93 @@ async def get_slo(
 # ---------------------------------------------------------------------------
 
 
+@router.get("/graph")
+@limiter.limit("30/minute")
+async def get_dependency_graph(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Return the full monitor dependency graph for the current user.
+
+    Nodes: all accessible monitors with their current status.
+    Edges: all dependencies between those monitors.
+    """
+    from whatisup.models.monitor import MonitorDependency
+
+    # Fetch all accessible monitors
+    query = select(Monitor)
+    if not current_user.is_superadmin:
+        team_ids = await get_user_team_ids(current_user, db)
+        query = query.where(build_access_filter(Monitor, current_user, team_ids))
+    monitors = list((await db.execute(query)).scalars().all())
+
+    monitor_ids = [m.id for m in monitors]
+    monitor_id_set = {m.id for m in monitors}
+
+    # Latest status per monitor
+    nodes = []
+    if monitor_ids:
+        max_ts_subq = (
+            select(
+                CheckResult.monitor_id,
+                func.max(CheckResult.checked_at).label("max_at"),
+            )
+            .where(CheckResult.monitor_id.in_(monitor_ids))
+            .group_by(CheckResult.monitor_id)
+            .subquery()
+        )
+        latest_rows = (
+            await db.execute(
+                select(CheckResult.monitor_id, CheckResult.status, CheckResult.checked_at).join(
+                    max_ts_subq,
+                    and_(
+                        CheckResult.monitor_id == max_ts_subq.c.monitor_id,
+                        CheckResult.checked_at == max_ts_subq.c.max_at,
+                    ),
+                )
+            )
+        ).all()
+        now = datetime.now(UTC)
+        latest_map = {}
+        for r in latest_rows:
+            age = (now - r.checked_at).total_seconds()
+            latest_map[r.monitor_id] = r.status.value if age < 300 else None
+
+    for m in monitors:
+        nodes.append(
+            {
+                "id": str(m.id),
+                "name": m.name,
+                "status": latest_map.get(m.id) if monitor_ids else None,
+                "check_type": m.check_type,
+            }
+        )
+
+    # Fetch all dependencies between accessible monitors only
+    edges = []
+    if monitor_ids:
+        dep_rows = (
+            await db.execute(
+                select(MonitorDependency).where(
+                    MonitorDependency.parent_id.in_(monitor_ids),
+                    MonitorDependency.child_id.in_(monitor_ids),
+                )
+            )
+        ).scalars().all()
+        for dep in dep_rows:
+            if dep.parent_id in monitor_id_set and dep.child_id in monitor_id_set:
+                edges.append(
+                    {
+                        "source": str(dep.parent_id),
+                        "target": str(dep.child_id),
+                        "suppress_on_parent_down": dep.suppress_on_parent_down,
+                    }
+                )
+
+    return {"nodes": nodes, "edges": edges}
+
+
 @router.get(
     "/{monitor_id}/dependencies",
     response_model=list[MonitorDependencyOut],
@@ -919,10 +1182,14 @@ async def list_dependencies(
 
     await _get_monitor_or_404(monitor_id, current_user, db)
     rows = (
-        await db.execute(
-            select(MonitorDependency).where(MonitorDependency.child_id == monitor_id)
+        (
+            await db.execute(
+                select(MonitorDependency).where(MonitorDependency.child_id == monitor_id)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return list(rows)
 
 
@@ -1003,9 +1270,7 @@ async def remove_dependency(
         )
     ).scalar_one_or_none()
     if dep is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Dependency not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dependency not found")
     await db.delete(dep)
 
 
@@ -1132,7 +1397,6 @@ async def accept_schema_baseline(
 
     monitor.schema_baseline = latest.schema_fingerprint
     monitor.schema_baseline_updated_at = datetime.now(UTC)
-    await db.commit()
 
     return {
         "baseline": monitor.schema_baseline,
@@ -1152,7 +1416,6 @@ async def reset_schema_baseline(
     monitor = await _get_monitor_or_404(monitor_id, current_user, db)
     monitor.schema_baseline = None
     monitor.schema_baseline_updated_at = None
-    await db.commit()
 
 
 # ---------------------------------------------------------------------------
@@ -1176,12 +1439,16 @@ async def _would_create_cycle(
     visited.add(member_id)
 
     children = (
-        await db.execute(
-            select(CompositeMonitorMember.member_id).where(
-                CompositeMonitorMember.composite_id == member_id
+        (
+            await db.execute(
+                select(CompositeMonitorMember.monitor_id).where(
+                    CompositeMonitorMember.composite_id == member_id
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     for child_id in children:
         if await _would_create_cycle(db, composite_id, child_id, visited):
@@ -1208,12 +1475,16 @@ async def list_composite_members(
             detail="This monitor is not a composite monitor",
         )
     rows = (
-        await db.execute(
-            select(CompositeMonitorMember).where(
-                CompositeMonitorMember.composite_id == monitor_id
+        (
+            await db.execute(
+                select(CompositeMonitorMember).where(
+                    CompositeMonitorMember.composite_id == monitor_id
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return list(rows)
 
 
@@ -1262,9 +1533,7 @@ async def add_composite_member(
         )
     ).scalar_one_or_none()
     if existing:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="Member already added"
-        )
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Member already added")
 
     member = CompositeMonitorMember(
         composite_id=monitor_id,

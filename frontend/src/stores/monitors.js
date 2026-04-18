@@ -4,9 +4,9 @@ import { monitorsApi } from '../api/monitors'
 
 // Auto-clear flapping state after 10 minutes (matches default flap_window_minutes)
 const FLAP_TTL_MS = 10 * 60 * 1000
-const flapTimers = {}
 
 export const useMonitorStore = defineStore('monitors', () => {
+  const flapTimers = {}
   const monitors = ref([])
   const loading = ref(false)
 

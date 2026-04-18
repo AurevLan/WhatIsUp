@@ -82,7 +82,7 @@ async def subscribe(
         existing.auth = body.auth
         if body.user_agent:
             existing.user_agent = body.user_agent
-        await db.commit()
+        await db.flush()
         await db.refresh(existing)
         return existing
 
@@ -94,7 +94,7 @@ async def subscribe(
         user_agent=body.user_agent,
     )
     db.add(sub)
-    await db.commit()
+    await db.flush()
     await db.refresh(sub)
     return sub
 
@@ -114,7 +114,6 @@ async def unsubscribe(
     ).scalars().all()
     for sub in subs:
         await db.delete(sub)
-    await db.commit()
 
 
 @router.post("/subscription/test", status_code=status.HTTP_204_NO_CONTENT)

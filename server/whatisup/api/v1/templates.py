@@ -84,7 +84,7 @@ async def create_template(
         is_public=body.is_public,
     )
     db.add(template)
-    await db.commit()
+    await db.flush()
     await db.refresh(template)
     return template
 
@@ -138,7 +138,7 @@ async def update_template(
             value = [v if isinstance(v, dict) else v.model_dump() for v in (body.variables or [])]
         setattr(template, field, value)
 
-    await db.commit()
+    await db.flush()
     await db.refresh(template)
     return template
 
@@ -163,7 +163,6 @@ async def delete_template(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Template not found")
 
     await db.delete(template)
-    await db.commit()
 
 
 @router.post("/{template_id}/apply", status_code=201)

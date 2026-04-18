@@ -94,6 +94,11 @@ const routes = [
         component: () => import('../views/TemplatesView.vue'),
       },
       {
+        path: 'graph',
+        name: 'DependencyGraph',
+        component: () => import('../views/DependencyGraphView.vue'),
+      },
+      {
         path: 'admin',
         name: 'Admin',
         component: () => import('../views/AdminView.vue'),

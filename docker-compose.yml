@@ -58,7 +58,7 @@ services:
           memory: 128m
           cpus: "0.5"
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      test: ["CMD-SHELL", "REDISCLI_AUTH=$$REDIS_PASSWORD redis-cli --no-auth-warning ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -74,7 +74,7 @@ services:
       # server falls back gracefully when the file is missing.
       - ./mobile/.secrets/firebase-service-account.json:/run/secrets/fcm.json:ro
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-whatisup}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-whatisup}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
@@ -151,7 +151,7 @@ services:
       server:
         condition: service_healthy
       frontend:
-        condition: service_started
+        condition: service_healthy
     restart: unless-stopped
     deploy:
       resources:
@@ -182,6 +182,11 @@ services:
         condition: service_healthy
     restart: unless-stopped
     shm_size: '256mb'
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "2.0"
     profiles:
       - central-probe
 
@@ -206,6 +211,11 @@ services:
         condition: service_healthy
     restart: unless-stopped
     shm_size: '256mb'
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "2.0"
     profiles:
       - probe
 

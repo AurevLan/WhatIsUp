@@ -6,7 +6,7 @@
       <div>
         <h1 class="text-xl font-bold" style="color:var(--text-1)">{{ t('monitors.title') }}</h1>
         <p class="mt-0.5 text-xs" style="color:var(--text-3)">
-          {{ monitors.length }} monitors<template v-if="downCount > 0"> — <span style="color:var(--down)">{{ downCount }} down</span></template><template v-if="errorCount > 0">, <span style="color:#fb923c">{{ errorCount }} error</span></template>
+          {{ monitors.length }} {{ t('nav.monitors').toLowerCase() }}<template v-if="downCount > 0"> — <span style="color:var(--down)">{{ downCount }} {{ t('status.down').toLowerCase() }}</span></template><template v-if="errorCount > 0">, <span style="color:#fb923c">{{ errorCount }} {{ t('common.error').toLowerCase() }}</span></template>
         </p>
       </div>
     </div>
@@ -52,6 +52,15 @@
             <LayoutGrid class="w-4 h-4" />
           </button>
         </div>
+        <button @click="exportMonitors" class="btn-secondary h-8 text-xs flex items-center gap-1">
+          <Download class="w-4 h-4" />
+          {{ t('monitors.export_json') }}
+        </button>
+        <button @click="triggerImport" class="btn-secondary h-8 text-xs flex items-center gap-1">
+          <Upload class="w-4 h-4" />
+          {{ t('monitors.import_json') }}
+        </button>
+        <input ref="importFileInput" type="file" accept=".json" class="hidden" @change="handleImportFile" />
         <button @click="showCreate = true" class="btn-primary h-8 text-xs">
           <Plus class="w-4 h-4" />
           {{ t('monitors.add') }}
@@ -430,7 +439,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { ChevronDown, ChevronUp, Download, Eye, LayoutGrid, List, Monitor, Pause, PencilLine, Play, Plus, Search, Trash2, X } from 'lucide-vue-next'
+import { ChevronDown, ChevronUp, Download, Eye, LayoutGrid, List, Monitor, Pause, PencilLine, Play, Plus, Search, Trash2, Upload, X } from 'lucide-vue-next'
 import { useMonitorStore } from '../stores/monitors'
 import { monitorsApi } from '../api/monitors'
 import { useToast } from '../composables/useToast'
@@ -705,7 +714,54 @@ function bulkExportCsv() {
   a.download = `monitors-export-${new Date().toISOString().slice(0, 10)}.csv`
   a.click()
   URL.revokeObjectURL(url)
-  success(`Export CSV de ${selectedMonitors.length} monitor(s) téléchargé`)
+  success(t('monitors.bulk_export_success', { count: selectedMonitors.length }))
+}
+
+const importFileInput = ref(null)
+
+async function exportMonitors() {
+  try {
+    const { data } = await monitorsApi.exportAll()
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `monitors-export-${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+    success(t('monitors.export_json_success'))
+  } catch {
+    toastError(t('common.error'))
+  }
+}
+
+function triggerImport() {
+  importFileInput.value?.click()
+}
+
+async function handleImportFile(event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+  try {
+    const text = await file.text()
+    const data = JSON.parse(text)
+    if (!Array.isArray(data)) {
+      toastError(t('monitors.import_json_invalid'))
+      return
+    }
+    const { data: result } = await monitorsApi.importAll(data)
+    const parts = []
+    if (result.imported > 0) parts.push(`${result.imported} imported`)
+    if (result.updated > 0) parts.push(`${result.updated} updated`)
+    if (result.errors?.length > 0) parts.push(`${result.errors.length} errors`)
+    success(parts.join(', ') || t('common.success'))
+    monitorStore.fetchAll()
+  } catch {
+    toastError(t('monitors.import_json_error'))
+  } finally {
+    // Reset file input so the same file can be re-selected
+    event.target.value = ''
+  }
 }
 
 const statusCfg = {
@@ -716,7 +772,7 @@ const statusCfg = {
 }
 function dotClass(s)    { return statusCfg[s]?.dot   ?? 'bg-gray-600' }
 function badgeClass(s)  { return statusCfg[s]?.badge  ?? 'badge-unknown' }
-function statusLabel(s) { return statusCfg[s]?.label  ?? 'No data' }
+function statusLabel(s) { return statusCfg[s]?.label  ?? t('status.no_data') }
 
 function formatTarget(monitor) {
   const raw = monitor.url?.replace(/^https?:\/\//, '') || ''

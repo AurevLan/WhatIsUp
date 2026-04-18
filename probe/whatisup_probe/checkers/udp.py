@@ -10,6 +10,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from .base import BaseChecker, CheckResult
+from ._shared import validate_host_ssrf
 
 
 class UDPChecker(BaseChecker):
@@ -22,6 +23,16 @@ class UDPChecker(BaseChecker):
         timeout_seconds = config["timeout_seconds"]
 
         checked_at = datetime.now(UTC)
+
+        ssrf_err = validate_host_ssrf(host)
+        if ssrf_err:
+            return CheckResult(
+                monitor_id=monitor_id,
+                checked_at=checked_at,
+                status="error",
+                error_message=f"SSRF blocked: {ssrf_err}",
+            )
+
         t0 = time.perf_counter()
 
         def _udp_probe() -> tuple[str, str | None]:

@@ -12,7 +12,11 @@ export const monitorsApi = {
   probeStatus: (id) => api.get(`/monitors/${id}/probes`),
   percentiles: (id, params) => api.get(`/monitors/${id}/percentiles`, { params }),
   bulkAction: (payload) => api.post('/monitors/bulk', payload),
+  exportAll: () => api.get('/monitors/export'),
+  importAll: (data) => api.post('/monitors/import', data),
   getPostmortem: (monitorId, incidentId) => api.get(`/monitors/${monitorId}/incidents/${incidentId}/postmortem`),
+  // Dependency graph
+  getDependencyGraph: () => api.get('/monitors/graph'),
   // Dependencies
   listDependencies: (id) => api.get(`/monitors/${id}/dependencies`),
   addDependency: (id, data) => api.post(`/monitors/${id}/dependencies`, data),

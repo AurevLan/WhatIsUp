@@ -4,7 +4,7 @@
 
         <!-- Check type selector -->
         <div>
-          <label class="block text-sm font-medium text-gray-300 mb-2">Check type</label>
+          <label class="block text-sm font-medium text-gray-300 mb-2">{{ t('create_monitor.check_type') }}</label>
           <div class="grid grid-cols-4 sm:grid-cols-6 gap-1">
             <button
               v-for="t in checkTypes" :key="t.value" type="button"
@@ -43,22 +43,22 @@
         <template v-if="form.check_type === 'heartbeat'">
           <!-- Slug -->
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">Identifiant (slug) *</label>
+            <label class="block text-sm font-medium text-gray-300 mb-1">{{ t('create_monitor.heartbeat_slug') }} *</label>
             <input v-model="form.heartbeat_slug" class="input w-full" placeholder="mon-cron-backup"
               pattern="[a-z0-9\-]+" required />
             <p class="text-xs text-gray-500 mt-1">
-              URL de ping : <code class="font-mono text-blue-400">POST /api/v1/ping/{{ form.heartbeat_slug || 'votre-slug' }}</code>
+              {{ t('create_monitor.heartbeat_slug_hint') }} <code class="font-mono text-blue-400">POST /api/v1/ping/{{ form.heartbeat_slug || 'your-slug' }}</code>
             </p>
           </div>
           <!-- Interval / Grace -->
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-medium text-gray-300 mb-1">Intervalle attendu (s) *</label>
+              <label class="block text-sm font-medium text-gray-300 mb-1">{{ t('create_monitor.heartbeat_interval') }} *</label>
               <input v-model.number="form.heartbeat_interval_seconds" type="number" min="60" class="input w-full"
-                placeholder="86400 (1 jour)" required />
+                placeholder="86400 (1 day)" required />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-300 mb-1">Délai de grâce (s)</label>
+              <label class="block text-sm font-medium text-gray-300 mb-1">{{ t('create_monitor.heartbeat_grace') }}</label>
               <input v-model.number="form.heartbeat_grace_seconds" type="number" min="30" class="input w-full"
                 placeholder="300 (5 min)" />
             </div>
@@ -180,7 +180,7 @@
 
         <!-- Scenario builder -->
         <div v-if="form.check_type === 'scenario'">
-          <label class="block text-sm font-medium text-gray-300 mb-2">Scénario de navigation</label>
+          <label class="block text-sm font-medium text-gray-300 mb-2">{{ t('create_monitor.scenario_label') }}</label>
           <ScenarioBuilder
             v-model="form.scenario_steps"
             :variables="form.scenario_variables"
@@ -237,32 +237,32 @@
               @click="showAdvanced = !showAdvanced"
               class="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-800/50 transition-colors"
             >
-              <span>Assertions avancées</span>
+              <span>{{ t('create_monitor.advanced_assertions') }}</span>
               <span class="text-xs transition-transform" :class="showAdvanced ? 'rotate-180' : ''">▼</span>
             </button>
             <div v-if="showAdvanced" class="px-4 pb-4 pt-2 space-y-4 border-t border-gray-700 bg-gray-800/20">
               <!-- Regex body -->
               <div>
                 <label class="block text-sm font-medium text-gray-300 mb-1">
-                  Regex corps <span class="text-gray-500">(optionnel)</span>
+                  {{ t('create_monitor.body_regex') }} <span class="text-gray-500">({{ t('common.optional') }})</span>
                 </label>
                 <input
                   v-model="form.body_regex"
                   class="input w-full font-mono text-sm"
                   placeholder='.*"status":"ok".*'
                 />
-                <p class="text-xs text-gray-500 mt-1">Expression régulière à rechercher dans le corps de la réponse.</p>
+                <p class="text-xs text-gray-500 mt-1">{{ t('create_monitor.body_regex_hint') }}</p>
               </div>
 
               <!-- Expected headers -->
               <div>
                 <div class="flex items-center justify-between mb-2">
-                  <label class="text-sm font-medium text-gray-300">En-têtes attendus</label>
+                  <label class="text-sm font-medium text-gray-300">{{ t('create_monitor.expected_headers') }}</label>
                   <button
                     type="button"
                     @click="addExpectedHeader"
                     class="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
-                  >+ Ajouter</button>
+                  >+ {{ t('common.add') }}</button>
                 </div>
                 <div v-if="form.expected_headers_list.length" class="space-y-2">
                   <div v-for="(h, idx) in form.expected_headers_list" :key="idx" class="flex gap-2 items-center">
@@ -283,14 +283,14 @@
                     >✕</button>
                   </div>
                 </div>
-                <p v-else class="text-xs text-gray-600">Aucun en-tête — cliquez sur "+ Ajouter".</p>
-                <p class="text-xs text-gray-500 mt-1">Utilisez <code class="font-mono text-gray-400">/regex/</code> comme valeur pour un match par expression régulière.</p>
+                <p v-else class="text-xs text-gray-600">{{ t('create_monitor.no_headers') }}</p>
+                <p class="text-xs text-gray-500 mt-1">{{ t('create_monitor.headers_regex_hint') }}</p>
               </div>
 
               <!-- JSON Schema -->
               <div>
                 <label class="block text-sm font-medium text-gray-300 mb-1">
-                  JSON Schema <span class="text-gray-500">(optionnel)</span>
+                  JSON Schema <span class="text-gray-500">({{ t('common.optional') }})</span>
                 </label>
                 <textarea
                   v-model="form.json_schema_text"
@@ -299,7 +299,7 @@
                   placeholder='{"type":"object","required":["status"],"properties":{"status":{"type":"string"}}}'
                 ></textarea>
                 <p v-if="jsonSchemaError" class="text-xs text-red-400 mt-1">{{ jsonSchemaError }}</p>
-                <p class="text-xs text-gray-500 mt-1">JSON Schema (draft-07) pour valider le corps de la réponse.</p>
+                <p class="text-xs text-gray-500 mt-1">{{ t('create_monitor.json_schema_hint') }}</p>
               </div>
             </div>
           </div>
@@ -460,10 +460,10 @@ const checkTypes = [
   },
   {
     value: 'scenario',
-    label: 'Scénario',
+    label: 'Scenario',
     icon: '🎭',
-    description: 'Exécute un scénario de navigation complet dans un vrai navigateur (authentification, clics, assertions…).',
-    urlLabel: 'URL de départ',
+    description: 'Run a full browser scenario (authentication, clicks, assertions…).',
+    urlLabel: 'Start URL',
     urlPlaceholder: 'https://app.example.com',
     namePlaceholder: 'Login + Dashboard',
   },
@@ -471,10 +471,10 @@ const checkTypes = [
     value: 'heartbeat',
     label: 'Heartbeat',
     icon: '⏰',
-    description: 'Dead man\'s switch pour cron jobs : ouvre un incident si le ping ne revient pas dans l\'intervalle + délai de grâce.',
+    description: "Dead man's switch for cron jobs: opens an incident if the ping doesn't come back within the interval + grace period.",
     urlLabel: '',
     urlPlaceholder: '',
-    namePlaceholder: 'Backup quotidien',
+    namePlaceholder: 'Daily Backup',
   },
   {
     value: 'udp',

@@ -34,18 +34,6 @@ logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
-@limiter.limit("5/minute")
-async def register(
-    request: Request,
-    payload: UserCreate,
-    db: AsyncSession = Depends(get_db),
-) -> User:
-    raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        detail="Registration is disabled. Contact your administrator.",
-    )
-
 
 @router.post("/users", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 async def create_user(
@@ -236,6 +224,7 @@ async def oidc_config(db: AsyncSession = Depends(get_db)) -> dict:
 
 async def _oidc_discover(issuer: str) -> dict:
     """Fetch and return the OIDC discovery document."""
+    import asyncio
     import ipaddress as _ipa
     import socket as _sock
     from urllib.parse import urlparse as _urlparse
@@ -247,13 +236,18 @@ async def _oidc_discover(issuer: str) -> dict:
     hostname = parsed.hostname or ""
     if hostname.lower() in {"localhost", "127.0.0.1", "::1", "0.0.0.0"}:
         raise ValueError("OIDC issuer URL points to blocked host")
-    try:
-        for ai in _sock.getaddrinfo(hostname, None, proto=_sock.IPPROTO_TCP):
-            ip = _ipa.ip_address(ai[4][0])
-            if ip.is_private or ip.is_loopback or ip.is_link_local:
-                raise ValueError("OIDC issuer URL resolves to internal IP")
-    except _sock.gaierror:
-        raise ValueError("OIDC issuer URL DNS resolution failed")
+
+    def _dns_check() -> None:
+        try:
+            for ai in _sock.getaddrinfo(hostname, None, proto=_sock.IPPROTO_TCP):
+                ip = _ipa.ip_address(ai[4][0])
+                if ip.is_private or ip.is_loopback or ip.is_link_local:
+                    raise ValueError("OIDC issuer URL resolves to internal IP")
+        except _sock.gaierror:
+            raise ValueError("OIDC issuer URL DNS resolution failed")
+
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, _dns_check)
 
     async with httpx.AsyncClient(timeout=10) as client:
         resp = await client.get(url)
@@ -446,7 +440,6 @@ async def oidc_callback(
     logger.info("oidc_login_success", user_id=str(user.id))
     from whatisup.services.audit import log_action
     await log_action(db, "user.login_oidc", "user", user.id, user.username, None)
-    await db.commit()
 
     # Use URL fragment (#) to avoid token leakage in server logs and Referer headers
     return RedirectResponse(

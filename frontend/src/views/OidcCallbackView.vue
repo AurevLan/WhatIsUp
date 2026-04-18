@@ -2,13 +2,13 @@
   <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#030712;">
     <div style="text-align:center;color:#94a3b8;font-size:14px;">
       <div v-if="error" style="color:#f87171;">
-        <p style="font-size:18px;font-weight:600;margin-bottom:8px;">Échec de la connexion SSO</p>
+        <p style="font-size:18px;font-weight:600;margin-bottom:8px;">{{ t('oidc.login_failed') }}</p>
         <p>{{ errorMessage }}</p>
-        <a href="/login" style="display:inline-block;margin-top:16px;color:#3b82f6;">← Retour à la connexion</a>
+        <a href="/login" style="display:inline-block;margin-top:16px;color:#3b82f6;">{{ t('oidc.back_to_login') }}</a>
       </div>
       <div v-else>
         <div style="width:32px;height:32px;border:3px solid rgba(59,130,246,.3);border-top-color:#3b82f6;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 16px;"></div>
-        Connexion en cours…
+        {{ t('oidc.signing_in') }}
       </div>
     </div>
   </div>
@@ -17,10 +17,13 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../stores/auth'
 import { useWebSocketStore } from '../stores/websocket'
 import axios from 'axios'
 import { apiBaseUrl } from '../lib/serverConfig'
+
+const { t } = useI18n()
 
 const router = useRouter()
 const route  = useRoute()
@@ -49,7 +52,7 @@ onMounted(async () => {
 
   if (!accessToken || !refreshToken) {
     error.value = true
-    errorMessage.value = 'Paramètres manquants dans la réponse SSO.'
+    errorMessage.value = t('oidc.missing_params')
     return
   }
 
@@ -67,7 +70,7 @@ onMounted(async () => {
     auth.user = data
   } catch {
     error.value = true
-    errorMessage.value = 'Impossible de récupérer le profil utilisateur.'
+    errorMessage.value = t('oidc.profile_error')
     return
   }
 

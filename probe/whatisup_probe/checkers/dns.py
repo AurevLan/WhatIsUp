@@ -9,6 +9,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from .base import BaseChecker, CheckResult
+from ._shared import validate_host_ssrf
 
 
 class DNSChecker(BaseChecker):
@@ -24,6 +25,17 @@ class DNSChecker(BaseChecker):
         timeout_seconds = config["timeout_seconds"]
 
         checked_at = datetime.now(UTC)
+
+        # Block DNS lookups targeting internal hostnames (SSRF prevention)
+        ssrf_err = validate_host_ssrf(host)
+        if ssrf_err:
+            return CheckResult(
+                monitor_id=monitor_id,
+                checked_at=checked_at,
+                status="error",
+                error_message=f"SSRF blocked: {ssrf_err}",
+            )
+
         t0 = time.perf_counter()
 
         try:

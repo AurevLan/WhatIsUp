@@ -4,7 +4,7 @@
     <p v-if="confirmState.message" class="modal-text">{{ confirmState.message }}</p>
     <div class="flex gap-2.5">
       <button @click="answer(false)" class="btn-secondary flex-1">
-        Annuler
+        {{ t('common.cancel') }}
       </button>
       <button @click="answer(true)" :class="confirmState.danger ? 'btn-danger' : 'btn-primary'" class="flex-1">
         {{ confirmState.confirmLabel }}
@@ -14,7 +14,9 @@
 </template>
 
 <script setup>
+import { useI18n } from 'vue-i18n'
 import BaseModal from './BaseModal.vue'
 import { useConfirm } from '../composables/useConfirm'
+const { t } = useI18n()
 const { confirmState, answer } = useConfirm()
 </script>

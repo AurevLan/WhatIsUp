@@ -99,6 +99,8 @@ class AlertChannel(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # telegram: {"bot_token": "<fernet-encrypted>", "chat_id": "..."}
     # signal: {"api_url": "...", "sender_number": "...", "recipients": [...]}
     config: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    # Optional Jinja-free template for webhook body (string.Template safe_substitute)
+    webhook_template: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     owner: Mapped[User] = relationship("User", back_populates="alert_channels")
     rules: Mapped[list[AlertRule]] = relationship(

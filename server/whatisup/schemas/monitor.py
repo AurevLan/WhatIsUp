@@ -95,6 +95,8 @@ class MonitorCreate(BaseModel):
     flap_window_minutes: int = Field(default=10, ge=1, le=60)
     # Auto-pause after N consecutive failures (None = disabled)
     auto_pause_after: int | None = Field(default=None, ge=2, le=100)
+    # Per-monitor data retention override (None = use global default)
+    data_retention_days: int | None = Field(default=None, ge=1, le=3650)
     # Auto-alert: channel IDs to auto-create default rules at monitor creation
     alert_channel_ids: list[uuid.UUID] = Field(default=[])
 
@@ -179,6 +181,8 @@ class MonitorUpdate(BaseModel):
     flap_window_minutes: int | None = Field(default=None, ge=1, le=60)
     # Auto-pause after N consecutive failures (None = disabled)
     auto_pause_after: int | None = Field(default=None, ge=2, le=100)
+    # Per-monitor data retention override (None = use global default)
+    data_retention_days: int | None = Field(default=None, ge=1, le=3650)
     # Schema drift
     schema_drift_enabled: bool | None = None
 
@@ -237,6 +241,8 @@ class MonitorOut(BaseModel):
     flap_window_minutes: int = 10
     # Auto-pause
     auto_pause_after: int | None = None
+    # Per-monitor data retention override
+    data_retention_days: int | None = None
     # Schema drift
     schema_drift_enabled: bool = False
     schema_baseline: str | None = None
@@ -284,6 +290,13 @@ class MonitorGroupCreate(BaseModel):
     announcement_banner: str | None = None
     report_schedule: str | None = Field(default=None, pattern=r"^(weekly|monthly)$")
     report_emails: list[str] | None = None
+    public_title: str | None = Field(default=None, max_length=255)
+    public_description: str | None = None
+    public_logo_url: str | None = Field(default=None, max_length=500)
+    public_accent_color: str | None = Field(
+        default=None, max_length=7, pattern=r"^#[0-9a-fA-F]{6}$"
+    )
+    public_custom_css: str | None = None
 
 
 class MonitorGroupUpdate(BaseModel):
@@ -300,6 +313,13 @@ class MonitorGroupUpdate(BaseModel):
     announcement_banner: str | None = None
     report_schedule: str | None = Field(default=None, pattern=r"^(weekly|monthly)$")
     report_emails: list[str] | None = None
+    public_title: str | None = Field(default=None, max_length=255)
+    public_description: str | None = None
+    public_logo_url: str | None = Field(default=None, max_length=500)
+    public_accent_color: str | None = Field(
+        default=None, max_length=7, pattern=r"^#[0-9a-fA-F]{6}$"
+    )
+    public_custom_css: str | None = None
 
 
 class MonitorGroupOut(BaseModel):
@@ -315,6 +335,11 @@ class MonitorGroupOut(BaseModel):
     announcement_banner: str | None = None
     report_schedule: str | None = None
     report_emails: list[str] | None = None
+    public_title: str | None = None
+    public_description: str | None = None
+    public_logo_url: str | None = None
+    public_accent_color: str | None = None
+    public_custom_css: str | None = None
 
     model_config = {"from_attributes": True}
 

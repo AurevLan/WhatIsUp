@@ -4,8 +4,8 @@
     <!-- Header -->
     <div class="flex items-start justify-between mb-8">
       <div>
-        <h1 class="text-2xl font-bold text-white">Administration</h1>
-        <p class="text-gray-500 mt-1 text-sm">Gestion des utilisateurs, des equipes, des moniteurs et des groupes de sondes</p>
+        <h1 class="text-2xl font-bold text-white">{{ t('admin.title') }}</h1>
+        <p class="text-gray-500 mt-1 text-sm">{{ t('admin.subtitle') }}</p>
       </div>
     </div>
 
@@ -27,9 +27,9 @@
     <!-- ===== USERS TAB ===== -->
     <div v-if="activeTab === 'users'">
       <div class="flex justify-between items-center mb-4">
-        <span class="text-sm text-gray-500">{{ users.length }} utilisateur(s)</span>
+        <span class="text-sm text-gray-500">{{ t('admin.user_count', { n: users.length }) }}</span>
         <button @click="openCreateModal" class="btn-primary flex items-center gap-2">
-          <UserPlus class="w-4 h-4" /> Ajouter un utilisateur
+          <UserPlus class="w-4 h-4" /> {{ t('admin.add_user') }}
         </button>
       </div>
 
@@ -37,21 +37,21 @@
         <table class="w-full text-sm">
           <thead>
             <tr class="border-b border-gray-800">
-              <th class="text-left px-4 py-3 text-gray-400 font-medium">Utilisateur</th>
-              <th class="text-left px-4 py-3 text-gray-400 font-medium">Email</th>
-              <th class="text-left px-4 py-3 text-gray-400 font-medium">Statut</th>
-              <th class="text-left px-4 py-3 text-gray-400 font-medium">Permissions</th>
-              <th class="text-left px-4 py-3 text-gray-400 font-medium">Equipes</th>
-              <th class="text-right px-4 py-3 text-gray-400 font-medium">Moniteurs</th>
-              <th class="text-right px-4 py-3 text-gray-400 font-medium">Actions</th>
+              <th class="text-left px-4 py-3 text-gray-400 font-medium">{{ t('admin.col_user') }}</th>
+              <th class="text-left px-4 py-3 text-gray-400 font-medium">{{ t('admin.col_email') }}</th>
+              <th class="text-left px-4 py-3 text-gray-400 font-medium">{{ t('admin.col_status') }}</th>
+              <th class="text-left px-4 py-3 text-gray-400 font-medium">{{ t('admin.col_permissions') }}</th>
+              <th class="text-left px-4 py-3 text-gray-400 font-medium">{{ t('admin.col_teams') }}</th>
+              <th class="text-right px-4 py-3 text-gray-400 font-medium">{{ t('admin.col_monitors') }}</th>
+              <th class="text-right px-4 py-3 text-gray-400 font-medium">{{ t('admin.col_actions') }}</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="loadingUsers">
-              <td colspan="7" class="text-center py-8 text-gray-600">Chargement...</td>
+              <td colspan="7" class="text-center py-8 text-gray-600">{{ t('admin.loading') }}</td>
             </tr>
             <tr v-else-if="users.length === 0">
-              <td colspan="7" class="text-center py-8 text-gray-600">Aucun utilisateur</td>
+              <td colspan="7" class="text-center py-8 text-gray-600">{{ t('admin.no_users') }}</td>
             </tr>
             <tr
               v-else
@@ -78,7 +78,7 @@
                 <span
                   :class="user.is_active ? 'bg-green-900/40 text-green-400 border-green-800' : 'bg-gray-800 text-gray-500 border-gray-700'"
                   class="px-2 py-0.5 rounded text-xs border font-medium"
-                >{{ user.is_active ? 'Actif' : 'Inactif' }}</span>
+                >{{ user.is_active ? t('admin.status_active') : t('admin.status_inactive') }}</span>
                 <span v-if="user.is_superadmin" class="ml-1 px-2 py-0.5 rounded text-xs border bg-purple-900/40 text-purple-400 border-purple-800 font-medium">Admin</span>
               </td>
               <!-- Permissions -->
@@ -86,7 +86,7 @@
                 <span
                   v-if="user.can_create_monitors"
                   class="px-2 py-0.5 rounded text-xs border bg-blue-900/40 text-blue-400 border-blue-800 font-medium"
-                >Cree des moniteurs</span>
+                >{{ t('admin.can_create_monitors') }}</span>
                 <span v-else class="text-gray-600 text-xs">--</span>
               </td>
               <!-- Teams -->
@@ -108,7 +108,7 @@
                   <button
                     @click="openEditModal(user)"
                     class="p-1.5 text-gray-500 hover:text-blue-400 transition-colors rounded"
-                    title="Modifier"
+                    :title="t('common.edit')"
                   >
                     <Pencil class="w-4 h-4" />
                   </button>
@@ -116,7 +116,7 @@
                     v-if="!user.is_superadmin"
                     @click="confirmDelete(user)"
                     class="p-1.5 text-gray-500 hover:text-red-400 transition-colors rounded"
-                    title="Supprimer"
+                    :title="t('common.delete')"
                   >
                     <Trash2 class="w-4 h-4" />
                   </button>
@@ -131,16 +131,16 @@
     <!-- ===== TEAMS TAB ===== -->
     <div v-if="activeTab === 'teams'">
       <div class="flex justify-between items-center mb-4">
-        <span class="text-sm text-gray-500">{{ teams.length }} equipe(s)</span>
+        <span class="text-sm text-gray-500">{{ t('admin.team_count', { n: teams.length }) }}</span>
         <button @click="openCreateTeamModal" class="btn-primary flex items-center gap-2">
-          <Plus class="w-4 h-4" /> Creer une equipe
+          <Plus class="w-4 h-4" /> {{ t('admin.create_team') }}
         </button>
       </div>
 
-      <div v-if="loadingTeams" class="text-center py-8 text-gray-600">Chargement...</div>
+      <div v-if="loadingTeams" class="text-center py-8 text-gray-600">{{ t('admin.loading') }}</div>
       <div v-else-if="teams.length === 0" class="text-center py-16">
         <Users class="w-12 h-12 text-gray-700 mx-auto mb-3" />
-        <p class="text-gray-500">Aucune equipe. Creez-en une pour commencer.</p>
+        <p class="text-gray-500">{{ t('admin.no_teams') }}</p>
       </div>
 
       <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -156,7 +156,7 @@
           </div>
           <div class="flex items-center gap-2 text-sm text-gray-400">
             <Users class="w-4 h-4" />
-            <span>{{ team.member_count }} {{ team.member_count === 1 ? 'membre' : 'membres' }}</span>
+            <span>{{ team.member_count }} {{ team.member_count === 1 ? t('admin.member_singular') : t('admin.member_plural') }}</span>
           </div>
         </div>
       </div>
@@ -165,26 +165,26 @@
     <!-- ===== MONITORS TAB ===== -->
     <div v-if="activeTab === 'monitors'">
       <div class="mb-4">
-        <span class="text-sm text-gray-500">{{ allMonitors.length }} moniteur(s)</span>
+        <span class="text-sm text-gray-500">{{ t('admin.monitor_count', { n: allMonitors.length }) }}</span>
       </div>
 
       <div class="card overflow-hidden">
         <table class="w-full text-sm">
           <thead>
             <tr class="border-b border-gray-800">
-              <th class="text-left px-4 py-3 text-gray-400 font-medium">Proprietaire</th>
-              <th class="text-left px-4 py-3 text-gray-400 font-medium">Nom</th>
-              <th class="text-left px-4 py-3 text-gray-400 font-medium">Type</th>
-              <th class="text-left px-4 py-3 text-gray-400 font-medium">URL</th>
-              <th class="text-left px-4 py-3 text-gray-400 font-medium">Statut</th>
+              <th class="text-left px-4 py-3 text-gray-400 font-medium">{{ t('admin.col_owner') }}</th>
+              <th class="text-left px-4 py-3 text-gray-400 font-medium">{{ t('admin.col_name') }}</th>
+              <th class="text-left px-4 py-3 text-gray-400 font-medium">{{ t('admin.col_type') }}</th>
+              <th class="text-left px-4 py-3 text-gray-400 font-medium">{{ t('admin.col_url') }}</th>
+              <th class="text-left px-4 py-3 text-gray-400 font-medium">{{ t('admin.col_status') }}</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="loadingMonitors">
-              <td colspan="5" class="text-center py-8 text-gray-600">Chargement...</td>
+              <td colspan="5" class="text-center py-8 text-gray-600">{{ t('admin.loading') }}</td>
             </tr>
             <tr v-else-if="allMonitors.length === 0">
-              <td colspan="5" class="text-center py-8 text-gray-600">Aucun moniteur</td>
+              <td colspan="5" class="text-center py-8 text-gray-600">{{ t('admin.no_monitors') }}</td>
             </tr>
             <tr
               v-else
@@ -209,7 +209,7 @@
                 <span
                   :class="monitor.enabled ? 'bg-green-900/40 text-green-400 border-green-800' : 'bg-gray-800 text-gray-500 border-gray-700'"
                   class="px-2 py-0.5 rounded text-xs border font-medium"
-                >{{ monitor.enabled ? 'Actif' : 'Desactive' }}</span>
+                >{{ monitor.enabled ? t('admin.monitor_enabled') : t('admin.monitor_disabled') }}</span>
               </td>
             </tr>
           </tbody>
@@ -220,14 +220,14 @@
     <!-- ===== PROBE GROUPS TAB ===== -->
     <div v-if="activeTab === 'probe-groups'">
       <div class="flex justify-between items-center mb-4">
-        <span class="text-sm text-gray-500">{{ probeGroups.length }} groupe(s)</span>
+        <span class="text-sm text-gray-500">{{ t('admin.group_count', { n: probeGroups.length }) }}</span>
         <button @click="openCreateGroupModal" class="btn-primary flex items-center gap-2">
-          <Plus class="w-4 h-4" /> Creer un groupe
+          <Plus class="w-4 h-4" /> {{ t('admin.create_group') }}
         </button>
       </div>
 
-      <div v-if="loadingGroups" class="text-center py-8 text-gray-600">Chargement...</div>
-      <div v-else-if="probeGroups.length === 0" class="text-center py-8 text-gray-600">Aucun groupe de sondes</div>
+      <div v-if="loadingGroups" class="text-center py-8 text-gray-600">{{ t('admin.loading') }}</div>
+      <div v-else-if="probeGroups.length === 0" class="text-center py-8 text-gray-600">{{ t('admin.no_groups') }}</div>
       <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <div
           v-for="group in probeGroups"
@@ -240,20 +240,20 @@
               <div v-if="group.description" class="text-gray-500 text-xs mt-0.5">{{ group.description }}</div>
             </div>
             <div class="flex gap-1 flex-shrink-0">
-              <button @click="openEditGroupModal(group)" class="p-1.5 text-gray-500 hover:text-blue-400 transition-colors rounded" title="Modifier">
+              <button @click="openEditGroupModal(group)" class="p-1.5 text-gray-500 hover:text-blue-400 transition-colors rounded" :title="t('common.edit')">
                 <Pencil class="w-4 h-4" />
               </button>
-              <button @click="confirmDeleteGroup(group)" class="p-1.5 text-gray-500 hover:text-red-400 transition-colors rounded" title="Supprimer">
+              <button @click="confirmDeleteGroup(group)" class="p-1.5 text-gray-500 hover:text-red-400 transition-colors rounded" :title="t('common.delete')">
                 <Trash2 class="w-4 h-4" />
               </button>
             </div>
           </div>
           <div class="flex gap-3 text-xs text-gray-500">
-            <span class="px-2 py-0.5 rounded bg-gray-800 border border-gray-700">{{ group.probe_ids.length }} sonde(s)</span>
-            <span class="px-2 py-0.5 rounded bg-gray-800 border border-gray-700">{{ group.user_ids.length }} utilisateur(s)</span>
+            <span class="px-2 py-0.5 rounded bg-gray-800 border border-gray-700">{{ t('admin.group_probes', { n: group.probe_ids.length }) }}</span>
+            <span class="px-2 py-0.5 rounded bg-gray-800 border border-gray-700">{{ t('admin.group_users', { n: group.user_ids.length }) }}</span>
           </div>
           <button @click="openGroupDetailModal(group)" class="text-xs text-blue-400 hover:text-blue-300 transition-colors text-left">
-            Gerer les acces &rarr;
+            {{ t('admin.manage_access') }}
           </button>
         </div>
       </div>
@@ -261,18 +261,18 @@
 
     <!-- ===== OIDC TAB ===== -->
     <div v-if="activeTab === 'oidc'">
-      <div v-if="oidcLoading" class="text-center py-8 text-gray-600">Chargement...</div>
+      <div v-if="oidcLoading" class="text-center py-8 text-gray-600">{{ t('admin.loading') }}</div>
       <div v-else class="max-w-xl">
         <div v-if="oidcSettings?.source === 'env'" class="mb-4 px-3 py-2 rounded-lg bg-yellow-900/30 border border-yellow-700/50 text-yellow-400 text-sm">
-          Configuration actuelle lue depuis les variables d'environnement. Enregistrer ici creera une configuration en base qui prend le dessus.
+          {{ t('admin.oidc_env_warning') }}
         </div>
 
         <form @submit.prevent="saveOidcSettings" class="space-y-5">
           <!-- Enabled toggle -->
           <div class="flex items-center justify-between py-3 px-4 rounded-lg bg-gray-800/60 border border-gray-700/50">
             <div>
-              <div class="text-sm text-gray-300 font-medium">Activer le SSO (OIDC)</div>
-              <div class="text-xs text-gray-500 mt-0.5">Affiche le bouton "Connexion SSO" sur la page de login</div>
+              <div class="text-sm text-gray-300 font-medium">{{ t('admin.oidc_enable_label') }}</div>
+              <div class="text-xs text-gray-500 mt-0.5">{{ t('admin.oidc_enable_desc') }}</div>
             </div>
             <button
               type="button"
@@ -288,42 +288,42 @@
           </div>
 
           <div>
-            <label class="block text-sm text-gray-400 mb-1">Issuer URL <span class="text-gray-600">(ex: https://accounts.google.com)</span></label>
+            <label class="block text-sm text-gray-400 mb-1">{{ t('admin.oidc_issuer_label') }} <span class="text-gray-600">(ex: https://accounts.google.com)</span></label>
             <input v-model="oidcForm.oidc_issuer_url" type="url" class="input w-full" placeholder="https://accounts.example.com" />
           </div>
 
           <div>
-            <label class="block text-sm text-gray-400 mb-1">Client ID</label>
+            <label class="block text-sm text-gray-400 mb-1">{{ t('admin.oidc_client_id_label') }}</label>
             <input v-model="oidcForm.oidc_client_id" type="text" class="input w-full" />
           </div>
 
           <div>
             <label class="block text-sm text-gray-400 mb-1">
-              Client Secret
-              <span v-if="oidcSettings?.oidc_client_secret_set" class="ml-1 text-xs text-green-500">(secret enregistre -- laisser vide pour conserver)</span>
-              <span v-else class="ml-1 text-xs text-gray-600">(non defini)</span>
+              {{ t('admin.oidc_client_secret_label') }}
+              <span v-if="oidcSettings?.oidc_client_secret_set" class="ml-1 text-xs text-green-500">{{ t('admin.oidc_client_secret_set') }}</span>
+              <span v-else class="ml-1 text-xs text-gray-600">{{ t('admin.oidc_client_secret_unset') }}</span>
             </label>
             <input v-model="oidcForm.oidc_client_secret" type="password" class="input w-full" autocomplete="new-password" placeholder="••••••••" />
           </div>
 
           <div>
             <label class="block text-sm text-gray-400 mb-1">
-              Redirect URI
-              <span class="text-gray-600">(laissez vide pour auto-detection)</span>
+              {{ t('admin.oidc_redirect_uri_label') }}
+              <span class="text-gray-600">{{ t('admin.oidc_redirect_uri_hint') }}</span>
             </label>
             <input v-model="oidcForm.oidc_redirect_uri" type="url" class="input w-full" placeholder="https://app.example.com/api/v1/auth/oidc/callback" />
           </div>
 
           <div>
-            <label class="block text-sm text-gray-400 mb-1">Scopes</label>
+            <label class="block text-sm text-gray-400 mb-1">{{ t('admin.oidc_scopes_label') }}</label>
             <input v-model="oidcForm.oidc_scopes" type="text" class="input w-full" />
           </div>
 
           <!-- Auto-provision toggle -->
           <div class="flex items-center justify-between py-3 px-4 rounded-lg bg-gray-800/60 border border-gray-700/50">
             <div>
-              <div class="text-sm text-gray-300 font-medium">Auto-provisioning</div>
-              <div class="text-xs text-gray-500 mt-0.5">Creer automatiquement un compte local au premier login SSO</div>
+              <div class="text-sm text-gray-300 font-medium">{{ t('admin.oidc_auto_provision_label') }}</div>
+              <div class="text-xs text-gray-500 mt-0.5">{{ t('admin.oidc_auto_provision_desc') }}</div>
             </div>
             <button
               type="button"
@@ -339,11 +339,11 @@
           </div>
 
           <div v-if="oidcError" class="text-red-400 text-sm">{{ oidcError }}</div>
-          <div v-if="oidcSuccess" class="text-green-400 text-sm">Configuration sauvegardee.</div>
+          <div v-if="oidcSuccess" class="text-green-400 text-sm">{{ t('admin.oidc_saved') }}</div>
 
           <div class="flex justify-end">
             <button type="submit" class="btn-primary" :disabled="oidcSaving">
-              {{ oidcSaving ? 'Enregistrement...' : 'Enregistrer' }}
+              {{ oidcSaving ? t('admin.oidc_saving') : t('admin.oidc_save') }}
             </button>
           </div>
         </form>
@@ -355,22 +355,22 @@
       <div v-if="showCreateGroupModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" @click.self="showCreateGroupModal = false">
         <div class="card w-full max-w-md" @click.stop>
           <div class="flex justify-between items-center mb-6">
-            <h2 class="text-lg font-semibold text-white">Creer un groupe de sondes</h2>
+            <h2 class="text-lg font-semibold text-white">{{ t('admin.create_group_title') }}</h2>
             <button @click="showCreateGroupModal = false" class="text-gray-500 hover:text-gray-300"><X class="w-5 h-5" /></button>
           </div>
           <form @submit.prevent="submitCreateGroup" class="space-y-4">
             <div>
-              <label class="block text-sm text-gray-400 mb-1">Nom *</label>
+              <label class="block text-sm text-gray-400 mb-1">{{ t('admin.label_group_name') }}</label>
               <input v-model="groupForm.name" type="text" class="input w-full" required maxlength="255" />
             </div>
             <div>
-              <label class="block text-sm text-gray-400 mb-1">Description</label>
+              <label class="block text-sm text-gray-400 mb-1">{{ t('admin.label_description') }}</label>
               <input v-model="groupForm.description" type="text" class="input w-full" />
             </div>
             <div v-if="groupError" class="text-red-400 text-sm">{{ groupError }}</div>
             <div class="flex justify-end gap-3 pt-2">
-              <button type="button" @click="showCreateGroupModal = false" class="btn-secondary">Annuler</button>
-              <button type="submit" class="btn-primary" :disabled="submitting">{{ submitting ? 'Creation...' : 'Creer' }}</button>
+              <button type="button" @click="showCreateGroupModal = false" class="btn-secondary">{{ t('common.cancel') }}</button>
+              <button type="submit" class="btn-primary" :disabled="submitting">{{ submitting ? t('admin.creating') : t('admin.create_btn') }}</button>
             </div>
           </form>
         </div>
@@ -382,22 +382,22 @@
       <div v-if="showEditGroupModal && editingGroup" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" @click.self="showEditGroupModal = false">
         <div class="card w-full max-w-md" @click.stop>
           <div class="flex justify-between items-center mb-6">
-            <h2 class="text-lg font-semibold text-white">Modifier -- {{ editingGroup.name }}</h2>
+            <h2 class="text-lg font-semibold text-white">{{ t('admin.edit_group_title', { name: editingGroup.name }) }}</h2>
             <button @click="showEditGroupModal = false" class="text-gray-500 hover:text-gray-300"><X class="w-5 h-5" /></button>
           </div>
           <form @submit.prevent="submitEditGroup" class="space-y-4">
             <div>
-              <label class="block text-sm text-gray-400 mb-1">Nom</label>
+              <label class="block text-sm text-gray-400 mb-1">{{ t('common.name') }}</label>
               <input v-model="groupForm.name" type="text" class="input w-full" maxlength="255" />
             </div>
             <div>
-              <label class="block text-sm text-gray-400 mb-1">Description</label>
+              <label class="block text-sm text-gray-400 mb-1">{{ t('admin.label_description') }}</label>
               <input v-model="groupForm.description" type="text" class="input w-full" />
             </div>
             <div v-if="groupError" class="text-red-400 text-sm">{{ groupError }}</div>
             <div class="flex justify-end gap-3 pt-2">
-              <button type="button" @click="showEditGroupModal = false" class="btn-secondary">Annuler</button>
-              <button type="submit" class="btn-primary" :disabled="submitting">{{ submitting ? 'Enregistrement...' : 'Enregistrer' }}</button>
+              <button type="button" @click="showEditGroupModal = false" class="btn-secondary">{{ t('common.cancel') }}</button>
+              <button type="submit" class="btn-primary" :disabled="submitting">{{ submitting ? t('admin.saving') : t('admin.save_btn') }}</button>
             </div>
           </form>
         </div>
@@ -408,14 +408,13 @@
     <Teleport to="body">
       <div v-if="showDeleteGroupModal && deletingGroup" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" @click.self="showDeleteGroupModal = false">
         <div class="card w-full max-w-sm" @click.stop>
-          <h2 class="text-lg font-semibold text-white mb-3">Confirmer la suppression</h2>
+          <h2 class="text-lg font-semibold text-white mb-3">{{ t('admin.confirm_delete_group') }}</h2>
           <p class="text-gray-400 text-sm mb-6">
-            Supprimer le groupe <strong class="text-white">{{ deletingGroup.name }}</strong> ?
-            Cette action est irreversible.
+            {{ t('admin.confirm_delete_group_msg', { name: deletingGroup.name }) }}
           </p>
           <div class="flex justify-end gap-3">
-            <button @click="showDeleteGroupModal = false" class="btn-secondary">Annuler</button>
-            <button @click="executeDeleteGroup" class="btn-danger" :disabled="submitting">{{ submitting ? 'Suppression...' : 'Supprimer' }}</button>
+            <button @click="showDeleteGroupModal = false" class="btn-secondary">{{ t('common.cancel') }}</button>
+            <button @click="executeDeleteGroup" class="btn-danger" :disabled="submitting">{{ submitting ? t('admin.deleting') : t('common.delete') }}</button>
           </div>
         </div>
       </div>
@@ -433,9 +432,9 @@
           <!-- Probes section -->
           <div class="mb-6">
             <div class="flex items-center justify-between mb-3">
-              <h3 class="text-sm font-medium text-gray-300">Sondes</h3>
+              <h3 class="text-sm font-medium text-gray-300">{{ t('admin.section_probes') }}</h3>
             </div>
-            <div v-if="detailGroup.probe_ids.length === 0" class="text-gray-600 text-sm">Aucune sonde dans ce groupe.</div>
+            <div v-if="detailGroup.probe_ids.length === 0" class="text-gray-600 text-sm">{{ t('admin.no_probes_in_group') }}</div>
             <div v-else class="space-y-1 mb-3">
               <div
                 v-for="probeId in detailGroup.probe_ids"
@@ -451,23 +450,23 @@
             <!-- Add probes -->
             <div class="flex gap-2 mt-2">
               <select v-model="addProbeSelection" class="input flex-1 text-sm">
-                <option value="">-- Ajouter une sonde --</option>
+                <option value="">{{ t('admin.add_probe_placeholder') }}</option>
                 <option
                   v-for="probe in availableProbesForGroup"
                   :key="probe.id"
                   :value="probe.id"
                 >{{ probe.name }} ({{ probe.location_name }})</option>
               </select>
-              <button @click="addProbeToDetailGroup" class="btn-primary text-sm" :disabled="!addProbeSelection || submitting">Ajouter</button>
+              <button @click="addProbeToDetailGroup" class="btn-primary text-sm" :disabled="!addProbeSelection || submitting">{{ t('admin.add_btn') }}</button>
             </div>
           </div>
 
           <!-- Users section -->
           <div>
             <div class="flex items-center justify-between mb-3">
-              <h3 class="text-sm font-medium text-gray-300">Utilisateurs avec acces</h3>
+              <h3 class="text-sm font-medium text-gray-300">{{ t('admin.section_users') }}</h3>
             </div>
-            <div v-if="detailGroup.user_ids.length === 0" class="text-gray-600 text-sm">Aucun utilisateur.</div>
+            <div v-if="detailGroup.user_ids.length === 0" class="text-gray-600 text-sm">{{ t('admin.no_users_in_group') }}</div>
             <div v-else class="space-y-1 mb-3">
               <div
                 v-for="userId in detailGroup.user_ids"
@@ -483,14 +482,14 @@
             <!-- Add user -->
             <div class="flex gap-2 mt-2">
               <select v-model="addUserSelection" class="input flex-1 text-sm">
-                <option value="">-- Accorder l'acces a un utilisateur --</option>
+                <option value="">{{ t('admin.add_user_placeholder') }}</option>
                 <option
                   v-for="user in availableUsersForGroup"
                   :key="user.id"
                   :value="user.id"
                 >{{ user.username }}</option>
               </select>
-              <button @click="grantUserToDetailGroup" class="btn-primary text-sm" :disabled="!addUserSelection || submitting">Ajouter</button>
+              <button @click="grantUserToDetailGroup" class="btn-primary text-sm" :disabled="!addUserSelection || submitting">{{ t('admin.add_btn') }}</button>
             </div>
           </div>
 
@@ -504,7 +503,7 @@
       <div v-if="showCreateModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" @click.self="showCreateModal = false">
         <div class="card w-full max-w-md" @click.stop>
           <div class="flex justify-between items-center mb-6">
-            <h2 class="text-lg font-semibold text-white">Ajouter un utilisateur</h2>
+            <h2 class="text-lg font-semibold text-white">{{ t('admin.create_user_title') }}</h2>
             <button @click="showCreateModal = false" class="text-gray-500 hover:text-gray-300">
               <X class="w-5 h-5" />
             </button>
@@ -512,25 +511,25 @@
 
           <form @submit.prevent="submitCreate" class="space-y-4">
             <div>
-              <label class="block text-sm text-gray-400 mb-1">Email *</label>
+              <label class="block text-sm text-gray-400 mb-1">{{ t('admin.label_email') }}</label>
               <input v-model="createForm.email" type="email" class="input w-full" required />
             </div>
             <div>
-              <label class="block text-sm text-gray-400 mb-1">Nom d'utilisateur (optionnel)</label>
-              <input v-model="createForm.username" type="text" class="input w-full" placeholder="Genere automatiquement" />
+              <label class="block text-sm text-gray-400 mb-1">{{ t('admin.label_username') }}</label>
+              <input v-model="createForm.username" type="text" class="input w-full" :placeholder="t('admin.placeholder_username')" />
             </div>
             <div>
-              <label class="block text-sm text-gray-400 mb-1">Nom complet</label>
+              <label class="block text-sm text-gray-400 mb-1">{{ t('admin.label_full_name') }}</label>
               <input v-model="createForm.full_name" type="text" class="input w-full" />
             </div>
             <div>
-              <label class="block text-sm text-gray-400 mb-1">Mot de passe *</label>
+              <label class="block text-sm text-gray-400 mb-1">{{ t('admin.label_password') }}</label>
               <input v-model="createForm.password" type="password" class="input w-full" required minlength="8" />
             </div>
             <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-800/60 border border-gray-700/50">
               <div>
-                <div class="text-sm text-gray-300 font-medium">Peut creer des moniteurs</div>
-                <div class="text-xs text-gray-500">Autorise cet utilisateur a creer des moniteurs</div>
+                <div class="text-sm text-gray-300 font-medium">{{ t('admin.perm_can_create_monitors') }}</div>
+                <div class="text-xs text-gray-500">{{ t('admin.perm_can_create_monitors_desc') }}</div>
               </div>
               <button
                 type="button"
@@ -547,8 +546,8 @@
 
             <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-800/60 border border-gray-700/50">
               <div>
-                <div class="text-sm text-gray-300 font-medium">Administrateur</div>
-                <div class="text-xs text-gray-500">Acces complet a l'administration de la plateforme</div>
+                <div class="text-sm text-gray-300 font-medium">{{ t('admin.perm_is_admin') }}</div>
+                <div class="text-xs text-gray-500">{{ t('admin.perm_is_admin_desc') }}</div>
               </div>
               <button
                 type="button"
@@ -566,9 +565,9 @@
             <div v-if="createError" class="text-red-400 text-sm">{{ createError }}</div>
 
             <div class="flex justify-end gap-3 pt-2">
-              <button type="button" @click="showCreateModal = false" class="btn-secondary">Annuler</button>
+              <button type="button" @click="showCreateModal = false" class="btn-secondary">{{ t('common.cancel') }}</button>
               <button type="submit" class="btn-primary" :disabled="submitting">
-                {{ submitting ? 'Creation...' : 'Creer' }}
+                {{ submitting ? t('admin.creating') : t('admin.create_btn') }}
               </button>
             </div>
           </form>
@@ -581,7 +580,7 @@
       <div v-if="showEditModal && editingUser" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" @click.self="showEditModal = false">
         <div class="card w-full max-w-md" @click.stop>
           <div class="flex justify-between items-center mb-6">
-            <h2 class="text-lg font-semibold text-white">Modifier -- {{ editingUser.username }}</h2>
+            <h2 class="text-lg font-semibold text-white">{{ t('admin.edit_user_title', { name: editingUser.username }) }}</h2>
             <button @click="showEditModal = false" class="text-gray-500 hover:text-gray-300">
               <X class="w-5 h-5" />
             </button>
@@ -589,21 +588,21 @@
 
           <form @submit.prevent="submitEdit" class="space-y-4">
             <div>
-              <label class="block text-sm text-gray-400 mb-1">Email</label>
+              <label class="block text-sm text-gray-400 mb-1">{{ t('admin.col_email') }}</label>
               <input v-model="editForm.email" type="email" class="input w-full" />
             </div>
             <div>
-              <label class="block text-sm text-gray-400 mb-1">Nom complet</label>
+              <label class="block text-sm text-gray-400 mb-1">{{ t('admin.label_full_name') }}</label>
               <input v-model="editForm.full_name" type="text" class="input w-full" />
             </div>
             <div>
-              <label class="block text-sm text-gray-400 mb-1">Nouveau mot de passe (laisser vide pour ne pas changer)</label>
+              <label class="block text-sm text-gray-400 mb-1">{{ t('admin.label_new_password') }}</label>
               <input v-model="editForm.password" type="password" class="input w-full" minlength="8" />
             </div>
 
             <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-800/60 border border-gray-700/50">
               <div>
-                <div class="text-sm text-gray-300 font-medium">Compte actif</div>
+                <div class="text-sm text-gray-300 font-medium">{{ t('admin.toggle_active') }}</div>
               </div>
               <button
                 type="button"
@@ -620,7 +619,7 @@
 
             <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-800/60 border border-gray-700/50">
               <div>
-                <div class="text-sm text-gray-300 font-medium">Peut creer des moniteurs</div>
+                <div class="text-sm text-gray-300 font-medium">{{ t('admin.perm_can_create_monitors') }}</div>
               </div>
               <button
                 type="button"
@@ -637,8 +636,8 @@
 
             <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-800/60 border border-gray-700/50">
               <div>
-                <div class="text-sm text-gray-300 font-medium">Administrateur</div>
-                <div class="text-xs text-gray-500">Acces complet a l'administration</div>
+                <div class="text-sm text-gray-300 font-medium">{{ t('admin.perm_is_admin') }}</div>
+                <div class="text-xs text-gray-500">{{ t('admin.perm_is_admin_desc_short') }}</div>
               </div>
               <button
                 type="button"
@@ -656,9 +655,9 @@
             <div v-if="editError" class="text-red-400 text-sm">{{ editError }}</div>
 
             <div class="flex justify-end gap-3 pt-2">
-              <button type="button" @click="showEditModal = false" class="btn-secondary">Annuler</button>
+              <button type="button" @click="showEditModal = false" class="btn-secondary">{{ t('common.cancel') }}</button>
               <button type="submit" class="btn-primary" :disabled="submitting">
-                {{ submitting ? 'Enregistrement...' : 'Enregistrer' }}
+                {{ submitting ? t('admin.saving') : t('admin.save_btn') }}
               </button>
             </div>
           </form>
@@ -670,15 +669,14 @@
     <Teleport to="body">
       <div v-if="showDeleteModal && deletingUser" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" @click.self="showDeleteModal = false">
         <div class="card w-full max-w-sm" @click.stop>
-          <h2 class="text-lg font-semibold text-white mb-3">Confirmer la suppression</h2>
+          <h2 class="text-lg font-semibold text-white mb-3">{{ t('admin.confirm_delete_user') }}</h2>
           <p class="text-gray-400 text-sm mb-6">
-            Supprimer l'utilisateur <strong class="text-white">{{ deletingUser.username }}</strong> ?
-            Cette action est irreversible.
+            {{ t('admin.confirm_delete_msg', { name: deletingUser.username }) }}
           </p>
           <div class="flex justify-end gap-3">
-            <button @click="showDeleteModal = false" class="btn-secondary">Annuler</button>
+            <button @click="showDeleteModal = false" class="btn-secondary">{{ t('common.cancel') }}</button>
             <button @click="executeDelete" class="btn-danger" :disabled="submitting">
-              {{ submitting ? 'Suppression...' : 'Supprimer' }}
+              {{ submitting ? t('admin.deleting') : t('common.delete') }}
             </button>
           </div>
         </div>
@@ -690,22 +688,22 @@
       <div v-if="showCreateTeamModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" @click.self="showCreateTeamModal = false">
         <div class="card w-full max-w-md" @click.stop>
           <div class="flex justify-between items-center mb-6">
-            <h2 class="text-lg font-semibold text-white">Creer une equipe</h2>
+            <h2 class="text-lg font-semibold text-white">{{ t('admin.create_team_title') }}</h2>
             <button @click="showCreateTeamModal = false" class="text-gray-500 hover:text-gray-300"><X class="w-5 h-5" /></button>
           </div>
           <form @submit.prevent="submitCreateTeam" class="space-y-4">
             <div>
-              <label class="block text-sm text-gray-400 mb-1">Nom *</label>
+              <label class="block text-sm text-gray-400 mb-1">{{ t('admin.label_team_name') }}</label>
               <input v-model="teamCreateForm.name" type="text" class="input w-full" required maxlength="200" />
             </div>
             <div>
-              <label class="block text-sm text-gray-400 mb-1">Slug (optionnel)</label>
-              <input v-model="teamCreateForm.slug" type="text" class="input w-full" placeholder="genere automatiquement" pattern="^[a-z0-9][a-z0-9-]*$" />
+              <label class="block text-sm text-gray-400 mb-1">{{ t('admin.label_slug') }}</label>
+              <input v-model="teamCreateForm.slug" type="text" class="input w-full" :placeholder="t('admin.placeholder_slug')" pattern="^[a-z0-9][a-z0-9-]*$" />
             </div>
             <div v-if="teamError" class="text-red-400 text-sm">{{ teamError }}</div>
             <div class="flex justify-end gap-3 pt-2">
-              <button type="button" @click="showCreateTeamModal = false" class="btn-secondary">Annuler</button>
-              <button type="submit" class="btn-primary" :disabled="submitting">{{ submitting ? 'Creation...' : 'Creer' }}</button>
+              <button type="button" @click="showCreateTeamModal = false" class="btn-secondary">{{ t('common.cancel') }}</button>
+              <button type="submit" class="btn-primary" :disabled="submitting">{{ submitting ? t('admin.creating') : t('admin.create_btn') }}</button>
             </div>
           </form>
         </div>
@@ -724,10 +722,10 @@
               <span class="text-xs text-gray-500 font-mono">{{ selectedTeam.slug }}</span>
             </div>
             <div class="flex items-center gap-2">
-              <button @click="openEditTeamModal" class="p-1.5 text-gray-500 hover:text-blue-400 transition-colors rounded" title="Modifier">
+              <button @click="openEditTeamModal" class="p-1.5 text-gray-500 hover:text-blue-400 transition-colors rounded" :title="t('common.edit')">
                 <Pencil class="w-4 h-4" />
               </button>
-              <button @click="confirmDeleteTeam" class="p-1.5 text-gray-500 hover:text-red-400 transition-colors rounded" title="Supprimer">
+              <button @click="confirmDeleteTeam" class="p-1.5 text-gray-500 hover:text-red-400 transition-colors rounded" :title="t('common.delete')">
                 <Trash2 class="w-4 h-4" />
               </button>
               <button @click="showTeamDetailModal = false" class="text-gray-500 hover:text-gray-300">
@@ -738,18 +736,18 @@
 
           <!-- Members section -->
           <div class="mb-4 flex items-center justify-between">
-            <h3 class="text-sm font-medium text-gray-400">Membres ({{ teamMembers.length }})</h3>
+            <h3 class="text-sm font-medium text-gray-400">{{ t('admin.members_count', { n: teamMembers.length }) }}</h3>
             <button @click="showTeamAddMember = !showTeamAddMember" class="btn-primary text-xs flex items-center gap-1 px-3 py-1.5">
-              <UserPlus class="w-3.5 h-3.5" /> Ajouter un membre
+              <UserPlus class="w-3.5 h-3.5" /> {{ t('admin.add_member') }}
             </button>
           </div>
 
           <!-- Add member inline form -->
           <div v-if="showTeamAddMember" class="mb-4 p-3 rounded-lg bg-gray-800/60 border border-gray-700/50 space-y-3">
             <div>
-              <label class="block text-xs text-gray-400 mb-1">Utilisateur</label>
+              <label class="block text-xs text-gray-400 mb-1">{{ t('admin.label_user') }}</label>
               <select v-model="teamAddMemberForm.user_id" class="input w-full text-sm">
-                <option value="">-- Selectionner un utilisateur --</option>
+                <option value="">{{ t('admin.select_user') }}</option>
                 <option
                   v-for="u in availableUsersForTeam"
                   :key="u.id"
@@ -758,7 +756,7 @@
               </select>
             </div>
             <div>
-              <label class="block text-xs text-gray-400 mb-1">Role</label>
+              <label class="block text-xs text-gray-400 mb-1">{{ t('admin.label_role') }}</label>
               <select v-model="teamAddMemberForm.role" class="input w-full text-sm">
                 <option value="viewer">Viewer</option>
                 <option value="editor">Editor</option>
@@ -768,8 +766,8 @@
             </div>
             <div v-if="teamMemberError" class="text-red-400 text-xs">{{ teamMemberError }}</div>
             <div class="flex justify-end gap-2">
-              <button @click="showTeamAddMember = false" class="btn-secondary text-xs px-3 py-1">Annuler</button>
-              <button @click="submitTeamAddMember" class="btn-primary text-xs px-3 py-1" :disabled="!teamAddMemberForm.user_id || submitting">Ajouter</button>
+              <button @click="showTeamAddMember = false" class="btn-secondary text-xs px-3 py-1">{{ t('common.cancel') }}</button>
+              <button @click="submitTeamAddMember" class="btn-primary text-xs px-3 py-1" :disabled="!teamAddMemberForm.user_id || submitting">{{ t('admin.add_btn') }}</button>
             </div>
           </div>
 
@@ -778,17 +776,17 @@
             <table class="w-full text-sm">
               <thead>
                 <tr class="border-b border-gray-800">
-                  <th class="text-left px-4 py-2.5 text-gray-400 font-medium">Utilisateur</th>
-                  <th class="text-left px-4 py-2.5 text-gray-400 font-medium">Role</th>
-                  <th class="text-right px-4 py-2.5 text-gray-400 font-medium">Actions</th>
+                  <th class="text-left px-4 py-2.5 text-gray-400 font-medium">{{ t('admin.col_user') }}</th>
+                  <th class="text-left px-4 py-2.5 text-gray-400 font-medium">{{ t('admin.label_role') }}</th>
+                  <th class="text-right px-4 py-2.5 text-gray-400 font-medium">{{ t('admin.col_actions') }}</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-if="loadingTeamMembers">
-                  <td colspan="3" class="text-center py-6 text-gray-600">Chargement...</td>
+                  <td colspan="3" class="text-center py-6 text-gray-600">{{ t('admin.loading') }}</td>
                 </tr>
                 <tr v-else-if="teamMembers.length === 0">
-                  <td colspan="3" class="text-center py-6 text-gray-600">Aucun membre</td>
+                  <td colspan="3" class="text-center py-6 text-gray-600">{{ t('admin.no_members') }}</td>
                 </tr>
                 <tr
                   v-else
@@ -823,7 +821,7 @@
                     <button
                       @click="confirmRemoveTeamMember(m)"
                       class="p-1 text-gray-500 hover:text-red-400 transition-colors rounded"
-                      title="Retirer"
+                      :title="t('admin.remove_member_prefix')"
                     >
                       <Trash2 class="w-3.5 h-3.5" />
                     </button>
@@ -842,18 +840,18 @@
       <div v-if="showEditTeamModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" @click.self="showEditTeamModal = false">
         <div class="card w-full max-w-md" @click.stop>
           <div class="flex justify-between items-center mb-6">
-            <h2 class="text-lg font-semibold text-white">Modifier l'equipe</h2>
+            <h2 class="text-lg font-semibold text-white">{{ t('admin.edit_team_title') }}</h2>
             <button @click="showEditTeamModal = false" class="text-gray-500 hover:text-gray-300"><X class="w-5 h-5" /></button>
           </div>
           <form @submit.prevent="submitEditTeam" class="space-y-4">
             <div>
-              <label class="block text-sm text-gray-400 mb-1">Nom</label>
+              <label class="block text-sm text-gray-400 mb-1">{{ t('common.name') }}</label>
               <input v-model="teamEditForm.name" type="text" class="input w-full" required maxlength="200" />
             </div>
             <div v-if="teamError" class="text-red-400 text-sm">{{ teamError }}</div>
             <div class="flex justify-end gap-3 pt-2">
-              <button type="button" @click="showEditTeamModal = false" class="btn-secondary">Annuler</button>
-              <button type="submit" class="btn-primary" :disabled="submitting">{{ submitting ? 'Enregistrement...' : 'Enregistrer' }}</button>
+              <button type="button" @click="showEditTeamModal = false" class="btn-secondary">{{ t('common.cancel') }}</button>
+              <button type="submit" class="btn-primary" :disabled="submitting">{{ submitting ? t('admin.saving') : t('admin.save_btn') }}</button>
             </div>
           </form>
         </div>
@@ -864,12 +862,12 @@
     <Teleport to="body">
       <div v-if="showTeamDeleteModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" @click.self="showTeamDeleteModal = false">
         <div class="card w-full max-w-sm" @click.stop>
-          <h2 class="text-lg font-semibold text-white mb-3">Confirmer</h2>
+          <h2 class="text-lg font-semibold text-white mb-3">{{ t('admin.confirm_team_action') }}</h2>
           <p class="text-gray-400 text-sm mb-6">{{ teamDeletePrefix }} <strong class="text-white">{{ teamDeleteTarget }}</strong> {{ teamDeleteSuffix }}</p>
           <div class="flex justify-end gap-3">
-            <button @click="showTeamDeleteModal = false" class="btn-secondary">Annuler</button>
+            <button @click="showTeamDeleteModal = false" class="btn-secondary">{{ t('common.cancel') }}</button>
             <button @click="executeTeamDelete" class="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors" :disabled="submitting">
-              Confirmer
+              {{ t('common.confirm') }}
             </button>
           </div>
         </div>
@@ -882,17 +880,22 @@
 <script setup>
 import { ref, onMounted, watch, computed } from 'vue'
 import { Pencil, Trash2, UserPlus, X, Plus, Users } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
+import { useToast } from '../composables/useToast'
 import { adminApi } from '../api/admin'
 import { probesApi } from '../api/probes'
 import { teamsApi } from '../api/teams'
 
-const tabs = [
-  { id: 'users', label: 'Utilisateurs' },
-  { id: 'teams', label: 'Equipes' },
-  { id: 'monitors', label: 'Moniteurs' },
-  { id: 'probe-groups', label: 'Groupes de sondes' },
-  { id: 'oidc', label: 'SSO / OIDC' },
-]
+const { t } = useI18n()
+const { error: toastError } = useToast()
+
+const tabs = computed(() => [
+  { id: 'users', label: t('admin.tab_users') },
+  { id: 'teams', label: t('admin.tab_teams') },
+  { id: 'monitors', label: t('admin.tab_monitors') },
+  { id: 'probe-groups', label: t('admin.tab_probe_groups') },
+  { id: 'oidc', label: t('admin.tab_oidc') },
+])
 const activeTab = ref('users')
 
 // ─── Users ──────────────────────────────────────────────────────────────────
@@ -969,7 +972,7 @@ async function submitCreate() {
     showCreateModal.value = false
     await loadUsers()
   } catch (e) {
-    createError.value = e.response?.data?.detail || 'Erreur lors de la creation'
+    createError.value = e.response?.data?.detail || t('admin.error_create')
   } finally {
     submitting.value = false
   }
@@ -1013,7 +1016,7 @@ async function submitEdit() {
     showEditModal.value = false
     await loadUsers()
   } catch (e) {
-    editError.value = e.response?.data?.detail || 'Erreur lors de la modification'
+    editError.value = e.response?.data?.detail || t('admin.error_edit')
   } finally {
     submitting.value = false
   }
@@ -1114,7 +1117,7 @@ async function submitCreateTeam() {
     showCreateTeamModal.value = false
     await loadTeams()
   } catch (e) {
-    teamError.value = e.response?.data?.detail || 'Erreur'
+    teamError.value = e.response?.data?.detail || t('common.error')
   } finally {
     submitting.value = false
   }
@@ -1148,7 +1151,7 @@ async function submitTeamAddMember() {
     await loadTeamMembers(selectedTeam.value.id)
     await loadTeams()
   } catch (e) {
-    teamMemberError.value = e.response?.data?.detail || 'Erreur'
+    teamMemberError.value = e.response?.data?.detail || t('common.error')
   } finally {
     submitting.value = false
   }
@@ -1160,15 +1163,15 @@ async function changeTeamMemberRole(member, newRole) {
     await loadTeamMembers(selectedTeam.value.id)
     await loadTeams()
   } catch (e) {
-    alert(e.response?.data?.detail || 'Erreur lors du changement de role')
+    toastError(e.response?.data?.detail || t('teams.error_update_role'))
     await loadTeamMembers(selectedTeam.value.id)
   }
 }
 
 function confirmRemoveTeamMember(member) {
-  teamDeletePrefix.value = 'Retirer'
+  teamDeletePrefix.value = t('admin.remove_member_prefix')
   teamDeleteTarget.value = member.username
-  teamDeleteSuffix.value = "de l'equipe ?"
+  teamDeleteSuffix.value = t('admin.remove_member_suffix')
   pendingTeamDeleteAction = async () => {
     await teamsApi.removeMember(selectedTeam.value.id, member.user_id)
     await loadTeamMembers(selectedTeam.value.id)
@@ -1178,9 +1181,9 @@ function confirmRemoveTeamMember(member) {
 }
 
 function confirmDeleteTeam() {
-  teamDeletePrefix.value = "Supprimer l'equipe"
+  teamDeletePrefix.value = t('admin.delete_team_prefix')
   teamDeleteTarget.value = selectedTeam.value.name
-  teamDeleteSuffix.value = '? Cette action est irreversible.'
+  teamDeleteSuffix.value = t('admin.delete_team_suffix')
   pendingTeamDeleteAction = async () => {
     await teamsApi.delete(selectedTeam.value.id)
     showTeamDetailModal.value = false
@@ -1196,7 +1199,7 @@ async function executeTeamDelete() {
     await pendingTeamDeleteAction()
     showTeamDeleteModal.value = false
   } catch (e) {
-    alert(e.response?.data?.detail || 'Erreur')
+    toastError(e.response?.data?.detail || t('common.error'))
   } finally {
     submitting.value = false
   }
@@ -1217,7 +1220,7 @@ async function submitEditTeam() {
     selectedTeam.value.name = teamEditForm.value.name
     await loadTeams()
   } catch (e) {
-    teamError.value = e.response?.data?.detail || 'Erreur'
+    teamError.value = e.response?.data?.detail || t('common.error')
   } finally {
     submitting.value = false
   }
@@ -1279,7 +1282,7 @@ async function submitCreateGroup() {
     showCreateGroupModal.value = false
     await loadProbeGroups()
   } catch (e) {
-    groupError.value = e.response?.data?.detail || 'Erreur lors de la creation'
+    groupError.value = e.response?.data?.detail || t('admin.error_create')
   } finally {
     submitting.value = false
   }
@@ -1307,7 +1310,7 @@ async function submitEditGroup() {
     showEditGroupModal.value = false
     await loadProbeGroups()
   } catch (e) {
-    groupError.value = e.response?.data?.detail || 'Erreur lors de la modification'
+    groupError.value = e.response?.data?.detail || t('admin.error_edit')
   } finally {
     submitting.value = false
   }
@@ -1368,7 +1371,7 @@ async function addProbeToDetailGroup() {
     addProbeSelection.value = ''
     await loadProbeGroups()
   } catch (e) {
-    detailError.value = e.response?.data?.detail || 'Erreur'
+    detailError.value = e.response?.data?.detail || t('common.error')
   } finally {
     submitting.value = false
   }
@@ -1382,7 +1385,7 @@ async function removeProbeFromDetailGroup(probeId) {
     detailGroup.value.probe_ids = detailGroup.value.probe_ids.filter(id => id !== probeId)
     await loadProbeGroups()
   } catch (e) {
-    detailError.value = e.response?.data?.detail || 'Erreur'
+    detailError.value = e.response?.data?.detail || t('common.error')
   } finally {
     submitting.value = false
   }
@@ -1398,7 +1401,7 @@ async function grantUserToDetailGroup() {
     addUserSelection.value = ''
     await loadProbeGroups()
   } catch (e) {
-    detailError.value = e.response?.data?.detail || 'Erreur'
+    detailError.value = e.response?.data?.detail || t('common.error')
   } finally {
     submitting.value = false
   }
@@ -1412,7 +1415,7 @@ async function revokeUserFromDetailGroup(userId) {
     detailGroup.value.user_ids = detailGroup.value.user_ids.filter(id => id !== userId)
     await loadProbeGroups()
   } catch (e) {
-    detailError.value = e.response?.data?.detail || 'Erreur'
+    detailError.value = e.response?.data?.detail || t('common.error')
   } finally {
     submitting.value = false
   }
@@ -1451,7 +1454,7 @@ async function loadOidcSettings() {
       oidc_auto_provision: data.oidc_auto_provision,
     }
   } catch (e) {
-    oidcError.value = e.response?.data?.detail || 'Erreur de chargement'
+    oidcError.value = e.response?.data?.detail || t('common.error')
   } finally {
     oidcLoading.value = false
   }
@@ -1470,7 +1473,7 @@ async function saveOidcSettings() {
     oidcSuccess.value = true
     setTimeout(() => { oidcSuccess.value = false }, 3000)
   } catch (e) {
-    oidcError.value = e.response?.data?.detail || 'Erreur lors de la sauvegarde'
+    oidcError.value = e.response?.data?.detail || t('common.error')
   } finally {
     oidcSaving.value = false
   }

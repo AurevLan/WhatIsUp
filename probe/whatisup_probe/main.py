@@ -18,12 +18,13 @@ async def run() -> None:
     settings = get_settings()
     scheduler = ProbeScheduler()
 
+    shutdown_event = asyncio.Event()
     loop = asyncio.get_running_loop()
 
     def _shutdown(sig: signal.Signals) -> None:
         logger.info("shutdown_signal", signal=sig.name)
         scheduler.stop()
-        loop.stop()
+        shutdown_event.set()
 
     for sig in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(sig, _shutdown, sig)
@@ -37,9 +38,9 @@ async def run() -> None:
 
     await scheduler.start()
 
-    # Keep running until stopped
+    # Keep running until shutdown signal
     try:
-        await asyncio.Event().wait()
+        await shutdown_event.wait()
     except asyncio.CancelledError:
         pass
     finally:

@@ -103,20 +103,20 @@
           <UptimeViewSplit :stats="uptime7d" />
         </div>
         <div class="card text-center">
-          <p class="text-xs text-gray-500">Avg. duration</p>
+          <p class="text-xs text-gray-500">{{ t('monitor_detail.avg_duration') }}</p>
           <p class="text-2xl font-bold mt-1 text-gray-300">
             {{ uptime24?.avg_response_time_ms ? (uptime24.avg_response_time_ms / 1000).toFixed(1) + 's' : '—' }}
           </p>
         </div>
         <div class="card text-center">
-          <p class="text-xs text-gray-500">p95 duration</p>
+          <p class="text-xs text-gray-500">{{ t('monitor_detail.p95_duration') }}</p>
           <p class="text-2xl font-bold mt-1 text-gray-300">
             {{ uptime24?.p95_response_time_ms ? (uptime24.p95_response_time_ms / 1000).toFixed(1) + 's' : '—' }}
           </p>
         </div>
       </div>
 
-      <!-- Edit / Duplicate links -->
+      <!-- Edit / Duplicate / Maintenance links -->
       <div class="flex items-center justify-end gap-2 mb-3">
         <button
           @click="duplicateMonitor"
@@ -124,6 +124,13 @@
           :title="t('monitors.duplicate')"
         >
           <Copy class="w-3.5 h-3.5" /> {{ t('monitors.duplicate') }}
+        </button>
+        <button
+          @click="openScheduleMaintenance"
+          class="btn-secondary text-xs flex items-center gap-1.5"
+          :title="t('maintenance.schedule_maintenance')"
+        >
+          <CalendarClock class="w-3.5 h-3.5" /> {{ t('maintenance.schedule_maintenance') }}
         </button>
         <button
           @click="editingMonitor = monitor"
@@ -338,7 +345,7 @@
             </div>
           </div>
         </div>
-        <p v-else class="text-gray-500 text-sm text-center py-6">No data yet</p>
+        <p v-else class="text-gray-500 text-sm text-center py-6">{{ t('monitor_detail.no_data') }}</p>
       </div>
     </div>
 
@@ -1044,7 +1051,7 @@
         :options="rtOptions"
         :series="rtSeries"
       />
-      <p v-else class="text-gray-500 text-sm text-center py-6">No data yet</p>
+      <p v-else class="text-gray-500 text-sm text-center py-6">{{ t('monitor_detail.no_data') }}</p>
     </div>
 
     <!-- Response Time Percentiles (P50/P95/P99) -->
@@ -1408,6 +1415,11 @@
       <AlertMatrix :monitor-id="monitor.id" :check-type="monitor.check_type" />
     </div>
 
+    <!-- ── Onglet Métriques ──────────────────────────────────────────────────── -->
+    <div v-if="activeTab === TAB_METRICS && monitor">
+      <MetricsDashboard :monitor-id="String(monitor.id)" />
+    </div>
+
     <!-- DNS drift alert suggestion modal -->
     <div v-if="dnsAlertModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
       <div class="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-sm p-6">
@@ -1448,6 +1460,52 @@
     </div>
     <EditMonitorModal v-if="editingMonitor" :monitor="editingMonitor" @close="editingMonitor = null" @updated="onMonitorUpdated" />
     <CreateMonitorModal v-if="showClone" :initial-data="clonePayload" @close="showClone = false" @created="onCloneCreated" />
+
+    <!-- Quick schedule maintenance modal -->
+    <BaseModal v-model="showMaintenanceModal" :title="t('maintenance.schedule_maintenance')" size="lg">
+      <div class="space-y-4">
+        <div>
+          <label class="text-sm text-gray-400">{{ t('common.name') }} <span class="text-red-400">*</span></label>
+          <input v-model="maintForm.name" class="input w-full mt-1" :placeholder="t('maintenance.name_placeholder')" />
+        </div>
+        <div>
+          <label class="text-sm text-gray-400">
+            {{ t('maintenance.description_label') }}
+            <span class="text-gray-600">({{ t('common.optional') }})</span>
+          </label>
+          <textarea v-model="maintForm.description" class="input w-full mt-1 resize-none" rows="2"
+            :placeholder="t('maintenance.description_placeholder')" />
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="text-sm text-gray-400">{{ t('maintenance.starts') }} <span class="text-red-400">*</span></label>
+            <input v-model="maintForm.starts_at" type="datetime-local" class="input w-full mt-1" />
+          </div>
+          <div>
+            <label class="text-sm text-gray-400">{{ t('maintenance.ends') }} <span class="text-red-400">*</span></label>
+            <input v-model="maintForm.ends_at" type="datetime-local" class="input w-full mt-1" />
+          </div>
+        </div>
+        <div class="flex items-center gap-3 py-1">
+          <button type="button" @click="maintForm.suppress_alerts = !maintForm.suppress_alerts"
+            class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200"
+            :class="maintForm.suppress_alerts ? 'bg-blue-600' : 'bg-gray-700'">
+            <span class="inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform duration-200"
+              :class="maintForm.suppress_alerts ? 'translate-x-4' : 'translate-x-0'" />
+          </button>
+          <span class="text-sm text-gray-300 cursor-pointer select-none"
+            @click="maintForm.suppress_alerts = !maintForm.suppress_alerts">
+            {{ t('maintenance.suppress_alerts_label') }}
+          </span>
+        </div>
+      </div>
+      <template #footer>
+        <button @click="showMaintenanceModal = false" class="btn-secondary flex-1">{{ t('common.cancel') }}</button>
+        <button @click="createMaintWindow" :disabled="maintSaving" class="btn-primary flex-1 disabled:opacity-50">
+          {{ maintSaving ? t('common.loading') : t('common.add') }}
+        </button>
+      </template>
+    </BaseModal>
   </div>
   <div v-else class="p-8 text-gray-400">{{ t('common.loading') }}</div>
 </template>
@@ -1456,7 +1514,8 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { Shield, ShieldAlert, ShieldCheck, Copy } from 'lucide-vue-next'
+import { Shield, ShieldAlert, ShieldCheck, Copy, CalendarClock } from 'lucide-vue-next'
+import { useToast } from '../composables/useToast'
 import api from '../api/client'
 import { monitorsApi, triggerCheck, getSlaReport, listAnnotations, createAnnotation, deleteAnnotation, getSlo } from '../api/monitors'
 import { probesApi } from '../api/probes'
@@ -1469,8 +1528,12 @@ import UptimeHeatmap from '../components/monitors/UptimeHeatmap.vue'
 import UptimeViewSplit from '../components/monitors/UptimeViewSplit.vue'
 import AlertMatrix from '../components/monitors/AlertMatrix.vue'
 import TagChips from '../components/monitors/TagChips.vue'
+import MetricsDashboard from '../components/monitors/MetricsDashboard.vue'
+import BaseModal from '../components/BaseModal.vue'
+import { maintenanceApi } from '../api/maintenance'
 
 const { t, locale } = useI18n()
+const { error: toastError, success: toastSuccess } = useToast()
 
 const route = useRoute()
 const router = useRouter()
@@ -1483,6 +1546,59 @@ const allMonitors = ref([]) // for dependency picker
 const editingMonitor = ref(null)
 const showClone = ref(false)
 const clonePayload = ref(null)
+
+// ── Maintenance quick-schedule ─────────────────────────────────────────────
+const showMaintenanceModal = ref(false)
+const maintSaving = ref(false)
+const maintForm = ref({
+  name: '',
+  description: '',
+  starts_at: '',
+  ends_at: '',
+  suppress_alerts: true,
+})
+
+function openScheduleMaintenance() {
+  const pad = n => String(n).padStart(2, '0')
+  const toLocalDt = (d) =>
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  const now  = new Date()
+  const end  = new Date(now.getTime() + 2 * 60 * 60 * 1000) // default 2h window
+  maintForm.value = {
+    name:            monitor.value ? `${monitor.value.name} — maintenance` : '',
+    description:     '',
+    starts_at:       toLocalDt(now),
+    ends_at:         toLocalDt(end),
+    suppress_alerts: true,
+  }
+  showMaintenanceModal.value = true
+}
+
+async function createMaintWindow() {
+  if (!maintForm.value.name.trim() || !maintForm.value.starts_at || !maintForm.value.ends_at) {
+    toastError(t('maintenance.error_required'))
+    return
+  }
+  maintSaving.value = true
+  try {
+    await maintenanceApi.create({
+      name:            maintForm.value.name.trim(),
+      description:     maintForm.value.description || null,
+      monitor_id:      monitor.value?.id ?? null,
+      group_id:        null,
+      starts_at:       new Date(maintForm.value.starts_at).toISOString(),
+      ends_at:         new Date(maintForm.value.ends_at).toISOString(),
+      suppress_alerts: maintForm.value.suppress_alerts,
+    })
+    showMaintenanceModal.value = false
+    toastSuccess(t('common.success'))
+  } catch (err) {
+    toastError(t('common.error'))
+    if (import.meta.env.DEV) console.error(err)
+  } finally {
+    maintSaving.value = false
+  }
+}
 
 function duplicateMonitor() {
   if (!monitor.value) return
@@ -1885,12 +2001,14 @@ const TAB_AVAILABILITY = 'availability'
 const TAB_SCENARIO = 'scenario'
 const TAB_MAP = 'map'
 const TAB_ALERTS = 'alerts'
+const TAB_METRICS = 'metrics'
 
 const tabLabel = (tab) => ({
   [TAB_AVAILABILITY]: t('monitor_detail.tab_availability'),
   [TAB_SCENARIO]: t('monitor_detail.tab_scenario'),
   [TAB_MAP]: t('monitor_detail.tab_map'),
   [TAB_ALERTS]: t('monitor_detail.tab_alerts'),
+  [TAB_METRICS]: t('metrics.title'),
 }[tab] ?? tab)
 
 const viewTabs = computed(() => {
@@ -1901,6 +2019,8 @@ const viewTabs = computed(() => {
     tabs.push(TAB_MAP)
   }
   tabs.push(TAB_ALERTS)
+  // Metrics tab only when at least one metric has been pushed
+  if (customMetrics.value.length > 0) tabs.push(TAB_METRICS)
   return tabs
 })
 const activeTab = ref(TAB_AVAILABILITY)
@@ -2487,7 +2607,7 @@ async function acceptSchemaBaseline() {
     monitor.value.schema_baseline = data.baseline
     monitor.value.schema_baseline_updated_at = new Date().toISOString()
   } catch (e) {
-    alert(e.response?.data?.detail || 'Error accepting baseline')
+    toastError(e.response?.data?.detail || 'Error accepting baseline')
   }
 }
 
@@ -2576,7 +2696,7 @@ async function createDnsAlertRule() {
     })
     dnsAlertModal.value = false
   } catch (e) {
-    alert(e.response?.data?.detail || 'Erreur lors de la création de la règle')
+    toastError(e.response?.data?.detail || 'Erreur lors de la création de la règle')
   } finally {
     dnsAlertCreating.value = false
   }
@@ -2618,7 +2738,7 @@ async function addCompositeMember() {
     compositeMembers.value.push(data)
     newMember.value = { monitor_id: '', role: '', weight: 1 }
   } catch (e) {
-    alert(e.response?.data?.detail || 'Error adding member')
+    toastError(e.response?.data?.detail || 'Error adding member')
   }
 }
 
@@ -2627,7 +2747,7 @@ async function removeCompositeMember(memberId) {
     await monitorsApi.removeCompositeMember(monitor.value.id, memberId)
     compositeMembers.value = compositeMembers.value.filter(m => m.id !== memberId)
   } catch (e) {
-    alert(e.response?.data?.detail || 'Error removing member')
+    toastError(e.response?.data?.detail || 'Error removing member')
   }
 }
 

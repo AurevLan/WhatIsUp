@@ -1,4 +1,5 @@
 import axios from 'axios'
+import router from '../router'
 import { apiBaseUrl } from '../lib/serverConfig'
 
 const api = axios.create({
@@ -57,7 +58,7 @@ api.interceptors.response.use(
       }
       localStorage.removeItem('access_token')
       localStorage.removeItem('refresh_token')
-      window.location.href = '/login'
+      router.push('/login')
     }
     return Promise.reject(error)
   }

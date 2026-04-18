@@ -96,10 +96,10 @@ describe('auth store', () => {
 
   describe('login', () => {
     it('stores tokens and fetches user info', async () => {
-      axios.post.mockResolvedValue({
+      apiClient.post.mockResolvedValue({
         data: { access_token: 'at-123', refresh_token: 'rt-456' },
       })
-      axios.get.mockResolvedValue({
+      apiClient.get.mockResolvedValue({
         data: { id: 'u-1', email: 'test@test.com', is_superadmin: false },
       })
 
@@ -112,14 +112,14 @@ describe('auth store', () => {
     })
 
     it('sends credentials as form-urlencoded', async () => {
-      axios.post.mockResolvedValue({
+      apiClient.post.mockResolvedValue({
         data: { access_token: 'at', refresh_token: 'rt' },
       })
-      axios.get.mockResolvedValue({ data: {} })
+      apiClient.get.mockResolvedValue({ data: {} })
 
       await store.login('user@example.com', 'secret')
 
-      const formData = axios.post.mock.calls[0][1]
+      const formData = apiClient.post.mock.calls[0][1]
       expect(formData.toString()).toContain('username=user%40example.com')
       expect(formData.toString()).toContain('password=secret')
     })
@@ -133,7 +133,7 @@ describe('auth store', () => {
       store.accessToken = 'at-123'
       localStorageMock.setItem('refresh_token', 'rt-456')
 
-      axios.post.mockResolvedValue({})
+      apiClient.post.mockResolvedValue({})
       await store.logout()
 
       expect(store.user).toBeNull()
@@ -144,7 +144,7 @@ describe('auth store', () => {
 
     it('does not crash if logout API call fails', async () => {
       localStorageMock.setItem('refresh_token', 'rt-456')
-      axios.post.mockRejectedValue(new Error('network'))
+      apiClient.post.mockRejectedValue(new Error('network'))
 
       await store.logout() // should not throw
       expect(store.user).toBeNull()

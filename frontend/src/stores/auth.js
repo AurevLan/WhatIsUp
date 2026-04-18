@@ -94,7 +94,7 @@ export const useAuthStore = defineStore('auth', () => {
     const refresh = localStorage.getItem('refresh_token')
     if (refresh) {
       try {
-        await axios.post(`${apiBaseUrl()}/auth/logout`, { refresh_token: refresh })
+        await api.post('/auth/logout', { refresh_token: refresh })
       } catch {}
     }
     user.value = null

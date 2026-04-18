@@ -20,8 +20,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../stores/auth'
 import { useWebSocketStore } from '../stores/websocket'
-import axios from 'axios'
-import { apiBaseUrl } from '../lib/serverConfig'
+import api from '../api/client'
 
 const { t } = useI18n()
 
@@ -62,11 +61,9 @@ onMounted(async () => {
   auth.accessToken = accessToken
   window.history.replaceState({}, '', window.location.pathname)
 
-  // Fetch user profile
+  // Fetch user profile (access_token is already in localStorage — interceptor attaches it)
   try {
-    const { data } = await axios.get(`${apiBaseUrl()}/auth/me`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    })
+    const { data } = await api.get('/auth/me')
     auth.user = data
   } catch {
     error.value = true

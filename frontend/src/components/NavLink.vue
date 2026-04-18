@@ -1,14 +1,15 @@
 <template>
-  <router-link :to="to" custom v-slot="{ isActive, isExactActive, navigate }">
-    <button
-      @click="navigate"
+  <router-link :to="to" custom v-slot="{ href, isActive, isExactActive, navigate }">
+    <a
+      :href="href"
+      @click="onClick($event, navigate)"
       class="nav-link"
       :class="{ 'nav-link--active': activeState(isActive, isExactActive) }"
     >
       <component :is="icon" :size="14" :stroke-width="activeState(isActive, isExactActive) ? 2.5 : 1.8" class="nav-link__icon" />
       <span class="nav-link__label">{{ label }}</span>
       <span v-if="badge" class="nav-link__badge">{{ badge > 99 ? '99+' : badge }}</span>
-    </button>
+    </a>
   </router-link>
 </template>
 
@@ -22,6 +23,15 @@ const props = defineProps({
 })
 function activeState(isActive, isExactActive) {
   return props.exact ? isExactActive : isActive
+}
+function onClick(ev, navigate) {
+  // Preserve native link behavior (middle-click / ctrl-click open in new tab)
+  // by only hijacking plain left-clicks.
+  if (ev.defaultPrevented) return
+  if (ev.button !== 0) return
+  if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return
+  ev.preventDefault()
+  navigate(ev)
 }
 </script>
 
@@ -41,6 +51,7 @@ function activeState(isActive, isExactActive) {
   cursor: pointer;
   width: 100%;
   text-align: left;
+  text-decoration: none;
   transition: color .15s, background .15s;
   position: relative;
 }

@@ -24,7 +24,9 @@ self.addEventListener('push', (event) => {
       data: { url: data.url || '/' },
       requireInteraction: true,
       vibrate: [200, 100, 200],
-      tag: 'whatisup-alert',
+      // Stackable notifications: use the server-provided tag if any, else a
+      // unique id so each alert coexists (a fixed tag would replace prior ones).
+      tag: data.tag || `whatisup-alert-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     })
   )
 })

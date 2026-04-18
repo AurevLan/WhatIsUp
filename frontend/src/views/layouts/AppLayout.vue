@@ -71,7 +71,7 @@
       <!-- Topbar -->
       <header class="topbar">
         <!-- Hamburger (mobile) -->
-        <button class="topbar__hamburger" @click="sidebarOpen = !sidebarOpen" :aria-label="'Toggle menu'">
+        <button class="topbar__hamburger" @click="sidebarOpen = !sidebarOpen" aria-label="Toggle menu">
           <span class="hamburger-line" :class="{ 'hamburger-line--open-1': sidebarOpen }" />
           <span class="hamburger-line" :class="{ 'hamburger-line--open-2': sidebarOpen }" />
           <span class="hamburger-line" :class="{ 'hamburger-line--open-3': sidebarOpen }" />

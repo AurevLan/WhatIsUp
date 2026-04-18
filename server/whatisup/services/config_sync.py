@@ -412,6 +412,7 @@ async def import_config(
                 ).scalars().all()
 
                 rule = AlertRule(
+                    owner_id=user.id,
                     monitor_id=monitor_id,
                     group_id=group_id,
                     condition=AlertCondition(r_cfg["condition"]),

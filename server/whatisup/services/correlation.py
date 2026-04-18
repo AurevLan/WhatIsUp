@@ -7,10 +7,11 @@ from datetime import UTC, datetime
 from itertools import combinations
 
 import structlog
-from sqlalchemy import select
+from sqlalchemy import and_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from whatisup.core.database import dialect_name
 from whatisup.models.correlation_pattern import CorrelationPattern
 from whatisup.models.incident import Incident, IncidentGroup
 
@@ -54,18 +55,38 @@ async def update_patterns_for_group(
         )
 
     if rows:
-        stmt = (
-            pg_insert(CorrelationPattern)
-            .values(rows)
-            .on_conflict_do_update(
-                index_elements=["monitor_a_id", "monitor_b_id"],
-                set_={
-                    "co_occurrence_count": CorrelationPattern.co_occurrence_count + 1,
-                    "last_seen": now,
-                },
+        if dialect_name(db) == "postgresql":
+            stmt = (
+                pg_insert(CorrelationPattern)
+                .values(rows)
+                .on_conflict_do_update(
+                    index_elements=["monitor_a_id", "monitor_b_id"],
+                    set_={
+                        "co_occurrence_count": CorrelationPattern.co_occurrence_count + 1,
+                        "last_seen": now,
+                    },
+                )
             )
-        )
-        await db.execute(stmt)
+            await db.execute(stmt)
+        else:
+            # SQLite (tests) — no ON CONFLICT DO UPDATE for composite keys in
+            # this SQLAlchemy version, so do a per-row SELECT/UPDATE/INSERT.
+            for row in rows:
+                existing = (
+                    await db.execute(
+                        select(CorrelationPattern).where(
+                            and_(
+                                CorrelationPattern.monitor_a_id == row["monitor_a_id"],
+                                CorrelationPattern.monitor_b_id == row["monitor_b_id"],
+                            )
+                        )
+                    )
+                ).scalar_one_or_none()
+                if existing is None:
+                    db.add(CorrelationPattern(**row))
+                else:
+                    existing.co_occurrence_count += 1
+                    existing.last_seen = now
 
     await db.flush()
     logger.info(

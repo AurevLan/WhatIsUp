@@ -16,7 +16,7 @@ from whatisup.api.deps import (
     get_user_team_ids,
     require_superadmin,
 )
-from whatisup.core.database import get_db
+from whatisup.core.database import dialect_name, get_db
 from whatisup.core.limiter import limiter
 from whatisup.core.security import encrypt_scenario_variables
 from whatisup.models.annotation import MonitorAnnotation
@@ -128,8 +128,7 @@ async def list_monitors(
 
     # P95 response time 24h per monitor (one query)
     # percentile_cont is PostgreSQL-only; fall back to AVG for SQLite (tests)
-    dialect = db.bind.dialect.name if db.bind else ""
-    if dialect == "sqlite":
+    if dialect_name(db) == "sqlite":
         p95_col = func.avg(CheckResult.response_time_ms).label("p95")
     else:
         p95_col = func.percentile_cont(0.95).within_group(CheckResult.response_time_ms).label("p95")
@@ -472,6 +471,7 @@ async def create_monitor(
                 if not preset.get("default", False):
                     continue
                 rule = AlertRule(
+                    owner_id=current_user.id,
                     monitor_id=monitor.id,
                     condition=preset["condition"],
                     min_duration_seconds=preset.get("min_duration_seconds", 0),
@@ -1427,32 +1427,40 @@ async def _would_create_cycle(
     db: AsyncSession,
     composite_id: uuid.UUID,
     member_id: uuid.UUID,
-    visited: set[uuid.UUID] | None = None,
 ) -> bool:
-    """Check if adding member_id to composite_id would create a cycle."""
-    if visited is None:
-        visited = set()
-    if member_id in visited:
-        return False
+    """Check if adding member_id to composite_id would create a cycle.
+
+    Iterative BFS with a single edge query: scales linearly in edges rather
+    than issuing one query per node (the previous recursive implementation
+    was O(nodes) round-trips).
+    """
     if member_id == composite_id:
         return True
-    visited.add(member_id)
 
-    children = (
-        (
-            await db.execute(
-                select(CompositeMonitorMember.monitor_id).where(
-                    CompositeMonitorMember.composite_id == member_id
-                )
+    # Load every composite edge once; building the adjacency map in Python
+    # turns the cycle check into pure in-memory graph traversal.
+    edges = (
+        await db.execute(
+            select(
+                CompositeMonitorMember.composite_id,
+                CompositeMonitorMember.monitor_id,
             )
         )
-        .scalars()
-        .all()
-    )
+    ).all()
+    adjacency: dict[uuid.UUID, list[uuid.UUID]] = {}
+    for parent, child in edges:
+        adjacency.setdefault(parent, []).append(child)
 
-    for child_id in children:
-        if await _would_create_cycle(db, composite_id, child_id, visited):
+    visited: set[uuid.UUID] = set()
+    queue: list[uuid.UUID] = [member_id]
+    while queue:
+        node = queue.pop()
+        if node in visited:
+            continue
+        if node == composite_id:
             return True
+        visited.add(node)
+        queue.extend(adjacency.get(node, ()))
     return False
 
 

@@ -1,5 +1,5 @@
 # ── Stage 1: Build ─────────────────────────────────────────────────────────────
-FROM python:3.12-slim AS builder
+FROM python:3.14-slim AS builder
 
 WORKDIR /build
 
@@ -13,7 +13,7 @@ COPY whatisup/ whatisup/
 RUN pip install --no-cache-dir --prefix=/install .
 
 # ── Stage 2: Runtime ───────────────────────────────────────────────────────────
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends libssl3 curl \
     && rm -rf /var/lib/apt/lists/*

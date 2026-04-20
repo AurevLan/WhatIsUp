@@ -1,5 +1,6 @@
 """Monitor CRUD endpoints."""
 
+import logging
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -42,6 +43,8 @@ from whatisup.schemas.monitor import (
 from whatisup.schemas.probe import ProbeMonitorStatus
 from whatisup.schemas.result import CheckResultOut, UptimeStats
 from whatisup.services.stats import compute_uptime, compute_uptime_bulk, compute_uptime_in_range
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/monitors", tags=["monitors"])
 
@@ -370,8 +373,9 @@ async def import_monitors(
                 db.add(monitor)
                 existing_by_name[name] = monitor
                 imported += 1
-        except Exception as exc:
-            errors.append(f"Entry {idx} ({name}): {exc!s}")
+        except Exception:
+            logger.exception("Failed to import monitor entry %d (%s)", idx, name)
+            errors.append(f"Entry {idx} ({name}): invalid configuration")
 
     await db.flush()
     return {"imported": imported, "updated": updated, "errors": errors}

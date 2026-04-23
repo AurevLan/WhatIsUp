@@ -3,8 +3,20 @@
 from __future__ import annotations
 
 import uuid
+import zoneinfo
 
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
+
+# Cached once at import — cheap enough, but we only need it for validation.
+_VALID_TIMEZONES = frozenset(zoneinfo.available_timezones())
+
+
+def _validate_timezone(v: str | None) -> str | None:
+    if v is None or v == "":
+        return None
+    if v not in _VALID_TIMEZONES:
+        raise ValueError(f"Invalid IANA timezone: {v!r}")
+    return v
 
 
 class UserCreate(BaseModel):
@@ -27,6 +39,18 @@ class UserUpdate(BaseModel):
     full_name: str | None = Field(default=None, max_length=255)
     email: EmailStr | None = None
     password: str | None = Field(default=None, min_length=8, max_length=128)
+
+
+class UserSelfUpdate(BaseModel):
+    """Fields the user may edit on their own account via `PATCH /auth/me`."""
+
+    full_name: str | None = Field(default=None, max_length=255)
+    timezone: str | None = Field(default=None, max_length=64)
+
+    @field_validator("timezone")
+    @classmethod
+    def _tz_must_be_iana(cls, v: str | None) -> str | None:
+        return _validate_timezone(v)
 
 
 class AdminUserCreate(BaseModel):
@@ -58,6 +82,7 @@ class UserOut(BaseModel):
     is_superadmin: bool
     can_create_monitors: bool
     onboarding_completed: bool = False
+    timezone: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -76,6 +101,7 @@ class UserOut(BaseModel):
                 "is_superadmin": obj.is_superadmin,
                 "can_create_monitors": obj.can_create_monitors,
                 "onboarding_completed": obj.onboarding_completed_at is not None,
+                "timezone": obj.timezone,
             }
         return data
 

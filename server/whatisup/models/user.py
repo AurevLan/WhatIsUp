@@ -40,6 +40,11 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         String(512), unique=True, nullable=True, index=True
     )
 
+    # User preference — IANA timezone (e.g. "Europe/Paris"). `None` means the
+    # frontend falls back to the browser's resolved TZ. All timestamps remain
+    # stored in UTC in the DB; this only controls display formatting.
+    timezone: Mapped[str | None] = mapped_column(String(64), nullable=True, default=None)
+
     # Relationships
     tag_permissions: Mapped[list[UserTagPermission]] = relationship(
         "UserTagPermission", back_populates="user", cascade="all, delete-orphan"

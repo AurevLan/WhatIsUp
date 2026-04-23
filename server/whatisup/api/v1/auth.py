@@ -27,7 +27,7 @@ from whatisup.core.security import (
     verify_password_async,
 )
 from whatisup.models.user import User
-from whatisup.schemas.user import TokenRefreshRequest, TokenResponse, UserOut
+from whatisup.schemas.user import TokenRefreshRequest, TokenResponse, UserOut, UserSelfUpdate
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -140,6 +140,26 @@ async def me(current_user: User = Depends(get_current_user)) -> User:
     return current_user
 
 
+@router.patch("/me", response_model=UserOut)
+@limiter.limit("30/minute")
+async def update_me(
+    request: Request,
+    payload: UserSelfUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """Update the authenticated user's own profile preferences.
+
+    Limited to non-privileged fields (full_name, timezone). Admin-level
+    updates go through `/admin/users/{id}`.
+    """
+    data = payload.model_dump(exclude_unset=True)
+    for field, value in data.items():
+        setattr(current_user, field, value)
+    await db.flush()
+    return current_user
+
+
 # ── OIDC ─────────────────────────────────────────────────────────────────────
 
 
@@ -228,9 +248,7 @@ async def _oidc_discover(issuer: str) -> dict:
 
 @router.get("/oidc/login")
 @limiter.limit("20/minute")
-async def oidc_login(
-    request: Request, db: AsyncSession = Depends(get_db)
-) -> RedirectResponse:
+async def oidc_login(request: Request, db: AsyncSession = Depends(get_db)) -> RedirectResponse:
     """Redirect the browser to the OIDC provider's authorization endpoint."""
     cfg = await _resolve_oidc_settings(db)
     if not cfg["enabled"]:
@@ -248,9 +266,9 @@ async def oidc_login(
     # Generate state + PKCE code_verifier
     state = urlsafe_b64encode(os.urandom(32)).rstrip(b"=").decode()
     code_verifier = urlsafe_b64encode(os.urandom(32)).rstrip(b"=").decode()
-    code_challenge = urlsafe_b64encode(
-        hashlib.sha256(code_verifier.encode()).digest()
-    ).rstrip(b"=").decode()
+    code_challenge = (
+        urlsafe_b64encode(hashlib.sha256(code_verifier.encode()).digest()).rstrip(b"=").decode()
+    )
 
     # Persist in Redis (5-minute TTL)
     redis = get_redis()
@@ -410,6 +428,7 @@ async def oidc_callback(
 
     logger.info("oidc_login_success", user_id=str(user.id))
     from whatisup.services.audit import log_action
+
     await log_action(db, "user.login_oidc", "user", user.id, user.username, None)
 
     # Use URL fragment (#) to avoid token leakage in server logs and Referer headers

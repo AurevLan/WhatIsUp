@@ -609,7 +609,7 @@
             <div v-if="monitor.schema_baseline">
               <code class="font-mono text-xs text-emerald-400 bg-gray-800 px-2 py-1 rounded block">{{ monitor.schema_baseline }}</code>
               <p v-if="monitor.schema_baseline_updated_at" class="text-xs text-gray-600 mt-1">
-                Updated {{ new Date(monitor.schema_baseline_updated_at).toLocaleString() }}
+                Updated {{ fmtDateTime(monitor.schema_baseline_updated_at) }}
               </p>
             </div>
             <p v-else class="text-xs text-gray-500 italic">No baseline set — next successful check will auto-set it</p>
@@ -810,9 +810,9 @@
               :class="selectedIncident.resolved_at ? 'bg-emerald-500' : 'bg-red-500 animate-pulse'" />
             <div class="flex-1 min-w-0">
               <p class="text-sm text-gray-200">
-                {{ new Date(selectedIncident.started_at).toLocaleString(locale) }}
+                {{ fmtDateTime(selectedIncident.started_at) }}
                 <span v-if="selectedIncident.resolved_at" class="text-gray-500">
-                  → {{ new Date(selectedIncident.resolved_at).toLocaleString(locale) }}
+                  → {{ fmtDateTime(selectedIncident.resolved_at) }}
                   <span class="ml-1 text-gray-600">({{ Math.round(selectedIncident.duration_seconds / 60) }} min)</span>
                 </span>
                 <span v-else class="text-red-400 font-medium ml-1">{{ t('incidents.ongoing') }}</span>
@@ -831,7 +831,7 @@
             <div v-if="incidentUpdatesLoading" class="text-xs text-gray-500">Loading…</div>
             <template v-else>
               <div v-for="u in incidentUpdates" :key="u.id" class="flex gap-2 text-xs">
-                <span class="text-gray-600 font-mono flex-shrink-0">{{ new Date(u.created_at).toLocaleString(locale) }}</span>
+                <span class="text-gray-600 font-mono flex-shrink-0">{{ fmtDateTime(u.created_at) }}</span>
                 <span :class="{
                   'text-amber-400': u.status === 'investigating',
                   'text-blue-400': u.status === 'identified',
@@ -873,9 +873,9 @@
               :class="inc.resolved_at ? 'bg-emerald-500' : 'bg-red-500 animate-pulse'" />
             <div class="flex-1 min-w-0">
               <p class="text-gray-300 text-xs">
-                {{ new Date(inc.started_at).toLocaleString(locale) }}
+                {{ fmtDateTime(inc.started_at) }}
                 <span v-if="inc.resolved_at" class="text-gray-500">
-                  → {{ new Date(inc.resolved_at).toLocaleString(locale) }}
+                  → {{ fmtDateTime(inc.resolved_at) }}
                   <span class="ml-1 text-gray-600">({{ Math.round(inc.duration_seconds / 60) }} min)</span>
                 </span>
                 <span v-else class="text-red-400 font-medium ml-1">{{ t('incidents.ongoing') }}</span>
@@ -896,7 +896,7 @@
             <div v-if="incidentUpdatesLoading" class="text-xs text-gray-500">Loading…</div>
             <div v-else>
               <div v-for="u in incidentUpdates" :key="u.id" class="flex gap-2 text-xs">
-                <span class="text-gray-600 font-mono flex-shrink-0">{{ new Date(u.created_at).toLocaleString(locale) }}</span>
+                <span class="text-gray-600 font-mono flex-shrink-0">{{ fmtDateTime(u.created_at) }}</span>
                 <span :class="{
                   'text-amber-400': u.status === 'investigating',
                   'text-blue-400': u.status === 'identified',
@@ -1170,7 +1170,7 @@
           <div class="flex-1 min-w-0">
             <p class="text-sm text-gray-200">{{ a.content }}</p>
             <p class="text-xs text-gray-500 mt-0.5">
-              {{ new Date(a.annotated_at).toLocaleString(locale.value) }}
+              {{ fmtDateTime(a.annotated_at) }}
               <span v-if="a.created_by" class="ml-2 text-gray-600">· {{ a.created_by }}</span>
             </p>
           </div>
@@ -1580,9 +1580,21 @@ import MetricsDashboard from '../components/monitors/MetricsDashboard.vue'
 import BaseModal from '../components/BaseModal.vue'
 import { maintenanceApi } from '../api/maintenance'
 import { renderRunbookMarkdown } from '../lib/runbookMarkdown'
+import { useTimezone } from '../composables/useTimezone'
 
 const { t, locale } = useI18n()
 const { error: toastError, success: toastSuccess } = useToast()
+const { format: tzFormat } = useTimezone()
+// Template shortcut — respects the user's timezone preference (T1-13).
+// Drop-in replacement for `new Date(x).toLocaleString(locale)` inline calls.
+const fmtDateTime = (v) =>
+  v
+    ? tzFormat(
+        v,
+        { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' },
+        locale.value,
+      )
+    : ''
 
 const route = useRoute()
 const router = useRouter()
@@ -1740,9 +1752,9 @@ const timelineLayout = computed(() => {
 })
 
 function tooltipFor(inc) {
-  const start = new Date(inc.started_at).toLocaleString(locale.value)
+  const start = fmtDateTime(inc.started_at)
   if (!inc.resolved_at) return `${t('incidents.ongoing')} — ${start}`
-  const end = new Date(inc.resolved_at).toLocaleString(locale.value)
+  const end = fmtDateTime(inc.resolved_at)
   const mins = Math.round(inc.duration_seconds / 60)
   return `${start} → ${end} (${mins} min) — ${inc.scope}`
 }
@@ -2147,7 +2159,7 @@ async function initMonitorMap() {
       iconAnchor: [7, 7],
     })
     const checkedAt = p.last_checked_at
-      ? new Date(p.last_checked_at).toLocaleString(locale.value) : 'Never'
+      ? fmtDateTime(p.last_checked_at) : 'Never'
     const marker = L.marker([p.latitude, p.longitude], { icon })
       .addTo(monitorLeafletMap)
       .bindPopup(`
@@ -2592,10 +2604,10 @@ function formatTarget(m) {
 }
 
 function formatDate(dt) {
-  return new Date(dt).toLocaleString(locale.value, {
+  return tzFormat(dt, {
     hour: '2-digit', minute: '2-digit', second: '2-digit',
     day: '2-digit', month: '2-digit',
-  })
+  }, locale.value)
 }
 
 function formatDateShort(dt) {

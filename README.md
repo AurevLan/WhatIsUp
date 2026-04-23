@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg"></a>
-  <img alt="Version" src="https://img.shields.io/badge/version-1.3.0-4f9cf9">
+  <img alt="Version" src="https://img.shields.io/badge/version-1.4.0-4f9cf9">
   <img alt="Python 3.14" src="https://img.shields.io/badge/Python-3.14-blue">
   <img alt="Vue 3" src="https://img.shields.io/badge/Vue-3.5-42b883">
   <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-0.125+-009688">
@@ -19,7 +19,7 @@
 
 <p align="center">
   <a href="#quick-start">Quick start</a> ·
-  <a href="#whats-new-in-13">What's new in 1.3</a> ·
+  <a href="#whats-new-in-14">What's new in 1.4</a> ·
   <a href="#why-whatisup">Why WhatIsUp</a> ·
   <a href="#features">Features</a> ·
   <a href="#architecture">Architecture</a> ·
@@ -37,6 +37,16 @@ There's no shortage of uptime tools. WhatIsUp focuses on three things most of th
 - 🎛 **Self-hosted, batteries included** — one `docker compose up`, no SaaS lock-in, no per-monitor pricing. Playwright scenarios, SSO/OIDC, teams & RBAC, IaC import/export, and a mobile app all ship in the box.
 
 It's built for teams who want Datadog-grade monitoring without Datadog-grade bills, and who'd rather own their data than rent it.
+
+---
+
+## What's new in 1.4
+
+- 🔗 **Shareable filter URLs** (T1-11) — MonitorsView and IncidentsView now persist their filters (search, status, type, group, days) via both the querystring *and* localStorage. Refresh keeps your view; copying the URL reproduces the exact same filtering for a teammate. A new generic `useFilterPreset` composable drives both views with 8 tests.
+- 🌍 **User timezone preference** (T1-13) — New `User.timezone` field (IANA, nullable). Default `null` means the browser's resolved zone is used. Settings page gets a "Preferences" card with a 45-zone picker + auto option. Dates across IncidentsView and MonitorDetailView now format in your selected zone; hover a date to see the absolute ISO + zone tooltip. Backend validates against `zoneinfo.available_timezones()` — invalid zones are rejected with 422.
+- 🆕 **`PATCH /auth/me`** — self-update endpoint limited to non-privileged fields (`full_name`, `timezone`). Escalation attempts are silently ignored.
+
+See the full [CHANGELOG](CHANGELOG.md#140---2026-04-24) for details.
 
 ---
 

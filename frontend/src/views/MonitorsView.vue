@@ -460,18 +460,37 @@ const loading  = computed(() => monitorStore.loading)
 const downCount  = computed(() => monitors.value.filter(m => m._lastStatus === 'down').length)
 const errorCount = computed(() => monitors.value.filter(m => ['error', 'timeout'].includes(m._lastStatus)).length)
 
-// Initialize from URL query params
-const searchInput_  = ref(route.query.q || '')
-const search        = ref(route.query.q || '')
+// Persisted filters (T1-11) — querystring + localStorage, shareable + F5-safe.
+import { useFilterPreset } from '../composables/useFilterPreset'
+const { state: monitorFilters, reset: resetMonitorFilters } = useFilterPreset('monitors', {
+  q: '',
+  status: '',
+  type: '',
+  group: '',
+})
+const searchInput_  = ref(monitorFilters.q || '')
+const search        = computed({
+  get: () => monitorFilters.q,
+  set: (v) => { monitorFilters.q = v },
+})
 let searchTimeout   = null
 function onSearchInput(val) {
   searchInput_.value = val
   clearTimeout(searchTimeout)
   searchTimeout = setTimeout(() => { search.value = val }, 200)
 }
-const filterStatus  = ref(route.query.status || '')
-const filterType    = ref(route.query.type || '')
-const filterGroup   = ref('')
+const filterStatus  = computed({
+  get: () => monitorFilters.status,
+  set: (v) => { monitorFilters.status = v },
+})
+const filterType    = computed({
+  get: () => monitorFilters.type,
+  set: (v) => { monitorFilters.type = v },
+})
+const filterGroup   = computed({
+  get: () => monitorFilters.group,
+  set: (v) => { monitorFilters.group = v },
+})
 const showCreate    = ref(false)
 const editingMonitor = ref(null)
 const searchInput   = ref(null)
@@ -501,10 +520,7 @@ const activeFilterCount = computed(() =>
 )
 
 function clearFilters() {
-  filterStatus.value = ''
-  filterType.value   = ''
-  filterGroup.value  = ''
-  search.value       = ''
+  resetMonitorFilters()
   searchInput_.value = ''
 }
 
@@ -592,19 +608,9 @@ const paginatedMonitors = computed(() =>
   filteredMonitors.value.slice((currentPage.value - 1) * PAGE_SIZE, currentPage.value * PAGE_SIZE)
 )
 
-// Sync filters to URL
-watch([search, filterStatus, filterType], ([q, status, type]) => {
-  const query = {}
-  if (q) query.q = q
-  if (status) query.status = status
-  if (type) query.type = type
-  router.replace({ query })
-  selectedIds.value = new Set()
-  currentPage.value = 1
-})
-
-// Also reset on group change (no URL)
-watch(filterGroup, () => {
+// Any filter change clears the current selection and resets pagination.
+// URL / localStorage persistence is handled by useFilterPreset itself.
+watch([search, filterStatus, filterType, filterGroup], () => {
   selectedIds.value = new Set()
   currentPage.value = 1
 })

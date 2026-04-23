@@ -68,6 +68,86 @@ async def test_me_requires_auth(client: AsyncClient) -> None:
     assert resp.status_code == 401
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# PATCH /auth/me — self-update (T1-13 timezone + full_name)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_me_update_timezone(client: AsyncClient, admin_token: str) -> None:
+    resp = await client.patch(
+        "/api/v1/auth/me",
+        json={"timezone": "Europe/Paris"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["timezone"] == "Europe/Paris"
+
+    # Persisted — GET /me returns the new value.
+    fetched = await client.get(
+        "/api/v1/auth/me", headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert fetched.json()["timezone"] == "Europe/Paris"
+
+
+@pytest.mark.asyncio
+async def test_me_update_timezone_invalid_rejected(client: AsyncClient, admin_token: str) -> None:
+    resp = await client.patch(
+        "/api/v1/auth/me",
+        json={"timezone": "Not/A/Real/Zone"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_me_update_timezone_null_clears(client: AsyncClient, admin_token: str) -> None:
+    """Sending an explicit null resets the user preference to browser-default."""
+    await client.patch(
+        "/api/v1/auth/me",
+        json={"timezone": "Asia/Tokyo"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    resp = await client.patch(
+        "/api/v1/auth/me",
+        json={"timezone": None},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["timezone"] is None
+
+
+@pytest.mark.asyncio
+async def test_me_update_full_name(client: AsyncClient, admin_token: str) -> None:
+    resp = await client.patch(
+        "/api/v1/auth/me",
+        json={"full_name": "Admin User"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["full_name"] == "Admin User"
+
+
+@pytest.mark.asyncio
+async def test_me_update_ignores_privileged_fields(client: AsyncClient, admin_token: str) -> None:
+    """Users cannot escalate themselves via /auth/me — only whitelisted fields are accepted."""
+    resp = await client.patch(
+        "/api/v1/auth/me",
+        json={"is_superadmin": False, "can_create_monitors": False},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    # `UserSelfUpdate` doesn't declare these fields — Pydantic ignores them
+    # by default (extra='ignore') and the user stays superadmin.
+    assert resp.status_code == 200
+    assert resp.json()["is_superadmin"] is True
+
+
+@pytest.mark.asyncio
+async def test_me_update_requires_auth(client: AsyncClient) -> None:
+    resp = await client.patch("/api/v1/auth/me", json={"timezone": "UTC"})
+    assert resp.status_code == 401
+
+
 @pytest.mark.asyncio
 async def test_refresh_token(client: AsyncClient, admin_user: User) -> None:
     login = await client.post(
@@ -83,9 +163,7 @@ async def test_refresh_token(client: AsyncClient, admin_user: User) -> None:
 
 @pytest.mark.asyncio
 async def test_refresh_token_invalid(client: AsyncClient) -> None:
-    resp = await client.post(
-        "/api/v1/auth/refresh", json={"refresh_token": "not.a.valid.token"}
-    )
+    resp = await client.post("/api/v1/auth/refresh", json={"refresh_token": "not.a.valid.token"})
     assert resp.status_code == 401
 
 

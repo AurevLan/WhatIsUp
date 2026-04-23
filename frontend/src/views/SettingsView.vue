@@ -22,6 +22,32 @@
         </div>
       </div>
 
+      <!-- Preferences (T1-13) -->
+      <div class="card">
+        <h2 class="text-lg font-semibold text-white mb-1">{{ t('settings.preferences_title') }}</h2>
+        <p class="text-sm text-gray-500 mb-4">{{ t('settings.preferences_desc') }}</p>
+
+        <label class="block text-sm text-gray-400 mb-1" for="tz-select">
+          {{ t('settings.timezone_label') }}
+        </label>
+        <select
+          id="tz-select"
+          v-model="tzPref"
+          @change="saveTimezone"
+          class="input w-full"
+        >
+          <option value="">{{ t('settings.timezone_auto', { tz: browserTz }) }}</option>
+          <option v-for="tz in commonTimezones" :key="tz" :value="tz">{{ tz }}</option>
+        </select>
+        <p class="text-xs text-gray-500 mt-1.5">
+          {{ t('settings.timezone_current') }}
+          <span class="text-gray-300 font-mono">{{ activeTz }}</span>
+          · {{ t('settings.timezone_now') }}
+          <span class="text-gray-300 font-mono">{{ tzPreview }}</span>
+        </p>
+        <p v-if="tzSaveError" class="text-xs text-red-400 mt-1">{{ tzSaveError }}</p>
+      </div>
+
       <!-- Mobile push notifications (Capacitor / FCM) -->
       <div v-if="mobilePush.isAvailable" class="card">
         <h2 class="text-lg font-semibold text-white mb-1">{{ t('settings.mobile_push_title') }}</h2>
@@ -187,10 +213,11 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../stores/auth'
 import { useWebPushStore } from '../stores/webPush'
+import { useTimezone } from '../composables/useTimezone'
 import api from '../api/client'
 import {
   isPushAvailable,
@@ -206,10 +233,50 @@ import {
 } from '../lib/biometricAuth'
 import { APP_VERSION } from '../lib/appVersion'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const auth = useAuthStore()
 const push = useWebPushStore()
 const extensionLoading = ref(false)
+
+// ── Timezone preference (T1-13) ───────────────────────────────────────────────
+const { timezone: activeTz, format: tzFormat } = useTimezone()
+const tzPref = ref(auth.user?.timezone || '')
+const tzSaveError = ref('')
+const browserTz = (() => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+  } catch {
+    return 'UTC'
+  }
+})()
+// A curated short list covers > 95% of usage without overwhelming the user
+// with the 600+ IANA zones. Free-form typing in a <select> isn't great either.
+const commonTimezones = [
+  'UTC',
+  'Europe/Paris', 'Europe/London', 'Europe/Berlin', 'Europe/Madrid', 'Europe/Rome',
+  'Europe/Amsterdam', 'Europe/Brussels', 'Europe/Zurich', 'Europe/Lisbon', 'Europe/Warsaw',
+  'Europe/Moscow', 'Europe/Athens', 'Europe/Dublin', 'Europe/Stockholm',
+  'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles',
+  'America/Toronto', 'America/Vancouver', 'America/Mexico_City', 'America/Sao_Paulo',
+  'America/Argentina/Buenos_Aires',
+  'Asia/Tokyo', 'Asia/Shanghai', 'Asia/Hong_Kong', 'Asia/Singapore', 'Asia/Seoul',
+  'Asia/Kolkata', 'Asia/Dubai', 'Asia/Tel_Aviv', 'Asia/Bangkok', 'Asia/Jakarta',
+  'Australia/Sydney', 'Australia/Melbourne', 'Pacific/Auckland',
+  'Africa/Cairo', 'Africa/Johannesburg', 'Africa/Lagos',
+]
+const tzPreview = computed(() => tzFormat(new Date(), { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' }, locale.value))
+
+async function saveTimezone() {
+  tzSaveError.value = ''
+  try {
+    const { data } = await api.patch('/auth/me', { timezone: tzPref.value || null })
+    // Update the auth store so the rest of the app reacts immediately.
+    if (auth.user) auth.user.timezone = data.timezone
+  } catch (e) {
+    tzSaveError.value = e.response?.data?.detail?.[0]?.msg || 'Failed to save timezone'
+    tzPref.value = auth.user?.timezone || ''
+  }
+}
 
 const mobilePush = reactive({
   isAvailable: isPushAvailable(),

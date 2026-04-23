@@ -11,6 +11,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.0] - 2026-04-24
+
+### Added
+- **Filtres persistés + URL shareable (T1-11)** — Les vues `MonitorsView` et `IncidentsView` mémorisent leurs filtres (search, status, type, group, days) dans la querystring et dans `localStorage`. Résultat : F5 préserve le filtrage, et une URL copiée reproduit exactement le même filtrage chez le destinataire. Nouveau composable générique `composables/useFilterPreset.js` (8 tests vitest). Bouton "Clear filters" wipe les deux supports.
+- **Timezone utilisateur (T1-13)** — Nouveau champ `User.timezone` (IANA, nullable). Par défaut `null` → le frontend utilise la TZ résolue du navigateur. Page Paramètres → "Préférences" → sélecteur de 45 fuseaux communs + option auto. Nouveau composable `useTimezone()` + composant `<FormattedDate>` (tooltip ISO absolu + nom TZ). Remplacement de `new Date(x).toLocaleString(locale)` par le helper tz-aware dans `IncidentsView` et `MonitorDetailView` (~12 occurrences). Validation IANA stricte côté backend (422 sur zone invalide).
+
+### API
+- **`PATCH /auth/me`** (rate-limited 30/min) — endpoint self-update limité à `full_name` + `timezone`. Les champs privilégiés (`is_superadmin`, `can_create_monitors`…) ne sont pas déclarés dans `UserSelfUpdate` et sont donc silencieusement ignorés (impossible d'escalader par ce canal).
+- **`UserOut`** expose désormais `timezone: str | None`.
+
+### Tests
+- **Backend** : +6 tests `test_me_update_*` (timezone valide / invalide / null reset / full_name / escalation ignored / auth requise).
+- **Frontend** : +8 tests timezone (composable + `<FormattedDate>`), +8 tests `useFilterPreset` (parse query, parse storage, priorités, serialize CSV, reset, prefix). 92 tests total côté frontend, 208 côté server.
+
+### Migration
+- `d6e7f8a9b0c1` : ajoute `users.timezone VARCHAR(64) NULL` — rétrocompatible, aucun backfill.
+
+---
+
 ## [1.3.0] - 2026-04-23
 
 ### Added

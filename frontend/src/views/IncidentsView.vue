@@ -32,7 +32,7 @@
       <button
         v-if="statusFilter !== 'all' || daysFilter !== 30"
         class="filter-clear"
-        @click="statusFilter = 'all'; daysFilter = 30"
+        @click="resetFilters"
       >
         <X :size="12" /> {{ t('monitors.clear_filters') }}
       </button>
@@ -137,14 +137,29 @@ import api from '../api/client'
 import { incidentUpdatesApi } from '../api/incidentUpdates'
 import { useToast } from '../composables/useToast'
 import { renderRunbookMarkdown } from '../lib/runbookMarkdown'
+import { useFilterPreset } from '../composables/useFilterPreset'
+import { useTimezone } from '../composables/useTimezone'
 
 const { t, locale } = useI18n()
 const { success } = useToast()
 
 const loading = ref(false)
 const incidents = ref([])
-const statusFilter = ref('all')
-const daysFilter = ref(30)
+
+// Filters — persisted across refreshes and shareable via URL (T1-11).
+const { state: filters, reset: resetFilters } = useFilterPreset('incidents', {
+  status: 'all',
+  days: 30,
+})
+// Keep the existing template-bound names rather than refactor the markup.
+const statusFilter = computed({
+  get: () => filters.status,
+  set: (v) => { filters.status = v },
+})
+const daysFilter = computed({
+  get: () => filters.days,
+  set: (v) => { filters.days = v },
+})
 const expandedGroups = reactive({})
 const expandedRunbooks = reactive({})
 
@@ -239,11 +254,13 @@ async function load() {
 watch([statusFilter, daysFilter], load)
 onMounted(load)
 
+const { format: tzFormat } = useTimezone()
+
 function formatDate(iso) {
   if (!iso) return '—'
-  return new Date(iso).toLocaleString(locale.value, {
+  return tzFormat(iso, {
     month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
-  })
+  }, locale.value)
 }
 
 function formatDuration(inc) {

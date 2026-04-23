@@ -97,6 +97,9 @@ class MonitorCreate(BaseModel):
     auto_pause_after: int | None = Field(default=None, ge=2, le=100)
     # Per-monitor data retention override (None = use global default)
     data_retention_days: int | None = Field(default=None, ge=1, le=3650)
+    # Runbook — optional incident response procedure
+    runbook_enabled: bool = False
+    runbook_markdown: str | None = Field(default=None, max_length=20000)
     # Auto-alert: channel IDs to auto-create default rules at monitor creation
     alert_channel_ids: list[uuid.UUID] = Field(default=[])
 
@@ -185,6 +188,10 @@ class MonitorUpdate(BaseModel):
     data_retention_days: int | None = Field(default=None, ge=1, le=3650)
     # Schema drift
     schema_drift_enabled: bool | None = None
+    # Runbook — toggle + markdown body. When toggled off server-side,
+    # runbook_markdown is wiped (option B). See api/v1/monitors.py update logic.
+    runbook_enabled: bool | None = None
+    runbook_markdown: str | None = Field(default=None, max_length=20000)
 
 
 class MonitorOut(BaseModel):
@@ -247,6 +254,9 @@ class MonitorOut(BaseModel):
     schema_drift_enabled: bool = False
     schema_baseline: str | None = None
     schema_baseline_updated_at: datetime | None = None
+    # Runbook
+    runbook_enabled: bool = False
+    runbook_markdown: str | None = None
     # Runtime fields — populated by list_monitors, not stored in the DB row
     last_status: str | None = None
     uptime_24h: float | None = None

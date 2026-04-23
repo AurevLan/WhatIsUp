@@ -1420,6 +1420,54 @@
       <MetricsDashboard :monitor-id="String(monitor.id)" />
     </div>
 
+    <!-- ── Onglet Runbook ───────────────────────────────────────────────────── -->
+    <div v-if="activeTab === TAB_RUNBOOK && monitor" class="space-y-4">
+      <div class="card">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <h2 class="text-sm font-semibold text-gray-200">{{ t('runbook.title') }}</h2>
+            <p class="text-xs text-gray-500 mt-0.5">{{ t('runbook.subtitle') }}</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button v-if="!runbookEditing"
+              @click="startEditRunbook"
+              class="btn-secondary text-xs">
+              ✎ {{ t('common.edit') }}
+            </button>
+            <template v-else>
+              <button @click="cancelEditRunbook" class="btn-secondary text-xs">
+                {{ t('common.cancel') }}
+              </button>
+              <button @click="saveRunbook" :disabled="runbookSaving" class="btn-primary text-xs disabled:opacity-50">
+                {{ runbookSaving ? t('common.loading') : t('common.save') }}
+              </button>
+            </template>
+          </div>
+        </div>
+
+        <!-- Edit mode -->
+        <div v-if="runbookEditing" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <textarea
+            v-model="runbookDraft"
+            rows="20"
+            maxlength="20000"
+            :placeholder="t('runbook.placeholder')"
+            class="input w-full font-mono text-sm"
+          ></textarea>
+          <div class="runbook-preview prose prose-invert max-w-none text-sm p-3 rounded-lg border border-gray-800 bg-gray-950/40 overflow-auto"
+               v-html="runbookPreviewHtml"></div>
+        </div>
+
+        <!-- Read mode -->
+        <div v-else>
+          <div v-if="monitor.runbook_markdown"
+            class="runbook-preview prose prose-invert max-w-none text-sm"
+            v-html="runbookRenderedHtml"></div>
+          <p v-else class="text-sm text-gray-500 italic">{{ t('runbook.empty') }}</p>
+        </div>
+      </div>
+    </div>
+
     <!-- DNS drift alert suggestion modal -->
     <div v-if="dnsAlertModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
       <div class="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-sm p-6">
@@ -1531,6 +1579,7 @@ import TagChips from '../components/monitors/TagChips.vue'
 import MetricsDashboard from '../components/monitors/MetricsDashboard.vue'
 import BaseModal from '../components/BaseModal.vue'
 import { maintenanceApi } from '../api/maintenance'
+import { renderRunbookMarkdown } from '../lib/runbookMarkdown'
 
 const { t, locale } = useI18n()
 const { error: toastError, success: toastSuccess } = useToast()
@@ -2002,6 +2051,7 @@ const TAB_SCENARIO = 'scenario'
 const TAB_MAP = 'map'
 const TAB_ALERTS = 'alerts'
 const TAB_METRICS = 'metrics'
+const TAB_RUNBOOK = 'runbook'
 
 const tabLabel = (tab) => ({
   [TAB_AVAILABILITY]: t('monitor_detail.tab_availability'),
@@ -2009,6 +2059,7 @@ const tabLabel = (tab) => ({
   [TAB_MAP]: t('monitor_detail.tab_map'),
   [TAB_ALERTS]: t('monitor_detail.tab_alerts'),
   [TAB_METRICS]: t('metrics.title'),
+  [TAB_RUNBOOK]: t('runbook.tab_label'),
 }[tab] ?? tab)
 
 const viewTabs = computed(() => {
@@ -2021,6 +2072,8 @@ const viewTabs = computed(() => {
   tabs.push(TAB_ALERTS)
   // Metrics tab only when at least one metric has been pushed
   if (customMetrics.value.length > 0) tabs.push(TAB_METRICS)
+  // Runbook tab — only when enabled on the monitor
+  if (monitor.value?.runbook_enabled) tabs.push(TAB_RUNBOOK)
   return tabs
 })
 const activeTab = ref(TAB_AVAILABILITY)
@@ -2684,6 +2737,41 @@ async function setNetworkScope(scope) {
   }
 }
 
+// ── Runbook ──────────────────────────────────────────────────────────────────
+const runbookEditing = ref(false)
+const runbookDraft = ref('')
+const runbookSaving = ref(false)
+
+const runbookRenderedHtml = computed(() =>
+  renderRunbookMarkdown(monitor.value?.runbook_markdown || '')
+)
+const runbookPreviewHtml = computed(() => renderRunbookMarkdown(runbookDraft.value || ''))
+
+function startEditRunbook() {
+  runbookDraft.value = monitor.value?.runbook_markdown || ''
+  runbookEditing.value = true
+}
+function cancelEditRunbook() {
+  runbookEditing.value = false
+  runbookDraft.value = ''
+}
+async function saveRunbook() {
+  if (!monitor.value) return
+  runbookSaving.value = true
+  try {
+    const { data } = await monitorsApi.update(monitor.value.id, {
+      runbook_markdown: runbookDraft.value || null,
+    })
+    monitor.value.runbook_markdown = data.runbook_markdown
+    runbookEditing.value = false
+    toastSuccess(t('runbook.saved'))
+  } catch {
+    toastError(t('runbook.save_failed'))
+  } finally {
+    runbookSaving.value = false
+  }
+}
+
 async function createDnsAlertRule() {
   if (!dnsAlertChannelId.value) return
   dnsAlertCreating.value = true
@@ -2815,4 +2903,32 @@ onMounted(async () => {
 .breadcrumb__link:hover { color: var(--text-1); }
 .breadcrumb__sep { color: var(--text-3); }
 .breadcrumb__current { color: var(--text-1); font-weight: 500; }
+
+.runbook-preview { line-height: 1.55; }
+.runbook-preview :deep(h1),
+.runbook-preview :deep(h2),
+.runbook-preview :deep(h3) { margin: .6rem 0 .35rem; color: var(--text-1); font-weight: 600; }
+.runbook-preview :deep(h1) { font-size: 1.05rem; }
+.runbook-preview :deep(h2) { font-size: .95rem; }
+.runbook-preview :deep(h3) { font-size: .9rem; }
+.runbook-preview :deep(p) { margin: .35rem 0; }
+.runbook-preview :deep(ul),
+.runbook-preview :deep(ol) { padding-left: 1.25rem; margin: .3rem 0; }
+.runbook-preview :deep(li) { margin: .2rem 0; }
+.runbook-preview :deep(code) {
+  background: rgba(255,255,255,.08);
+  padding: .1em .35em;
+  border-radius: 3px;
+  font-size: .85em;
+}
+.runbook-preview :deep(pre) {
+  background: rgba(0,0,0,.4);
+  padding: .7rem .9rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: .4rem 0;
+}
+.runbook-preview :deep(a) { color: #60a5fa; text-decoration: underline; }
+.runbook-preview :deep(.runbook-task) { list-style: none; margin-left: -1rem; }
+.runbook-preview :deep(.runbook-task input[type="checkbox"]) { margin-right: .45rem; }
 </style>

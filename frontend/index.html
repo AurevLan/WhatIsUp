@@ -11,16 +11,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <script src="/theme-init.js"></script>
   </head>
   <body>
-    <script>
-      // Apply theme before first paint to prevent flash
-      (function() {
-        var t = localStorage.getItem('whatisup_theme');
-        if (!t) t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-        document.documentElement.setAttribute('data-theme', t);
-      })();
-    </script>
     <div id="app"></div>
     <script type="module" src="/src/main.js"></script>
   </body>

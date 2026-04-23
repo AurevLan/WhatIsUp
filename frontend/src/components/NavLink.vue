@@ -1,8 +1,8 @@
 <template>
-  <router-link :to="to" custom v-slot="{ href, isActive, isExactActive, navigate }">
+  <router-link :to="to" custom v-slot="{ href, isActive, isExactActive }">
     <a
       :href="href"
-      @click="onClick($event, navigate)"
+      @click="onClick($event)"
       class="nav-link"
       :class="{ 'nav-link--active': activeState(isActive, isExactActive) }"
     >
@@ -14,6 +14,8 @@
 </template>
 
 <script setup>
+import { useRouter } from 'vue-router'
+
 const props = defineProps({
   to: String,
   icon: [Object, Function],
@@ -21,17 +23,20 @@ const props = defineProps({
   exact: { type: Boolean, default: false },
   badge: { type: Number, default: 0 },
 })
+
+const router = useRouter()
+
 function activeState(isActive, isExactActive) {
   return props.exact ? isExactActive : isActive
 }
-function onClick(ev, navigate) {
+function onClick(ev) {
   // Preserve native link behavior (middle-click / ctrl-click open in new tab)
   // by only hijacking plain left-clicks.
   if (ev.defaultPrevented) return
   if (ev.button !== 0) return
   if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return
   ev.preventDefault()
-  navigate(ev)
+  router.push(props.to)
 }
 </script>
 

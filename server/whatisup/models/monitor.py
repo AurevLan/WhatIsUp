@@ -317,6 +317,13 @@ class Monitor(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # Per-monitor data retention override (None = use global default)
     data_retention_days: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
 
+    # Runbook — optional incident response procedure attached to this monitor.
+    # When disabled, the markdown content is wiped server-side (option B).
+    runbook_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False, server_default="false"
+    )
+    runbook_markdown: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     # Heartbeat / cron check type
     heartbeat_slug: Mapped[str | None] = mapped_column(String(80), nullable=True, unique=True)
     heartbeat_interval_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)

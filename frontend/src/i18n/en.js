@@ -1100,4 +1100,19 @@ export default {
     tooltip_type: 'Type:',
     tooltip_status: 'Status:',
   },
+
+  // Runbook
+  runbook: {
+    tab_label: 'Runbook',
+    title: 'Runbook',
+    subtitle: 'Incident response procedure for this monitor.',
+    enable_label: 'Enable runbook',
+    enable_desc: 'Adds a Runbook tab and shows the procedure inline on open incidents. Disabling wipes the content.',
+    placeholder: '## If this monitor is DOWN\n\n### 1. Obvious causes\n- [ ] Recent deploy? → rollback\n- [ ] Traffic spike? → dashboard\n\n### 2. Escalation\n- Down > 15 min → ping @lead on Slack',
+    empty: 'No runbook yet — click Edit to write the procedure.',
+    markdown_hint: 'Markdown supported: headings (# ## ###), lists, task checkboxes [ ] [x], **bold**, *italic*, `code`, code blocks, http(s) links.',
+    saved: 'Runbook saved.',
+    save_failed: 'Failed to save the runbook.',
+    show_hide: 'Show / hide runbook',
+  },
 }

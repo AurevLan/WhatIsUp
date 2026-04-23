@@ -285,6 +285,29 @@
           </div>
         </template>
 
+        <!-- Runbook -->
+        <div class="border border-gray-700 rounded-lg overflow-hidden">
+          <div class="flex items-center justify-between px-4 py-2.5 bg-gray-800/20">
+            <div class="flex items-start gap-3">
+              <input v-model="form.runbook_enabled" type="checkbox" id="runbook_enabled" class="mt-0.5" />
+              <label for="runbook_enabled" class="text-sm font-medium text-gray-300 cursor-pointer">
+                {{ t('runbook.enable_label') }}
+                <p class="text-xs text-gray-500 font-normal mt-0.5">{{ t('runbook.enable_desc') }}</p>
+              </label>
+            </div>
+          </div>
+          <div v-if="form.runbook_enabled" class="px-4 pb-4 pt-3 border-t border-gray-700">
+            <textarea
+              v-model="form.runbook_markdown"
+              rows="8"
+              maxlength="20000"
+              class="input w-full font-mono text-sm"
+              :placeholder="t('runbook.placeholder')"
+            ></textarea>
+            <p class="text-xs text-gray-500 mt-1">{{ t('runbook.markdown_hint') }}</p>
+          </div>
+        </div>
+
         <!-- Flapping detection overrides -->
         <div v-if="form.check_type !== 'heartbeat'" class="border border-gray-700 rounded-lg overflow-hidden">
           <button
@@ -521,6 +544,8 @@ const form = ref({
   dns_split_enabled: m.dns_split_enabled ?? false,
   network_scope: m.network_scope || 'all',
   composite_aggregation: m.composite_aggregation || 'majority_up',
+  runbook_enabled: m.runbook_enabled ?? false,
+  runbook_markdown: m.runbook_markdown || '',
 })
 
 // Open advanced section if any advanced field is set
@@ -648,6 +673,14 @@ function buildPayload() {
 
   // Auto-pause after N consecutive failures
   p.auto_pause_after = form.value.auto_pause_after || null
+
+  // Runbook — option B: disabling wipes markdown server-side (deps.py monitor update)
+  p.runbook_enabled = form.value.runbook_enabled
+  if (form.value.runbook_enabled) {
+    p.runbook_markdown = form.value.runbook_markdown || null
+  } else {
+    p.runbook_markdown = null
+  }
 
   return p
 }

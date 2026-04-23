@@ -182,9 +182,14 @@ def create_app() -> FastAPI:
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-    # Trust proxy headers from nginx (fixes https:// in redirects behind reverse proxy)
-    trusted = settings.cors_allowed_origins if settings.is_production else "*"
-    app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=trusted)
+    # Trust proxy headers from nginx — `trusted_hosts` expects client IPs (the
+    # reverse proxy's IP), not CORS origin URLs. Passing a list like
+    # ['https://whatisup.aurevan.com'] silently disables the middleware and
+    # breaks X-Forwarded-Proto: redirects (e.g. FastAPI's trailing-slash 307 on
+    # `/probes` → `/probes/`) are then emitted with scheme `http`, which the
+    # browser blocks under HTTPS. The API container is only reachable via nginx
+    # on the internal docker network, so wildcard trust is safe here.
+    app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 
     # Request size limit (5 MB)
     app.add_middleware(MaxRequestSizeMiddleware)

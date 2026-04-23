@@ -1,4 +1,4 @@
-import { createApp } from 'vue'
+import { createApp, defineAsyncComponent } from 'vue'
 import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
@@ -11,6 +11,15 @@ const app = createApp(App)
 app.use(createPinia())
 app.use(router)
 app.use(i18n)
+
+// Global lazy-loaded `<apexchart>` — kept out of the main bundle, and
+// MonitorDetailView / SparklineCell rely on global resolution (Vue silently
+// renders nothing when the tag is unknown, which is how availability and
+// response-time charts once disappeared).
+app.component(
+  'apexchart',
+  defineAsyncComponent(() => import('vue3-apexcharts')),
+)
 
 app.mount('#app')
 

@@ -96,18 +96,30 @@
           </div>
 
           <!-- ── Standalone incident ───────────────────────────────────── -->
-          <div v-else class="inc-row inc-row--data">
-            <router-link :to="`/monitors/${item.monitor_id}`" class="inc-col inc-col--status">
-              <span class="inc-badge" :class="badgeClass(item)">{{ badgeLabel(item) }}</span>
-            </router-link>
-            <router-link :to="`/monitors/${item.monitor_id}`" class="inc-col inc-col--monitor">{{ item.monitor_name }}</router-link>
-            <span class="inc-col inc-col--type">{{ item.monitor_check_type }}</span>
-            <span class="inc-col inc-col--started">{{ formatDate(item.started_at) }}</span>
-            <span class="inc-col inc-col--duration">{{ formatDuration(item) }}</span>
-            <span class="inc-col inc-col--actions">
-              <button v-if="!item.is_resolved && !item.acked_at" class="ack-btn" :title="t('incidents.acknowledge')" @click.prevent="ack(item)"><CheckCircle :size="16" /></button>
-              <button v-else-if="!item.is_resolved && item.acked_at" class="ack-btn ack-btn--active" :title="t('incidents.unacknowledge')" @click.prevent="unack(item)"><CheckCircle :size="16" /></button>
-            </span>
+          <div v-else>
+            <div class="inc-row inc-row--data">
+              <router-link :to="`/monitors/${item.monitor_id}`" class="inc-col inc-col--status">
+                <span class="inc-badge" :class="badgeClass(item)">{{ badgeLabel(item) }}</span>
+              </router-link>
+              <router-link :to="`/monitors/${item.monitor_id}`" class="inc-col inc-col--monitor">{{ item.monitor_name }}</router-link>
+              <span class="inc-col inc-col--type">{{ item.monitor_check_type }}</span>
+              <span class="inc-col inc-col--started">{{ formatDate(item.started_at) }}</span>
+              <span class="inc-col inc-col--duration">{{ formatDuration(item) }}</span>
+              <span class="inc-col inc-col--actions">
+                <button
+                  v-if="hasRunbook(item)"
+                  class="ack-btn"
+                  :title="t('runbook.show_hide')"
+                  @click.prevent="toggleRunbook(item.id)"
+                >📖</button>
+                <button v-if="!item.is_resolved && !item.acked_at" class="ack-btn" :title="t('incidents.acknowledge')" @click.prevent="ack(item)"><CheckCircle :size="16" /></button>
+                <button v-else-if="!item.is_resolved && item.acked_at" class="ack-btn ack-btn--active" :title="t('incidents.unacknowledge')" @click.prevent="unack(item)"><CheckCircle :size="16" /></button>
+              </span>
+            </div>
+            <div v-if="hasRunbook(item) && expandedRunbooks[item.id]"
+              class="inc-runbook runbook-preview prose prose-invert max-w-none text-sm"
+              v-html="renderRunbook(item.runbook_markdown)"
+            ></div>
           </div>
 
         </template>
@@ -124,6 +136,7 @@ import { AlertCircle, CheckCircle, ChevronDown, Link2, X } from 'lucide-vue-next
 import api from '../api/client'
 import { incidentUpdatesApi } from '../api/incidentUpdates'
 import { useToast } from '../composables/useToast'
+import { renderRunbookMarkdown } from '../lib/runbookMarkdown'
 
 const { t, locale } = useI18n()
 const { success } = useToast()
@@ -133,6 +146,17 @@ const incidents = ref([])
 const statusFilter = ref('all')
 const daysFilter = ref(30)
 const expandedGroups = reactive({})
+const expandedRunbooks = reactive({})
+
+function hasRunbook(inc) {
+  return !!(inc.runbook_enabled && inc.runbook_markdown && !inc.is_resolved)
+}
+function toggleRunbook(id) {
+  expandedRunbooks[id] = !expandedRunbooks[id]
+}
+function renderRunbook(md) {
+  return renderRunbookMarkdown(md || '')
+}
 
 const statusOpts = computed(() => [
   { value: 'all',      label: t('incidents.filter_all') },
@@ -535,4 +559,40 @@ async function unack(inc) {
   color: var(--text-3);
   font-size: .875rem;
 }
+
+.inc-runbook {
+  padding: 1rem 1.25rem 1.25rem 3rem;
+  border-top: 1px solid rgba(99,102,241,.12);
+  background: rgba(99,102,241,.04);
+  line-height: 1.55;
+}
+.inc-runbook :deep(h1),
+.inc-runbook :deep(h2),
+.inc-runbook :deep(h3) {
+  margin: .5rem 0 .35rem;
+  color: var(--text-1);
+  font-weight: 600;
+}
+.inc-runbook :deep(h1) { font-size: 1rem; }
+.inc-runbook :deep(h2) { font-size: .9375rem; }
+.inc-runbook :deep(h3) { font-size: .875rem; }
+.inc-runbook :deep(ul),
+.inc-runbook :deep(ol) { padding-left: 1.25rem; margin: .25rem 0; }
+.inc-runbook :deep(li) { margin: .15rem 0; }
+.inc-runbook :deep(code) {
+  background: rgba(255,255,255,.08);
+  padding: .1em .35em;
+  border-radius: 3px;
+  font-size: .85em;
+}
+.inc-runbook :deep(pre) {
+  background: rgba(0,0,0,.35);
+  padding: .65rem .85rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: .35rem 0;
+}
+.inc-runbook :deep(a) { color: #60a5fa; text-decoration: underline; }
+.inc-runbook :deep(.runbook-task) { list-style: none; margin-left: -1rem; }
+.inc-runbook :deep(.runbook-task input[type="checkbox"]) { margin-right: .45rem; }
 </style>

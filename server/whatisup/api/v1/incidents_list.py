@@ -26,11 +26,20 @@ def _serialize_incident(
     group_map: dict[uuid.UUID, dict],
 ) -> dict:
     group_info = group_map.get(inc.group_id) if inc.group_id else None
+    mon = monitor_map.get(inc.monitor_id, {})
+    # Runbook: only expose the markdown when the incident is still ongoing — that's
+    # the only time a responder needs it, and keeps the list payload small.
+    runbook_enabled = mon.get("runbook_enabled", False)
+    runbook_markdown = (
+        mon.get("runbook_markdown") if runbook_enabled and not inc.is_resolved else None
+    )
     return {
         "id": str(inc.id),
         "monitor_id": str(inc.monitor_id),
-        "monitor_name": monitor_map.get(inc.monitor_id, {}).get("name", "—"),
-        "monitor_check_type": monitor_map.get(inc.monitor_id, {}).get("check_type", ""),
+        "monitor_name": mon.get("name", "—"),
+        "monitor_check_type": mon.get("check_type", ""),
+        "runbook_enabled": runbook_enabled,
+        "runbook_markdown": runbook_markdown,
         "started_at": inc.started_at.isoformat(),
         "resolved_at": inc.resolved_at.isoformat() if inc.resolved_at else None,
         "duration_seconds": inc.duration_seconds,
@@ -75,7 +84,13 @@ async def list_all_incidents(
     cutoff = datetime.now(UTC) - timedelta(days=days)
 
     # Fetch monitors accessible by user (owned + team-based)
-    mon_query = select(Monitor.id, Monitor.name, Monitor.check_type)
+    mon_query = select(
+        Monitor.id,
+        Monitor.name,
+        Monitor.check_type,
+        Monitor.runbook_enabled,
+        Monitor.runbook_markdown,
+    )
     if not current_user.is_superadmin:
         from whatisup.api.deps import build_access_filter, get_user_team_ids
 
@@ -83,7 +98,15 @@ async def list_all_incidents(
         mon_query = mon_query.where(build_access_filter(Monitor, current_user, team_ids))
     monitor_rows = (await db.execute(mon_query)).all()
     monitor_ids = [r.id for r in monitor_rows]
-    monitor_map = {r.id: {"name": r.name, "check_type": r.check_type} for r in monitor_rows}
+    monitor_map = {
+        r.id: {
+            "name": r.name,
+            "check_type": r.check_type,
+            "runbook_enabled": r.runbook_enabled,
+            "runbook_markdown": r.runbook_markdown,
+        }
+        for r in monitor_rows
+    }
 
     if not monitor_ids:
         return []
@@ -130,13 +153,8 @@ async def list_all_incidents(
                     g.root_cause_monitor.name if g.root_cause_monitor else None
                 ),
                 "monitor_names": sorted(
-                    {
-                        monitor_map.get(inc.monitor_id, {}).get("name", "?")
-                        for inc in g.incidents
-                    }
+                    {monitor_map.get(inc.monitor_id, {}).get("name", "?") for inc in g.incidents}
                 ),
             }
 
-    return [
-        _serialize_incident(inc, monitor_map, group_map) for inc in incidents
-    ]
+    return [_serialize_incident(inc, monitor_map, group_map) for inc in incidents]

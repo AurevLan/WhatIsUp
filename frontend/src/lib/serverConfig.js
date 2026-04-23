@@ -12,6 +12,10 @@ export function isNative() {
 
 export function getServerUrl() {
   if (typeof localStorage === 'undefined') return ''
+  // Web build always uses the relative /api/v1 proxied by nginx. A stored
+  // URL only applies to native Capacitor builds — fetching it on web would
+  // build absolute URLs that clash with the CSP connect-src 'self' directive.
+  if (!isNative()) return ''
   const stored = localStorage.getItem(STORAGE_KEY) || ''
   if (!stored) return ''
   // Mixed-content guard: a stored HTTP URL is unusable when the page is HTTPS,

@@ -112,9 +112,7 @@ async def test_monitor_requires_auth(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_monitor_isolation(
-    client: AsyncClient, user_token: str, admin_token: str
-) -> None:
+async def test_monitor_isolation(client: AsyncClient, user_token: str, admin_token: str) -> None:
     """A regular user cannot access another user's monitor."""
     create = await client.post(
         "/api/v1/monitors/",
@@ -399,3 +397,141 @@ async def test_slo_crud(client: AsyncClient, user_token: str) -> None:
         headers={"Authorization": f"Bearer {user_token}"},
     )
     assert gone_resp.status_code == 404
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Runbook (T1-05)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_runbook_defaults_disabled(client: AsyncClient, user_token: str) -> None:
+    """A newly created monitor has runbook disabled and empty markdown."""
+    resp = await client.post(
+        "/api/v1/monitors/",
+        json={"name": "NoRunbook", "url": "https://example.com"},
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["runbook_enabled"] is False
+    assert data["runbook_markdown"] is None
+
+
+@pytest.mark.asyncio
+async def test_runbook_create_enabled(client: AsyncClient, user_token: str) -> None:
+    """Creating a monitor with runbook enabled persists both the flag and the content."""
+    content = "## Playbook\n- Check logs\n- Restart"
+    resp = await client.post(
+        "/api/v1/monitors/",
+        json={
+            "name": "WithRunbook",
+            "url": "https://example.com",
+            "runbook_enabled": True,
+            "runbook_markdown": content,
+        },
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["runbook_enabled"] is True
+    assert data["runbook_markdown"] == content
+
+
+@pytest.mark.asyncio
+async def test_runbook_create_markdown_ignored_when_disabled(
+    client: AsyncClient, user_token: str
+) -> None:
+    """Markdown supplied at creation with runbook disabled is wiped (option B)."""
+    resp = await client.post(
+        "/api/v1/monitors/",
+        json={
+            "name": "Orphan",
+            "url": "https://example.com",
+            "runbook_enabled": False,
+            "runbook_markdown": "should be dropped",
+        },
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["runbook_enabled"] is False
+    assert data["runbook_markdown"] is None
+
+
+@pytest.mark.asyncio
+async def test_runbook_disable_wipes_markdown(client: AsyncClient, user_token: str) -> None:
+    """Option B: toggling runbook_enabled off wipes runbook_markdown server-side."""
+    create = await client.post(
+        "/api/v1/monitors/",
+        json={
+            "name": "ToggleOff",
+            "url": "https://example.com",
+            "runbook_enabled": True,
+            "runbook_markdown": "# Keep me... for now",
+        },
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    monitor_id = create.json()["id"]
+
+    # Disable — no runbook_markdown in payload, but server must wipe it anyway.
+    patch = await client.patch(
+        f"/api/v1/monitors/{monitor_id}",
+        json={"runbook_enabled": False},
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert patch.status_code == 200
+    data = patch.json()
+    assert data["runbook_enabled"] is False
+    assert data["runbook_markdown"] is None
+
+
+@pytest.mark.asyncio
+async def test_runbook_disable_overrides_explicit_markdown(
+    client: AsyncClient, user_token: str
+) -> None:
+    """Disabling + sending markdown in the same PATCH: markdown still wiped (option B)."""
+    create = await client.post(
+        "/api/v1/monitors/",
+        json={
+            "name": "ConflictPayload",
+            "url": "https://example.com",
+            "runbook_enabled": True,
+            "runbook_markdown": "original",
+        },
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    monitor_id = create.json()["id"]
+
+    patch = await client.patch(
+        f"/api/v1/monitors/{monitor_id}",
+        json={"runbook_enabled": False, "runbook_markdown": "sneaky update"},
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert patch.status_code == 200
+    assert patch.json()["runbook_markdown"] is None
+
+
+@pytest.mark.asyncio
+async def test_runbook_update_markdown_only(client: AsyncClient, user_token: str) -> None:
+    """Updating runbook_markdown alone without touching runbook_enabled works."""
+    create = await client.post(
+        "/api/v1/monitors/",
+        json={
+            "name": "Editable",
+            "url": "https://example.com",
+            "runbook_enabled": True,
+            "runbook_markdown": "v1",
+        },
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    monitor_id = create.json()["id"]
+
+    patch = await client.patch(
+        f"/api/v1/monitors/{monitor_id}",
+        json={"runbook_markdown": "v2 — updated"},
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert patch.status_code == 200
+    assert patch.json()["runbook_enabled"] is True
+    assert patch.json()["runbook_markdown"] == "v2 — updated"

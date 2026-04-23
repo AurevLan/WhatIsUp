@@ -1068,4 +1068,19 @@ export default {
     tooltip_type: 'Type :',
     tooltip_status: 'Statut :',
   },
+
+  // Runbook
+  runbook: {
+    tab_label: 'Runbook',
+    title: 'Runbook',
+    subtitle: 'Procédure de réponse à incident pour ce moniteur.',
+    enable_label: 'Activer le runbook',
+    enable_desc: 'Ajoute un onglet Runbook et affiche la procédure inline sur les incidents ouverts. Le décocher efface le contenu.',
+    placeholder: '## Si ce moniteur est DOWN\n\n### 1. Causes évidentes\n- [ ] Déploiement récent ? → rollback\n- [ ] Pic de trafic ? → dashboard\n\n### 2. Escalade\n- Down > 15 min → ping @lead sur Slack',
+    empty: 'Aucun runbook — cliquez sur Modifier pour rédiger la procédure.',
+    markdown_hint: 'Markdown supporté : titres (# ## ###), listes, cases à cocher [ ] [x], **gras**, *italique*, `code`, blocs de code, liens http(s).',
+    saved: 'Runbook enregistré.',
+    save_failed: 'Échec de l\'enregistrement du runbook.',
+    show_hide: 'Afficher / masquer le runbook',
+  },
 }

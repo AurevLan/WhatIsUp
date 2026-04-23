@@ -7,7 +7,7 @@ from typing import Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel
-from sqlalchemy import and_, delete, func, select, update
+from sqlalchemy import and_, delete, func, select, true, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.api.deps import (
@@ -166,33 +166,62 @@ async def list_monitors(
         if r.response_time_ms is not None
     }
 
-    # Sparkline: last 20 response_time_ms per monitor (single query with window function)
-    sparkline_sub = (
-        select(
-            CheckResult.monitor_id,
-            CheckResult.response_time_ms,
-            func.row_number()
-            .over(
-                partition_by=CheckResult.monitor_id,
-                order_by=CheckResult.checked_at.desc(),
+    # Sparkline: last 20 response_time_ms per monitor. A LATERAL join is orders
+    # of magnitude faster than `row_number() OVER (PARTITION BY ...)` on a large
+    # check_results table — the window function sorts the whole partition set
+    # (seconds on millions of rows), LATERAL hits ix_check_results_monitor_checked
+    # once per monitor for 20 rows (milliseconds).
+    if dialect_name(db) == "sqlite":
+        # SQLite LATERAL support is recent (3.45+) and not uniformly available in
+        # test containers — keep the window function for SQLite only.
+        sparkline_sub = (
+            select(
+                CheckResult.monitor_id,
+                CheckResult.response_time_ms,
+                func.row_number()
+                .over(
+                    partition_by=CheckResult.monitor_id,
+                    order_by=CheckResult.checked_at.desc(),
+                )
+                .label("rn"),
             )
-            .label("rn"),
+            .where(
+                CheckResult.monitor_id.in_(monitor_ids),
+                CheckResult.response_time_ms.isnot(None),
+            )
+            .subquery()
         )
-        .where(
-            CheckResult.monitor_id.in_(monitor_ids),
-            CheckResult.response_time_ms.isnot(None),
+        sparkline_rows = (
+            await db.execute(
+                select(sparkline_sub.c.monitor_id, sparkline_sub.c.response_time_ms)
+                .where(sparkline_sub.c.rn <= 20)
+                .order_by(sparkline_sub.c.monitor_id, sparkline_sub.c.rn.desc())
+            )
+        ).all()
+    else:
+        lateral = (
+            select(CheckResult.response_time_ms, CheckResult.checked_at)
+            .where(
+                CheckResult.monitor_id == Monitor.id,
+                CheckResult.response_time_ms.isnot(None),
+            )
+            .order_by(CheckResult.checked_at.desc())
+            .limit(20)
+            .lateral("last_rt")
         )
-        .subquery()
-    )
-    sparkline_rows = (
-        await db.execute(
-            select(sparkline_sub.c.monitor_id, sparkline_sub.c.response_time_ms)
-            .where(sparkline_sub.c.rn <= 20)
-            .order_by(sparkline_sub.c.monitor_id, sparkline_sub.c.rn.desc())
-        )
-    ).all()
+        sparkline_rows = (
+            await db.execute(
+                select(Monitor.id, lateral.c.response_time_ms, lateral.c.checked_at)
+                .select_from(Monitor.__table__.join(lateral, true()))
+                .where(Monitor.id.in_(monitor_ids))
+                .order_by(Monitor.id, lateral.c.checked_at.desc())
+            )
+        ).all()
     sparkline_map: dict[str, list[float]] = {}
-    for mid_val, rt in sparkline_rows:
+    for row in sparkline_rows:
+        # Row shape differs between the two branches; normalize to (mid, rt).
+        mid_val = row[0]
+        rt = row[1]
         sparkline_map.setdefault(str(mid_val), []).append(round(rt, 1) if rt else 0)
 
     now = datetime.now(UTC)
@@ -449,6 +478,8 @@ async def create_monitor(
         dns_drift_alert=payload.dns_drift_alert,
         dns_split_enabled=payload.dns_split_enabled,
         composite_aggregation=payload.composite_aggregation,
+        runbook_enabled=payload.runbook_enabled,
+        runbook_markdown=payload.runbook_markdown if payload.runbook_enabled else None,
     )
     db.add(monitor)
     await db.flush()
@@ -524,6 +555,101 @@ async def bulk_action(
     return {"affected": affected}
 
 
+@router.get("/graph")
+@limiter.limit("30/minute")
+async def get_dependency_graph(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Return the full monitor dependency graph for the current user.
+
+    Declared BEFORE ``/{monitor_id}`` on purpose: FastAPI matches paths in
+    declaration order, so the literal ``/graph`` would otherwise be consumed
+    by the parameterized route and fail UUID validation with 422.
+
+    Nodes: all accessible monitors with their current status.
+    Edges: all dependencies between those monitors.
+    """
+    from whatisup.models.monitor import MonitorDependency
+
+    # Fetch all accessible monitors
+    query = select(Monitor)
+    if not current_user.is_superadmin:
+        team_ids = await get_user_team_ids(current_user, db)
+        query = query.where(build_access_filter(Monitor, current_user, team_ids))
+    monitors = list((await db.execute(query)).scalars().all())
+
+    monitor_ids = [m.id for m in monitors]
+    monitor_id_set = {m.id for m in monitors}
+
+    # Latest status per monitor
+    nodes = []
+    latest_map: dict = {}
+    if monitor_ids:
+        max_ts_subq = (
+            select(
+                CheckResult.monitor_id,
+                func.max(CheckResult.checked_at).label("max_at"),
+            )
+            .where(CheckResult.monitor_id.in_(monitor_ids))
+            .group_by(CheckResult.monitor_id)
+            .subquery()
+        )
+        latest_rows = (
+            await db.execute(
+                select(CheckResult.monitor_id, CheckResult.status, CheckResult.checked_at).join(
+                    max_ts_subq,
+                    and_(
+                        CheckResult.monitor_id == max_ts_subq.c.monitor_id,
+                        CheckResult.checked_at == max_ts_subq.c.max_at,
+                    ),
+                )
+            )
+        ).all()
+        now = datetime.now(UTC)
+        for r in latest_rows:
+            age = (now - r.checked_at).total_seconds()
+            latest_map[r.monitor_id] = r.status.value if age < 300 else None
+
+    for m in monitors:
+        nodes.append(
+            {
+                "id": str(m.id),
+                "name": m.name,
+                "status": latest_map.get(m.id),
+                "check_type": m.check_type,
+            }
+        )
+
+    # Fetch all dependencies between accessible monitors only
+    edges = []
+    if monitor_ids:
+        dep_rows = (
+            (
+                await db.execute(
+                    select(MonitorDependency).where(
+                        MonitorDependency.parent_id.in_(monitor_ids),
+                        MonitorDependency.child_id.in_(monitor_ids),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for dep in dep_rows:
+            if dep.parent_id in monitor_id_set and dep.child_id in monitor_id_set:
+                edges.append(
+                    {
+                        "source": str(dep.parent_id),
+                        "target": str(dep.child_id),
+                        "suppress_on_parent_down": dep.suppress_on_parent_down,
+                    }
+                )
+
+    return {"nodes": nodes, "edges": edges}
+
+
 @router.get("/{monitor_id}", response_model=MonitorOut)
 async def get_monitor(
     monitor_id: uuid.UUID,
@@ -548,6 +674,11 @@ async def update_monitor(
 
     update_data = payload.model_dump(exclude_unset=True)
     tag_ids = update_data.pop("tag_ids", None)
+
+    # Option B: disabling the runbook wipes its markdown content, regardless
+    # of whether runbook_markdown was also present in the payload.
+    if update_data.get("runbook_enabled") is False:
+        update_data["runbook_markdown"] = None
 
     for field, value in update_data.items():
         if field == "url" and value is not None:
@@ -1083,91 +1214,9 @@ async def get_slo(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/graph")
-@limiter.limit("30/minute")
-async def get_dependency_graph(
-    request: Request,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> dict:
-    """Return the full monitor dependency graph for the current user.
-
-    Nodes: all accessible monitors with their current status.
-    Edges: all dependencies between those monitors.
-    """
-    from whatisup.models.monitor import MonitorDependency
-
-    # Fetch all accessible monitors
-    query = select(Monitor)
-    if not current_user.is_superadmin:
-        team_ids = await get_user_team_ids(current_user, db)
-        query = query.where(build_access_filter(Monitor, current_user, team_ids))
-    monitors = list((await db.execute(query)).scalars().all())
-
-    monitor_ids = [m.id for m in monitors]
-    monitor_id_set = {m.id for m in monitors}
-
-    # Latest status per monitor
-    nodes = []
-    if monitor_ids:
-        max_ts_subq = (
-            select(
-                CheckResult.monitor_id,
-                func.max(CheckResult.checked_at).label("max_at"),
-            )
-            .where(CheckResult.monitor_id.in_(monitor_ids))
-            .group_by(CheckResult.monitor_id)
-            .subquery()
-        )
-        latest_rows = (
-            await db.execute(
-                select(CheckResult.monitor_id, CheckResult.status, CheckResult.checked_at).join(
-                    max_ts_subq,
-                    and_(
-                        CheckResult.monitor_id == max_ts_subq.c.monitor_id,
-                        CheckResult.checked_at == max_ts_subq.c.max_at,
-                    ),
-                )
-            )
-        ).all()
-        now = datetime.now(UTC)
-        latest_map = {}
-        for r in latest_rows:
-            age = (now - r.checked_at).total_seconds()
-            latest_map[r.monitor_id] = r.status.value if age < 300 else None
-
-    for m in monitors:
-        nodes.append(
-            {
-                "id": str(m.id),
-                "name": m.name,
-                "status": latest_map.get(m.id) if monitor_ids else None,
-                "check_type": m.check_type,
-            }
-        )
-
-    # Fetch all dependencies between accessible monitors only
-    edges = []
-    if monitor_ids:
-        dep_rows = (
-            await db.execute(
-                select(MonitorDependency).where(
-                    MonitorDependency.parent_id.in_(monitor_ids),
-                    MonitorDependency.child_id.in_(monitor_ids),
-                )
-            )
-        ).scalars().all()
-        for dep in dep_rows:
-            if dep.parent_id in monitor_id_set and dep.child_id in monitor_id_set:
-                edges.append(
-                    {
-                        "source": str(dep.parent_id),
-                        "target": str(dep.child_id),
-                        "suppress_on_parent_down": dep.suppress_on_parent_down,
-                    }
-                )
-
-    return {"nodes": nodes, "edges": edges}
+# NOTE: `/graph` is declared higher up (above `/{monitor_id}`) so FastAPI's
+# declaration-order route matcher doesn't try to parse "graph" as a UUID
+# monitor_id (which would 422). See get_dependency_graph.
 
 
 @router.get(

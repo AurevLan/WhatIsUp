@@ -11,6 +11,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.0] - 2026-04-23
+
+### Added
+- **Runbooks par monitor (T1-05)** — procédure de réponse à incident attachée à un moniteur. Nouveau champ `Monitor.runbook_enabled` (case à cocher, `false` par défaut) + `Monitor.runbook_markdown`. Onglet "Runbook" dans `MonitorDetailView` conditionnel et bloc inline dans `IncidentsView` pour les incidents ouverts uniquement. Option B : le décochage de `runbook_enabled` efface automatiquement le markdown côté serveur. Renderer markdown maison safe (échappement HTML + regex limités) — pas de nouvelle dépendance. Migration Alembic `z1a2b3c4d5e6`.
+
+### Performance
+- **`list_monitors` — sparkline accélérée ~2000×** : remplacement du `row_number() OVER (PARTITION BY monitor_id)` (7s sur 1.6M check_results) par un `JOIN LATERAL ... LIMIT 20` (3ms). Le window function scannait toute la table ; la LATERAL utilise l'index `(monitor_id, checked_at DESC)` pour 20 lookups index-only par moniteur. Fallback window-function conservé pour SQLite (tests).
+- **Index BRIN sur `check_results.checked_at`** (migration `c5d6e7f8a9b0`) — débloque les agrégations temporelles globales qui faisaient un seq scan complet. P95 response_time 24h : 288ms → 75ms ; uptime bulk : 147ms → 30ms. BRIN est ~quelques KB, idéal pour colonnes time-ordered append-only.
+- **Total** : chargement du Dashboard monitors passé de ~8s à <200ms.
+
+### Fixed
+- **Mixed Content sur redirects FastAPI** (`/probes` → `/probes/`) : `ProxyHeadersMiddleware` recevait la liste d'origines CORS (URLs) comme `trusted_hosts` alors qu'il attend des IPs client. Résultat : `X-Forwarded-Proto` ignoré, `Location` header en `http://` bloqué par le navigateur sous HTTPS. Corrigé avec `trusted_hosts="*"` (le container API n'est joignable que via nginx sur le réseau docker interne).
+- **`GET /monitors/graph` 422** : la route `/{monitor_id}` déclarée avant `/graph` capturait la chaîne "graph" qui échouait au parsing UUID. Route `/graph` déplacée au-dessus de `/{monitor_id}` (FastAPI match par ordre de déclaration).
+- **Menu latéral non-cliquable** : `NavLink.vue` utilisait `navigate(ev)` depuis le slot `<router-link custom>`. Avec `vue-router@5.0.4` (nouveau major installé par `npm ci`), cette fonction silencieusement reject. Remplacé par `useRouter().push(to)` — API stable.
+- **Charts disparus (Availability, Response Time, Sparklines)** : `<apexchart>` était utilisé dans `MonitorDetailView` et `SparklineCell` mais jamais enregistré globalement. Vue 3 ne lève pas d'erreur pour un composant inconnu — il render silencieusement du vide. Enregistré globalement en `defineAsyncComponent` dans `main.js` (lazy-loaded, ~400KB hors du bundle initial).
+- **CSP — Google Fonts bloquées** : ajout de `https://fonts.googleapis.com` dans `style-src` et `https://fonts.gstatic.com` dans `font-src` (`nginx/whatisup.conf`).
+- **CSP — script inline bloqué** : le script d'init thème inline dans `index.html` est déplacé vers `public/theme-init.js` servi en externe. CSP reste strict (`script-src 'self'`, pas de `unsafe-inline`).
+- **`manifest.json` — icônes manquantes** : retrait des entrées `icon-192.png` / `icon-512.png` qui référenşaient des fichiers absents du `public/`.
+- **URL HTTP résiduelle dans localStorage** (`whatisup_server_url`) : `serverConfig.js` ignore désormais systématiquement la valeur stockée sur le build web (non-Capacitor) — l'URL relative `/api/v1` proxyée par nginx est toujours utilisée, évitant tout Mixed Content hérité d'une ancienne session mobile.
+
+### Changed
+- **Nginx : `Cache-Control: no-store, no-cache, must-revalidate` sur `/` et `/index.html`** — les futurs rebuilds prennent effet au prochain F5 sans hard-reload (le `index.html` lui-même n'est pas hashé ; seuls les assets JS/CSS le sont).
+
+---
+
 ## [1.2.1] - 2026-04-18
 
 Release patch qui débloque le pipeline : v1.2.0 était taggée mais les images Docker n'ont jamais été publiées sur GHCR (CI rouge).

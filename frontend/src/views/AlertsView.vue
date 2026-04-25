@@ -69,10 +69,16 @@
               — {{ testResults[channel.id].detail }}
             </div>
           </div>
-          <div v-if="!channels.length" class="empty-state">
-            <div class="empty-state__icon">🔔</div>
-            <p class="empty-state__title">{{ t('alerts.no_channels') }}</p>
-          </div>
+          <EmptyState
+            v-if="!channels.length"
+            :title="t('alerts.no_channels')"
+            :text="t('empty.alerts_channels_text')"
+            :cta-label="t('alerts.add_channel')"
+            doc-href="https://github.com/AurevLan/whatisup#alert-channels"
+            @cta="showAddChannel = true"
+          >
+            <template #icon><Bell :size="22" /></template>
+          </EmptyState>
         </div>
       </div>
 
@@ -110,10 +116,14 @@
               </span>
             </div>
           </div>
-          <div v-if="!filteredEvents.length" class="empty-state">
-            <div class="empty-state__icon">📋</div>
-            <p class="empty-state__title">{{ t('alerts.no_events') }}</p>
-          </div>
+          <EmptyState
+            v-if="!filteredEvents.length"
+            :title="t('alerts.no_events')"
+            :text="t('empty.alerts_events_text')"
+            inline
+          >
+            <template #icon><ClipboardList :size="22" /></template>
+          </EmptyState>
         </div>
       </div>
     </div>
@@ -478,6 +488,8 @@ import { monitorsApi, groupsApi } from '../api/monitors'
 import { useToast } from '../composables/useToast'
 import AddChannelModal from '../components/alerts/AddChannelModal.vue'
 import AlertTemplatesSection from '../components/alerts/AlertTemplatesSection.vue'
+import EmptyState from '../components/shared/EmptyState.vue'
+import { Bell, ClipboardList } from 'lucide-vue-next'
 import { useAuthStore } from '../stores/auth'
 
 const authStore = useAuthStore()

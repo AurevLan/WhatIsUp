@@ -12,25 +12,46 @@
     </div>
 
     <!-- Barre d'actions contextuelles (bulk) -->
-    <div v-if="selectedIds.size > 0"
-      class="mb-4 flex flex-wrap items-center gap-3 p-3 rounded-xl bg-blue-950/40 border border-blue-700/50">
-      <span class="text-sm text-blue-300 font-medium">{{ selectedIds.size }} selected</span>
+    <BulkActionBar :count="selectedIds.size" @clear="clearSelection">
       <button @click="bulkEnable" class="btn-primary text-xs px-3 py-1.5 flex items-center gap-1.5">
         <Play class="w-3.5 h-3.5" /> {{ t('monitors.bulk_enable') }}
       </button>
       <button @click="bulkPause" class="btn-secondary text-xs flex items-center gap-1.5">
         <Pause class="w-3.5 h-3.5" /> {{ t('monitors.bulk_pause') }}
       </button>
+
+      <!-- Move to group (T1-12) -->
+      <select
+        :value="''"
+        @change="onBulkSetGroup($event.target.value); $event.target.value = ''"
+        class="input h-8 text-xs"
+        style="max-width:11rem"
+        :title="t('monitors.bulk_move_group')"
+      >
+        <option value="" disabled>{{ t('monitors.bulk_move_group') }}…</option>
+        <option value="__none__">— {{ t('groups.private') }} —</option>
+        <option v-for="g in availableGroups" :key="g.id" :value="g.id">{{ g.name }}</option>
+      </select>
+
+      <!-- Add tag (T1-12) -->
+      <select
+        :value="''"
+        @change="onBulkAddTag($event.target.value); $event.target.value = ''"
+        class="input h-8 text-xs"
+        style="max-width:9rem"
+        :title="t('monitors.bulk_add_tag')"
+      >
+        <option value="" disabled>{{ t('monitors.bulk_add_tag') }}…</option>
+        <option v-for="tag in availableTags" :key="tag.id" :value="tag.id">{{ tag.name }}</option>
+      </select>
+
       <button @click="bulkExportCsv" class="btn-secondary text-xs flex items-center gap-1">
         <Download class="w-3.5 h-3.5" /> {{ t('monitors.bulk_export') }}
       </button>
       <button @click="confirmBulkDelete" class="btn-danger text-xs flex items-center gap-1.5">
         <Trash2 class="w-3.5 h-3.5" /> {{ t('monitors.bulk_delete') }}
       </button>
-      <button @click="selectedIds.clear(); selectedIds = new Set()" class="ml-auto text-xs text-gray-500 hover:text-gray-300">
-        {{ t('monitors.deselect_all') }}
-      </button>
-    </div>
+    </BulkActionBar>
 
     <!-- Filter bar -->
     <div class="space-y-1.5 mb-4">
@@ -107,19 +128,22 @@
 
     <!-- Table (mode liste) -->
     <div v-if="viewMode === 'list'" class="card p-0 overflow-hidden">
-      <div v-if="loading" class="p-8">
-        <div class="space-y-4">
-          <div v-for="i in 5" :key="i" class="h-11 bg-gray-800/50 rounded-xl animate-pulse" />
-        </div>
+      <div v-if="loading" class="p-4 space-y-3">
+        <SkeletonRow v-for="i in 6" :key="i" :trailing-width="'5rem'" />
       </div>
 
-      <div v-else-if="filteredMonitors.length === 0" class="empty-state">
-        <div class="empty-state__icon"><Monitor :size="22" /></div>
-        <p class="empty-state__title">{{ t('monitors.no_results') }}</p>
-        <button v-if="hasActiveFilters" @click="clearFilters" class="btn-secondary text-xs mt-3 flex items-center gap-1">
-          <X class="w-3 h-3" /> {{ t('monitors.clear_filters') }}
-        </button>
-      </div>
+      <EmptyState
+        v-else-if="filteredMonitors.length === 0"
+        :title="hasActiveFilters ? t('monitors.no_results') : t('monitors.no_monitors')"
+        :text="hasActiveFilters ? t('empty.monitors_filtered_text') : t('empty.monitors_text')"
+        :cta-label="hasActiveFilters ? t('monitors.clear_filters') : t('monitors.add')"
+        :cta-icon="!hasActiveFilters"
+        :doc-href="hasActiveFilters ? '' : 'https://github.com/AurevLan/whatisup#monitors'"
+        :replay-tour="!hasActiveFilters"
+        @cta="hasActiveFilters ? clearFilters() : (showCreate = true)"
+      >
+        <template #icon><Monitor :size="22" /></template>
+      </EmptyState>
 
       <!-- Mobile: stacked cards (visible < 768px) -->
       <div v-else>
@@ -400,12 +424,17 @@
         </router-link>
 
         <!-- Empty state -->
-        <div v-if="filteredMonitors.length === 0" class="col-span-full empty-state">
-          <div class="empty-state__icon"><Monitor :size="22" /></div>
-          <p class="empty-state__title">{{ t('monitors.no_results') }}</p>
-          <button v-if="hasActiveFilters" @click="clearFilters" class="btn-secondary text-xs mt-3 flex items-center gap-1">
-            <X class="w-3 h-3" /> {{ t('monitors.clear_filters') }}
-          </button>
+        <div v-if="filteredMonitors.length === 0" class="col-span-full">
+          <EmptyState
+            :title="hasActiveFilters ? t('monitors.no_results') : t('monitors.no_monitors')"
+            :text="hasActiveFilters ? t('empty.monitors_filtered_text') : t('empty.monitors_text')"
+            :cta-label="hasActiveFilters ? t('monitors.clear_filters') : t('monitors.add')"
+            :cta-icon="!hasActiveFilters"
+            :replay-tour="!hasActiveFilters"
+            @cta="hasActiveFilters ? clearFilters() : (showCreate = true)"
+          >
+            <template #icon><Monitor :size="22" /></template>
+          </EmptyState>
         </div>
       </div>
 
@@ -430,7 +459,17 @@
       <Plus class="w-6 h-6" />
     </button>
 
-    <CreateMonitorModal v-if="showCreate" @close="showCreate = false" @created="onCreated" />
+    <CreateMonitorWizard
+      v-if="showCreate && !forceLegacyCreate"
+      @close="showCreate = false"
+      @created="onCreated"
+      @switch-advanced="forceLegacyCreate = true"
+    />
+    <CreateMonitorModal
+      v-if="showCreate && forceLegacyCreate"
+      @close="() => { showCreate = false; forceLegacyCreate = false }"
+      @created="onCreated"
+    />
     <EditMonitorModal v-if="editingMonitor" :monitor="editingMonitor" @close="editingMonitor = null" @updated="onUpdated" />
   </div>
 </template>
@@ -441,12 +480,17 @@ import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { ChevronDown, ChevronUp, Download, Eye, LayoutGrid, List, Monitor, Pause, PencilLine, Play, Plus, Search, Trash2, Upload, X } from 'lucide-vue-next'
 import { useMonitorStore } from '../stores/monitors'
-import { monitorsApi } from '../api/monitors'
+import { monitorsApi, groupsApi } from '../api/monitors'
 import { useToast } from '../composables/useToast'
 import { useConfirm } from '../composables/useConfirm'
 import CreateMonitorModal from '../components/monitors/CreateMonitorModal.vue'
+import CreateMonitorWizard from '../components/monitors/CreateMonitorWizard.vue'
 import EditMonitorModal from '../components/monitors/EditMonitorModal.vue'
 import SparklineCell from '../components/monitors/SparklineCell.vue'
+import SkeletonRow from '../components/shared/SkeletonRow.vue'
+import EmptyState from '../components/shared/EmptyState.vue'
+import BulkActionBar from '../components/shared/BulkActionBar.vue'
+import api from '../api/client'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -491,7 +535,8 @@ const filterGroup   = computed({
   get: () => monitorFilters.group,
   set: (v) => { monitorFilters.group = v },
 })
-const showCreate    = ref(false)
+const showCreate        = ref(false)
+const forceLegacyCreate = ref(false)
 const editingMonitor = ref(null)
 const searchInput   = ref(null)
 
@@ -653,6 +698,49 @@ function onKeydown(e) {
     if (showCreate.value) showCreate.value = false
     else if (editingMonitor.value) editingMonitor.value = null
   }
+}
+
+function clearSelection() { selectedIds.value = new Set() }
+
+// T1-12: groups + tags catalogues for bulk dropdowns. Loaded lazily on first
+// selection to avoid burning a request on page load when nobody multi-selects.
+const availableGroups = ref([])
+const availableTags = ref([])
+let bulkLookupsLoaded = false
+async function ensureBulkLookups() {
+  if (bulkLookupsLoaded) return
+  bulkLookupsLoaded = true
+  try {
+    const [g, tg] = await Promise.all([groupsApi.list(), api.get('/tags/')])
+    availableGroups.value = g.data
+    availableTags.value = tg.data
+  } catch {
+    bulkLookupsLoaded = false
+  }
+}
+watch(() => selectedIds.value.size, (n) => { if (n > 0) ensureBulkLookups() })
+
+async function onBulkSetGroup(value) {
+  const ids = [...selectedIds.value]
+  if (!ids.length || !value) return
+  const target_group_id = value === '__none__' ? null : value
+  try {
+    await monitorsApi.bulkAction({ ids, action: 'set_group', target_group_id })
+    success(t('monitors.bulk_success_grouped', { count: ids.length }))
+  } catch { toastError(t('monitors.bulk_error')) }
+  clearSelection()
+  monitorStore.fetchAll()
+}
+
+async function onBulkAddTag(tagId) {
+  const ids = [...selectedIds.value]
+  if (!ids.length || !tagId) return
+  try {
+    await monitorsApi.bulkAction({ ids, action: 'add_tags', tag_ids: [tagId] })
+    success(t('monitors.bulk_success_tagged', { count: ids.length }))
+  } catch { toastError(t('monitors.bulk_error')) }
+  clearSelection()
+  monitorStore.fetchAll()
 }
 
 async function bulkEnable() {
@@ -842,6 +930,18 @@ function onUpdated() {
 onMounted(() => {
   monitorStore.fetchAll()
   document.addEventListener('keydown', onKeydown)
+  // T1-15: deep-link to create modal via ?create=true (used by `c` hotkey).
+  if (route.query.create === 'true') {
+    showCreate.value = true
+    router.replace({ path: route.path, query: { ...route.query, create: undefined } })
+  }
+})
+
+watch(() => route.query.create, (v) => {
+  if (v === 'true') {
+    showCreate.value = true
+    router.replace({ path: route.path, query: { ...route.query, create: undefined } })
+  }
 })
 
 onUnmounted(() => {

@@ -149,9 +149,16 @@
           </div>
         </div>
 
-        <div v-if="probes.length === 0" class="col-span-full empty-state">
-          <div class="empty-state__icon">📡</div>
-          <p class="empty-state__title">{{ t('probes.no_probes') }}</p>
+        <div v-if="probes.length === 0" class="col-span-full">
+          <EmptyState
+            :title="t('probes.no_probes')"
+            :text="t('empty.probes_text')"
+            :cta-label="auth.isSuperadmin ? t('probes.add') : ''"
+            doc-href="https://github.com/AurevLan/whatisup#probes"
+            @cta="showRegister = true"
+          >
+            <template #icon><Radio :size="22" /></template>
+          </EmptyState>
         </div>
       </div>
     </div>
@@ -212,6 +219,8 @@ import { useToast } from '../composables/useToast'
 import { useConfirm } from '../composables/useConfirm'
 import RegisterProbeModal from '../components/probes/RegisterProbeModal.vue'
 import EditProbeModal from '../components/probes/EditProbeModal.vue'
+import EmptyState from '../components/shared/EmptyState.vue'
+import { Radio } from 'lucide-vue-next'
 
 const { t } = useI18n()
 const auth = useAuthStore()

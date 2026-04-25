@@ -21,7 +21,7 @@ from whatisup.core.database import dialect_name, get_db
 from whatisup.core.limiter import limiter
 from whatisup.core.security import encrypt_scenario_variables
 from whatisup.models.annotation import MonitorAnnotation
-from whatisup.models.monitor import CompositeMonitorMember, Monitor
+from whatisup.models.monitor import CompositeMonitorMember, Monitor, MonitorGroup, monitor_tags
 from whatisup.models.probe import Probe
 from whatisup.models.result import CheckResult
 from whatisup.models.tag import Tag
@@ -548,9 +548,68 @@ async def bulk_action(
     elif payload.action == "enable":
         result = await db.execute(update(Monitor).where(ownership_clause).values(enabled=True))
         affected = result.rowcount
-    else:  # pause
+    elif payload.action == "pause":
         result = await db.execute(update(Monitor).where(ownership_clause).values(enabled=False))
         affected = result.rowcount
+    elif payload.action == "set_group":
+        # target_group_id may be None → ungroup. When provided, verify the user can access it.
+        if payload.target_group_id is not None:
+            grp = (
+                await db.execute(select(MonitorGroup).where(MonitorGroup.id == payload.target_group_id))
+            ).scalar_one_or_none()
+            if grp is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail="Target group not found"
+                )
+            if not current_user.is_superadmin:
+                await check_resource_access(grp, current_user, db)
+        result = await db.execute(
+            update(Monitor).where(ownership_clause).values(group_id=payload.target_group_id)
+        )
+        affected = result.rowcount
+    elif payload.action in ("add_tags", "remove_tags"):
+        if not payload.tag_ids:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="tag_ids required for tag actions",
+            )
+        # Validate that all tags exist (cheap, scoped to provided IDs).
+        existing = (
+            await db.execute(select(Tag.id).where(Tag.id.in_(payload.tag_ids)))
+        ).scalars().all()
+        if len(existing) != len(set(payload.tag_ids)):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown tag id"
+            )
+        # Resolve target monitor IDs once, respecting access.
+        target_ids = list(
+            (await db.execute(select(Monitor.id).where(ownership_clause))).scalars().all()
+        )
+        if payload.action == "add_tags":
+            # Insert pairs ignoring duplicates (composite PK enforces uniqueness).
+            from sqlalchemy.dialects.postgresql import insert as pg_insert
+            from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+
+            insert_fn = pg_insert if dialect_name(db) == "postgresql" else sqlite_insert
+            for mid in target_ids:
+                for tid in set(payload.tag_ids):
+                    stmt = insert_fn(monitor_tags).values(monitor_id=mid, tag_id=tid)
+                    stmt = stmt.on_conflict_do_nothing(
+                        index_elements=["monitor_id", "tag_id"]
+                    )
+                    await db.execute(stmt)
+        else:  # remove_tags
+            await db.execute(
+                delete(monitor_tags).where(
+                    monitor_tags.c.monitor_id.in_(target_ids),
+                    monitor_tags.c.tag_id.in_(payload.tag_ids),
+                )
+            )
+        affected = len(target_ids)
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown bulk action"
+        )
 
     return {"affected": affected}
 

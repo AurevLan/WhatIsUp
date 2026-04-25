@@ -90,6 +90,15 @@ class FcmChannel(BaseAlertChannel):
             "event_type": event_type,
             "resolved": is_resolved,
         }
+        # T1-04: surface quick-action metadata so the mobile app can attach
+        # acknowledge / snooze buttons to the system notification. Hidden on
+        # resolved events (nothing to do).
+        if not is_resolved:
+            payload["actions"] = [
+                {"id": "ack",       "label": "Acknowledge"},
+                {"id": "snooze_1h", "label": "Snooze 1h",  "duration_minutes": 60},
+                {"id": "snooze_4h", "label": "Snooze 4h",  "duration_minutes": 240},
+            ]
 
         result = await fcm.send_to_devices(devices, payload)
         await _prune_invalid(result.get("invalid_tokens", []))

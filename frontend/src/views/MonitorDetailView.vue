@@ -1555,7 +1555,30 @@
       </template>
     </BaseModal>
   </div>
-  <div v-else class="p-8 text-gray-400">{{ t('common.loading') }}</div>
+  <div v-else class="page-body" role="status" aria-busy="true" :aria-label="t('common.loading')">
+    <!-- Skeleton header -->
+    <div class="flex items-center gap-4 mb-8">
+      <div class="flex-1 space-y-2">
+        <SkeletonBox width="14rem" height="1.5rem" />
+        <SkeletonBox width="20rem" height="0.75rem" />
+      </div>
+    </div>
+    <!-- Skeleton tabs -->
+    <div class="flex gap-3 mb-6 border-b border-gray-800 pb-2">
+      <SkeletonBox v-for="i in 4" :key="i" width="5rem" height="1rem" />
+    </div>
+    <!-- Skeleton chart + cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div v-for="i in 3" :key="i" class="card">
+        <SkeletonBox width="40%" height="0.7rem" />
+        <div class="mt-3"><SkeletonBox width="60%" height="1.5rem" /></div>
+      </div>
+    </div>
+    <div class="card">
+      <SkeletonBox width="30%" height="0.85rem" />
+      <div class="mt-4"><SkeletonBox width="100%" height="14rem" rounded="md" /></div>
+    </div>
+  </div>
 </template>
 
 <script setup>
@@ -1578,6 +1601,8 @@ import AlertMatrix from '../components/monitors/AlertMatrix.vue'
 import TagChips from '../components/monitors/TagChips.vue'
 import MetricsDashboard from '../components/monitors/MetricsDashboard.vue'
 import BaseModal from '../components/BaseModal.vue'
+import SkeletonBox from '../components/shared/SkeletonBox.vue'
+import { useCommandPaletteStore } from '../stores/commandPalette'
 import { maintenanceApi } from '../api/maintenance'
 import { renderRunbookMarkdown } from '../lib/runbookMarkdown'
 import { useTimezone } from '../composables/useTimezone'
@@ -1598,6 +1623,7 @@ const fmtDateTime = (v) =>
 
 const route = useRoute()
 const router = useRouter()
+const paletteStore = useCommandPaletteStore()
 const monitor   = ref(null)
 const results   = ref([])
 const uptime24  = ref(null)
@@ -2882,6 +2908,14 @@ onMounted(async () => {
   results.value  = resResp.data
   uptime24.value = up24Resp.data
   uptime7d.value = up7dResp.data
+
+  // Surface this monitor as a recent in the command palette (T1-10).
+  paletteStore.recordVisit({
+    type: 'monitor',
+    id: monitor.value.id,
+    name: monitor.value.name,
+    route: `/monitors/${monitor.value.id}`,
+  })
 
   // Initialise SLO edit refs from loaded monitor
   sloEditTarget.value = monitor.value.slo_target ?? null

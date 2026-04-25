@@ -370,7 +370,10 @@ class MonitorDependencyOut(BaseModel):
 
 class BulkActionRequest(BaseModel):
     ids: list[uuid.UUID] = Field(min_length=1, max_length=200)
-    action: Literal["enable", "pause", "delete"]
+    action: Literal["enable", "pause", "delete", "set_group", "add_tags", "remove_tags"]
+    # Optional payload — required only for the actions that consume it.
+    target_group_id: uuid.UUID | None = None  # None on set_group means "ungroup"
+    tag_ids: list[uuid.UUID] | None = None  # add_tags / remove_tags
 
 
 class BulkActionResponse(BaseModel):

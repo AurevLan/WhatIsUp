@@ -83,17 +83,21 @@
           </router-link>
         </div>
 
-        <div v-if="loading" class="p-4 space-y-2">
-          <div v-for="i in 5" :key="i" class="skeleton h-12" />
+        <div v-if="loading" class="px-3 py-2">
+          <SkeletonRow v-for="i in 5" :key="i" />
         </div>
 
-        <div v-else-if="monitors.length === 0" class="empty-state">
-          <div class="empty-state__icon"><Monitor :size="22" /></div>
-          <p class="empty-state__title">{{ t('monitors.no_monitors') }}</p>
-          <router-link to="/monitors" class="btn-primary mt-3">
-            <Plus :size="14" /> {{ t('monitors.add') }}
-          </router-link>
-        </div>
+        <EmptyState
+          v-else-if="monitors.length === 0"
+          :title="t('monitors.no_monitors')"
+          :text="t('empty.monitors_text')"
+          :cta-label="t('monitors.add')"
+          replay-tour
+          inline
+          @cta="$router.push('/monitors')"
+        >
+          <template #icon><Monitor :size="22" /></template>
+        </EmptyState>
 
         <div v-else class="px-2 py-1.5">
           <TransitionGroup name="list">
@@ -168,6 +172,9 @@ import { useAuthStore } from '../stores/auth'
 import MonitorRow from '../components/monitors/MonitorRow.vue'
 import ProbeMap from '../components/dashboard/ProbeMap.vue'
 import OnboardingWizard from '../components/onboarding/OnboardingWizard.vue'
+import SkeletonRow from '../components/shared/SkeletonRow.vue'
+import EmptyState from '../components/shared/EmptyState.vue'
+import { useTour } from '../composables/useTour'
 import api from '../api/client'
 
 const STATUS_PRIORITY = { down: 0, error: 1, timeout: 2, up: 3 }
@@ -178,6 +185,7 @@ const auth = useAuthStore()
 
 // Onboarding: show wizard if user hasn't completed it and has no monitors
 const showOnboarding = ref(false)
+const { shouldStartTour, clearTour } = useTour()
 
 function onOnboardingComplete() {
   showOnboarding.value = false
@@ -226,8 +234,11 @@ function probeLastSeen(p) {
 onMounted(async () => {
   await monitorStore.fetchAll()
 
-  // Check onboarding status
-  if (!auth.user?.onboarding_completed && monitorStore.monitors.length === 0) {
+  // Tour replay (T1-18) — user explicitly asked to re-see the wizard
+  if (shouldStartTour()) {
+    showOnboarding.value = true
+    clearTour()
+  } else if (!auth.user?.onboarding_completed && monitorStore.monitors.length === 0) {
     try {
       const { data } = await api.get('/onboarding/status')
       if (!data.completed && data.monitor_count === 0) {

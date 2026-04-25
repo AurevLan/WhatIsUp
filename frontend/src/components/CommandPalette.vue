@@ -15,7 +15,21 @@
           </div>
           <div class="palette__results">
             <div v-for="(group, gi) in filteredGroups" :key="group.label" class="palette__group">
-              <p class="palette__group-label">{{ group.label }}</p>
+              <div class="palette__group-header">
+                <p class="palette__group-label">
+                  <History v-if="group.label === 'Recent'" :size="10" />
+                  {{ group.label }}
+                </p>
+                <button
+                  v-if="group.label === 'Recent'"
+                  type="button"
+                  class="palette__group-clear"
+                  @click="clearRecents"
+                  title="Clear recents"
+                >
+                  <X :size="11" />
+                </button>
+              </div>
               <button
                 v-for="(item, ii) in group.items"
                 :key="item.id"
@@ -28,6 +42,26 @@
                 <span class="palette__item-name">{{ item.name }}</span>
                 <span v-if="item.status && item.status !== 'up'" class="palette__status-dot" :class="`palette__status-dot--${item.status}`" />
                 <span v-if="item.hint" class="palette__hint">{{ item.hint }}</span>
+
+                <!-- Inline actions on hover/active -->
+                <span
+                  v-if="item.kind === 'monitor'"
+                  class="palette__action-btn"
+                  :title="item.enabled ? 'Pause' : 'Resume'"
+                  @click="togglePauseFromItem(item, $event)"
+                >
+                  <Pause v-if="item.enabled" :size="11" />
+                  <Play v-else :size="11" />
+                </span>
+                <span
+                  v-else-if="item.kind === 'incident'"
+                  class="palette__action-btn"
+                  title="Acknowledge"
+                  @click="ackIncidentFromItem(item, $event)"
+                >
+                  <CheckCheck :size="11" />
+                </span>
+
                 <ArrowRight :size="11" class="palette__arrow" />
               </button>
             </div>
@@ -63,8 +97,18 @@ import {
   Copy,
   KeyRound,
   ClipboardList,
+  Play,
+  Pause,
+  CheckCheck,
+  History,
+  AlertCircle,
+  X,
 } from 'lucide-vue-next'
 import { useMonitorStore } from '../stores/monitors'
+import { useCommandPaletteStore } from '../stores/commandPalette'
+import { useToast } from '../composables/useToast'
+import { incidentUpdatesApi } from '../api/incidentUpdates'
+import { fuzzyFilter } from '../lib/fuzzy'
 import { setLocale, getLocale } from '../i18n/index.js'
 
 const props = defineProps({
@@ -74,6 +118,8 @@ const emit = defineEmits(['update:modelValue'])
 
 const router = useRouter()
 const monitorStore = useMonitorStore()
+const paletteStore = useCommandPaletteStore()
+const { success: toastSuccess, error: toastError } = useToast()
 
 const open = computed({
   get: () => props.modelValue,
@@ -131,44 +177,81 @@ const monitorItems = computed(() =>
   [...monitorStore.monitors]
     .sort((a, b) => (STATUS_PRIORITY[a._lastStatus] ?? 4) - (STATUS_PRIORITY[b._lastStatus] ?? 4))
     .map((m) => ({
+      kind: 'monitor',
+      raw: m,
       id: `monitor-${m.id}`,
       name: m.name,
       icon: Monitor,
       route: `/monitors/${m.id}`,
       hint: m.check_type,
       status: m._lastStatus,
+      enabled: m.enabled,
     }))
 )
 
-// Filter helper
-function matchesQuery(item, q) {
-  return item.name.toLowerCase().includes(q)
-}
+// Open incidents — derived from monitors carrying an open incident.
+const incidentItems = computed(() =>
+  monitorStore.monitors
+    .filter((m) => m._hasOpenIncident && m._openIncidentId)
+    .map((m) => ({
+      kind: 'incident',
+      raw: m,
+      id: `incident-${m._openIncidentId}`,
+      name: m.name,
+      icon: AlertCircle,
+      route: `/monitors/${m.id}`,
+      hint: 'open',
+      status: 'down',
+      incidentId: m._openIncidentId,
+    }))
+)
+
+// Recents from store, mapped to palette item shape; drop entries whose monitor
+// vanished from the store (deleted) so they don't 404.
+const recentItems = computed(() => {
+  const monitorIds = new Set(monitorStore.monitors.map((m) => m.id))
+  return paletteStore.recents
+    .filter((r) => r.type !== 'monitor' || monitorIds.has(r.id))
+    .map((r) => ({
+      kind: 'recent',
+      id: `recent-${r.type}-${r.id}`,
+      name: r.name,
+      icon: r.type === 'incident' ? AlertCircle : Monitor,
+      route: r.route,
+      hint: r.type,
+    }))
+})
 
 const filteredGroups = computed(() => {
-  const q = query.value.toLowerCase().trim()
+  const q = query.value.trim()
   const groups = []
 
+  // When idle (no query), surface recents first.
+  if (!q && recentItems.value.length > 0) {
+    groups.push({ label: 'Recent', items: recentItems.value })
+  }
+
+  // Open incidents always come early when there are some.
+  const incItems = fuzzyFilter(incidentItems.value, q)
+  if (incItems.length > 0) {
+    groups.push({ label: 'Open incidents', items: incItems })
+  }
+
   // Monitors
-  const mItems = q
-    ? monitorItems.value.filter((i) => matchesQuery(i, q))
-    : monitorItems.value.slice(0, 8)
+  const mAll = q ? monitorItems.value : monitorItems.value.slice(0, 8)
+  const mItems = q ? fuzzyFilter(monitorItems.value, q) : mAll
   if (mItems.length > 0) {
     groups.push({ label: 'Monitors', items: mItems })
   }
 
   // Navigation
-  const nItems = q
-    ? navItems.filter((i) => matchesQuery(i, q))
-    : navItems
+  const nItems = fuzzyFilter(navItems, q)
   if (nItems.length > 0) {
     groups.push({ label: 'Navigation', items: nItems })
   }
 
   // Actions
-  const aItems = q
-    ? actionItems.value.filter((i) => matchesQuery(i, q))
-    : actionItems.value
+  const aItems = fuzzyFilter(actionItems.value, q)
   if (aItems.length > 0) {
     groups.push({ label: 'Actions', items: aItems })
   }
@@ -264,10 +347,55 @@ function activate(item) {
     currentLang.value = next
     return
   }
+  if (item.kind === 'monitor' && item.raw) {
+    paletteStore.recordVisit({
+      type: 'monitor',
+      id: item.raw.id,
+      name: item.raw.name,
+      route: item.route,
+    })
+  }
+  if (item.kind === 'incident' && item.raw) {
+    paletteStore.recordVisit({
+      type: 'incident',
+      id: item.incidentId,
+      name: item.raw.name,
+      route: item.route,
+    })
+  }
   if (item.route) {
     const to = item.query ? { path: item.route, query: item.query } : item.route
     router.push(to)
   }
+}
+
+async function togglePauseFromItem(item, e) {
+  e?.stopPropagation()
+  if (!item.raw) return
+  const m = item.raw
+  try {
+    await monitorStore.update(m.id, { enabled: !m.enabled })
+    toastSuccess(m.enabled ? `Paused ${m.name}` : `Resumed ${m.name}`)
+  } catch {
+    toastError('Failed to update monitor')
+  }
+}
+
+async function ackIncidentFromItem(item, e) {
+  e?.stopPropagation()
+  if (!item.incidentId) return
+  try {
+    await incidentUpdatesApi.ack(item.incidentId)
+    toastSuccess(`Acknowledged ${item.name}`)
+    close()
+  } catch {
+    toastError('Failed to acknowledge')
+  }
+}
+
+function clearRecents(e) {
+  e?.stopPropagation()
+  paletteStore.clearRecents()
 }
 
 function activateCurrent() {
@@ -363,6 +491,53 @@ function onKeydown(e) {
   text-transform: uppercase;
   letter-spacing: 0.04em;
   padding: 6px 10px 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.palette__group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-right: 6px;
+}
+
+.palette__group-clear {
+  background: none;
+  border: none;
+  color: var(--text-3);
+  padding: 2px 4px;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: color 0.1s, background 0.1s;
+}
+.palette__group-clear:hover {
+  color: var(--text-1);
+  background: var(--bg-surface-2);
+}
+
+.palette__action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  color: var(--text-3);
+  background: transparent;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.1s, background 0.1s, color 0.1s;
+  flex-shrink: 0;
+}
+.palette__item--active .palette__action-btn,
+.palette__item:hover .palette__action-btn {
+  opacity: 1;
+}
+.palette__action-btn:hover {
+  background: rgba(59, 130, 246, 0.18);
+  color: var(--text-1);
 }
 
 .palette__item {

@@ -237,6 +237,149 @@ async def test_bulk_action_isolation(
 
 
 # ---------------------------------------------------------------------------
+# T1-12 — Bulk set_group / add_tags / remove_tags
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_bulk_set_group(client: AsyncClient, user_token: str) -> None:
+    """Bulk set_group reassigns the group_id of every targeted monitor."""
+    auth = {"Authorization": f"Bearer {user_token}"}
+    grp = (
+        await client.post("/api/v1/groups/", json={"name": "Bulk Target"}, headers=auth)
+    ).json()
+    m1 = (
+        await client.post(
+            "/api/v1/monitors/",
+            json={"name": "BG1", "url": "https://example.com"},
+            headers=auth,
+        )
+    ).json()
+    m2 = (
+        await client.post(
+            "/api/v1/monitors/",
+            json={"name": "BG2", "url": "https://example.com"},
+            headers=auth,
+        )
+    ).json()
+
+    resp = await client.post(
+        "/api/v1/monitors/bulk",
+        json={
+            "ids": [m1["id"], m2["id"]],
+            "action": "set_group",
+            "target_group_id": grp["id"],
+        },
+        headers=auth,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["affected"] == 2
+
+    for mid in (m1["id"], m2["id"]):
+        detail = (await client.get(f"/api/v1/monitors/{mid}", headers=auth)).json()
+        assert detail["group_id"] == grp["id"]
+
+    # set_group with target_group_id=None ungroups them.
+    resp = await client.post(
+        "/api/v1/monitors/bulk",
+        json={"ids": [m1["id"]], "action": "set_group", "target_group_id": None},
+        headers=auth,
+    )
+    assert resp.status_code == 200
+    assert (await client.get(f"/api/v1/monitors/{m1['id']}", headers=auth)).json()["group_id"] is None
+
+
+@pytest.mark.asyncio
+async def test_bulk_set_group_unknown_returns_404(
+    client: AsyncClient, user_token: str
+) -> None:
+    auth = {"Authorization": f"Bearer {user_token}"}
+    m = (
+        await client.post(
+            "/api/v1/monitors/",
+            json={"name": "Solo", "url": "https://example.com"},
+            headers=auth,
+        )
+    ).json()
+    resp = await client.post(
+        "/api/v1/monitors/bulk",
+        json={
+            "ids": [m["id"]],
+            "action": "set_group",
+            "target_group_id": "00000000-0000-0000-0000-000000000000",
+        },
+        headers=auth,
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_bulk_add_and_remove_tags(client: AsyncClient, user_token: str) -> None:
+    """Bulk add_tags then remove_tags round-trips cleanly without duplicates."""
+    auth = {"Authorization": f"Bearer {user_token}"}
+    tag_a = (await client.post("/api/v1/tags/", json={"name": "env:prod"}, headers=auth)).json()
+    tag_b = (await client.post("/api/v1/tags/", json={"name": "team:sre"}, headers=auth)).json()
+
+    monitors = []
+    for i in range(2):
+        monitors.append(
+            (
+                await client.post(
+                    "/api/v1/monitors/",
+                    json={"name": f"Tagged {i}", "url": "https://example.com"},
+                    headers=auth,
+                )
+            ).json()
+        )
+    ids = [m["id"] for m in monitors]
+
+    # Add both tags twice — second call must be a no-op (no duplicate rows).
+    for _ in range(2):
+        resp = await client.post(
+            "/api/v1/monitors/bulk",
+            json={"ids": ids, "action": "add_tags", "tag_ids": [tag_a["id"], tag_b["id"]]},
+            headers=auth,
+        )
+        assert resp.status_code == 200
+
+    for mid in ids:
+        detail = (await client.get(f"/api/v1/monitors/{mid}", headers=auth)).json()
+        names = sorted(t["name"] for t in detail["tags"])
+        assert names == ["env:prod", "team:sre"]
+
+    # Remove one tag.
+    resp = await client.post(
+        "/api/v1/monitors/bulk",
+        json={"ids": ids, "action": "remove_tags", "tag_ids": [tag_a["id"]]},
+        headers=auth,
+    )
+    assert resp.status_code == 200
+    for mid in ids:
+        detail = (await client.get(f"/api/v1/monitors/{mid}", headers=auth)).json()
+        assert [t["name"] for t in detail["tags"]] == ["team:sre"]
+
+
+@pytest.mark.asyncio
+async def test_bulk_add_tags_requires_tag_ids(
+    client: AsyncClient, user_token: str
+) -> None:
+    auth = {"Authorization": f"Bearer {user_token}"}
+    m = (
+        await client.post(
+            "/api/v1/monitors/",
+            json={"name": "Solo", "url": "https://example.com"},
+            headers=auth,
+        )
+    ).json()
+    resp = await client.post(
+        "/api/v1/monitors/bulk",
+        json={"ids": [m["id"]], "action": "add_tags"},
+        headers=auth,
+    )
+    assert resp.status_code == 400
+
+
+# ---------------------------------------------------------------------------
 # Dependencies
 # ---------------------------------------------------------------------------
 

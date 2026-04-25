@@ -230,6 +230,7 @@ def create_app() -> FastAPI:
         ping,
         probes,
         public,
+        silences,
         status,
         tags,
         teams,
@@ -250,6 +251,7 @@ def create_app() -> FastAPI:
     app.include_router(ws.router)
     app.include_router(audit.router, prefix="/api/v1")
     app.include_router(maintenance.router, prefix="/api/v1")
+    app.include_router(silences.router, prefix="/api/v1")
     app.include_router(ping.router, prefix="/api/v1")
     app.include_router(metrics.router, prefix="/api/v1")
     app.include_router(incidents.router, prefix="/api/v1")

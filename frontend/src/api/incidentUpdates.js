@@ -6,4 +6,5 @@ export const incidentUpdatesApi = {
   delete: (incidentId, updateId) => api.delete(`/incidents/${incidentId}/updates/${updateId}`),
   ack: (incidentId) => api.post(`/incidents/${incidentId}/ack`),
   unack: (incidentId) => api.post(`/incidents/${incidentId}/unack`),
+  bulkAck: (ids) => api.post('/incidents/bulk-ack', { ids }),
 }

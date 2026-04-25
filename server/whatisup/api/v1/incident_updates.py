@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import select
+from pydantic import BaseModel, Field
+from sqlalchemy import and_, select, update as sql_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from whatisup.api.deps import get_current_user
+from whatisup.api.deps import build_access_filter, get_current_user, get_user_team_ids
 from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
 from whatisup.models.incident import Incident
@@ -137,6 +138,96 @@ async def acknowledge_incident(
     return _incident_to_out(incident)
 
 
+class BulkAckRequest(BaseModel):
+    ids: list[uuid.UUID] = Field(min_length=1, max_length=200)
+
+
+class BulkAckResponse(BaseModel):
+    affected: int
+
+
+@router.post("/bulk-ack", response_model=BulkAckResponse)
+@limiter.limit("20/minute")
+async def bulk_ack_incidents(
+    request: Request,
+    payload: BulkAckRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Acknowledge multiple open incidents in a single round-trip.
+
+    Resolved incidents in the payload are silently skipped. Access is enforced
+    by joining incidents to the monitors the user can reach.
+    """
+    if current_user.is_superadmin:
+        access_clause = Incident.id.in_(payload.ids)
+    else:
+        # Resolve the set of monitor IDs the caller can act on, then filter
+        # incidents accordingly. Two queries beats inline join-update.
+        team_ids = await get_user_team_ids(current_user, db)
+        accessible_monitors = (
+            await db.execute(
+                select(Monitor.id).where(build_access_filter(Monitor, current_user, team_ids))
+            )
+        ).scalars().all()
+        access_clause = and_(
+            Incident.id.in_(payload.ids),
+            Incident.monitor_id.in_(accessible_monitors),
+        )
+
+    now = datetime.now(UTC)
+    result = await db.execute(
+        sql_update(Incident)
+        .where(access_clause, Incident.resolved_at.is_(None), Incident.acked_at.is_(None))
+        .values(acked_at=now, acked_by_id=current_user.id)
+    )
+    return {"affected": result.rowcount}
+
+
+class SnoozeRequest(BaseModel):
+    duration_minutes: int = Field(ge=5, le=1440)  # 5 min — 24 h
+
+
+@router.post("/{incident_id}/snooze", response_model=IncidentOut)
+@limiter.limit("30/minute")
+async def snooze_incident(
+    request: Request,
+    incident_id: uuid.UUID,
+    body: SnoozeRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Incident:
+    """Suppress renotify dispatches for a bounded duration (T1-04).
+
+    Distinct from /ack which is open-ended. Snooze auto-expires once
+    ``snooze_until`` is in the past — the next renotify cycle picks the
+    incident back up.
+    """
+    incident = await _get_incident_for_user(incident_id, current_user, db)
+    if incident.resolved_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot snooze a resolved incident",
+        )
+    incident.snooze_until = datetime.now(UTC) + timedelta(minutes=body.duration_minutes)
+    await db.flush()
+    return _incident_to_out(incident)
+
+
+@router.post("/{incident_id}/unsnooze", response_model=IncidentOut)
+@limiter.limit("30/minute")
+async def unsnooze_incident(
+    request: Request,
+    incident_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Incident:
+    incident = await _get_incident_for_user(incident_id, current_user, db)
+    incident.snooze_until = None
+    await db.flush()
+    return _incident_to_out(incident)
+
+
 @router.post("/{incident_id}/unack", response_model=IncidentOut)
 @limiter.limit("30/minute")
 async def unacknowledge_incident(
@@ -169,6 +260,7 @@ def _incident_to_out(inc: Incident) -> dict:
         "group_id": inc.group_id,
         "acked_at": inc.acked_at,
         "acked_by_id": inc.acked_by_id,
+        "snooze_until": inc.snooze_until,
         "first_failure_at": inc.first_failure_at,
         "mttd_seconds": mttd,
         "mttr_seconds": inc.duration_seconds,

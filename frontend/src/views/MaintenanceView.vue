@@ -43,14 +43,16 @@
 
     <template v-else>
       <!-- Empty state -->
-      <div v-if="windows.length === 0 && !calendarView" class="empty-state">
-        <div class="empty-state__icon"><CalendarClock :size="22" /></div>
-        <p class="empty-state__title">{{ t('maintenance.no_windows') }}</p>
-        <p class="empty-state__text">{{ t('maintenance.empty_desc') }}</p>
-        <button @click="openCreate()" class="btn-primary mt-2 flex items-center gap-1.5 mx-auto">
-          <Plus :size="14" /> {{ t('maintenance.add') }}
-        </button>
-      </div>
+      <EmptyState
+        v-if="windows.length === 0 && !calendarView"
+        :title="t('maintenance.no_windows')"
+        :text="t('empty.maintenance_text')"
+        :cta-label="t('maintenance.add')"
+        doc-href="https://github.com/AurevLan/whatisup#maintenance"
+        @cta="openCreate()"
+      >
+        <template #icon><CalendarClock :size="22" /></template>
+      </EmptyState>
 
       <!-- Calendar view -->
       <div v-else-if="calendarView" class="card mb-6">
@@ -286,6 +288,7 @@ import { useI18n } from 'vue-i18n'
 import { CalendarClock, CalendarDays, Plus, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-vue-next'
 import BaseModal from '../components/BaseModal.vue'
 import MaintenanceWindowCard from '../components/maintenance/MaintenanceWindowCard.vue'
+import EmptyState from '../components/shared/EmptyState.vue'
 import { maintenanceApi } from '../api/maintenance'
 import { monitorsApi } from '../api/monitors'
 import { useToast } from '../composables/useToast'

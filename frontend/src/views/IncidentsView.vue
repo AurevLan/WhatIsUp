@@ -38,6 +38,13 @@
       </button>
     </div>
 
+    <!-- Bulk action bar (T1-12) -->
+    <BulkActionBar :count="selectedIds.size" @clear="clearSelection">
+      <button @click="bulkAck" class="btn-primary text-xs px-3 py-1.5 flex items-center gap-1.5">
+        <CheckCircle class="w-3.5 h-3.5" /> {{ t('incidents.bulk_ack') }}
+      </button>
+    </BulkActionBar>
+
     <!-- List -->
     <div class="card p-0 overflow-hidden">
       <div v-if="loading" class="incidents__empty">
@@ -88,6 +95,14 @@
                 <span class="inc-col inc-col--started">{{ formatDate(inc.started_at) }}</span>
                 <span class="inc-col inc-col--duration">{{ formatDuration(inc) }}</span>
                 <span class="inc-col inc-col--actions">
+                  <input
+                    v-if="canSelect(inc)"
+                    type="checkbox"
+                    class="inc-checkbox"
+                    :checked="selectedIds.has(inc.id)"
+                    @click.stop
+                    @change="toggleSelect(inc.id)"
+                  />
                   <button v-if="!inc.is_resolved && !inc.acked_at" class="ack-btn" :title="t('incidents.acknowledge')" @click.prevent="ack(inc)"><CheckCircle :size="16" /></button>
                   <button v-else-if="!inc.is_resolved && inc.acked_at" class="ack-btn ack-btn--active" :title="t('incidents.unacknowledge')" @click.prevent="unack(inc)"><CheckCircle :size="16" /></button>
                 </span>
@@ -106,6 +121,14 @@
               <span class="inc-col inc-col--started">{{ formatDate(item.started_at) }}</span>
               <span class="inc-col inc-col--duration">{{ formatDuration(item) }}</span>
               <span class="inc-col inc-col--actions">
+                <input
+                  v-if="canSelect(item)"
+                  type="checkbox"
+                  class="inc-checkbox"
+                  :checked="selectedIds.has(item.id)"
+                  @click.stop
+                  @change="toggleSelect(item.id)"
+                />
                 <button
                   v-if="hasRunbook(item)"
                   class="ack-btn"
@@ -138,6 +161,7 @@ import { incidentUpdatesApi } from '../api/incidentUpdates'
 import { useToast } from '../composables/useToast'
 import { renderRunbookMarkdown } from '../lib/runbookMarkdown'
 import { useFilterPreset } from '../composables/useFilterPreset'
+import BulkActionBar from '../components/shared/BulkActionBar.vue'
 import { useTimezone } from '../composables/useTimezone'
 
 const { t, locale } = useI18n()
@@ -284,6 +308,32 @@ function badgeLabel(inc) {
   if (inc.is_resolved) return t('incidents.resolved')
   if (inc.acked_at) return t('incidents.acknowledged')
   return t('incidents.ongoing')
+}
+
+// T1-12 — multi-select + bulk ack
+const selectedIds = ref(new Set())
+function canSelect(inc) {
+  return !inc.is_resolved && !inc.acked_at
+}
+function toggleSelect(id) {
+  const next = new Set(selectedIds.value)
+  if (next.has(id)) next.delete(id); else next.add(id)
+  selectedIds.value = next
+}
+function clearSelection() { selectedIds.value = new Set() }
+async function bulkAck() {
+  const ids = [...selectedIds.value]
+  if (!ids.length) return
+  try {
+    const { data } = await incidentUpdatesApi.bulkAck(ids)
+    success(t('incidents.bulk_ack_success', { count: data.affected ?? ids.length }))
+    // Optimistic local update.
+    const now = new Date().toISOString()
+    for (const inc of incidents.value) {
+      if (ids.includes(inc.id)) inc.acked_at = now
+    }
+  } catch { /* toast already surfaced by axios interceptor if any */ }
+  clearSelection()
 }
 
 async function ack(inc) {

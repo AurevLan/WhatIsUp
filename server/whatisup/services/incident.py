@@ -521,6 +521,10 @@ async def _fire_alerts(
             # Skip renotify if incident has been acknowledged
             if incident.acked_at is not None:
                 continue
+            # T1-04: skip renotify while a snooze window is still active. Once
+            # snooze_until is in the past the next cycle picks the incident up.
+            if incident.snooze_until is not None and incident.snooze_until > now:
+                continue
             # Check last sent alert event for this incident + rule channels
             channel_ids = [c.id for c in rule.channels]
             if channel_ids:
@@ -1068,6 +1072,7 @@ async def process_check_result(
         open_incident.duration_seconds = duration
         open_incident.acked_at = None
         open_incident.acked_by_id = None
+        open_incident.snooze_until = None  # T1-04: clear snooze on resolve
         await db.flush()
 
         logger.info(

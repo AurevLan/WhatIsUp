@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg"></a>
-  <img alt="Version" src="https://img.shields.io/badge/version-1.4.0-4f9cf9">
+  <img alt="Version" src="https://img.shields.io/badge/version-1.5.0-4f9cf9">
   <img alt="Python 3.14" src="https://img.shields.io/badge/Python-3.14-blue">
   <img alt="Vue 3" src="https://img.shields.io/badge/Vue-3.5-42b883">
   <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-0.125+-009688">
@@ -19,7 +19,7 @@
 
 <p align="center">
   <a href="#quick-start">Quick start</a> ·
-  <a href="#whats-new-in-14">What's new in 1.4</a> ·
+  <a href="#whats-new-in-15">What's new in 1.5</a> ·
   <a href="#why-whatisup">Why WhatIsUp</a> ·
   <a href="#features">Features</a> ·
   <a href="#architecture">Architecture</a> ·
@@ -37,6 +37,21 @@ There's no shortage of uptime tools. WhatIsUp focuses on three things most of th
 - 🎛 **Self-hosted, batteries included** — one `docker compose up`, no SaaS lock-in, no per-monitor pricing. Playwright scenarios, SSO/OIDC, teams & RBAC, IaC import/export, and a mobile app all ship in the box.
 
 It's built for teams who want Datadog-grade monitoring without Datadog-grade bills, and who'd rather own their data than rent it.
+
+---
+
+## What's new in 1.5
+
+**Wave 1 Tier 1 complete** — eight ⭐ items shipped at once to close the SRE adoption + UX backlog. 100% backward-compatible, two additive migrations.
+
+- ⌨️ **Command palette v2 + global shortcuts** (T1-10 / T1-15) — Cmd/Ctrl+K opens fuzzy search across monitors, incidents, recent items and actions. Hover a row to **pause/resume a monitor** or **acknowledge an incident** without leaving the palette. New keyboard shortcuts (`g d/m/i/a/p/s` for navigation, `c` to create, `/` to search, `?` for the cheatsheet) wired everywhere. Recent visits persist in `localStorage` (capped at 12).
+- 🔕 **Programmable alert silences** (T1-01) — new `AlertSilence` resource and `Silences` page in the sidebar. Mute alerts for one monitor or all of them during a known-noisy window (cert renewal, deploy storm) without distorting uptime. Built-in 15 m / 1 h / 4 h / 1 d duration presets, status badges (Active / Scheduled / Past). Dispatch is short-circuited *before* any external IO.
+- 📱 **Quick-ack & snooze from mobile push** (T1-04) — FCM payload now ships `actions: [ack, snooze_1h, snooze_4h]`. The mobile app calls the matching endpoint on tap, no need to open the UI. New `Incident.snooze_until` field with auto-clear on resolve. Bounded duration (5 min – 24 h).
+- ✅ **Multi-select bulk actions enriched** (T1-12) — `MonitorsView` gets two new dropdowns: **Move to group** and **Add tag**. `IncidentsView` gains a per-row checkbox plus an **Acknowledge all** button — one round-trip via the new `POST /incidents/bulk-ack` endpoint.
+- 🪄 **CreateMonitor wizard** (T1-14) — new 3-step flow (type → target → review + notifications) replaces the legacy modal for the four most common types (HTTP, TCP, DNS, heartbeat). Mobile-scrollable body. Falls back to the advanced form for scenario / composite / keyword / json_path.
+- ✨ **Polish: skeletons, empty states, replayable tour** (T1-16 / T1-18) — generic `SkeletonBox` / `Row` / `Text` components replace `animate-pulse` placeholders on Dashboard, Monitors and MonitorDetail. Six empty states standardised with contextual CTAs and doc links. The onboarding wizard is now replayable from any empty state via `?tour=1`.
+
+See the full [CHANGELOG](CHANGELOG.md#150---2026-04-25) for the per-item breakdown, including 14 new pytest cases and 50 new vitest cases (suite at 161 green).
 
 ---
 

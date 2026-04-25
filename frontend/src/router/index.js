@@ -70,6 +70,11 @@ const routes = [
         component: () => import('../views/MaintenanceView.vue'),
       },
       {
+        path: 'silences',
+        name: 'Silences',
+        component: () => import('../views/SilencesView.vue'),
+      },
+      {
         path: 'audit',
         name: 'Audit',
         component: () => import('../views/AuditView.vue'),

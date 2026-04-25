@@ -200,6 +200,163 @@ async def test_ack_resolved_incident_fails(
 
 
 @pytest.mark.asyncio
+async def test_snooze_endpoint(
+    client,
+    admin_token: str,
+    db_session: AsyncSession,
+    admin_user: User,
+) -> None:
+    """T1-04 — snooze sets a future timestamp; unsnooze clears it."""
+    from whatisup.models.monitor import Monitor
+
+    monitor = Monitor(name="snooze-test", url="http://snooze.example.com", owner_id=admin_user.id)
+    db_session.add(monitor)
+    await db_session.flush()
+
+    incident = Incident(
+        monitor_id=monitor.id, started_at=datetime.now(UTC),
+        scope=IncidentScope.global_, affected_probe_ids=[],
+    )
+    db_session.add(incident)
+    await db_session.commit()
+
+    headers = {"Authorization": f"Bearer {admin_token}"}
+
+    # Snooze 60 min
+    resp = await client.post(
+        f"/api/v1/incidents/{incident.id}/snooze",
+        json={"duration_minutes": 60},
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["snooze_until"] is not None
+    snooze_dt = datetime.fromisoformat(body["snooze_until"].replace("Z", "+00:00"))
+    delta = (snooze_dt - datetime.now(UTC)).total_seconds()
+    assert 59 * 60 < delta < 61 * 60
+
+    # Unsnooze
+    resp = await client.post(f"/api/v1/incidents/{incident.id}/unsnooze", headers=headers)
+    assert resp.status_code == 200
+    assert resp.json()["snooze_until"] is None
+
+
+@pytest.mark.asyncio
+async def test_snooze_validates_duration_bounds(
+    client, admin_token: str, db_session: AsyncSession, admin_user: User,
+) -> None:
+    from whatisup.models.monitor import Monitor
+
+    monitor = Monitor(name="snooze-bounds", url="http://b.example.com", owner_id=admin_user.id)
+    db_session.add(monitor)
+    await db_session.flush()
+    incident = Incident(
+        monitor_id=monitor.id, started_at=datetime.now(UTC),
+        scope=IncidentScope.global_, affected_probe_ids=[],
+    )
+    db_session.add(incident)
+    await db_session.commit()
+
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    # Below floor
+    r1 = await client.post(
+        f"/api/v1/incidents/{incident.id}/snooze",
+        json={"duration_minutes": 1},
+        headers=headers,
+    )
+    assert r1.status_code == 422
+    # Above ceiling (24 h + 1)
+    r2 = await client.post(
+        f"/api/v1/incidents/{incident.id}/snooze",
+        json={"duration_minutes": 1500},
+        headers=headers,
+    )
+    assert r2.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_snooze_resolved_incident_fails(
+    client, admin_token: str, db_session: AsyncSession, admin_user: User,
+) -> None:
+    from whatisup.models.monitor import Monitor
+
+    monitor = Monitor(name="snooze-resolved", url="http://r.example.com", owner_id=admin_user.id)
+    db_session.add(monitor)
+    await db_session.flush()
+    now = datetime.now(UTC)
+    incident = Incident(
+        monitor_id=monitor.id, started_at=now - timedelta(hours=1), resolved_at=now,
+        duration_seconds=3600, scope=IncidentScope.global_, affected_probe_ids=[],
+    )
+    db_session.add(incident)
+    await db_session.commit()
+
+    resp = await client.post(
+        f"/api/v1/incidents/{incident.id}/snooze",
+        json={"duration_minutes": 60},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_bulk_ack_endpoint(
+    client,
+    admin_token: str,
+    db_session: AsyncSession,
+    admin_user: User,
+) -> None:
+    """T1-12 — bulk ack acknowledges multiple open incidents and skips resolved/already-acked ones."""
+    from whatisup.models.monitor import Monitor
+
+    monitor = Monitor(name="bulk-ack", url="http://x.example.com", owner_id=admin_user.id)
+    db_session.add(monitor)
+    await db_session.flush()
+
+    now = datetime.now(UTC)
+    open_a = Incident(
+        monitor_id=monitor.id, started_at=now,
+        scope=IncidentScope.global_, affected_probe_ids=[],
+    )
+    open_b = Incident(
+        monitor_id=monitor.id, started_at=now,
+        scope=IncidentScope.global_, affected_probe_ids=[],
+    )
+    already_acked = Incident(
+        monitor_id=monitor.id, started_at=now,
+        acked_at=now, acked_by_id=admin_user.id,
+        scope=IncidentScope.global_, affected_probe_ids=[],
+    )
+    resolved = Incident(
+        monitor_id=monitor.id,
+        started_at=now - timedelta(hours=1), resolved_at=now,
+        duration_seconds=3600,
+        scope=IncidentScope.global_, affected_probe_ids=[],
+    )
+    db_session.add_all([open_a, open_b, already_acked, resolved])
+    await db_session.commit()
+
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    resp = await client.post(
+        "/api/v1/incidents/bulk-ack",
+        json={"ids": [str(open_a.id), str(open_b.id), str(already_acked.id), str(resolved.id)]},
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    # Only the two open + unacked rows are touched.
+    assert resp.json()["affected"] == 2
+
+    await db_session.refresh(open_a)
+    await db_session.refresh(open_b)
+    await db_session.refresh(already_acked)
+    assert open_a.acked_at is not None
+    assert open_b.acked_at is not None
+    # already_acked timestamp must NOT be overwritten. SQLite drops tz info,
+    # so compare naive components.
+    assert already_acked.acked_at.replace(tzinfo=None) == now.replace(tzinfo=None)
+
+
+@pytest.mark.asyncio
 async def test_incidents_list_includes_sla(
     client,
     admin_token: str,

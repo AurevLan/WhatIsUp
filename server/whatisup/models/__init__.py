@@ -27,6 +27,7 @@ from whatisup.models.monitor import (
 )
 from whatisup.models.monitor_template import MonitorTemplate
 from whatisup.models.probe import Probe
+from whatisup.models.silence import AlertSilence
 from whatisup.models.probe_group import ProbeGroup, probe_group_members, user_probe_group_access
 from whatisup.models.result import CheckResult, CheckStatus
 from whatisup.models.status_subscription import StatusSubscription
@@ -66,6 +67,7 @@ __all__ = [
     "AlertEventStatus",
     "AlertRule",
     "AlertMatrixTemplate",
+    "AlertSilence",
     "CorrelationPattern",
     "DigestWindow",
     "MonitorAnnotation",

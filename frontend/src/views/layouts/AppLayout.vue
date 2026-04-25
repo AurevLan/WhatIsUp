@@ -34,6 +34,7 @@
         <NavLink to="/probes"          :icon="MapPin"        :label="t('nav.probes')" />
         <NavLink to="/alerts"          :icon="Bell"          :label="t('nav.alerts')" />
         <NavLink to="/maintenance"     :icon="CalendarClock" :label="t('nav.maintenance')" />
+        <NavLink to="/silences"        :icon="BellOff"       :label="t('nav.silences')" />
         <NavLink to="/incidents"       :icon="Clock"         :label="t('nav.incidents')" :badge="openIncidentCount" />
         <NavLink to="/templates"       :icon="Copy"          :label="t('nav.templates')" />
 
@@ -129,6 +130,7 @@
     <ToastContainer />
     <ConfirmModal />
     <CommandPalette v-model="showPalette" />
+    <HotkeysModal v-model="showHotkeys" />
   </div>
 </template>
 
@@ -137,7 +139,7 @@ import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
-  Activity, Bell, CalendarClock, ClipboardList, Clock, Copy, GitMerge,
+  Activity, Bell, BellOff, CalendarClock, ClipboardList, Clock, Copy, GitMerge,
   KeyRound, LayoutDashboard, Layers, LogOut, MapPin, Moon, Network, Search, Settings,
   ShieldCheck, Sun, WifiOff,
 } from 'lucide-vue-next'
@@ -148,6 +150,8 @@ import NavLink from '../../components/NavLink.vue'
 import ToastContainer from '../../components/ToastContainer.vue'
 import ConfirmModal from '../../components/ConfirmModal.vue'
 import CommandPalette from '../../components/CommandPalette.vue'
+import HotkeysModal from '../../components/shared/HotkeysModal.vue'
+import { useHotkeys } from '../../composables/useHotkeys'
 import { setLocale, getLocale } from '../../i18n/index.js'
 import { APP_VERSION } from '../../lib/appVersion.js'
 import { setupForegroundListeners } from '../../lib/pushNotifications.js'
@@ -159,6 +163,7 @@ const ws = useWebSocketStore()
 const monitorStore = useMonitorStore()
 const sidebarOpen = ref(false)
 const showPalette = ref(false)
+const showHotkeys = ref(false)
 const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
 
 function onGlobalKeydown(e) {
@@ -167,6 +172,21 @@ function onGlobalKeydown(e) {
     showPalette.value = !showPalette.value
   }
 }
+
+// T1-15: global hotkeys. Cmd/Ctrl+K stays in onGlobalKeydown above because
+// useHotkeys deliberately ignores combos with metaKey/ctrlKey.
+useHotkeys([
+  { keys: 'g d', run: () => router.push('/') },
+  { keys: 'g m', run: () => router.push('/monitors') },
+  { keys: 'g i', run: () => router.push('/incidents') },
+  { keys: 'g a', run: () => router.push('/alerts') },
+  { keys: 'g p', run: () => router.push('/probes') },
+  { keys: 'g s', run: () => router.push('/settings') },
+  { keys: 'c',   run: () => router.push({ path: '/monitors', query: { create: 'true' } }) },
+  { keys: '/',   run: () => { showPalette.value = true } },
+  { keys: '?',   run: () => { showHotkeys.value = true } },
+])
+
 onMounted(() => {
   window.addEventListener('keydown', onGlobalKeydown)
   // Wire push notification taps to deep-link into the relevant monitor (no-op on web).

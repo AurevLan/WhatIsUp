@@ -78,6 +78,13 @@ class Incident(Base):
         Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
 
+    # Snooze (T1-04) — temporary alert suppression, unlike ack which is open-ended.
+    # While snooze_until > now, renotify dispatches are skipped; once it expires the
+    # incident re-arms. Any state change (resolve/unack) also clears it.
+    snooze_until: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+
     # SLA: timestamp of the CheckResult that triggered the incident (for MTTD)
     first_failure_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

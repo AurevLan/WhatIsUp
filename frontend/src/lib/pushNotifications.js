@@ -136,9 +136,41 @@ export async function setupForegroundListeners(router) {
   _foregroundListenersWired = true
 
   PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
-    const monitorId = action?.notification?.data?.monitor_id
-    if (monitorId && router) {
-      router.push(`/monitors/${monitorId}`)
-    }
+    handleNotificationAction(action, router).catch(() => { /* swallow */ })
   })
+}
+
+/**
+ * Dispatch a tapped notification action (T1-04).
+ *
+ * The Capacitor plugin reports `actionId === 'tap'` for the default body tap.
+ * Action button taps surface their declared id (`ack`, `snooze_1h`, …). The
+ * incident id and quick-action duration are encoded in the notification data
+ * payload by the FCM channel on the backend.
+ *
+ * Exported so unit tests can drive it without the native plugin.
+ */
+export async function handleNotificationAction(action, router) {
+  const data = action?.notification?.data || {}
+  const monitorId = data.monitor_id
+  const incidentId = data.incident_id
+  const actionId = action?.actionId || 'tap'
+
+  if (actionId === 'ack' && incidentId) {
+    try { await api.post(`/incidents/${incidentId}/ack`) } catch { /* ignore */ }
+  } else if (actionId.startsWith('snooze_') && incidentId) {
+    // Action ids ship the duration as a suffix (snooze_1h → 60, snooze_4h → 240).
+    // Backend re-validates the value, so a malformed id just no-ops.
+    const minutes = actionId === 'snooze_1h' ? 60 : actionId === 'snooze_4h' ? 240 : null
+    if (minutes != null) {
+      try {
+        await api.post(`/incidents/${incidentId}/snooze`, { duration_minutes: minutes })
+      } catch { /* ignore */ }
+    }
+  }
+
+  // Always surface the relevant monitor so the user lands on actionable context.
+  if (monitorId && router) {
+    router.push(`/monitors/${monitorId}`)
+  }
 }

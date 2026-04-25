@@ -23,6 +23,7 @@ class IncidentOut(BaseModel):
     group_id: uuid.UUID | None = None
     acked_at: datetime | None = None
     acked_by_id: uuid.UUID | None = None
+    snooze_until: datetime | None = None
     first_failure_at: datetime | None = None
     mttd_seconds: int | None = None
     mttr_seconds: int | None = None

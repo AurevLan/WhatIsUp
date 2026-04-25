@@ -14,7 +14,7 @@ from typing import Any
 import aiosmtplib
 import httpx
 import structlog
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.core.config import get_settings
@@ -617,6 +617,43 @@ async def recover_digest_windows() -> None:
         await db.commit()
 
 
+async def _is_silenced(
+    db: AsyncSession,
+    incident: Incident,
+    channel: AlertChannel,
+) -> bool:
+    """Return True if any active AlertSilence covers this incident's monitor.
+
+    A silence matches when:
+      - it is currently within its [starts_at, ends_at] window, AND
+      - it belongs to the channel owner, AND
+      - its monitor_id is None (catch-all) OR matches incident.monitor_id.
+
+    Channel.owner_id is the right scope (not incident.monitor.owner_id) because
+    silences are an on-call ergonomic — the user who owns the destination wants
+    quiet, even if the monitor itself is shared.
+    """
+    from whatisup.models.silence import AlertSilence
+
+    now = datetime.now(UTC)
+    row = (
+        await db.execute(
+            select(AlertSilence.id)
+            .where(
+                AlertSilence.owner_id == channel.owner_id,
+                AlertSilence.starts_at <= now,
+                AlertSilence.ends_at > now,
+                or_(
+                    AlertSilence.monitor_id.is_(None),
+                    AlertSilence.monitor_id == incident.monitor_id,
+                ),
+            )
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    return row is not None
+
+
 async def dispatch_alert(
     db: AsyncSession,
     incident: Incident,
@@ -631,6 +668,15 @@ async def dispatch_alert(
         check_type: str
         probe_names: dict[str, str]  # probe_id -> probe name
     """
+    # T1-01: silenced incidents short-circuit before any external send.
+    if await _is_silenced(db, incident, channel):
+        logger.info(
+            "alert_silenced",
+            incident_id=str(incident.id),
+            channel_id=str(channel.id),
+        )
+        return
+
     # Deduplication: skip if same incident+channel was alerted within last 60s
     recent_dup = (
         await db.execute(

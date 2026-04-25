@@ -11,6 +11,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.0] - 2026-04-25
+
+**Wave 1 Tier 1 complete** — 8 ⭐ items shipped on top of v1.4.0 to close the SRE adoption + UX backlog. Highlights: command palette v2 with fuzzy search and inline actions, global keyboard shortcuts, multi-select bulk actions on monitors *and* incidents, push-notification quick-ack/snooze, programmable alert silences, and a 3-step monitor creation wizard. 100% backward-compatible.
+
+### Added
+- **Skeleton loaders (T1-16)** — Nouveaux composants `SkeletonBox`, `SkeletonText`, `SkeletonRow` (`components/shared/`) basés sur les classes shimmer existantes (`.skeleton`, `.skeleton-circle`, `.skeleton-line`) et le respect de `prefers-reduced-motion` déjà en place dans `style.css`. Appliqués sur `DashboardView` (liste monitors), `MonitorsView` (table en mode liste) et `MonitorDetailView` (header + tabs + KPI cards + chart) à la place des `animate-pulse` génériques. ARIA `role=status` + `aria-busy=true` pour lecteurs d'écran. 12 tests vitest.
+- **Empty states avec CTA contextuelle (T1-18)** — Nouveau composant `EmptyState.vue` (slots `icon`/`cta`, props `title`/`text`/`ctaLabel`/`docHref`/`replayTour`/`inline`) qui standardise icône + titre + description + CTA + lien doc + bouton "Rejouer le tour". Refactor de 6 vues : `DashboardView` (mini empty), `MonitorsView` (liste + grid, distingue filtres actifs vs aucun monitor), `GroupsView`, `AlertsView` (channels + events), `ProbesView` (CTA superadmin only), `MaintenanceView`. Nouveau composable `composables/useTour.js` (`tourActive`, `shouldStartTour`, `requestTour(target?)`, `clearTour`) qui pilote la relecture du wizard via `?tour=1` + flag `localStorage` ; consommé dans `DashboardView.onMounted` pour réafficher l'`OnboardingWizard` à la demande. Nouvelles clés i18n `common.read_docs`, `tour.replay`, `empty.*` (en/fr). 16 tests vitest.
+- **Command palette v2 (T1-10)** — Recherche **fuzzy** sur tous les groupes (subsequence + bonus consécutifs/word-boundary, `lib/fuzzy.js` sans dépendance externe). Nouveau bloc **"Recent"** au sommet quand le champ est vide (12 derniers monitors/incidents visités, persistés dans `localStorage`, bouton clear, store Pinia `commandPalette`). Nouveau bloc **"Open incidents"** alimenté par `_hasOpenIncident`/`_openIncidentId`. **Actions inline** au survol des items : pause/resume sur un monitor (réutilise `monitorStore.update({enabled})`), acknowledge sur un incident (`incidentUpdatesApi.ack`). `recordVisit` câblé dans `MonitorDetailView.onMounted`. 21 tests vitest (fuzzy + store + caps + persistence).
+- **Raccourcis clavier globaux + cheatsheet (T1-15)** — Nouveau composable `composables/useHotkeys.js` (single-keys, séquences avec timeout 900 ms, ignore inputs/textareas/contenteditable, ignore combos modifiers). Bindings : `g d/m/i/a/p/s` pour navigation, `c` pour créer un monitor (deep-link `?create=true` watcher dans `MonitorsView`), `/` pour ouvrir la palette, `?` pour afficher la cheatsheet. Nouveau composant `HotkeysModal.vue` (sections Navigation/Actions, kbd formattés Mac/PC). i18n en/fr (`hotkeys.*`). 8 tests vitest.
+- **Multi-select bulk actions enrichies (T1-12)** — Nouveau composant générique `components/shared/BulkActionBar.vue` (slot actions, count, deselect, ARIA `role=region`). Sur `MonitorsView` : conserve les actions enable/pause/export/delete déjà en place et ajoute deux dropdowns **"Move to group"** (option vide = ungroup) et **"Add tag"** alimentés par lazy-load des catalogues `groupsApi.list()` + `/tags/`. Sur `IncidentsView` : ajout d'une checkbox par incident sélectionnable (open + non-acked uniquement) et d'un bouton **"Acknowledge all"** qui dispatche un seul appel.
+- **Quick ack / snooze depuis push mobile (T1-04)** — Nouveau champ `Incident.snooze_until` (datetime nullable, indexé) suppression temporaire des renotifies, distinct de l'ack open-ended. Migration `e7f8a9b0c1d2`. La pipeline `services/incident.py` skippe `incident_renotify` quand `snooze_until > now`. La résolution d'un incident efface le snooze. Dans le payload FCM, ajout de la liste `actions` (`ack`, `snooze_1h`, `snooze_4h`) consommée par `frontend/src/lib/pushNotifications.js` qui appelle les endpoints API au tap d'un bouton — fallback sur navigation vers le monitor pour les autres taps. 7 tests vitest, 3 tests pytest.
+- **Silences programmés (T1-01)** — Nouveau modèle `AlertSilence` (`name`, `reason?`, `monitor_id?` (null = catch-all par owner), `starts_at`, `ends_at`) + migration `f8a9b0c1d2e3`. CRUD `/api/v1/silences/` (rate-limit 20–60/min). `services/alert.py` insère un guard `_is_silenced()` qui court-circuite `dispatch_alert` avant toute IO si un silence couvre l'incident pour le owner du canal cible. Nouvelle vue `SilencesView` accessible via la sidebar (icône BellOff) — formulaire avec presets de durée (15m/1h/4h/1d), badges Actif/Planifié/Passé, suppression confirmée. i18n en/fr (`silences.*`, `nav.silences`). 6 tests pytest. Note : pas de récurrence cron (réservé à un follow-up), pas de scoping par tag/team (idem).
+- **CreateMonitor wizard 3 étapes (T1-14)** — Nouveau composant `components/monitors/CreateMonitorWizard.vue` qui remplace `CreateMonitorModal` par défaut sur `MonitorsView`. Étapes : (1) type (4 cartes : http, tcp, dns, heartbeat) → (2) cible (name + URL/host+port/slug + interval/timeout) → (3) review + sélection des canaux d'alerte. Indicateur visuel des étapes au sommet, body scrollable (`max-height: 72vh`, mobile 60vh). Boutons Back/Next/Submit avec validation par étape. Lien « Use the advanced form » qui bascule sur l'ancien `CreateMonitorModal` pour les types complexes (scenario, composite, keyword, json_path, smtp, udp, domain_expiry). Réutilise l'endpoint `POST /alerts/auto-rules/{monitor_id}` pour créer les règles d'alerte sélectionnées. i18n `wizard.*` + `create_monitor.{url,host,port,dns_hostname,interval,timeout,type_*_desc}`.
+
+### API
+- **`POST /monitors/bulk`** étendu — actions `set_group` (avec `target_group_id` optionnel, `null` = ungroup), `add_tags` et `remove_tags` (champ `tag_ids: list[uuid]`). Filtre d'accès inchangé : superadmin = tous, autres = monitors propres + via team RBAC. ON CONFLICT DO NOTHING pour `add_tags` (idempotent).
+- **`POST /incidents/bulk-ack`** (rate-limit 20/min) — acknowledge en bulk plusieurs incidents ouverts non encore acked. Filtre d'accès via JOIN monitors. Skips silencieusement les résolus / déjà acked. 4 tests pytest backend, 5 tests frontend (BulkActionBar).
+- **`POST /incidents/{id}/snooze`** (rate-limit 30/min) — body `{duration_minutes: int}` (5..1440). Suppression temporaire des renotifies. **`POST /incidents/{id}/unsnooze`** — efface manuellement. `IncidentOut` expose désormais `snooze_until: datetime | None`.
+- **`/api/v1/silences/`** (T1-01) — `GET`, `POST`, `PATCH /{id}`, `DELETE /{id}`. Filtre d'accès `owner_id == current_user.id` (superadmin voit tous via `_get_owned_silence`).
+
+### Migration
+- `e7f8a9b0c1d2` : ajoute `incidents.snooze_until DATETIME(tz) NULL` + index — rétrocompatible.
+- `f8a9b0c1d2e3` : crée la table `alert_silences` + 4 index (`owner_id`, `monitor_id`, `(starts_at, ends_at)`, `(owner_id, monitor_id)`) — rétrocompatible.
+
+### Tests
+- **Backend** : +14 tests pytest (5 bulk monitors `set_group`/`add_tags`/`remove_tags` + 1 bulk-ack incidents + 3 snooze + 6 silences).
+- **Frontend** : +50 tests vitest (12 skeleton + 7 EmptyState + 9 useTour + 13 fuzzy + 8 commandPalette + 8 useHotkeys + 5 BulkActionBar + 7 pushNotifications). Suite à 161 tests verts.
+
+---
+
 ## [1.4.0] - 2026-04-24
 
 ### Added
@@ -1024,7 +1054,10 @@ Release patch qui débloque le pipeline : v1.2.0 était taggée mais les images 
 - Docker Compose (dev + prod with Nginx + TLS)
 - Security: rate limiting, security headers, JWT validation, probe API key bcrypt hashing
 
-[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v1.2.1...HEAD
+[Unreleased]: https://github.com/AurevLan/WhatIsUp/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/AurevLan/WhatIsUp/compare/v1.4.0...v1.5.0
+[1.4.0]: https://github.com/AurevLan/WhatIsUp/compare/v1.3.0...v1.4.0
+[1.3.0]: https://github.com/AurevLan/WhatIsUp/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/AurevLan/WhatIsUp/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/AurevLan/WhatIsUp/compare/v1.1.2...v1.2.0
 [1.1.2]: https://github.com/AurevLan/WhatIsUp/compare/v1.1.1...v1.1.2

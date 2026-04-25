@@ -22,12 +22,16 @@
       </div>
     </div>
 
-    <div v-else-if="groups.length === 0" class="empty-state">
-      <div class="empty-state__icon"><Layers :size="22" /></div>
-      <p class="empty-state__title">{{ t('groups.empty') }}</p>
-      <p class="empty-state__text">{{ t('groups.empty_desc') }}</p>
-      <button @click="showCreate = true" class="btn-primary mt-2">+ {{ t('groups.create') }}</button>
-    </div>
+    <EmptyState
+      v-else-if="groups.length === 0"
+      :title="t('groups.empty')"
+      :text="t('empty.groups_text')"
+      :cta-label="t('groups.create')"
+      doc-href="https://github.com/AurevLan/whatisup#groups"
+      @cta="showCreate = true"
+    >
+      <template #icon><Layers :size="22" /></template>
+    </EmptyState>
 
     <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       <div v-for="(group, idx) in groups" :key="group.id"
@@ -69,6 +73,7 @@ import { groupsApi } from '../api/monitors'
 import { useToast } from '../composables/useToast'
 import { useConfirm } from '../composables/useConfirm'
 import CreateGroupModal from '../components/monitors/CreateGroupModal.vue'
+import EmptyState from '../components/shared/EmptyState.vue'
 
 const { t } = useI18n()
 const { success } = useToast()

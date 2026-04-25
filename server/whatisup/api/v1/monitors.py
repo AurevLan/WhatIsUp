@@ -555,7 +555,9 @@ async def bulk_action(
         # target_group_id may be None → ungroup. When provided, verify the user can access it.
         if payload.target_group_id is not None:
             grp = (
-                await db.execute(select(MonitorGroup).where(MonitorGroup.id == payload.target_group_id))
+                await db.execute(
+                    select(MonitorGroup).where(MonitorGroup.id == payload.target_group_id)
+                )
             ).scalar_one_or_none()
             if grp is None:
                 raise HTTPException(

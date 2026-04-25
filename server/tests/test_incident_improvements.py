@@ -306,7 +306,7 @@ async def test_bulk_ack_endpoint(
     db_session: AsyncSession,
     admin_user: User,
 ) -> None:
-    """T1-12 — bulk ack acknowledges multiple open incidents and skips resolved/already-acked ones."""
+    """T1-12 — bulk ack acks multiple open incidents, skips resolved/already-acked."""
     from whatisup.models.monitor import Monitor
 
     monitor = Monitor(name="bulk-ack", url="http://x.example.com", owner_id=admin_user.id)

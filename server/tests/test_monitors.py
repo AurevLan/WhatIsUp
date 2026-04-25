@@ -286,7 +286,8 @@ async def test_bulk_set_group(client: AsyncClient, user_token: str) -> None:
         headers=auth,
     )
     assert resp.status_code == 200
-    assert (await client.get(f"/api/v1/monitors/{m1['id']}", headers=auth)).json()["group_id"] is None
+    detail = (await client.get(f"/api/v1/monitors/{m1['id']}", headers=auth)).json()
+    assert detail["group_id"] is None
 
 
 @pytest.mark.asyncio

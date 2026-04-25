@@ -16,7 +16,7 @@ class AlertSilenceCreate(BaseModel):
     ends_at: datetime
 
     @model_validator(mode="after")
-    def _check_window(self) -> "AlertSilenceCreate":
+    def _check_window(self) -> AlertSilenceCreate:
         if self.ends_at <= self.starts_at:
             raise ValueError("ends_at must be after starts_at")
         return self
@@ -30,7 +30,7 @@ class AlertSilenceUpdate(BaseModel):
     ends_at: datetime | None = None
 
     @model_validator(mode="after")
-    def _check_window(self) -> "AlertSilenceUpdate":
+    def _check_window(self) -> AlertSilenceUpdate:
         if self.starts_at and self.ends_at and self.ends_at <= self.starts_at:
             raise ValueError("ends_at must be after starts_at")
         return self

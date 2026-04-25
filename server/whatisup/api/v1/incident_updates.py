@@ -7,7 +7,8 @@ from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
-from sqlalchemy import and_, select, update as sql_update
+from sqlalchemy import and_, select
+from sqlalchemy import update as sql_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.api.deps import build_access_filter, get_current_user, get_user_team_ids

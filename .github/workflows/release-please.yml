@@ -1,0 +1,46 @@
+name: Release Please
+
+# Auto-versioning + auto-CHANGELOG via Conventional Commits.
+#
+# Comportement :
+#   1. À chaque push sur `main`, release-please scanne les commits depuis le
+#      dernier tag et **ouvre/maintient une "Release PR"** qui :
+#        - met à jour CHANGELOG.md (la section [Unreleased] devient [vX.Y.Z])
+#        - bump la version dans server/pyproject.toml, probe/pyproject.toml,
+#          frontend/package.json, frontend/package-lock.json
+#   2. Quand tu MERGES cette Release PR, release-please crée le tag `vX.Y.Z` et
+#      la GitHub Release. Le workflow `release.yml` existant (build & push GHCR)
+#      se déclenche alors automatiquement sur le tag.
+#
+# Convention de commits attendue (Conventional Commits) :
+#   feat:        → bump MINOR  (nouvelle feature)
+#   fix:         → bump PATCH  (correction de bug)
+#   feat!: ou    → bump MAJOR  (breaking change)
+#   BREAKING CHANGE: dans le body
+#   chore:, docs:, refactor:, test:, ci: → pas de bump (mais visibles dans le CHANGELOG)
+#
+# Exemples :
+#   feat(monitors): ajouter le check_type SSH
+#   fix(probe): SSRF guard manquant sur le checker UDP
+#   feat(api)!: renommer /probes/list en /probes (breaking)
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write          # créer tag + release + commit la Release PR
+  pull-requests: write     # ouvrir/mettre à jour la Release PR
+
+jobs:
+  release-please:
+    name: Open / update release PR
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          # Mode multi-package : un seul versionnement aligné sur tous les packages
+          # (server / probe / frontend) — voir .release-please-config.json
+          config-file: .release-please-config.json
+          manifest-file: .release-please-manifest.json

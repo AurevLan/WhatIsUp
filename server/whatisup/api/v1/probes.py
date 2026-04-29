@@ -182,6 +182,14 @@ async def heartbeat(
     """Probe heartbeat — updates last_seen, stores health metrics, returns monitor list."""
     probe.last_seen_at = datetime.now(UTC)
 
+    # V2-02-01 — opportunistic ASN enrichment from the probe's source IP.
+    # Best-effort, never raises (would block heartbeat), and only re-resolves
+    # when data is stale or the source IP changed.
+    from whatisup.services.probe_enrichment import maybe_enrich_on_heartbeat
+
+    client_host = request.client.host if request.client else None
+    await maybe_enrich_on_heartbeat(db, probe, client_host)
+
     from whatisup.core.redis import get_redis
 
     redis = get_redis()

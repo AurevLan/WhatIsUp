@@ -98,6 +98,16 @@ class Incident(Base):
         index=True,
     )
 
+    # V2-02-02 — Network intelligence verdict.
+    # Computed from CheckResults of probes diversified by ASN/country to classify
+    # whether the outage is a true service down or only visible through a network
+    # partition. Values: service_down | network_partition_asn | network_partition_geo
+    # | inconclusive. Recomputed every 5 min while the incident is open.
+    network_verdict: Mapped[str | None] = mapped_column(String(40), nullable=True, index=True)
+    network_verdict_computed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     # Relationships
     monitor: Mapped[Monitor] = relationship("Monitor", back_populates="incidents")
     alert_events: Mapped[list[AlertEvent]] = relationship(

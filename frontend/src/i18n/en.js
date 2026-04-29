@@ -588,6 +588,18 @@ export default {
     correlation_probe: 'Same probes',
     correlation_group: 'Same group',
     correlation_dependency: 'Dependency cascade',
+    // V2-02-02 — network intelligence verdict
+    verdict_filter_all: 'Any verdict',
+    verdict_filter_all_tip: 'Show every incident regardless of network verdict',
+    verdict_service_down: 'Service down',
+    verdict_service_down_tip: 'Most diversified probes report DOWN — the service is genuinely unavailable.',
+    verdict_partition_asn: 'Partition (ASN)',
+    verdict_partition_asn_tip: 'Failure concentrated on one operator (ASN). Other carriers see the service UP.',
+    verdict_partition_geo: 'Partition (geo)',
+    verdict_partition_geo_tip: 'Failure concentrated in one geographic zone. Other regions see the service UP.',
+    verdict_short_service_down: 'Service',
+    verdict_short_partition_asn: 'ASN',
+    verdict_short_partition_geo: 'Geo',
   },
 
   // Auth

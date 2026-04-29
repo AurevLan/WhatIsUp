@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.6.0](https://github.com/AurevLan/WhatIsUp/compare/v1.5.0...v1.6.0) (2026-04-29)
+
+
+### Added
+
+* **alerts:** V2-02-02 — opt-in alert suppression on network partition + UI badge ([a075ede](https://github.com/AurevLan/WhatIsUp/commit/a075eded91eed855ebaf98e914c230971541cfcc))
+* **probes:** V2-02-01 + V2-02-02 — ASN enrichment + network partition verdict ([8e96722](https://github.com/AurevLan/WhatIsUp/commit/8e96722aa0ef8e02c05b37b56f7b4e9d56b8100a))
+* **probes:** V2-02-06 + V2-02-07 — outbound IP intelligence + ASN-aware map + incident playback ([4066230](https://github.com/AurevLan/WhatIsUp/commit/4066230da6310100035d36488b36c09f2558a820))
+
+
+### Docs
+
+* add FEATURES.md, harden SECURITY.md, auto-versioning via release-please ([d083d0b](https://github.com/AurevLan/WhatIsUp/commit/d083d0b4fea3bb3c2e447d7953df752901ed1d1e))
+
 ## [Unreleased]
 
 ---

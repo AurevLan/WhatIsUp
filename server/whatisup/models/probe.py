@@ -6,7 +6,7 @@ import enum
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, Double, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, Double, Integer, String, Text
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -36,6 +36,16 @@ class Probe(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         default=NetworkType.external,
         server_default="external",
     )
+
+    # V2-02-01 — Network intelligence enrichment.
+    # Populated asynchronously by services/probe_enrichment.py from Team Cymru
+    # DNS lookups (and optionally MaxMind GeoLite2 ASN). All nullable so the
+    # probe stays usable before enrichment completes.
+    public_ip: Mapped[str | None] = mapped_column(String(45), nullable=True, index=True)
+    asn: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    asn_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    ixp_membership: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    asn_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     check_results: Mapped[list[CheckResult]] = relationship("CheckResult", back_populates="probe")
 

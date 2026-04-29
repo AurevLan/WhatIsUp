@@ -193,6 +193,8 @@ class AlertRuleCreate(BaseModel):
     anomaly_zscore_threshold: float | None = Field(default=None, ge=1.0, le=10.0)
     # Business hours schedule
     schedule: dict | None = None
+    # V2-02-02 — opt-in: skip dispatch when incident.network_verdict is a partition
+    suppress_on_network_partition: bool = False
 
 
 class AlertRuleUpdate(BaseModel):
@@ -211,6 +213,7 @@ class AlertRuleUpdate(BaseModel):
     baseline_factor: float | None = Field(default=None, ge=1.1, le=100.0)
     anomaly_zscore_threshold: float | None = Field(default=None, ge=1.0, le=10.0)
     schedule: dict | None = None
+    suppress_on_network_partition: bool | None = None
 
 
 class AlertRuleOut(BaseModel):
@@ -230,6 +233,7 @@ class AlertRuleOut(BaseModel):
     anomaly_zscore_threshold: float | None = None
     schedule: dict | None = None
     enabled: bool = True
+    suppress_on_network_partition: bool = False
 
     model_config = {"from_attributes": True}
 

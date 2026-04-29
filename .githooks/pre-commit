@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Hook git pre-commit (versionné dans .githooks/, activé par tools/pre-commit/install.sh).
+# Délègue au wrapper Docker — aucun outil Python requis sur l'hôte.
+exec "$(git rev-parse --show-toplevel)/tools/pre-commit/run.sh" run --hook-stage commit

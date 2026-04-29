@@ -36,6 +36,13 @@ class ProbeOut(BaseModel):
     is_active: bool
     last_seen_at: datetime | None
     network_type: NetworkType = NetworkType.external
+    # V2-02-01 — network intelligence enrichment (populated async, may be null
+    # until first refresh).
+    public_ip: str | None = None
+    asn: int | None = None
+    asn_name: str | None = None
+    ixp_membership: list[str] | None = None
+    asn_updated_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 

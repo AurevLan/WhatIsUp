@@ -87,6 +87,13 @@ class Settings(BaseSettings):
     # Feature flags
     registration_open: bool = True  # False = invite-only after first user
 
+    # V2-02-01 — Network intelligence (probe ASN enrichment).
+    # Provider for IP -> ASN/AS-name lookups. "cymru" = Team Cymru DNS service
+    # (free, no API key, ~50ms per lookup). "disabled" = skip enrichment entirely.
+    asn_lookup_provider: str = "cymru"
+    # Hours between automatic refresh of ProbeEnrichment data.
+    asn_refresh_hours: int = 24
+
     @model_validator(mode="after")
     def validate_production_settings(self) -> Settings:
         if self.environment == "production":

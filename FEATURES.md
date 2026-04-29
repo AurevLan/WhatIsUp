@@ -112,6 +112,7 @@
 - ✅ Heartbeat probe → incident si ping absent > interval+grace (15 s par défaut)
 - ✅ Trigger-now via Redis pub/sub (`scheduler.py` du probe)
 - ✅ Config sync `GET /api/v1/config` (probe-scoped, rate-limit 5/min)
+- ✅ **ASN enrichment (V2-02-01)** — chaque sonde résolue automatiquement vers son ASN + AS-name via Team Cymru DNS (`services/probe_enrichment.py`). Champs `Probe.public_ip`, `asn`, `asn_name`, `ixp_membership`, `asn_updated_at`. Refresh opportuniste à chaque heartbeat si stale (24 h par défaut, configurable via `ASN_REFRESH_HOURS`) + tâche de fond toutes les 6 h. Backend configurable `ASN_LOOKUP_PROVIDER ∈ {cymru, disabled}`. Best-effort : aucun blocage du heartbeat en cas d'échec lookup.
 
 ---
 
@@ -128,6 +129,7 @@
 - ✅ **Anomaly detection** — z-score sur fenêtre 7j ± 3h (jour/nuit) (`services/anomaly.py`)
 - ✅ **Threshold advisor** statistique (`services/threshold_advisor.py`)
 - ✅ **Schema drift** (baseline + hash) sur réponses HTTP
+- ✅ **Network verdict (V2-02-02)** — classification automatique panne service vs partition réseau (`services/network_verdict.py`). Champ `Incident.network_verdict ∈ {service_down, network_partition_asn, network_partition_geo, inconclusive}` calculé à l'ouverture puis recompute toutes les 5 min tant que ouvert. Distingue ASN-level partition (un opérateur tombe), geo-level partition (une région tombe) d'une vraie panne service. Foundation pour règle "ne pas paginer si network_partition_*".
 
 ### Corrélation
 - ✅ `IncidentGroup` : `triggered_at`, `resolved_at`, `cause_probe_ids`, `correlation_type ∈ {probe, group, dependency, pattern}`, `root_cause_monitor_id`

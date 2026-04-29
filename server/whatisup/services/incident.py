@@ -959,6 +959,23 @@ async def process_check_result(
             logger.info("incident_creation_deduplicated", monitor_id=str(monitor_id))
             return
 
+        # V2-02-02 — classify network verdict using the latest_by_probe map we
+        # already loaded. Best-effort: any failure leaves verdict null and is
+        # logged. The background task will retry every 5 min while open.
+        try:
+            from whatisup.services.network_verdict import classify_network_verdict
+
+            await classify_network_verdict(
+                db, incident, latest_by_probe=latest_by_probe, persist=True
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "network_verdict_initial_failed",
+                incident_id=str(incident.id),
+                error_type=type(exc).__name__,
+                error=str(exc),
+            )
+
         logger.info(
             "incident_opened",
             monitor_id=str(monitor_id),
@@ -966,6 +983,7 @@ async def process_check_result(
             probes_down=probes_down,
             probes_total=probes_total,
             dependency_suppressed=suppressed,
+            network_verdict=incident.network_verdict,
         )
 
         await publish_event(

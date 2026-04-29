@@ -27,6 +27,11 @@ class IncidentOut(BaseModel):
     first_failure_at: datetime | None = None
     mttd_seconds: int | None = None
     mttr_seconds: int | None = None
+    # V2-02-02 — Network intelligence verdict (nullable until first compute,
+    # one of: service_down | network_partition_asn | network_partition_geo
+    # | inconclusive). Recomputed every 5 min while open.
+    network_verdict: str | None = None
+    network_verdict_computed_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 

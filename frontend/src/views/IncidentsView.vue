@@ -22,6 +22,17 @@
       <div style="width:1px;height:1rem;background:var(--border);opacity:.6" />
       <div class="filter-group">
         <button
+          v-for="opt in verdictOpts"
+          :key="opt.value"
+          class="filter-chip"
+          :class="{ 'filter-chip--active': verdictFilter === opt.value }"
+          :title="opt.title"
+          @click="verdictFilter = opt.value"
+        >{{ opt.label }}</button>
+      </div>
+      <div style="width:1px;height:1rem;background:var(--border);opacity:.6" />
+      <div class="filter-group">
+        <button
           v-for="opt in dayOpts"
           :key="opt.value"
           class="filter-chip"
@@ -89,6 +100,12 @@
               >
                 <router-link :to="`/monitors/${inc.monitor_id}`" class="inc-col inc-col--status">
                   <span class="inc-badge" :class="badgeClass(inc)">{{ badgeLabel(inc) }}</span>
+                  <span
+                    v-if="verdictBadge(inc)"
+                    class="inc-badge inc-badge--verdict"
+                    :class="verdictBadgeClass(inc)"
+                    :title="verdictTooltip(inc)"
+                  >{{ verdictBadge(inc) }}</span>
                 </router-link>
                 <router-link :to="`/monitors/${inc.monitor_id}`" class="inc-col inc-col--monitor">{{ inc.monitor_name }}</router-link>
                 <span class="inc-col inc-col--type">{{ inc.monitor_check_type }}</span>
@@ -115,6 +132,12 @@
             <div class="inc-row inc-row--data">
               <router-link :to="`/monitors/${item.monitor_id}`" class="inc-col inc-col--status">
                 <span class="inc-badge" :class="badgeClass(item)">{{ badgeLabel(item) }}</span>
+                <span
+                  v-if="verdictBadge(item)"
+                  class="inc-badge inc-badge--verdict"
+                  :class="verdictBadgeClass(item)"
+                  :title="verdictTooltip(item)"
+                >{{ verdictBadge(item) }}</span>
               </router-link>
               <router-link :to="`/monitors/${item.monitor_id}`" class="inc-col inc-col--monitor">{{ item.monitor_name }}</router-link>
               <span class="inc-col inc-col--type">{{ item.monitor_check_type }}</span>
@@ -174,6 +197,7 @@ const incidents = ref([])
 const { state: filters, reset: resetFilters } = useFilterPreset('incidents', {
   status: 'all',
   days: 30,
+  verdict: 'all',
 })
 // Keep the existing template-bound names rather than refactor the markup.
 const statusFilter = computed({
@@ -183,6 +207,11 @@ const statusFilter = computed({
 const daysFilter = computed({
   get: () => filters.days,
   set: (v) => { filters.days = v },
+})
+// V2-02-02 — filter by network verdict (service_down vs partitions).
+const verdictFilter = computed({
+  get: () => filters.verdict,
+  set: (v) => { filters.verdict = v },
 })
 const expandedGroups = reactive({})
 const expandedRunbooks = reactive({})
@@ -207,6 +236,14 @@ const dayOpts = computed(() => [
   { value: 7,  label: t('incidents.last_7d') },
   { value: 30, label: t('incidents.last_30d') },
   { value: 90, label: t('incidents.last_90d') },
+])
+
+// V2-02-02 — verdict filter options.
+const verdictOpts = computed(() => [
+  { value: 'all',                     label: t('incidents.verdict_filter_all'),       title: t('incidents.verdict_filter_all_tip') },
+  { value: 'service_down',            label: t('incidents.verdict_service_down'),     title: t('incidents.verdict_service_down_tip') },
+  { value: 'network_partition_asn',   label: t('incidents.verdict_partition_asn'),    title: t('incidents.verdict_partition_asn_tip') },
+  { value: 'network_partition_geo',   label: t('incidents.verdict_partition_geo'),    title: t('incidents.verdict_partition_geo_tip') },
 ])
 
 /**
@@ -244,6 +281,21 @@ const displayItems = computed(() => {
 
   const items = [...Object.values(groups), ...standalone]
   items.sort((a, b) => (b.started_at || '').localeCompare(a.started_at || ''))
+
+  // V2-02-02 — verdict filter (client-side; network_verdict is on the incident itself,
+  // not on the group, so we filter individual incidents within groups too).
+  if (verdictFilter.value && verdictFilter.value !== 'all') {
+    const want = verdictFilter.value
+    return items
+      .map((it) => {
+        if (it.type === 'group') {
+          const matched = it.incidents.filter((i) => i.network_verdict === want)
+          return matched.length ? { ...it, incidents: matched } : null
+        }
+        return it.network_verdict === want ? it : null
+      })
+      .filter(Boolean)
+  }
   return items
 })
 
@@ -275,6 +327,7 @@ async function load() {
   }
 }
 
+// verdictFilter is applied client-side — no reload needed when it changes.
 watch([statusFilter, daysFilter], load)
 onMounted(load)
 
@@ -308,6 +361,33 @@ function badgeLabel(inc) {
   if (inc.is_resolved) return t('incidents.resolved')
   if (inc.acked_at) return t('incidents.acknowledged')
   return t('incidents.ongoing')
+}
+
+// V2-02-02 — render a small badge next to the status when a network verdict
+// is available. inconclusive is rendered as nothing to avoid noise.
+function verdictBadge(inc) {
+  switch (inc.network_verdict) {
+    case 'service_down':           return t('incidents.verdict_short_service_down')
+    case 'network_partition_asn':  return t('incidents.verdict_short_partition_asn')
+    case 'network_partition_geo':  return t('incidents.verdict_short_partition_geo')
+    default: return null
+  }
+}
+function verdictBadgeClass(inc) {
+  switch (inc.network_verdict) {
+    case 'service_down':           return 'inc-badge--verdict-service'
+    case 'network_partition_asn':  return 'inc-badge--verdict-asn'
+    case 'network_partition_geo':  return 'inc-badge--verdict-geo'
+    default: return ''
+  }
+}
+function verdictTooltip(inc) {
+  switch (inc.network_verdict) {
+    case 'service_down':           return t('incidents.verdict_service_down_tip')
+    case 'network_partition_asn':  return t('incidents.verdict_partition_asn_tip')
+    case 'network_partition_geo':  return t('incidents.verdict_partition_geo_tip')
+    default: return ''
+  }
 }
 
 // T1-12 — multi-select + bulk ack
@@ -513,6 +593,29 @@ async function unack(inc) {
   background: rgba(251,191,36,.1);
   color: #fbbf24;
   border: 1px solid rgba(251,191,36,.25);
+}
+
+/* V2-02-02 — network verdict badges (rendered next to the status badge) */
+.inc-badge--verdict {
+  margin-left: 4px;
+  font-size: .58rem;
+  letter-spacing: .03em;
+  cursor: help;
+}
+.inc-badge--verdict-service {
+  background: rgba(248,113,113,.12);
+  color: #f87171;
+  border: 1px solid rgba(248,113,113,.25);
+}
+.inc-badge--verdict-asn {
+  background: rgba(96,165,250,.12);
+  color: #60a5fa;
+  border: 1px solid rgba(96,165,250,.25);
+}
+.inc-badge--verdict-geo {
+  background: rgba(168,85,247,.12);
+  color: #a855f7;
+  border: 1px solid rgba(168,85,247,.25);
 }
 
 /* Ack button */

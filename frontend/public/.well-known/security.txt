@@ -1,0 +1,10 @@
+# RFC 9116 — Security policy for WhatIsUp
+# Servi à /.well-known/security.txt par Vite/nginx (frontend/public/).
+
+Contact: https://github.com/AurevLan/whatisup/security/advisories/new
+Policy: https://github.com/AurevLan/whatisup/blob/main/SECURITY.md
+Preferred-Languages: fr, en
+Canonical: https://whatisup.example.com/.well-known/security.txt
+
+# Mettre à jour Expires au moins une fois par an.
+Expires: 2027-04-29T00:00:00.000Z

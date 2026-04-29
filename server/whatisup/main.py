@@ -124,6 +124,48 @@ async def lifespan(app: FastAPI):
 
     report_task = asyncio.create_task(_report_scheduler())
 
+    # V2-02-02 — Network verdict recompute (every 5 min) for all open incidents.
+    async def _network_verdict_loop():
+        from whatisup.core.database import get_session_factory
+        from whatisup.services.network_verdict import recompute_open_incidents_verdicts
+
+        # Wait once at startup so we don't race with migrations / probe registration.
+        await asyncio.sleep(60)
+        while True:
+            try:
+                async with get_session_factory()() as bg_db:
+                    await recompute_open_incidents_verdicts(bg_db)
+            except Exception as exc:
+                logger.error(
+                    "network_verdict_loop_error",
+                    error_type=type(exc).__name__,
+                    error=str(exc),
+                )
+            await asyncio.sleep(300)
+
+    network_verdict_task = asyncio.create_task(_network_verdict_loop())
+
+    # V2-02-01 — Probe ASN refresh (every 6h, picks up stale probes that haven't
+    # heartbeated since the last refresh window).
+    async def _asn_refresh_loop():
+        from whatisup.core.database import get_session_factory
+        from whatisup.services.probe_enrichment import refresh_stale_probes
+
+        await asyncio.sleep(120)
+        while True:
+            try:
+                async with get_session_factory()() as bg_db:
+                    await refresh_stale_probes(bg_db)
+            except Exception as exc:
+                logger.error(
+                    "asn_refresh_loop_error",
+                    error_type=type(exc).__name__,
+                    error=str(exc),
+                )
+            await asyncio.sleep(6 * 3600)
+
+    asn_refresh_task = asyncio.create_task(_asn_refresh_loop())
+
     yield
 
     subscriber_task.cancel()
@@ -159,6 +201,18 @@ async def lifespan(app: FastAPI):
     report_task.cancel()
     try:
         await report_task
+    except asyncio.CancelledError:
+        pass
+
+    network_verdict_task.cancel()
+    try:
+        await network_verdict_task
+    except asyncio.CancelledError:
+        pass
+
+    asn_refresh_task.cancel()
+    try:
+        await asn_refresh_task
     except asyncio.CancelledError:
         pass
 

@@ -19,7 +19,7 @@ dependencies = [
     "dnspython>=2.7.0,<3",
 
     # SSL certificate parsing
-    "cryptography>=46.0.5,<47",
+    "cryptography>=46.0.5,<48",
 
     # Scheduling
     "apscheduler>=3.11.0,<4",

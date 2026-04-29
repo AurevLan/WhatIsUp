@@ -570,6 +570,18 @@ export default {
     correlation_probe: 'Mêmes sondes',
     correlation_group: 'Même groupe',
     correlation_dependency: 'Cascade de dépendances',
+    // V2-02-02 — verdict d'intelligence réseau
+    verdict_filter_all: 'Tous verdicts',
+    verdict_filter_all_tip: 'Afficher tous les incidents indépendamment du verdict réseau',
+    verdict_service_down: 'Service down',
+    verdict_service_down_tip: 'La majorité des sondes diversifiées voient DOWN — le service est réellement indisponible.',
+    verdict_partition_asn: 'Partition (ASN)',
+    verdict_partition_asn_tip: 'Panne concentrée sur un opérateur (ASN). Les autres opérateurs voient le service UP.',
+    verdict_partition_geo: 'Partition (géo)',
+    verdict_partition_geo_tip: 'Panne concentrée sur une zone géographique. Les autres régions voient le service UP.',
+    verdict_short_service_down: 'Service',
+    verdict_short_partition_asn: 'ASN',
+    verdict_short_partition_geo: 'Géo',
   },
   setup: {
     subtitle: 'Connectez-vous à votre serveur WhatIsUp',

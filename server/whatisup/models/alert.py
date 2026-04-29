@@ -148,6 +148,12 @@ class AlertRule(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     enabled: Mapped[bool] = mapped_column(
         Boolean, default=True, nullable=False, server_default="true"
     )
+    # V2-02-02 — Suppress dispatch when the incident's network_verdict is a
+    # network partition (asn or geo). Defaults to False so existing rules keep
+    # paging on transit-level outages until an operator opts in.
+    suppress_on_network_partition: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False, server_default="false"
+    )
 
     monitor: Mapped[Monitor | None] = relationship(
         "Monitor", back_populates="alert_rules", foreign_keys=[monitor_id]

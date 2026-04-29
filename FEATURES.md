@@ -169,6 +169,7 @@
 - ✅ `digest_minutes` — agrégation alertes (Redis-backed)
 - ✅ `schedule` — TZ + jours + plage horaire + suppress offhours
 - ✅ Rate cap anti-storm : `storm_max_alerts` × `storm_window_seconds` → digest forcé
+- ✅ **Suppression sur partition réseau (V2-02-02)** — flag `AlertRule.suppress_on_network_partition` (opt-in). Si `true` et que l'incident a un `network_verdict ∈ {network_partition_asn, network_partition_geo}`, dispatch court-circuité dans `maybe_digest_or_dispatch`. Plus de page on-call sur des pannes opérateur. Évènement loggé `alert_suppressed_network_partition`.
 
 ### UI Alert Matrix v2
 - ✅ Cards empilables par condition + chips canaux colorés (`alert-matrix/*.vue`)
@@ -227,6 +228,7 @@
 - ✅ Empty states standardisés avec CTA + lien doc + bouton "rejouer le tour" (`EmptyState.vue` + `useTour.js`)
 - ✅ Bulk actions monitors (move group, add tag, enable/pause/export/delete) + incidents (acknowledge all) (`BulkActionBar.vue`)
 - ✅ Filtres persistants (querystring + localStorage) — `useFilterPreset.js`
+- ✅ **Badge + filtre verdict réseau (V2-02-02)** — sur `IncidentsView.vue`, badge contextuel coloré (Service/ASN/Géo) avec tooltip explicatif à côté du status badge ; chip de filtre par verdict (Tous / Service down / Partition ASN / Partition géo) appliqué client-side ; clés i18n EN+FR.
 - ✅ Wizard 3 étapes création monitor (`CreateMonitorWizard.vue`)
 
 ### Personnalisation

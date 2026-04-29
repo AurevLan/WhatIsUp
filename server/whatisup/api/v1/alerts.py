@@ -309,6 +309,7 @@ async def create_rule(
         storm_window_seconds=payload.storm_window_seconds,
         storm_max_alerts=payload.storm_max_alerts,
         baseline_factor=payload.baseline_factor,
+        suppress_on_network_partition=payload.suppress_on_network_partition,
         channels=channels,
     )
     db.add(rule)
@@ -370,6 +371,8 @@ async def update_rule(
         rule.storm_max_alerts = payload.storm_max_alerts
     if payload.baseline_factor is not None:
         rule.baseline_factor = payload.baseline_factor
+    if payload.suppress_on_network_partition is not None:
+        rule.suppress_on_network_partition = payload.suppress_on_network_partition
 
     if payload.channel_ids is not None:
         rule.channels = await _fetch_channels_by_ids(db, current_user, payload.channel_ids)

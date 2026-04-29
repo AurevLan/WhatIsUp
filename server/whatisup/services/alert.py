@@ -457,6 +457,22 @@ async def maybe_digest_or_dispatch(
             )
             return
 
+    # V2-02-02 — Network partition guard: skip dispatch if the verdict says the
+    # outage is only visible from one ASN / one geographic zone (i.e. transit
+    # issue, not a real service down). The rule must opt in.
+    if (
+        getattr(rule, "suppress_on_network_partition", False)
+        and incident.network_verdict
+        in {"network_partition_asn", "network_partition_geo"}
+    ):
+        logger.info(
+            "alert_suppressed_network_partition",
+            rule_id=str(rule.id),
+            incident_id=str(incident.id),
+            verdict=incident.network_verdict,
+        )
+        return
+
     if not rule.digest_minutes or rule.digest_minutes <= 0:
         await dispatch_alert(db, incident, channel, event_type, ctx=ctx)
         return

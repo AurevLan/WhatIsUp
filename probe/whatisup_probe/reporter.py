@@ -113,10 +113,22 @@ class Reporter:
         return False
 
     async def heartbeat(self, health: dict) -> list[dict] | None:
-        """Send heartbeat with system health metrics and retrieve current monitor configs."""
+        """Send heartbeat with system health metrics and retrieve current monitor configs.
+
+        V2-02-07: include the probe's outbound public IP (resolved via api.ipify.org
+        and friends) so the central server can detect proxy / NAT / VPN setups
+        where the IP it observes (request.client.host) diverges from the IP the
+        probe itself egresses through.
+        """
+        from whatisup_probe.public_ip import resolve_public_ip
+
         url = f"{self._settings.central_api_url}/api/v1/probes/heartbeat"
+        self_reported_ip = await resolve_public_ip()
+        body: dict = {"health": health}
+        if self_reported_ip:
+            body["self_reported_ip"] = self_reported_ip
         try:
-            resp = await self._client.post(url, json={"health": health})
+            resp = await self._client.post(url, json=body)
             resp.raise_for_status()
             data = resp.json()
             return data.get("monitors", [])

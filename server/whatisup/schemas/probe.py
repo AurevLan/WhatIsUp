@@ -43,6 +43,9 @@ class ProbeOut(BaseModel):
     asn_name: str | None = None
     ixp_membership: list[str] | None = None
     asn_updated_at: datetime | None = None
+    # V2-02-07 — outbound IP intelligence (probe's own view of its egress).
+    self_reported_ip: str | None = None
+    self_reported_asn: int | None = None
 
     model_config = {"from_attributes": True}
 
@@ -92,6 +95,9 @@ class ProbeHeartbeatRequest(BaseModel):
     """Body sent by the probe at each heartbeat."""
 
     health: ProbeHealthPayload | None = None
+    # V2-02-07 — outbound IP the probe resolved itself (via api.ipify.org).
+    # Optional: omitted when resolution failed (offline, blocked egress, etc.).
+    self_reported_ip: str | None = Field(default=None, max_length=45)
 
 
 class ProbeHeartbeatResponse(BaseModel):
@@ -167,5 +173,11 @@ class ProbeStatsOut(BaseModel):
     uptime_24h: float | None
     check_count_24h: int
     health: ProbeHealthPayload | None = None
+    # V2-02-06 + V2-02-07 — surface network intelligence fields on the dashboard map.
+    public_ip: str | None = None
+    asn: int | None = None
+    asn_name: str | None = None
+    self_reported_ip: str | None = None
+    self_reported_asn: int | None = None
 
     model_config = {"from_attributes": True}

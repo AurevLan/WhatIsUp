@@ -47,6 +47,14 @@ class Probe(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     ixp_membership: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     asn_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    # V2-02-07 — Outbound IP intelligence.
+    # `public_ip` above is observed server-side (request.client.host).
+    # `self_reported_ip` is what the probe sees as its own egress IP (resolved
+    # client-side via api.ipify.org & friends). When they diverge, an
+    # intermediate proxy / NAT / VPN is rewriting the source.
+    self_reported_ip: Mapped[str | None] = mapped_column(String(45), nullable=True)
+    self_reported_asn: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
     check_results: Mapped[list[CheckResult]] = relationship("CheckResult", back_populates="probe")
 
     def __repr__(self) -> str:

@@ -158,6 +158,11 @@
                   :title="t('runbook.show_hide')"
                   @click.prevent="toggleRunbook(item.id)"
                 >📖</button>
+                <button
+                  class="ack-btn"
+                  :title="t('incidents.playback_title')"
+                  @click.prevent="togglePlayback(item.id)"
+                ><MapPin :size="16" /></button>
                 <button v-if="!item.is_resolved && !item.acked_at" class="ack-btn" :title="t('incidents.acknowledge')" @click.prevent="ack(item)"><CheckCircle :size="16" /></button>
                 <button v-else-if="!item.is_resolved && item.acked_at" class="ack-btn ack-btn--active" :title="t('incidents.unacknowledge')" @click.prevent="unack(item)"><CheckCircle :size="16" /></button>
               </span>
@@ -166,6 +171,9 @@
               class="inc-runbook runbook-preview prose prose-invert max-w-none text-sm"
               v-html="renderRunbook(item.runbook_markdown)"
             ></div>
+            <div v-if="expandedPlayback[item.id]" class="px-3 py-3 bg-slate-950/40">
+              <IncidentPlaybackMap :incident-id="item.id" />
+            </div>
           </div>
 
         </template>
@@ -178,13 +186,14 @@
 <script setup>
 import { computed, reactive, ref, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { AlertCircle, CheckCircle, ChevronDown, Link2, X } from 'lucide-vue-next'
+import { AlertCircle, CheckCircle, ChevronDown, Link2, MapPin, X } from 'lucide-vue-next'
 import api from '../api/client'
 import { incidentUpdatesApi } from '../api/incidentUpdates'
 import { useToast } from '../composables/useToast'
 import { renderRunbookMarkdown } from '../lib/runbookMarkdown'
 import { useFilterPreset } from '../composables/useFilterPreset'
 import BulkActionBar from '../components/shared/BulkActionBar.vue'
+import IncidentPlaybackMap from '../components/dashboard/IncidentPlaybackMap.vue'
 import { useTimezone } from '../composables/useTimezone'
 
 const { t, locale } = useI18n()
@@ -215,6 +224,11 @@ const verdictFilter = computed({
 })
 const expandedGroups = reactive({})
 const expandedRunbooks = reactive({})
+// V2-02-06 — incident-id → bool, toggles inline IncidentPlaybackMap below the row.
+const expandedPlayback = reactive({})
+function togglePlayback(id) {
+  expandedPlayback[id] = !expandedPlayback[id]
+}
 
 function hasRunbook(inc) {
   return !!(inc.runbook_enabled && inc.runbook_markdown && !inc.is_resolved)

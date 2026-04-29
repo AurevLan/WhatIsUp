@@ -376,6 +376,11 @@ export default {
     network_type: 'Network type',
     internal: 'Internal',
     external: 'External',
+    // V2-02-06 ASN-aware map / V2-02-07 outbound IP intelligence
+    filter_asn: 'ASN',
+    filter_all: 'All',
+    asn_unknown: 'Unknown',
+    proxy_detected_tip: 'Proxy / NAT / VPN detected: server sees {observed} but probe egresses through {reported}.',
     network_external: 'External (public internet)',
     network_internal: 'Internal (corporate network)',
     network_type_hint: 'Used to correlate incidents (internal vs external network failure).',
@@ -600,6 +605,12 @@ export default {
     verdict_short_service_down: 'Service',
     verdict_short_partition_asn: 'ASN',
     verdict_short_partition_geo: 'Geo',
+    // V2-02-06 — incident playback map
+    playback_title: 'Incident playback',
+    playback_play: 'Play',
+    playback_pause: 'Pause',
+    playback_reset: 'Reset',
+    playback_empty: 'No probe samples available for this incident.',
   },
 
   // Auth

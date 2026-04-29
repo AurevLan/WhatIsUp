@@ -200,37 +200,59 @@ async def maybe_enrich_on_heartbeat(
     db: AsyncSession,
     probe: Probe,
     request_client_host: str | None,
+    self_reported_ip: str | None = None,
 ) -> None:
     """
     Called from the probe heartbeat handler. Skips lookup if data is fresh enough.
 
+    V2-02-01 — enriches ``probe.public_ip`` from the IP we observed
+    (``request.client.host``) and resolves its ASN.
+
+    V2-02-07 — additionally records ``probe.self_reported_ip`` (the egress IP
+    the probe sees on itself) and resolves its ASN, so the UI can flag
+    proxy/NAT/VPN setups where the two diverge.
+
     Never raises — enrichment is best-effort and must not block the heartbeat.
     """
-    if request_client_host is None or not is_public_ip(request_client_host):
-        return
-
     settings = get_settings()
-    if settings.asn_lookup_provider.lower() == _DISABLED_BACKEND:
+    backend = settings.asn_lookup_provider.lower()
+    if backend == _DISABLED_BACKEND:
         return
 
-    refresh_after = timedelta(hours=settings.asn_refresh_hours)
-    is_stale = (
-        probe.asn_updated_at is None
-        or datetime.now(UTC) - probe.asn_updated_at > refresh_after
-        or probe.public_ip != request_client_host
-    )
-    if not is_stale:
-        return
-
-    try:
-        await enrich_probe(db, probe, request_client_host)
-    except Exception as exc:  # noqa: BLE001 — heartbeat must not fail
-        logger.warning(
-            "asn_enrichment_failed",
-            probe_id=str(probe.id),
-            error_type=type(exc).__name__,
-            error=str(exc),
+    # 1) Server-observed IP enrichment (V2-02-01).
+    if request_client_host is not None and is_public_ip(request_client_host):
+        refresh_after = timedelta(hours=settings.asn_refresh_hours)
+        is_stale = (
+            probe.asn_updated_at is None
+            or datetime.now(UTC) - probe.asn_updated_at > refresh_after
+            or probe.public_ip != request_client_host
         )
+        if is_stale:
+            try:
+                await enrich_probe(db, probe, request_client_host)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "asn_enrichment_failed",
+                    probe_id=str(probe.id),
+                    error_type=type(exc).__name__,
+                    error=str(exc),
+                )
+
+    # 2) Self-reported IP enrichment (V2-02-07). Always re-lookup ASN when the
+    # IP changes; otherwise piggyback on the same refresh window.
+    if self_reported_ip and is_public_ip(self_reported_ip):
+        ip_changed = probe.self_reported_ip != self_reported_ip
+        if ip_changed or probe.self_reported_asn is None:
+            probe.self_reported_ip = self_reported_ip
+            try:
+                info = await lookup_asn(self_reported_ip)
+                probe.self_reported_asn = info.asn if info else None
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "self_reported_asn_failed",
+                    probe_id=str(probe.id),
+                    error_type=type(exc).__name__,
+                )
 
 
 async def refresh_stale_probes(db: AsyncSession) -> int:

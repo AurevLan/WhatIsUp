@@ -113,6 +113,7 @@
 - ✅ Trigger-now via Redis pub/sub (`scheduler.py` du probe)
 - ✅ Config sync `GET /api/v1/config` (probe-scoped, rate-limit 5/min)
 - ✅ **ASN enrichment (V2-02-01)** — chaque sonde résolue automatiquement vers son ASN + AS-name via Team Cymru DNS (`services/probe_enrichment.py`). Champs `Probe.public_ip`, `asn`, `asn_name`, `ixp_membership`, `asn_updated_at`. Refresh opportuniste à chaque heartbeat si stale (24 h par défaut, configurable via `ASN_REFRESH_HOURS`) + tâche de fond toutes les 6 h. Backend configurable `ASN_LOOKUP_PROVIDER ∈ {cymru, disabled}`. Best-effort : aucun blocage du heartbeat en cas d'échec lookup.
+- ✅ **Outbound IP intelligence (V2-02-07)** — la sonde résout sa propre IP de sortie via `api.ipify.org` (+ fallbacks `ifconfig.me`, `icanhazip.com`) et l'envoie dans le heartbeat. Champs `Probe.self_reported_ip` + `Probe.self_reported_asn`. Si différent de `public_ip` (vu par le serveur via `request.client.host`) → badge `NAT/VPN` UI + tooltip explicatif. Détecte les setups proxy / NAT / VPN qui font passer une sonde pour autre chose qu'elle prétend (`probe/whatisup_probe/public_ip.py`).
 
 ---
 
@@ -219,6 +220,8 @@
 - ✅ Uptime bars 90 j (`UptimeHistoryBars.vue`)
 - ✅ Charts ApexCharts lazy-loaded (~400 KB hors bundle initial) : response time, availability, SLO burn, custom metrics
 - ✅ Carte sondes Leaflet (`ProbeMap.vue`)
+- ✅ **Carte ASN-aware (V2-02-06)** — `ProbeMap.vue` colore l'anneau extérieur des markers selon l'ASN (palette FNV-1a déterministe `lib/asnPalette.js`), l'intérieur selon l'uptime. Filtre par chip ASN au-dessus de la carte. Pop-up enrichi avec `AS<num> <name>` + warning NAT/VPN si divergence (V2-02-07). Légende auto-générée à partir des sondes affichées.
+- ✅ **Incident playback (V2-02-06)** — endpoint `GET /incidents/{id}/timeline` (rate-limit 30/min) renvoie les CheckResults par sonde sur la fenêtre [start-5m, end+5m] (cap 2000 points) avec lat/lng/ASN. Composant `IncidentPlaybackMap.vue` + composable `useIncidentPlayback.js` (scrubber play/pause/reset, animation propagation panne). Bouton 📍 dans `IncidentsView` pour ouvrir inline.
 
 ### Productivité
 - ✅ Command palette v2 — fuzzy search maison, blocs Recent / Open incidents / Actions, inline pause/ack au survol (`CommandPalette.vue`, `lib/fuzzy.js`)

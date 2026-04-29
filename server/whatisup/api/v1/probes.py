@@ -121,6 +121,12 @@ async def probe_stats(
             "uptime_24h": uptime,
             "check_count_24h": total,
             "health": health_map.get(probe.id),
+            # V2-02-06 + V2-02-07 — surface ASN + outbound IP info to the map.
+            "public_ip": probe.public_ip,
+            "asn": probe.asn,
+            "asn_name": probe.asn_name,
+            "self_reported_ip": probe.self_reported_ip,
+            "self_reported_asn": probe.self_reported_asn,
         })
     return out
 
@@ -182,13 +188,14 @@ async def heartbeat(
     """Probe heartbeat — updates last_seen, stores health metrics, returns monitor list."""
     probe.last_seen_at = datetime.now(UTC)
 
-    # V2-02-01 — opportunistic ASN enrichment from the probe's source IP.
-    # Best-effort, never raises (would block heartbeat), and only re-resolves
-    # when data is stale or the source IP changed.
+    # V2-02-01 / V2-02-07 — opportunistic ASN enrichment.
+    # Resolves the ASN of (a) the IP the server sees on the heartbeat
+    # connection AND (b) the IP the probe self-reported via api.ipify.org.
+    # Best-effort, never raises.
     from whatisup.services.probe_enrichment import maybe_enrich_on_heartbeat
 
     client_host = request.client.host if request.client else None
-    await maybe_enrich_on_heartbeat(db, probe, client_host)
+    await maybe_enrich_on_heartbeat(db, probe, client_host, payload.self_reported_ip)
 
     from whatisup.core.redis import get_redis
 

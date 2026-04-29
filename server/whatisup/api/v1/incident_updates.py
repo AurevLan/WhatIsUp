@@ -17,6 +17,8 @@ from whatisup.core.limiter import limiter
 from whatisup.models.incident import Incident
 from whatisup.models.incident_update import IncidentUpdate
 from whatisup.models.monitor import Monitor
+from whatisup.models.probe import Probe
+from whatisup.models.result import CheckResult, CheckStatus
 from whatisup.models.user import User
 from whatisup.schemas.incident import IncidentOut, IncidentUpdateCreate, IncidentUpdateOut
 
@@ -244,6 +246,90 @@ async def unacknowledge_incident(
     return _incident_to_out(incident)
 
 
+# ── V2-02-06 — Incident playback timeline ────────────────────────────────────
+
+
+class IncidentTimelinePoint(BaseModel):
+    """One per-probe sample on the incident timeline."""
+
+    checked_at: datetime
+    probe_id: uuid.UUID
+    probe_name: str | None = None
+    probe_lat: float | None = None
+    probe_lng: float | None = None
+    probe_asn: int | None = None
+    probe_country: str | None = None
+    status: str  # CheckStatus value: up | down | timeout | error
+    response_time_ms: float | None = None
+
+
+class IncidentTimelineOut(BaseModel):
+    incident_id: uuid.UUID
+    started_at: datetime
+    resolved_at: datetime | None
+    points: list[IncidentTimelinePoint]
+
+
+@router.get("/{incident_id}/timeline", response_model=IncidentTimelineOut)
+@limiter.limit("30/minute")
+async def incident_timeline(
+    request: Request,
+    incident_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> IncidentTimelineOut:
+    """Return per-probe CheckResults bracketing the incident, for map playback.
+
+    Includes a 5-minute grace window before ``started_at`` and after
+    ``resolved_at`` so the UI can show the last UP state and the recovery.
+    Capped at 2000 points to keep payload bounded.
+    """
+    incident = await _get_incident_for_user(incident_id, current_user, db)
+
+    grace = timedelta(minutes=5)
+    window_start = incident.started_at - grace
+    window_end = (incident.resolved_at or datetime.now(UTC)) + grace
+
+    rows = (
+        (
+            await db.execute(
+                select(CheckResult, Probe)
+                .join(Probe, CheckResult.probe_id == Probe.id)
+                .where(
+                    CheckResult.monitor_id == incident.monitor_id,
+                    CheckResult.checked_at >= window_start,
+                    CheckResult.checked_at <= window_end,
+                )
+                .order_by(CheckResult.checked_at.asc())
+                .limit(2000)
+            )
+        )
+        .all()
+    )
+
+    points = [
+        IncidentTimelinePoint(
+            checked_at=cr.checked_at,
+            probe_id=cr.probe_id,
+            probe_name=p.name,
+            probe_lat=p.latitude,
+            probe_lng=p.longitude,
+            probe_asn=p.asn,
+            probe_country=(p.location_name or "").split(",", 1)[0] or None,
+            status=cr.status.value if isinstance(cr.status, CheckStatus) else str(cr.status),
+            response_time_ms=cr.response_time_ms,
+        )
+        for cr, p in rows
+    ]
+
+    return IncidentTimelineOut(
+        incident_id=incident.id,
+        started_at=incident.started_at,
+        resolved_at=incident.resolved_at,
+        points=points,
+    )
+
+
 def _incident_to_out(inc: Incident) -> dict:
     """Build IncidentOut-compatible dict with computed SLA metrics."""
     mttd = None
@@ -265,4 +351,7 @@ def _incident_to_out(inc: Incident) -> dict:
         "first_failure_at": inc.first_failure_at,
         "mttd_seconds": mttd,
         "mttr_seconds": inc.duration_seconds,
+        # V2-02-02 — network verdict (passes through unchanged)
+        "network_verdict": inc.network_verdict,
+        "network_verdict_computed_at": inc.network_verdict_computed_at,
     }

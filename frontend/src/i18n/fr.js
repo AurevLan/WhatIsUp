@@ -365,6 +365,11 @@ export default {
     network_type: 'Type de réseau',
     internal: 'Interne',
     external: 'Externe',
+    // V2-02-06 carte ASN / V2-02-07 intelligence IP sortante
+    filter_asn: 'ASN',
+    filter_all: 'Tous',
+    asn_unknown: 'Inconnu',
+    proxy_detected_tip: 'Proxy / NAT / VPN détecté : le serveur voit {observed} mais la sonde sort par {reported}.',
     network_external: 'Externe (internet public)',
     network_internal: "Interne (réseau d'entreprise)",
     network_type_hint: 'Utilisé pour corréler les incidents (panne réseau interne vs externe).',
@@ -582,6 +587,12 @@ export default {
     verdict_short_service_down: 'Service',
     verdict_short_partition_asn: 'ASN',
     verdict_short_partition_geo: 'Géo',
+    // V2-02-06 — playback de l'incident sur carte
+    playback_title: "Rejouer l'incident",
+    playback_play: 'Lecture',
+    playback_pause: 'Pause',
+    playback_reset: 'Reset',
+    playback_empty: 'Aucune mesure de sonde disponible pour cet incident.',
   },
   setup: {
     subtitle: 'Connectez-vous à votre serveur WhatIsUp',

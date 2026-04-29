@@ -32,3 +32,19 @@ def _bypass_ssrf_check():
             mock_ssrf,
         ):
             yield
+
+
+@pytest.fixture(autouse=True)
+def _stub_public_ip_resolver(request):
+    """V2-02-07: short-circuit the outbound IP resolver so respx tests don't see
+    surprise calls to api.ipify.org. The dedicated test_public_ip module skips
+    this fixture so it can exercise the real resolver path."""
+    if "test_public_ip" in request.node.nodeid:
+        yield
+        return
+    with patch(
+        "whatisup_probe.public_ip.resolve_public_ip",
+        new_callable=AsyncMock,
+        return_value=None,
+    ):
+        yield

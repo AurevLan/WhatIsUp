@@ -5,7 +5,7 @@
       <div class="flex items-center gap-2">
         <Radio class="w-4 h-4 text-blue-400" />
         <h2 class="text-sm font-semibold text-gray-100">{{ t('nav.probes') }}</h2>
-        <span class="text-xs text-gray-600 font-mono">({{ probes.length }})</span>
+        <span class="text-xs text-gray-600 font-mono">({{ filteredProbes.length }}/{{ probes.length }})</span>
       </div>
       <div class="flex items-center gap-3 text-xs text-gray-600">
         <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-400 inline-block"/>≥ 99 %</span>
@@ -13,6 +13,37 @@
         <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-red-500 inline-block"/>< 90 %</span>
         <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-gray-600 inline-block"/>No data</span>
       </div>
+    </div>
+
+    <!-- V2-02-06 — ASN filter chips (only visible when at least one probe has ASN data) -->
+    <div v-if="asnLegend.length > 1" class="px-5 py-2.5 border-b border-gray-800/80 flex items-center gap-2 flex-wrap">
+      <span class="text-[10px] uppercase tracking-wide text-gray-500 mr-1">{{ t('probes.filter_asn') }}</span>
+      <button
+        type="button"
+        class="px-2 py-0.5 rounded-full text-[11px] font-medium border transition-colors"
+        :class="asnFilter === null
+          ? 'bg-gray-700 text-gray-100 border-gray-600'
+          : 'bg-transparent text-gray-500 border-gray-800 hover:text-gray-300'"
+        @click="asnFilter = null"
+      >{{ t('probes.filter_all') }}</button>
+      <button
+        v-for="entry in asnLegend"
+        :key="entry.asn ?? 'unknown'"
+        type="button"
+        class="px-2 py-0.5 rounded-full text-[11px] font-medium border transition-colors flex items-center gap-1.5"
+        :class="asnFilter === entry.asn
+          ? 'border-current'
+          : 'opacity-60 hover:opacity-100 border-transparent'"
+        :style="asnFilter === entry.asn
+          ? `color:${entry.color};background:${entry.color}1A;`
+          : `color:${entry.color};`"
+        :title="entry.asnName || ''"
+        @click="asnFilter = entry.asn"
+      >
+        <span class="w-1.5 h-1.5 rounded-full inline-block" :style="`background:${entry.color}`" />
+        {{ entry.asn != null ? `AS${entry.asn}` : t('probes.asn_unknown') }}
+        <span class="text-[10px] opacity-70">({{ entry.count }})</span>
+      </button>
     </div>
 
     <!-- Map -->
@@ -23,19 +54,33 @@
       <div v-if="loading" class="p-4 flex gap-3">
         <div v-for="i in 2" :key="i" class="h-9 flex-1 rounded-lg bg-gray-800/50 animate-pulse" />
       </div>
-      <div v-else-if="probes.length === 0" class="py-6 text-center text-xs text-gray-600">
+      <div v-else-if="filteredProbes.length === 0" class="py-6 text-center text-xs text-gray-600">
         {{ t('probes.no_probes') }}
       </div>
       <template v-else>
-        <div v-for="probe in probes" :key="probe.id"
+        <div v-for="probe in filteredProbes" :key="probe.id"
           class="flex items-center gap-3 px-5 py-2.5 hover:bg-white/[.02] transition-colors">
           <!-- Status dot -->
           <span class="w-2 h-2 rounded-full flex-shrink-0" :class="dotClass(probe)" />
 
           <!-- Name + location -->
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium text-gray-200 truncate">{{ probe.name }}</p>
-            <p class="text-xs text-gray-600 truncate">{{ probe.location_name }}</p>
+            <p class="text-sm font-medium text-gray-200 truncate flex items-center gap-1.5">
+              {{ probe.name }}
+              <span
+                v-if="hasProxyDivergence(probe)"
+                class="text-[9px] px-1.5 py-0.5 rounded font-bold border"
+                style="background:rgba(251,191,36,.12);color:#fbbf24;border-color:rgba(251,191,36,.3);"
+                :title="t('probes.proxy_detected_tip', { observed: probe.public_ip, reported: probe.self_reported_ip })"
+              >NAT/VPN</span>
+            </p>
+            <p class="text-xs text-gray-600 truncate">
+              {{ probe.location_name }}
+              <span v-if="probe.asn" class="ml-1 inline-flex items-center gap-1 align-middle">
+                <span class="w-1.5 h-1.5 rounded-full inline-block" :style="`background:${colorForAsn(probe.asn)}`" />
+                <span class="font-mono">AS{{ probe.asn }}</span>
+              </span>
+            </p>
           </div>
 
           <!-- Network badge -->
@@ -70,16 +115,18 @@
 </template>
 
 <script setup>
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Radio } from 'lucide-vue-next'
 import { probesApi } from '../../api/probes'
+import { asnLabel, colorForAsn, hasProxyDivergence } from '../../lib/asnPalette'
 
 const { t } = useI18n()
 
 const probes  = ref([])
 const loading = ref(true)
 const mapEl   = ref(null)
+const asnFilter = ref(null)  // null = all, otherwise an ASN number (or false for "unknown")
 
 let leafletMap     = null
 let leafletMarkers = []
@@ -108,14 +155,37 @@ function uptimeColorClass(u) {
   return 'text-red-400'
 }
 
-function markerColor(probe) {
-  if (!probe.is_active)      return { fill: '#6b7280', glow: '' }
+function statusFill(probe) {
+  if (!probe.is_active)      return '#6b7280'
   const u = probe.uptime_24h
-  if (u == null)             return { fill: '#6b7280', glow: '' }
-  if (u >= 99)               return { fill: '#34d399', glow: 'rgba(52,211,153,.5)' }
-  if (u >= 90)               return { fill: '#fbbf24', glow: 'rgba(251,191,36,.5)' }
-  return                            { fill: '#ef4444', glow: 'rgba(239,68,68,.5)' }
+  if (u == null)             return '#6b7280'
+  if (u >= 99)               return '#34d399'
+  if (u >= 90)               return '#fbbf24'
+  return '#ef4444'
 }
+
+// V2-02-06 — derive an ASN legend from the currently-loaded probes.
+const asnLegend = computed(() => {
+  const buckets = new Map()
+  for (const p of probes.value) {
+    const key = p.asn ?? null
+    if (!buckets.has(key)) {
+      buckets.set(key, {
+        asn: key,
+        asnName: p.asn_name || null,
+        color: colorForAsn(key),
+        count: 0,
+      })
+    }
+    buckets.get(key).count += 1
+  }
+  return [...buckets.values()].sort((a, b) => b.count - a.count)
+})
+
+const filteredProbes = computed(() => {
+  if (asnFilter.value === null) return probes.value
+  return probes.value.filter((p) => (p.asn ?? null) === asnFilter.value)
+})
 
 // ── data ──────────────────────────────────────────────────────────────────────
 async function load() {
@@ -147,7 +217,6 @@ async function initMap() {
     maxZoom: 18,
   }).addTo(leafletMap)
 
-  // Dark overlay to match the theme
   leafletMap.getContainer().style.filter = 'brightness(.85) saturate(.6) hue-rotate(200deg)'
 
   renderMarkers()
@@ -165,70 +234,93 @@ function fitToProbes() {
   }
 }
 
+function buildPopup(p, statusColor) {
+  const popup = document.createElement('div')
+  popup.style.cssText = 'font-family:system-ui;min-width:160px;'
+
+  const nameEl = document.createElement('b')
+  nameEl.style.fontSize = '13px'
+  nameEl.textContent = p.name
+  popup.appendChild(nameEl)
+  popup.appendChild(document.createElement('br'))
+
+  const locEl = document.createElement('span')
+  locEl.style.cssText = 'color:#94a3b8;font-size:11px;'
+  locEl.textContent = p.location_name
+  popup.appendChild(locEl)
+  popup.appendChild(document.createElement('br'))
+
+  // ASN line — V2-02-06
+  const asnText = asnLabel(p.asn, p.asn_name)
+  if (asnText) {
+    const asnEl = document.createElement('span')
+    asnEl.style.cssText = `font-size:11px;font-family:ui-monospace,monospace;color:${colorForAsn(p.asn)};`
+    asnEl.textContent = asnText
+    popup.appendChild(asnEl)
+    popup.appendChild(document.createElement('br'))
+  }
+
+  // Proxy/NAT warning — V2-02-07
+  if (hasProxyDivergence(p)) {
+    const warnEl = document.createElement('span')
+    warnEl.style.cssText = 'font-size:10px;color:#fbbf24;font-weight:700;'
+    warnEl.textContent = `⚠ NAT/VPN: ${p.public_ip} ↔ ${p.self_reported_ip}`
+    popup.appendChild(warnEl)
+    popup.appendChild(document.createElement('br'))
+  }
+
+  const hr = document.createElement('hr')
+  hr.style.cssText = 'border-color:#334155;margin:6px 0;'
+  popup.appendChild(hr)
+
+  const uptimeEl = document.createElement('span')
+  uptimeEl.style.cssText = `font-size:12px;font-weight:700;color:${statusColor};`
+  uptimeEl.textContent = `Uptime 24h: ${p.uptime_24h != null ? p.uptime_24h.toFixed(1) + '%' : 'No data'}`
+  popup.appendChild(uptimeEl)
+  popup.appendChild(document.createElement('br'))
+
+  const checksEl = document.createElement('span')
+  checksEl.style.cssText = 'font-size:11px;color:#64748b;'
+  checksEl.textContent = p.check_count_24h > 0 ? `${p.check_count_24h} checks / 24h` : 'no data'
+  popup.appendChild(checksEl)
+  popup.appendChild(document.createElement('br'))
+
+  const onlineEl = document.createElement('span')
+  onlineEl.style.cssText = 'font-size:11px;color:#64748b;'
+  onlineEl.textContent = !p.is_active ? 'inactive' : isOnline(p) ? '● online' : '● offline'
+  popup.appendChild(onlineEl)
+
+  return popup
+}
+
 function renderMarkers() {
   if (!leafletMap || !L) return
   leafletMarkers.forEach(m => m.remove())
   leafletMarkers = []
 
-  const withCoords = probes.value.filter(p => p.latitude != null && p.longitude != null)
+  const withCoords = filteredProbes.value.filter(p => p.latitude != null && p.longitude != null)
   for (const p of withCoords) {
-    const { fill, glow } = markerColor(p)
+    const statusColor = statusFill(p)
+    // V2-02-06 — outer ring colored by ASN, inner dot colored by uptime status.
+    // Lets you tell at a glance both "who hosts this probe" and "is it healthy".
+    const asnColor = colorForAsn(p.asn)
+    const proxy = hasProxyDivergence(p)
     const icon = L.divIcon({
       className: '',
       html: `<div style="
-        width:14px;height:14px;border-radius:50%;
-        background:${fill};border:2px solid ${fill === '#6b7280' ? '#9ca3af' : fill};
-        ${glow ? `box-shadow:0 0 8px ${glow};` : ''}
+        width:18px;height:18px;border-radius:50%;
+        background:${statusColor};
+        border:3px solid ${asnColor};
+        box-shadow:0 0 6px ${statusColor}88${proxy ? ',0 0 0 2px rgba(251,191,36,.6)' : ''};
         transform:translate(-50%,-50%);
       "></div>`,
       iconSize: [0, 0],
       iconAnchor: [0, 0],
     })
 
-    const uptime = p.uptime_24h != null ? p.uptime_24h.toFixed(1) + '%' : 'No data'
-    const checks = p.check_count_24h > 0 ? `${p.check_count_24h} checks / 24h` : 'no data'
-    const online = !p.is_active ? 'inactive' : isOnline(p) ? '● online' : '● offline'
-
-    // Build popup via DOM (avoids XSS — no innerHTML with user data)
-    const popup = document.createElement('div')
-    popup.style.cssText = 'font-family:system-ui;min-width:140px;'
-
-    const nameEl = document.createElement('b')
-    nameEl.style.fontSize = '13px'
-    nameEl.textContent = p.name
-    popup.appendChild(nameEl)
-    popup.appendChild(document.createElement('br'))
-
-    const locEl = document.createElement('span')
-    locEl.style.cssText = 'color:#94a3b8;font-size:11px;'
-    locEl.textContent = p.location_name
-    popup.appendChild(locEl)
-    popup.appendChild(document.createElement('br'))
-
-    const hr = document.createElement('hr')
-    hr.style.cssText = 'border-color:#334155;margin:6px 0;'
-    popup.appendChild(hr)
-
-    const uptimeEl = document.createElement('span')
-    uptimeEl.style.cssText = `font-size:12px;font-weight:700;color:${fill};`
-    uptimeEl.textContent = `Uptime 24h: ${uptime}`
-    popup.appendChild(uptimeEl)
-    popup.appendChild(document.createElement('br'))
-
-    const checksEl = document.createElement('span')
-    checksEl.style.cssText = 'font-size:11px;color:#64748b;'
-    checksEl.textContent = checks
-    popup.appendChild(checksEl)
-    popup.appendChild(document.createElement('br'))
-
-    const onlineEl = document.createElement('span')
-    onlineEl.style.cssText = 'font-size:11px;color:#64748b;'
-    onlineEl.textContent = online
-    popup.appendChild(onlineEl)
-
     const marker = L.marker([p.latitude, p.longitude], { icon })
       .addTo(leafletMap)
-      .bindPopup(popup, { className: 'probe-popup' })
+      .bindPopup(buildPopup(p, statusColor), { className: 'probe-popup' })
     leafletMarkers.push(marker)
   }
 }
@@ -250,7 +342,7 @@ onUnmounted(() => {
   if (leafletMap) { leafletMap.remove(); leafletMap = null }
 })
 
-watch(probes, () => {
+watch([probes, asnFilter], () => {
   if (leafletMap) renderMarkers()
 })
 </script>

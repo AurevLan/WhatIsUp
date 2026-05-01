@@ -611,6 +611,19 @@ export default {
     playback_pause: 'Pause',
     playback_reset: 'Reset',
     playback_empty: 'No probe samples available for this incident.',
+    // V2-01-01 — diagnostic panel
+    diagnostic_title: 'Probe diagnostic',
+  },
+
+  diagnostic: {
+    loading: 'Collecting diagnostic samples…',
+    empty: 'No diagnostic data captured yet — probes report at their next heartbeat.',
+    unknown_probe: 'Unknown probe',
+    kind_traceroute: 'Traceroute',
+    kind_dig_trace: 'DNS trace',
+    kind_openssl_handshake: 'TLS handshake',
+    kind_icmp_ping: 'ICMP ping',
+    kind_http_verbose: 'HTTP verbose',
   },
 
   // Auth

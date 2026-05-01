@@ -100,10 +100,57 @@ class ProbeHeartbeatRequest(BaseModel):
     self_reported_ip: str | None = Field(default=None, max_length=45)
 
 
+class PendingDiagnostic(BaseModel):
+    """Single diagnostic request enqueued by the central server.
+
+    Returned in the heartbeat response when an incident has just opened on a
+    monitor whose latest result came from this probe. The probe runs the listed
+    ``kinds`` against ``target`` and POSTs the structured payload back via
+    ``POST /probes/diagnostics``."""
+
+    incident_id: uuid.UUID
+    monitor_id: uuid.UUID
+    target: str
+    check_type: str
+    kinds: list[str]
+
+
 class ProbeHeartbeatResponse(BaseModel):
     """Response to probe heartbeat — includes monitor configs to check."""
 
     monitors: list[ProbeMonitorConfig]
+    pending_diagnostics: list[PendingDiagnostic] = Field(default_factory=list)
+
+
+class ProbeDiagnosticResult(BaseModel):
+    """Single collector result inside an ingest batch."""
+
+    kind: str = Field(min_length=1, max_length=30)
+    payload: dict = Field(default_factory=dict)
+    error: str | None = Field(default=None, max_length=500)
+    collected_at: datetime
+
+
+class ProbeDiagnosticsIn(BaseModel):
+    """Payload pushed by a probe to deliver collected diagnostics for an incident."""
+
+    incident_id: uuid.UUID
+    results: list[ProbeDiagnosticResult] = Field(min_length=1, max_length=20)
+
+
+class IncidentDiagnosticOut(BaseModel):
+    """Single diagnostic row served to the dashboard."""
+
+    id: uuid.UUID
+    incident_id: uuid.UUID
+    probe_id: uuid.UUID | None
+    probe_name: str | None = None
+    kind: str
+    payload: dict
+    error: str | None
+    collected_at: datetime
+
+    model_config = {"from_attributes": True}
 
 
 class ProbeMonitorConfig(BaseModel):

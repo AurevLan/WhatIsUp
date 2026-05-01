@@ -593,6 +593,18 @@ export default {
     playback_pause: 'Pause',
     playback_reset: 'Reset',
     playback_empty: 'Aucune mesure de sonde disponible pour cet incident.',
+    diagnostic_title: 'Diagnostic sonde',
+  },
+
+  diagnostic: {
+    loading: 'Collecte des diagnostics en cours…',
+    empty: 'Pas encore de diagnostic — les sondes répondront au prochain heartbeat.',
+    unknown_probe: 'Sonde inconnue',
+    kind_traceroute: 'Traceroute',
+    kind_dig_trace: 'DNS trace',
+    kind_openssl_handshake: 'Handshake TLS',
+    kind_icmp_ping: 'Ping ICMP',
+    kind_http_verbose: 'HTTP verbeux',
   },
   setup: {
     subtitle: 'Connectez-vous à votre serveur WhatIsUp',

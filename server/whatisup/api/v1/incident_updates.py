@@ -15,12 +15,14 @@ from whatisup.api.deps import build_access_filter, get_current_user, get_user_te
 from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
 from whatisup.models.incident import Incident
+from whatisup.models.incident_diagnostic import IncidentDiagnostic
 from whatisup.models.incident_update import IncidentUpdate
 from whatisup.models.monitor import Monitor
 from whatisup.models.probe import Probe
 from whatisup.models.result import CheckResult, CheckStatus
 from whatisup.models.user import User
 from whatisup.schemas.incident import IncidentOut, IncidentUpdateCreate, IncidentUpdateOut
+from whatisup.schemas.probe import IncidentDiagnosticOut
 
 router = APIRouter(prefix="/incidents", tags=["incidents"])
 
@@ -328,6 +330,47 @@ async def incident_timeline(
         resolved_at=incident.resolved_at,
         points=points,
     )
+
+
+@router.get("/{incident_id}/diagnostics", response_model=list[IncidentDiagnosticOut])
+@limiter.limit("30/minute")
+async def list_incident_diagnostics(
+    request: Request,
+    incident_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[dict]:
+    """Return all diagnostic samples collected for this incident (V2-01-01).
+
+    Access guarded by monitor ownership/team RBAC via ``_get_incident_for_user``.
+    """
+    incident = await _get_incident_for_user(incident_id, current_user, db)
+
+    rows = (
+        (
+            await db.execute(
+                select(IncidentDiagnostic, Probe)
+                .outerjoin(Probe, IncidentDiagnostic.probe_id == Probe.id)
+                .where(IncidentDiagnostic.incident_id == incident.id)
+                .order_by(IncidentDiagnostic.collected_at.asc())
+            )
+        )
+        .all()
+    )
+
+    return [
+        {
+            "id": d.id,
+            "incident_id": d.incident_id,
+            "probe_id": d.probe_id,
+            "probe_name": p.name if p else None,
+            "kind": d.kind,
+            "payload": d.payload,
+            "error": d.error,
+            "collected_at": d.collected_at,
+        }
+        for d, p in rows
+    ]
 
 
 def _incident_to_out(inc: Incident) -> dict:

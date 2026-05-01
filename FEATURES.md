@@ -142,6 +142,9 @@
 ### Post-mortem
 - ✅ Génération markdown automatique à la résolution (`GET /monitors/{id}/incidents/{inc}/postmortem`)
 
+### Diagnostic Engine (V2-01)
+- ✅ **V2-01-01** Auto-traceroute corrélé sur incident — à l'ouverture, chaque sonde affectée collecte traceroute / dig +trace / openssl handshake / icmp ping / curl verbose, persistés dans `incident_diagnostics` (`models/incident_diagnostic.py`, `services/diagnostics.py`). UI : section dépliable "Diagnostic" dans `IncidentsView`.
+
 ### Renotify
 - ✅ Escalade périodique (`services/renotify.py`) — interval par règle, skip si snoozed/acked
 

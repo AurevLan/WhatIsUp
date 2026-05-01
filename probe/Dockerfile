@@ -20,6 +20,7 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libssl3 \
+    traceroute iputils-ping dnsutils openssl curl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /install /usr/local

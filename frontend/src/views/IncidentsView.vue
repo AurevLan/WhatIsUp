@@ -163,6 +163,11 @@
                   :title="t('incidents.playback_title')"
                   @click.prevent="togglePlayback(item.id)"
                 ><MapPin :size="16" /></button>
+                <button
+                  class="ack-btn"
+                  :title="t('incidents.diagnostic_title')"
+                  @click.prevent="toggleDiagnostic(item.id)"
+                ><Activity :size="16" /></button>
                 <button v-if="!item.is_resolved && !item.acked_at" class="ack-btn" :title="t('incidents.acknowledge')" @click.prevent="ack(item)"><CheckCircle :size="16" /></button>
                 <button v-else-if="!item.is_resolved && item.acked_at" class="ack-btn ack-btn--active" :title="t('incidents.unacknowledge')" @click.prevent="unack(item)"><CheckCircle :size="16" /></button>
               </span>
@@ -174,6 +179,10 @@
             <div v-if="expandedPlayback[item.id]" class="px-3 py-3 bg-slate-950/40">
               <IncidentPlaybackMap :incident-id="item.id" />
             </div>
+            <IncidentDiagnosticPanel
+              v-if="expandedDiagnostics[item.id]"
+              :incident-id="item.id"
+            />
           </div>
 
         </template>
@@ -186,7 +195,7 @@
 <script setup>
 import { computed, reactive, ref, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { AlertCircle, CheckCircle, ChevronDown, Link2, MapPin, X } from 'lucide-vue-next'
+import { Activity, AlertCircle, CheckCircle, ChevronDown, Link2, MapPin, X } from 'lucide-vue-next'
 import api from '../api/client'
 import { incidentUpdatesApi } from '../api/incidentUpdates'
 import { useToast } from '../composables/useToast'
@@ -194,6 +203,7 @@ import { renderRunbookMarkdown } from '../lib/runbookMarkdown'
 import { useFilterPreset } from '../composables/useFilterPreset'
 import BulkActionBar from '../components/shared/BulkActionBar.vue'
 import IncidentPlaybackMap from '../components/dashboard/IncidentPlaybackMap.vue'
+import IncidentDiagnosticPanel from '../components/incidents/IncidentDiagnosticPanel.vue'
 import { useTimezone } from '../composables/useTimezone'
 
 const { t, locale } = useI18n()
@@ -228,6 +238,11 @@ const expandedRunbooks = reactive({})
 const expandedPlayback = reactive({})
 function togglePlayback(id) {
   expandedPlayback[id] = !expandedPlayback[id]
+}
+// V2-01-01 — same pattern for the diagnostic panel.
+const expandedDiagnostics = reactive({})
+function toggleDiagnostic(id) {
+  expandedDiagnostics[id] = !expandedDiagnostics[id]
 }
 
 function hasRunbook(inc) {

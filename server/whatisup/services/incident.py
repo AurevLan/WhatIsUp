@@ -959,6 +959,27 @@ async def process_check_result(
             logger.info("incident_creation_deduplicated", monitor_id=str(monitor_id))
             return
 
+        # V2-01-01 — fire the diagnostic collection request to every probe
+        # currently reporting the monitor as down. Best-effort: errors are
+        # swallowed inside the helper, this must not break the incident path.
+        try:
+            from whatisup.services.diagnostics import enqueue_diagnostic_requests
+
+            await enqueue_diagnostic_requests(
+                incident_id=incident.id,
+                monitor_id=monitor_id,
+                target=monitor.url,
+                check_type=monitor.check_type,
+                affected_probe_ids=affected_probe_ids,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "diagnostic_enqueue_in_pipeline_failed",
+                incident_id=str(incident.id),
+                error_type=type(exc).__name__,
+                error=str(exc),
+            )
+
         # V2-02-02 — classify network verdict using the latest_by_probe map we
         # already loaded. Best-effort: any failure leaves verdict null and is
         # logged. The background task will retry every 5 min while open.

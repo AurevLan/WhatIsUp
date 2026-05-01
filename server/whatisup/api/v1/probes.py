@@ -16,14 +16,18 @@ from whatisup.core.security import (
     generate_probe_api_key,
     hash_api_key,
 )
+from whatisup.models.incident import Incident
+from whatisup.models.incident_diagnostic import DIAGNOSTIC_KINDS, IncidentDiagnostic
 from whatisup.models.monitor import Monitor
 from whatisup.models.probe import Probe
 from whatisup.models.probe_group import probe_group_members, user_probe_group_access
 from whatisup.models.result import CheckResult
 from whatisup.models.user import User
 from whatisup.schemas.probe import (
+    PendingDiagnostic,
     ProbeCheckResultIn,
     ProbeCreate,
+    ProbeDiagnosticsIn,
     ProbeHealthPayload,
     ProbeHeartbeatRequest,
     ProbeHeartbeatResponse,
@@ -33,6 +37,7 @@ from whatisup.schemas.probe import (
     ProbeStatsOut,
     ProbeUpdate,
 )
+from whatisup.services.diagnostics import drain_pending_diagnostics
 from whatisup.services.incident import process_check_result
 
 logger = structlog.get_logger(__name__)
@@ -265,7 +270,58 @@ async def heartbeat(
         )
         for m in monitors
     ]
-    return ProbeHeartbeatResponse(monitors=configs)
+
+    # V2-01-01 — drain pending diagnostic requests for this probe
+    pending_specs = await drain_pending_diagnostics(probe.id)
+    pending = [
+        PendingDiagnostic(
+            incident_id=spec["incident_id"],
+            monitor_id=spec["monitor_id"],
+            target=spec["target"],
+            check_type=spec.get("check_type", "http"),
+            kinds=spec.get("kinds", list(DIAGNOSTIC_KINDS)),
+        )
+        for spec in pending_specs
+    ]
+
+    return ProbeHeartbeatResponse(monitors=configs, pending_diagnostics=pending)
+
+
+@router.post("/diagnostics", status_code=status.HTTP_202_ACCEPTED)
+@limiter.limit("60/minute")
+async def push_diagnostics(
+    request: Request,
+    payload: ProbeDiagnosticsIn,
+    probe: Probe = Depends(get_current_probe),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Receive a batch of diagnostic results collected by the probe (V2-01-01)."""
+    incident = (
+        await db.execute(select(Incident).where(Incident.id == payload.incident_id))
+    ).scalar_one_or_none()
+    if incident is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Incident not found"
+        )
+
+    valid_kinds = set(DIAGNOSTIC_KINDS)
+    inserted = 0
+    for r in payload.results:
+        if r.kind not in valid_kinds:
+            # Silently skip unknown kinds — keep the rest of the batch usable.
+            continue
+        diag = IncidentDiagnostic(
+            incident_id=incident.id,
+            probe_id=probe.id,
+            kind=r.kind,
+            payload=r.payload,
+            error=r.error,
+            collected_at=r.collected_at,
+        )
+        db.add(diag)
+        inserted += 1
+    await db.commit()
+    return {"accepted": inserted}
 
 
 @router.post("/results", status_code=status.HTTP_202_ACCEPTED)

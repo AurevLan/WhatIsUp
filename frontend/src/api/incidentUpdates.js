@@ -7,4 +7,5 @@ export const incidentUpdatesApi = {
   ack: (incidentId) => api.post(`/incidents/${incidentId}/ack`),
   unack: (incidentId) => api.post(`/incidents/${incidentId}/unack`),
   bulkAck: (ids) => api.post('/incidents/bulk-ack', { ids }),
+  diagnostics: (incidentId) => api.get(`/incidents/${incidentId}/diagnostics`),
 }

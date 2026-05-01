@@ -23,6 +23,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **V2-01-01 — Auto-traceroute corrélé sur incident** — Foundation de la vague α (Pilier 1 : Diagnostic Engine). À l'ouverture d'un incident, chaque sonde affectée reçoit (via clé Redis transitoire consommée au heartbeat suivant) une demande de collecte parallèle de 5 diagnostics réseau : `traceroute -n`, `dig +trace`, `openssl s_client -showcerts`, `ping -c 5`, `curl -v`. Le payload structuré est persisté dans la nouvelle table `incident_diagnostics` (FK `incident_id`/`probe_id`, JSONB `payload`, champ `error` si la collecte échoue). Nouvelle section dépliable "Diagnostic" sous chaque incident dans `IncidentsView` (icône Activity), groupée par sonde, avec rendu typé par kind (hops cliquables pour traceroute, métriques pour ping, en-têtes HTTP en monospace, etc.).
+  - **Modèle** : `IncidentDiagnostic` + migration Alembic `k3l4m5n6o7p8` (rétrocompatible).
+  - **Probe** : nouveau module `whatisup_probe/diagnostics.py` (collecteurs `asyncio.gather`, timeout 10 s par kind, raw output tronqué 8 KB). Binaires ajoutés à l'image runtime probe : `traceroute`, `iputils-ping`, `dnsutils`, `openssl`, `curl`.
+  - **API** : `POST /api/v1/probes/diagnostics` (auth `X-Probe-Api-Key`, rate-limit 60/min) ingest, et `GET /api/v1/incidents/{id}/diagnostics` (auth user, rate-limit 30/min, accès vérifié via owner du monitor).
+  - **Service** : `services/diagnostics.py` (`enqueue_diagnostic_requests` + `drain_pending_diagnostics`), hook ajouté dans `services/incident.py` au moment de l'ouverture d'un incident (best-effort, ne casse pas le pipeline si Redis tombe).
+  - **Tests** : 4 pytest (hook trigger, payload schema, multi-probe distinct FK, drain Redis at-most-once) + 3 vitest UI. Suite complète : 252 backend + 175 frontend, tous verts.
+  - i18n en/fr (`incidents.diagnostic_title`, `diagnostic.*`).
+
 ---
 
 ## [1.5.0] - 2026-04-25

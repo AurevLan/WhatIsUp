@@ -39,6 +39,35 @@ class ProbeScheduler:
     def _make_job_id(self, monitor_id: str) -> str:
         return f"check_{monitor_id}"
 
+    @staticmethod
+    def _log_task_exception(task: asyncio.Task) -> None:
+        if task.cancelled():
+            return
+        exc = task.exception()
+        if exc:
+            logger.error("background_task_failed", error=str(exc))
+
+    async def _run_diagnostic_request(self, req: dict[str, Any]) -> None:
+        """Execute the V2-01-01 diagnostic battery and push results."""
+        from whatisup_probe.diagnostics import run_collection
+
+        incident_id = req.get("incident_id")
+        target = req.get("target")
+        check_type = req.get("check_type", "http")
+        kinds = req.get("kinds")
+        if not incident_id or not target:
+            return
+        logger.info("diagnostic_run_started", incident_id=incident_id, target=target)
+        try:
+            results = await run_collection(target, check_type, kinds)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "diagnostic_run_failed", incident_id=incident_id, error=str(exc)
+            )
+            return
+        if results:
+            await self._reporter.push_diagnostics(incident_id, results)
+
     def _collect_health(self) -> dict:
         """Collect current system health metrics (non-blocking)."""
         try:
@@ -134,10 +163,18 @@ class ProbeScheduler:
 
     async def sync_monitors(self) -> None:
         """Fetch monitor list from central and synchronize scheduled jobs."""
-        monitors = await self._reporter.heartbeat(self._collect_health())
-        if monitors is None:
+        response = await self._reporter.heartbeat(self._collect_health())
+        if response is None:
             logger.warning("heartbeat_failed_skipping_sync")
             return
+        monitors = response.get("monitors", [])
+
+        # V2-01-01 — fire diagnostic collection for each pending request,
+        # detached from the heartbeat path so a slow traceroute can't stall
+        # the next sync cycle.
+        for diag_req in response.get("pending_diagnostics", []) or []:
+            task = asyncio.create_task(self._run_diagnostic_request(diag_req))
+            task.add_done_callback(self._log_task_exception)
 
         new_ids = {str(m["id"]) for m in monitors}
         current_ids = set(self._monitors.keys())

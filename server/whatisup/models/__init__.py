@@ -17,6 +17,7 @@ from whatisup.models.custom_metric import CustomMetric
 from whatisup.models.device_token import DevicePlatform, DeviceToken
 from whatisup.models.digest_window import DigestWindow
 from whatisup.models.incident import Incident, IncidentGroup, IncidentScope
+from whatisup.models.incident_diagnostic import DIAGNOSTIC_KINDS, IncidentDiagnostic
 from whatisup.models.incident_update import IncidentUpdate, IncidentUpdateStatus
 from whatisup.models.monitor import (
     CompositeMonitorMember,
@@ -60,6 +61,8 @@ __all__ = [
     "Incident",
     "IncidentGroup",
     "IncidentScope",
+    "IncidentDiagnostic",
+    "DIAGNOSTIC_KINDS",
     "AlertChannel",
     "AlertChannelType",
     "AlertCondition",

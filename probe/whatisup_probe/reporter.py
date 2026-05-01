@@ -112,13 +112,15 @@ class Reporter:
         logger.error("push_result_dropped", monitor_id=payload.get("monitor_id"))
         return False
 
-    async def heartbeat(self, health: dict) -> list[dict] | None:
-        """Send heartbeat with system health metrics and retrieve current monitor configs.
+    async def heartbeat(self, health: dict) -> dict | None:
+        """Send heartbeat with system health metrics and retrieve probe directives.
 
-        V2-02-07: include the probe's outbound public IP (resolved via api.ipify.org
-        and friends) so the central server can detect proxy / NAT / VPN setups
-        where the IP it observes (request.client.host) diverges from the IP the
-        probe itself egresses through.
+        Returns the full server response (``{monitors, pending_diagnostics}``) or
+        ``None`` on failure. V2-02-07: includes the probe's outbound public IP
+        (resolved via api.ipify.org and friends) so the central server can
+        detect proxy / NAT / VPN setups where the IP it observes
+        (``request.client.host``) diverges from the IP the probe itself
+        egresses through.
         """
         from whatisup_probe.public_ip import resolve_public_ip
 
@@ -130,11 +132,32 @@ class Reporter:
         try:
             resp = await self._client.post(url, json=body)
             resp.raise_for_status()
-            data = resp.json()
-            return data.get("monitors", [])
+            return resp.json()
         except Exception as exc:
             logger.error("heartbeat_failed", error=str(exc))
             return None
+
+    async def push_diagnostics(
+        self, incident_id: str, results: list[dict]
+    ) -> bool:
+        """POST a batch of diagnostic results for an incident (V2-01-01)."""
+        url = f"{self._settings.central_api_url}/api/v1/probes/diagnostics"
+        body = {"incident_id": incident_id, "results": results}
+        try:
+            resp = await self._client.post(url, json=body)
+            if 200 <= resp.status_code < 300:
+                return True
+            logger.warning(
+                "diagnostics_rejected",
+                incident_id=incident_id,
+                status=resp.status_code,
+            )
+            return False
+        except Exception as exc:
+            logger.warning(
+                "diagnostics_push_error", incident_id=incident_id, error=str(exc)
+            )
+            return False
 
     async def aclose(self) -> None:
         await self.stop()

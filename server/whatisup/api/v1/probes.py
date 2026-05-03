@@ -247,6 +247,8 @@ async def heartbeat(
             expected_status_codes=m.expected_status_codes,
             ssl_check_enabled=m.ssl_check_enabled,
             ssl_expiry_warn_days=m.ssl_expiry_warn_days,
+            ssl_pin_sha256=m.ssl_pin_sha256,
+            ssl_min_chain_days=m.ssl_min_chain_days,
             check_type=m.check_type,
             tcp_port=m.tcp_port,
             dns_record_type=m.dns_record_type,

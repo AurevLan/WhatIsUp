@@ -72,6 +72,8 @@ class HTTPChecker(BaseChecker):
         follow_redirects = config.get("follow_redirects", True)
         expected_status_codes = config.get("expected_status_codes", [200])
         ssl_check_enabled = config.get("ssl_check_enabled", False)
+        ssl_pin_sha256 = (config.get("ssl_pin_sha256") or "").lower() or None
+        ssl_min_chain_days = config.get("ssl_min_chain_days")
         check_type = config.get("check_type", "http")
 
         keyword = config.get("keyword")
@@ -278,7 +280,34 @@ class HTTPChecker(BaseChecker):
             ssl_valid = ssl_expires_at = ssl_days_remaining = None
             if ssl_check_enabled and url.startswith("https://"):
                 ssl_info = await extract_ssl_info(final_url or url)
-                ssl_valid, ssl_expires_at, ssl_days_remaining = ssl_info
+                ssl_valid, ssl_expires_at, ssl_days_remaining, leaf_sha256 = ssl_info
+
+                # T2-05: pinning — refuse the cert if its SHA-256 doesn't match
+                # the configured pin. We do this even when ssl_valid was True
+                # (chain trusted) because pinning catches a valid-but-rotated
+                # cert that the operator hasn't approved yet.
+                if ssl_pin_sha256 and leaf_sha256 and leaf_sha256 != ssl_pin_sha256:
+                    if status == "up":
+                        status = "down"
+                        error_message = (
+                            f"ssl_pin_mismatch: served={leaf_sha256[:16]}… "
+                            f"expected={ssl_pin_sha256[:16]}…"
+                        )
+                    ssl_valid = False
+
+                # T2-05: stricter chain expiry threshold than the user-facing
+                # warning (ssl_expiry_warn_days only tints the UI).
+                if (
+                    ssl_min_chain_days is not None
+                    and ssl_days_remaining is not None
+                    and ssl_days_remaining < ssl_min_chain_days
+                    and status == "up"
+                ):
+                    status = "down"
+                    error_message = (
+                        f"ssl_chain_expiring: {ssl_days_remaining}d remaining "
+                        f"< minimum {ssl_min_chain_days}d"
+                    )
 
             # Schema fingerprint
             schema_fingerprint: str | None = None

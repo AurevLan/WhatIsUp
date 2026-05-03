@@ -259,6 +259,19 @@ export default {
     flap_window_minutes: 'Window (minutes)',
     auto_pause_after: 'Auto-pause after consecutive failures',
     auto_pause_after_hint: 'Automatically pause the monitor after N consecutive failures across all probes (leave empty to disable)',
+    channels: {
+      discord: { name: 'Discord', placeholder: 'https://discord.com/api/webhooks/…' },
+      mattermost: { name: 'Mattermost', placeholder: 'https://mattermost.example.com/hooks/…' },
+      teams: { name: 'Microsoft Teams', placeholder: 'Power Automate workflow URL' },
+    },
+    sslAdvanced: {
+      pin: 'Pin SHA-256 fingerprint',
+      pinPlaceholder: '64 lowercase hex chars (no colons)',
+      pinHint: 'When set, the check fails if the served certificate fingerprint does not match — protects against silent rotation. Compute via: openssl s_client -connect host:443 < /dev/null | openssl x509 -outform DER | openssl dgst -sha256.',
+      minChainDays: 'Minimum chain expiry (days)',
+      minChainPlaceholder: 'e.g. 14',
+      minChainHint: 'Stricter than the warning threshold above — fails the check if the cert expires within this window. Useful to fail loud and early.',
+    },
     customHeaders: {
       title: 'Custom request headers',
       desc: 'Headers sent by the probe on every check. Useful to bypass User-Agent filters (e.g. Cloudflare) or send auth tokens. Max 20 entries.',

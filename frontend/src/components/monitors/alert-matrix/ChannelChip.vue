@@ -35,6 +35,9 @@ const PALETTE = {
   webhook:   { dot: '#f59e0b', bg: 'rgba(245,158,11,0.15)', border: 'rgba(245,158,11,0.6)', text: '#fcd34d' },
   signal:    { dot: '#3b82f6', bg: 'rgba(59,130,246,0.15)', border: 'rgba(59,130,246,0.6)', text: '#93c5fd' },
   fcm:       { dot: '#ec4899', bg: 'rgba(236,72,153,0.15)', border: 'rgba(236,72,153,0.6)', text: '#f9a8d4' },
+  discord:   { dot: '#5865f2', bg: 'rgba(88,101,242,0.15)', border: 'rgba(88,101,242,0.6)', text: '#a5b4fc' },
+  mattermost:{ dot: '#1e88e5', bg: 'rgba(30,136,229,0.15)', border: 'rgba(30,136,229,0.6)', text: '#90caf9' },
+  teams:     { dot: '#6264a7', bg: 'rgba(98,100,167,0.15)', border: 'rgba(98,100,167,0.6)', text: '#c5b4ff' },
 }
 
 const styles = computed(() => {

@@ -22,7 +22,7 @@ logger = structlog.get_logger(__name__)
 _MONITOR_EXPORT_FIELDS = [
     "name", "url", "check_type", "interval_seconds", "timeout_seconds",
     "follow_redirects", "expected_status_codes", "enabled",
-    "ssl_check_enabled", "ssl_expiry_warn_days",
+    "ssl_check_enabled", "ssl_expiry_warn_days", "ssl_pin_sha256", "ssl_min_chain_days",
     "tcp_port", "udp_port", "smtp_port", "smtp_starttls",
     "domain_expiry_warn_days", "dns_record_type", "dns_expected_value", "dns_nameservers",
     "dns_drift_alert", "dns_split_enabled",
@@ -446,6 +446,8 @@ _DEFAULTS = {
     "enabled": True,
     "ssl_check_enabled": True,
     "ssl_expiry_warn_days": 30,
+    "ssl_pin_sha256": None,
+    "ssl_min_chain_days": None,
     "smtp_starttls": False,
     "domain_expiry_warn_days": 30,
     "keyword_negate": False,

@@ -251,6 +251,19 @@ export default {
     flap_window_minutes: 'Fenêtre (minutes)',
     auto_pause_after: 'Auto-pause après échecs consécutifs',
     auto_pause_after_hint: 'Met automatiquement le moniteur en pause après N échecs consécutifs sur toutes les sondes (laisser vide pour désactiver)',
+    channels: {
+      discord: { name: 'Discord', placeholder: 'https://discord.com/api/webhooks/…' },
+      mattermost: { name: 'Mattermost', placeholder: 'https://mattermost.example.com/hooks/…' },
+      teams: { name: 'Microsoft Teams', placeholder: 'URL du workflow Power Automate' },
+    },
+    sslAdvanced: {
+      pin: 'Empreinte SHA-256 (pinning)',
+      pinPlaceholder: '64 caractères hex minuscules (sans deux-points)',
+      pinHint: 'Quand renseigné, le check échoue si l\'empreinte du certificat servi ne correspond pas — protège contre une rotation silencieuse. À calculer via : openssl s_client -connect host:443 < /dev/null | openssl x509 -outform DER | openssl dgst -sha256.',
+      minChainDays: 'Expiration minimale chaîne (jours)',
+      minChainPlaceholder: 'ex. 14',
+      minChainHint: 'Plus strict que le seuil d\'avertissement — fait échouer le check si le certificat expire dans cette fenêtre. Utile pour alerter tôt.',
+    },
     customHeaders: {
       title: 'En-têtes de requête personnalisés',
       desc: 'En-têtes envoyés par la sonde à chaque check. Utile pour contourner les filtres User-Agent (ex. Cloudflare) ou injecter un jeton d\'authentification. 20 entrées maximum.',

@@ -224,6 +224,18 @@
             <input v-model="form.ssl_check_enabled" type="checkbox" id="ssl" />
             <label for="ssl" class="text-sm text-gray-300">Monitor SSL certificate</label>
           </div>
+          <div v-if="form.ssl_check_enabled" class="ml-6 space-y-2 border-l-2 border-gray-800 pl-3">
+            <div>
+              <label class="text-xs text-gray-400 block mb-1">{{ t('monitors.sslAdvanced.pin') }}</label>
+              <input v-model="form.ssl_pin_sha256" class="input w-full font-mono text-xs" :placeholder="t('monitors.sslAdvanced.pinPlaceholder')" maxlength="64" pattern="[a-f0-9]{64}" />
+              <p class="text-xs text-gray-500 mt-1">{{ t('monitors.sslAdvanced.pinHint') }}</p>
+            </div>
+            <div>
+              <label class="text-xs text-gray-400 block mb-1">{{ t('monitors.sslAdvanced.minChainDays') }}</label>
+              <input v-model.number="form.ssl_min_chain_days" type="number" class="input w-32 text-xs" min="1" max="365" :placeholder="t('monitors.sslAdvanced.minChainPlaceholder')" />
+              <p class="text-xs text-gray-500 mt-1">{{ t('monitors.sslAdvanced.minChainHint') }}</p>
+            </div>
+          </div>
 
           <!-- Custom request headers accordion -->
           <div class="border border-gray-700 rounded-lg overflow-hidden">
@@ -558,6 +570,8 @@ const form = ref({
   timeout_seconds: m.timeout_seconds ?? 10,
   follow_redirects: m.follow_redirects ?? true,
   ssl_check_enabled: m.ssl_check_enabled ?? true,
+  ssl_pin_sha256: m.ssl_pin_sha256 ?? '',
+  ssl_min_chain_days: m.ssl_min_chain_days ?? null,
   expected_status_codes: m.expected_status_codes || [200],
   tcp_port: m.tcp_port ?? null,
   udp_port: m.udp_port ?? null,
@@ -651,6 +665,8 @@ function buildPayload() {
   if (['http', 'keyword', 'json_path'].includes(form.value.check_type)) {
     p.follow_redirects = form.value.follow_redirects
     p.ssl_check_enabled = form.value.ssl_check_enabled
+    p.ssl_pin_sha256 = form.value.ssl_pin_sha256?.trim() || null
+    p.ssl_min_chain_days = form.value.ssl_min_chain_days || null
   }
 
   if (form.value.check_type === 'tcp') {

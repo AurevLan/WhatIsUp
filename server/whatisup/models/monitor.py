@@ -222,6 +222,11 @@ class Monitor(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # SSL monitoring
     ssl_check_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     ssl_expiry_warn_days: Mapped[int] = mapped_column(Integer, default=30, nullable=False)
+    # T2-05 — Advanced SSL: pin the leaf certificate by SHA-256 fingerprint
+    # (64 hex chars, lowercase, no colons), and fail the check if any cert in
+    # the served chain expires within N days.
+    ssl_pin_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    ssl_min_chain_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Check type
     check_type: Mapped[str] = mapped_column(String(20), default="http", nullable=False)

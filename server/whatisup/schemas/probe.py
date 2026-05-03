@@ -162,6 +162,8 @@ class ProbeMonitorConfig(BaseModel):
     expected_status_codes: list[int]
     ssl_check_enabled: bool
     ssl_expiry_warn_days: int
+    ssl_pin_sha256: str | None = None
+    ssl_min_chain_days: int | None = None
     check_type: str = "http"
     tcp_port: int | None = None
     dns_record_type: str | None = None

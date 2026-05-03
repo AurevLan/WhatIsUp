@@ -75,6 +75,8 @@ class MonitorCreate(BaseModel):
     enabled: bool = True
     ssl_check_enabled: bool = True
     ssl_expiry_warn_days: int = Field(default=30, ge=1, le=365)
+    ssl_pin_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+    ssl_min_chain_days: int | None = Field(default=None, ge=1, le=365)
     tag_ids: list[uuid.UUID] = Field(default=[])
     check_type: str = Field(
         default="http",
@@ -173,6 +175,8 @@ class MonitorUpdate(BaseModel):
     enabled: bool | None = None
     ssl_check_enabled: bool | None = None
     ssl_expiry_warn_days: int | None = Field(default=None, ge=1, le=365)
+    ssl_pin_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+    ssl_min_chain_days: int | None = Field(default=None, ge=1, le=365)
     tag_ids: list[uuid.UUID] | None = None
     check_type: str | None = Field(
         default=None,
@@ -248,6 +252,8 @@ class MonitorOut(BaseModel):
     enabled: bool
     ssl_check_enabled: bool
     ssl_expiry_warn_days: int
+    ssl_pin_sha256: str | None = None
+    ssl_min_chain_days: int | None = None
     tags: list[TagOut]
     check_type: str
     tcp_port: int | None

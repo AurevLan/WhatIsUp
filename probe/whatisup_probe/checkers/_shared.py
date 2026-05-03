@@ -130,8 +130,15 @@ async def validate_url_ssrf(url: str) -> str | None:
 # ── SSL info extraction ──────────────────────────────────────────────────────
 
 
-def _extract_ssl_info_sync(url: str) -> tuple[bool, datetime | None, int | None]:
-    """Extract SSL certificate info for an HTTPS URL (blocking — run in executor)."""
+def _extract_ssl_info_sync(
+    url: str,
+) -> tuple[bool, datetime | None, int | None, str | None]:
+    """Extract SSL certificate info for an HTTPS URL (blocking — run in executor).
+
+    Returns (valid, leaf_expires_at, leaf_days_remaining, leaf_sha256_hex).
+    The SHA-256 is computed over the DER-encoded leaf certificate so it can be
+    compared against an `ssl_pin_sha256` value configured per-monitor (T2-05).
+    """
     try:
         parsed = urlparse(url)
         hostname = parsed.hostname or ""
@@ -144,6 +151,9 @@ def _extract_ssl_info_sync(url: str) -> tuple[bool, datetime | None, int | None]
             server_hostname=hostname,
         ) as ssock:
             cert = ssock.getpeercert()
+            der = ssock.getpeercert(binary_form=True)
+
+        pin_hex = hashlib.sha256(der).hexdigest() if der else None
 
         not_after_str = cert.get("notAfter", "")
         if not_after_str:
@@ -151,17 +161,22 @@ def _extract_ssl_info_sync(url: str) -> tuple[bool, datetime | None, int | None]
                 tzinfo=UTC
             )
             days_remaining = (expires_at - datetime.now(UTC)).days
-            return days_remaining > 0, expires_at, days_remaining
+            return days_remaining > 0, expires_at, days_remaining, pin_hex
 
-        return True, None, None
+        return True, None, None, pin_hex
     except ssl.SSLCertVerificationError:
-        return False, None, None
+        return False, None, None, None
     except Exception:
-        return False, None, None
+        return False, None, None, None
 
 
-async def extract_ssl_info(url: str) -> tuple[bool, datetime | None, int | None]:
-    """Extract SSL certificate info without blocking the event loop."""
+async def extract_ssl_info(
+    url: str,
+) -> tuple[bool, datetime | None, int | None, str | None]:
+    """Extract SSL certificate info without blocking the event loop.
+
+    Returns (valid, leaf_expires_at, leaf_days_remaining, leaf_sha256_hex).
+    """
     loop = asyncio.get_running_loop()
     try:
         return await asyncio.wait_for(
@@ -169,7 +184,7 @@ async def extract_ssl_info(url: str) -> tuple[bool, datetime | None, int | None]
             timeout=10.0,
         )
     except Exception:
-        return False, None, None
+        return False, None, None, None
 
 
 # ── Shared HTTP client ────────────────────────────────────────────────────────

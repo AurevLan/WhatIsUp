@@ -18,6 +18,9 @@
             <option value="pagerduty">🔔 PagerDuty</option>
             <option value="opsgenie">🚨 Opsgenie</option>
             <option value="signal">📱 Signal</option>
+            <option value="discord">🎮 Discord</option>
+            <option value="mattermost">💬 Mattermost</option>
+            <option value="teams">👥 Microsoft Teams</option>
           </select>
         </div>
 
@@ -57,6 +60,33 @@
             <label class="block text-sm font-medium text-gray-300 mb-1">Webhook URL *</label>
             <input v-model="slackWebhookUrl" class="input w-full" placeholder="https://hooks.slack.com/services/..." type="url" required />
             <p class="text-xs text-gray-500 mt-1">Create an Incoming Webhook in your Slack workspace.</p>
+          </div>
+        </div>
+
+        <!-- Discord config -->
+        <div v-if="form.type === 'discord'" class="space-y-3">
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Webhook URL *</label>
+            <input v-model="discordWebhookUrl" class="input w-full" placeholder="https://discord.com/api/webhooks/..." type="url" required />
+            <p class="text-xs text-gray-500 mt-1">Server Settings → Integrations → Webhooks → New Webhook.</p>
+          </div>
+        </div>
+
+        <!-- Mattermost config -->
+        <div v-if="form.type === 'mattermost'" class="space-y-3">
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Webhook URL *</label>
+            <input v-model="mattermostWebhookUrl" class="input w-full" placeholder="https://mattermost.example.com/hooks/..." type="url" required />
+            <p class="text-xs text-gray-500 mt-1">System Console → Integrations → Incoming Webhooks.</p>
+          </div>
+        </div>
+
+        <!-- Teams config -->
+        <div v-if="form.type === 'teams'" class="space-y-3">
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Webhook URL *</label>
+            <input v-model="teamsWebhookUrl" class="input w-full" placeholder="https://prod-XX.westus.logic.azure.com/..." type="url" required />
+            <p class="text-xs text-gray-500 mt-1">Power Automate workflow with HTTP trigger → "Post adaptive card in a chat or channel". Legacy Office 365 connectors also work.</p>
           </div>
         </div>
 
@@ -197,6 +227,9 @@ const opsPriority = ref('P1')
 const signalApiUrl = ref('')
 const signalSenderNumber = ref('')
 const signalRecipients = ref('')
+const discordWebhookUrl = ref('')
+const mattermostWebhookUrl = ref('')
+const teamsWebhookUrl = ref('')
 
 async function resolveTelegram() {
   telegramResolving.value = true
@@ -229,6 +262,12 @@ function buildConfig() {
       return { api_key: opsApiKey.value, region: opsRegion.value, priority: opsPriority.value }
     case 'signal':
       return { api_url: signalApiUrl.value, sender_number: signalSenderNumber.value, recipients: signalRecipients.value.split(',').map(n => n.trim()).filter(Boolean) }
+    case 'discord':
+      return { webhook_url: discordWebhookUrl.value }
+    case 'mattermost':
+      return { webhook_url: mattermostWebhookUrl.value }
+    case 'teams':
+      return { webhook_url: teamsWebhookUrl.value }
     default:
       return {}
   }

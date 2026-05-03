@@ -104,6 +104,39 @@ class SignalChannelConfig(BaseModel):
         return v
 
 
+class DiscordChannelConfig(BaseModel):
+    webhook_url: str = Field(min_length=8, max_length=2048)
+
+    @field_validator("webhook_url")
+    @classmethod
+    def validate_discord_url(cls, v: str) -> str:
+        if not v.startswith(("https://discord.com/api/webhooks/", "https://discordapp.com/api/webhooks/")):
+            raise ValueError("Discord webhook URL must start with https://discord.com/api/webhooks/")
+        return v
+
+
+class MattermostChannelConfig(BaseModel):
+    webhook_url: str = Field(min_length=8, max_length=2048)
+
+    @field_validator("webhook_url")
+    @classmethod
+    def validate_mm_url(cls, v: str) -> str:
+        if not v.startswith(("http://", "https://")):
+            raise ValueError("Mattermost webhook URL must start with http:// or https://")
+        return v
+
+
+class TeamsChannelConfig(BaseModel):
+    webhook_url: str = Field(min_length=8, max_length=2048)
+
+    @field_validator("webhook_url")
+    @classmethod
+    def validate_teams_url(cls, v: str) -> str:
+        if not v.startswith("https://"):
+            raise ValueError("Teams webhook URL must start with https://")
+        return v
+
+
 _CONFIG_VALIDATORS: dict[AlertChannelType, type[BaseModel]] = {
     AlertChannelType.email: EmailChannelConfig,
     AlertChannelType.webhook: WebhookChannelConfig,
@@ -112,6 +145,9 @@ _CONFIG_VALIDATORS: dict[AlertChannelType, type[BaseModel]] = {
     AlertChannelType.pagerduty: PagerDutyChannelConfig,
     AlertChannelType.opsgenie: OpsgenieChannelConfig,
     AlertChannelType.signal: SignalChannelConfig,
+    AlertChannelType.discord: DiscordChannelConfig,
+    AlertChannelType.mattermost: MattermostChannelConfig,
+    AlertChannelType.teams: TeamsChannelConfig,
 }
 
 

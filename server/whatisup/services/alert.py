@@ -300,6 +300,46 @@ async def _flush_digest(rule_id: str, channels: list[AlertChannel], ctx: dict) -
                             decrypted_config["webhook_url"],
                             json={"text": summary_text},
                         )
+                elif channel.type == AlertChannelType.discord:
+                    await _validate_webhook_url(decrypted_config["webhook_url"])
+                    async with httpx.AsyncClient(timeout=10) as client:
+                        await client.post(
+                            decrypted_config["webhook_url"],
+                            json={"content": summary_text[:1900]},
+                        )
+                elif channel.type == AlertChannelType.mattermost:
+                    await _validate_webhook_url(decrypted_config["webhook_url"])
+                    async with httpx.AsyncClient(timeout=10) as client:
+                        await client.post(
+                            decrypted_config["webhook_url"],
+                            json={"username": "WhatIsUp", "text": summary_text},
+                        )
+                elif channel.type == AlertChannelType.teams:
+                    await _validate_webhook_url(decrypted_config["webhook_url"])
+                    async with httpx.AsyncClient(timeout=10) as client:
+                        await client.post(
+                            decrypted_config["webhook_url"],
+                            json={
+                                "type": "message",
+                                "attachments": [
+                                    {
+                                        "contentType": "application/vnd.microsoft.card.adaptive",
+                                        "content": {
+                                            "type": "AdaptiveCard",
+                                            "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                                            "version": "1.5",
+                                            "body": [
+                                                {
+                                                    "type": "TextBlock",
+                                                    "text": summary_text,
+                                                    "wrap": True,
+                                                }
+                                            ],
+                                        },
+                                    }
+                                ],
+                            },
+                        )
                 elif channel.type == AlertChannelType.webhook:
                     await _validate_webhook_url(decrypted_config["url"])
                     payload_bytes = json.dumps(

@@ -121,6 +121,8 @@ class ProbeScheduler:
                             follow_redirects=monitor["follow_redirects"],
                             expected_status_codes=monitor["expected_status_codes"],
                             ssl_check_enabled=monitor["ssl_check_enabled"],
+                            ssl_pin_sha256=monitor.get("ssl_pin_sha256"),
+                            ssl_min_chain_days=monitor.get("ssl_min_chain_days"),
                             check_type=monitor.get("check_type", "http"),
                             tcp_port=monitor.get("tcp_port"),
                             udp_port=monitor.get("udp_port"),

@@ -25,7 +25,6 @@
   ],
   "packages": {
     ".": {
-      "package-name": "whatisup",
       "extra-files": [
         {
           "type": "toml",

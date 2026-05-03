@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.8.0](https://github.com/AurevLan/WhatIsUp/compare/v1.7.0...v1.8.0) (2026-05-03)
+
+
+### Added
+
+* **alerts:** T2-10/11/12 Discord/Mattermost/Teams channels + T2-05 SSL pinning ([4156ed4](https://github.com/AurevLan/WhatIsUp/commit/4156ed484262af3e239dcedc74fe5491f58c6be7))
+
+
+### Fixed
+
+* **ci:** drop package-name from release-please config to unblock auto-tag ([44ca7de](https://github.com/AurevLan/WhatIsUp/commit/44ca7de9e3475363fec6bbe5f97b066e82f4c53f))
+
+
+### Performance
+
+* **api:** SC-07 distributed rate limit via Redis backend with memory fallback ([0b5e44d](https://github.com/AurevLan/WhatIsUp/commit/0b5e44db0c7c4aa7cdec3e38359dc80750c7d5fa))
+
 ## [1.7.0](https://github.com/AurevLan/WhatIsUp/compare/v1.6.0...v1.7.0) (2026-05-03)
 
 

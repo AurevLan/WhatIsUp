@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg"></a>
-  <img alt="Version" src="https://img.shields.io/badge/version-1.6.0-4f9cf9"> <!-- x-release-please-version -->
+  <img alt="Version" src="https://img.shields.io/badge/version-1.7.0"> <!-- x-release-please-version -->
   <img alt="Python 3.14" src="https://img.shields.io/badge/Python-3.14-blue">
   <img alt="Vue 3" src="https://img.shields.io/badge/Vue-3.5-42b883">
   <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-0.125+-009688">

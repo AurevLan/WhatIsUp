@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.7.0](https://github.com/AurevLan/WhatIsUp/compare/v1.6.0...v1.7.0) (2026-05-03)
+
+
+### Added
+
+* **diagnostics:** V2-01-01 auto-traceroute corrélé sur incident ([441e43c](https://github.com/AurevLan/WhatIsUp/commit/441e43cc1734c59fc1589ac8506295f0c1e474a4))
+* **monitors:** custom_headers per-monitor + UA presets (HTTP/keyword/json_path) ([772dae0](https://github.com/AurevLan/WhatIsUp/commit/772dae05e406b35b750fdaaac6dc643cad2c89ee))
+
+
+### Fixed
+
+* **probe/tests:** align heartbeat tests with V2-01-01 dict response shape ([401dc2c](https://github.com/AurevLan/WhatIsUp/commit/401dc2ce5cb9e8655b88d7bd9784218e94373ee9))
+
 ## [1.6.0](https://github.com/AurevLan/WhatIsUp/compare/v1.5.0...v1.6.0) (2026-04-29)
 
 

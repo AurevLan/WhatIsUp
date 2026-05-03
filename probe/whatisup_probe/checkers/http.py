@@ -83,6 +83,7 @@ class HTTPChecker(BaseChecker):
         body_regex = config.get("body_regex")
         expected_headers = config.get("expected_headers")
         json_schema = config.get("json_schema")
+        custom_headers = config.get("custom_headers") or None
         schema_drift_enabled = config.get("schema_drift_enabled", False)
 
         checked_at = datetime.now(UTC)
@@ -131,6 +132,7 @@ class HTTPChecker(BaseChecker):
                         url,
                         follow_redirects=follow_redirects,
                         timeout=httpx.Timeout(timeout_seconds),
+                        headers=custom_headers,
                     ) as response:
                         ttfb_ms = int((time.perf_counter() - t0) * 1000)
                         body_bytes = await response.aread()

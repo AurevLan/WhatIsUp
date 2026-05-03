@@ -251,6 +251,23 @@ export default {
     flap_window_minutes: 'Fenêtre (minutes)',
     auto_pause_after: 'Auto-pause après échecs consécutifs',
     auto_pause_after_hint: 'Met automatiquement le moniteur en pause après N échecs consécutifs sur toutes les sondes (laisser vide pour désactiver)',
+    customHeaders: {
+      title: 'En-têtes de requête personnalisés',
+      desc: 'En-têtes envoyés par la sonde à chaque check. Utile pour contourner les filtres User-Agent (ex. Cloudflare) ou injecter un jeton d\'authentification. 20 entrées maximum.',
+      namePlaceholder: 'User-Agent',
+      valuePlaceholder: 'Mozilla/5.0 (compatible; …)',
+      empty: 'Aucun en-tête personnalisé.',
+      add: 'Ajouter un en-tête',
+      presets: {
+        label: 'Préréglage User-Agent',
+        choose: 'Choisir un préréglage…',
+        chromeWindows: 'Chrome (Windows bureau)',
+        firefoxWindows: 'Firefox (Windows bureau)',
+        safariMac: 'Safari (macOS bureau)',
+        chromeAndroid: 'Chrome (Android mobile)',
+        curl: 'curl (ligne de commande)',
+      },
+    },
     alert_setup: {
       title: 'Alerter en cas de panne',
       desc: 'Créer automatiquement des règles d\'alerte pour ce moniteur.',

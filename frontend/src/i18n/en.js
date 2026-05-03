@@ -259,6 +259,23 @@ export default {
     flap_window_minutes: 'Window (minutes)',
     auto_pause_after: 'Auto-pause after consecutive failures',
     auto_pause_after_hint: 'Automatically pause the monitor after N consecutive failures across all probes (leave empty to disable)',
+    customHeaders: {
+      title: 'Custom request headers',
+      desc: 'Headers sent by the probe on every check. Useful to bypass User-Agent filters (e.g. Cloudflare) or send auth tokens. Max 20 entries.',
+      namePlaceholder: 'User-Agent',
+      valuePlaceholder: 'Mozilla/5.0 (compatible; …)',
+      empty: 'No custom headers configured.',
+      add: 'Add header',
+      presets: {
+        label: 'Quick User-Agent preset',
+        choose: 'Choose a preset…',
+        chromeWindows: 'Chrome (Windows desktop)',
+        firefoxWindows: 'Firefox (Windows desktop)',
+        safariMac: 'Safari (macOS desktop)',
+        chromeAndroid: 'Chrome (Android mobile)',
+        curl: 'curl (command line)',
+      },
+    },
     alert_setup: {
       title: 'Alert on downtime',
       desc: 'Automatically create alert rules for this monitor.',

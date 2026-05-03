@@ -177,6 +177,10 @@ async def extract_ssl_info(url: str) -> tuple[bool, datetime | None, int | None]
 _http_client: httpx.AsyncClient | None = None
 _http_client_lock = asyncio.Lock()
 
+# Default UA: avoids the bare "python-httpx/x.y" UA which Cloudflare and other
+# anti-bot filters routinely block (e.g. korben.info → 403).
+DEFAULT_USER_AGENT = "WhatIsUp-Probe/1.0 (+https://github.com/aurevlan/whatisup)"
+
 
 async def get_http_client() -> httpx.AsyncClient:
     """Return a shared AsyncClient (connection pooling across checks)."""
@@ -190,6 +194,7 @@ async def get_http_client() -> httpx.AsyncClient:
         _http_client = httpx.AsyncClient(
             verify=True,
             limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
+            headers={"User-Agent": DEFAULT_USER_AGENT},
         )
     return _http_client
 

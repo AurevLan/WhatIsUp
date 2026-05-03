@@ -661,6 +661,17 @@
       </div>
     </div>
 
+    <!-- Custom request headers (HTTP-like checks) -->
+    <div v-if="isHttpLike && monitor.custom_headers && Object.keys(monitor.custom_headers).length" class="card mb-6">
+      <h2 class="text-sm font-semibold text-gray-300 mb-2">{{ t('monitors.customHeaders.title') }}</h2>
+      <div class="flex flex-wrap gap-2">
+        <span v-for="(val, key) in monitor.custom_headers" :key="key"
+              class="text-xs font-mono px-2 py-1 rounded bg-gray-800 text-gray-300 border border-gray-700">
+          <span class="text-emerald-400">{{ key }}</span>: {{ val }}
+        </span>
+      </div>
+    </div>
+
     <!-- SSL card (HTTP checks only) -->
     <div v-if="isHttpLike && monitor.ssl_check_enabled && latestSsl" class="card mb-6">
       <div class="flex items-center gap-3 mb-3">

@@ -28,7 +28,7 @@ _MONITOR_EXPORT_FIELDS = [
     "dns_drift_alert", "dns_split_enabled",
     "keyword", "keyword_negate",
     "expected_json_path", "expected_json_value",
-    "body_regex", "expected_headers", "json_schema",
+    "body_regex", "expected_headers", "json_schema", "custom_headers",
     "schema_drift_enabled",
     "slo_target", "slo_window_days", "network_scope",
     "flap_threshold", "flap_window_minutes", "auto_pause_after",

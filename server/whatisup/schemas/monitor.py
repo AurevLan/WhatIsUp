@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import datetime
 from typing import Literal
@@ -18,6 +19,32 @@ _STEP_TYPES = (
     "navigate|click|fill|type|press|select|submit|hover|scroll|extract"
     "|wait_element|wait_time|assert_text|assert_visible|assert_url|screenshot"
 )
+
+# Headers managed by httpx itself — overriding them breaks the request transport
+# (Content-Length, Connection) or routing (Host).
+_FORBIDDEN_CUSTOM_HEADERS = {"host", "content-length", "connection", "transfer-encoding"}
+_HEADER_NAME_RE = re.compile(r"^[A-Za-z0-9-]+$")
+
+
+def _validate_custom_headers(v: dict[str, str] | None) -> dict[str, str] | None:
+    if v is None:
+        return v
+    if not isinstance(v, dict):
+        raise ValueError("custom_headers must be an object of header name → value")
+    if len(v) > 20:
+        raise ValueError("custom_headers: at most 20 entries allowed")
+    for name, value in v.items():
+        if not isinstance(name, str) or not isinstance(value, str):
+            raise ValueError("custom_headers: keys and values must be strings")
+        if not (1 <= len(name) <= 100):
+            raise ValueError(f"custom_headers: header name length out of range: {name!r}")
+        if not _HEADER_NAME_RE.match(name):
+            raise ValueError(f"custom_headers: invalid header name {name!r}")
+        if name.lower() in _FORBIDDEN_CUSTOM_HEADERS:
+            raise ValueError(f"custom_headers: header {name!r} is reserved and cannot be set")
+        if not (1 <= len(value) <= 500):
+            raise ValueError(f"custom_headers: value length out of range for {name!r}")
+    return v
 
 
 class ScenarioStep(BaseModel):
@@ -85,6 +112,8 @@ class MonitorCreate(BaseModel):
     body_regex: str | None = Field(None, max_length=500)
     expected_headers: dict[str, str] | None = None
     json_schema: dict | None = None
+    # Custom request headers sent by the probe (e.g. User-Agent override, auth tokens)
+    custom_headers: dict[str, str] | None = None
     # SLO / Error Budget
     slo_target: float | None = Field(None, ge=0.0, le=100.0)
     slo_window_days: int = Field(30, ge=1, le=365)
@@ -110,6 +139,11 @@ class MonitorCreate(BaseModel):
             if not (100 <= code <= 599):
                 raise ValueError(f"Invalid HTTP status code: {code}")
         return v
+
+    @field_validator("custom_headers")
+    @classmethod
+    def valid_custom_headers(cls, v: dict[str, str] | None) -> dict[str, str] | None:
+        return _validate_custom_headers(v)
 
     @field_validator("url", mode="before")
     @classmethod
@@ -174,6 +208,7 @@ class MonitorUpdate(BaseModel):
     body_regex: str | None = Field(None, max_length=500)
     expected_headers: dict[str, str] | None = None
     json_schema: dict | None = None
+    custom_headers: dict[str, str] | None = None
     # SLO / Error Budget
     slo_target: float | None = Field(None, ge=0.0, le=100.0)
     slo_window_days: int | None = Field(None, ge=1, le=365)
@@ -192,6 +227,11 @@ class MonitorUpdate(BaseModel):
     # runbook_markdown is wiped (option B). See api/v1/monitors.py update logic.
     runbook_enabled: bool | None = None
     runbook_markdown: str | None = Field(default=None, max_length=20000)
+
+    @field_validator("custom_headers")
+    @classmethod
+    def valid_custom_headers(cls, v: dict[str, str] | None) -> dict[str, str] | None:
+        return _validate_custom_headers(v)
 
 
 class MonitorOut(BaseModel):
@@ -238,6 +278,7 @@ class MonitorOut(BaseModel):
     body_regex: str | None = None
     expected_headers: dict[str, str] | None = None
     json_schema: dict | None = None
+    custom_headers: dict[str, str] | None = None
     # SLO / Error Budget
     slo_target: float | None = None
     slo_window_days: int = 30

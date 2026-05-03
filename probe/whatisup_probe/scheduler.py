@@ -135,6 +135,7 @@ class ProbeScheduler:
                             body_regex=monitor.get("body_regex"),
                             expected_headers=monitor.get("expected_headers"),
                             json_schema=monitor.get("json_schema"),
+                            custom_headers=monitor.get("custom_headers"),
                             smtp_port=monitor.get("smtp_port"),
                             smtp_starttls=monitor.get("smtp_starttls", False),
                             domain_expiry_warn_days=monitor.get("domain_expiry_warn_days", 30),

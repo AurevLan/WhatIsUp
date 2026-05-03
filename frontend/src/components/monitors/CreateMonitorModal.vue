@@ -230,6 +230,42 @@
             <label for="ssl" class="text-sm text-gray-300">Monitor SSL certificate</label>
           </div>
 
+          <!-- Custom request headers accordion -->
+          <div class="border border-gray-700 rounded-lg overflow-hidden">
+            <button
+              type="button"
+              @click="showCustomHeaders = !showCustomHeaders"
+              class="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-800/50 transition-colors"
+            >
+              <span>{{ t('monitors.customHeaders.title') }}</span>
+              <span class="text-xs transition-transform" :class="showCustomHeaders ? 'rotate-180' : ''">▼</span>
+            </button>
+            <div v-if="showCustomHeaders" class="px-4 pb-4 pt-2 space-y-3 border-t border-gray-700 bg-gray-800/20">
+              <p class="text-xs text-gray-500">{{ t('monitors.customHeaders.desc') }}</p>
+              <div class="flex items-center gap-2">
+                <label class="text-xs text-gray-400 shrink-0">{{ t('monitors.customHeaders.presets.label') }}</label>
+                <select v-model="selectedUaPreset" @change="onUaPresetChange" class="input text-xs flex-1">
+                  <option value="">{{ t('monitors.customHeaders.presets.choose') }}</option>
+                  <option v-for="p in UA_PRESETS" :key="p.id" :value="p.id">{{ t(p.labelKey) }}</option>
+                </select>
+              </div>
+              <div v-if="form.custom_headers_list.length" class="space-y-2">
+                <div v-for="(h, idx) in form.custom_headers_list" :key="idx" class="flex gap-2 items-center">
+                  <input v-model="h.key" class="input flex-1 font-mono text-xs" :placeholder="t('monitors.customHeaders.namePlaceholder')" maxlength="100" />
+                  <input v-model="h.value" class="input flex-1 font-mono text-xs" :placeholder="t('monitors.customHeaders.valuePlaceholder')" maxlength="500" />
+                  <button type="button" @click="removeCustomHeader(idx)" class="text-red-400 hover:text-red-300 text-xs px-1 shrink-0">✕</button>
+                </div>
+              </div>
+              <p v-else class="text-xs text-gray-600">{{ t('monitors.customHeaders.empty') }}</p>
+              <button
+                type="button"
+                @click="addCustomHeader"
+                class="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                :disabled="form.custom_headers_list.length >= 20"
+              >+ {{ t('monitors.customHeaders.add') }}</button>
+            </div>
+          </div>
+
           <!-- Advanced assertions accordion -->
           <div class="border border-gray-700 rounded-lg overflow-hidden">
             <button
@@ -399,6 +435,7 @@ import { useMonitorStore } from '../../stores/monitors'
 import api from '../../api/client'
 import ScenarioBuilder from './ScenarioBuilder.vue'
 import BaseModal from '../BaseModal.vue'
+import { UA_PRESETS, applyUaPreset } from '../../lib/uaPresets'
 
 const { t } = useI18n()
 
@@ -411,6 +448,7 @@ const monitorStore = useMonitorStore()
 
 const showAdvanced = ref(false)
 const showFlapping = ref(false)
+const showCustomHeaders = ref(false)
 
 const checkTypes = [
   {
@@ -562,6 +600,7 @@ const form = ref({
   // Advanced assertions
   body_regex: '',
   expected_headers_list: [],  // [{key, value}]
+  custom_headers_list: [],    // [{key, value}] — request headers (UA override, auth)
   json_schema_text: '',
   // Flapping
   flap_threshold: 5,
@@ -584,6 +623,10 @@ onMounted(() => {
     if (data.expected_headers && typeof data.expected_headers === 'object') {
       data.expected_headers_list = Object.entries(data.expected_headers).map(([key, value]) => ({ key, value }))
       delete data.expected_headers
+    }
+    if (data.custom_headers && typeof data.custom_headers === 'object') {
+      data.custom_headers_list = Object.entries(data.custom_headers).map(([key, value]) => ({ key, value }))
+      delete data.custom_headers
     }
     // Convert json_schema object to text format used by the form
     if (data.json_schema) {
@@ -619,6 +662,25 @@ function addExpectedHeader() {
 
 function removeExpectedHeader(idx) {
   form.value.expected_headers_list.splice(idx, 1)
+}
+
+function addCustomHeader() {
+  if (form.value.custom_headers_list.length >= 20) return
+  form.value.custom_headers_list.push({ key: '', value: '' })
+}
+
+function removeCustomHeader(idx) {
+  form.value.custom_headers_list.splice(idx, 1)
+}
+
+const selectedUaPreset = ref('')
+function onUaPresetChange() {
+  const preset = UA_PRESETS.find(p => p.id === selectedUaPreset.value)
+  if (!preset) return
+  const next = applyUaPreset(form.value.custom_headers_list, preset.value)
+  if (next.length > 20) return
+  form.value.custom_headers_list = next
+  selectedUaPreset.value = ''
 }
 
 function buildPayload() {
@@ -722,6 +784,10 @@ function buildPayload() {
         jsonSchemaError.value = 'JSON Schema invalide : ' + e.message
         throw new Error('JSON Schema invalide')
       }
+    }
+    const validCustom = form.value.custom_headers_list.filter(h => h.key.trim() && h.value.trim())
+    if (validCustom.length) {
+      p.custom_headers = Object.fromEntries(validCustom.map(h => [h.key.trim(), h.value]))
     }
   }
 

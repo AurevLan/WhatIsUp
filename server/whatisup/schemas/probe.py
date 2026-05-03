@@ -178,6 +178,8 @@ class ProbeMonitorConfig(BaseModel):
     body_regex: str | None = None
     expected_headers: dict[str, str] | None = None
     json_schema: dict | None = None
+    # Custom request headers (UA override, auth tokens, etc.)
+    custom_headers: dict[str, str] | None = None
     # Schema drift detection
     schema_drift_enabled: bool = False
     # SMTP checks

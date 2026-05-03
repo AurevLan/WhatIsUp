@@ -283,6 +283,10 @@ class Monitor(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     expected_headers: Mapped[dict | None] = mapped_column(_JSON, nullable=True)
     json_schema: Mapped[dict | None] = mapped_column(_JSON, nullable=True)
 
+    # Custom request headers sent by the probe on each HTTP/keyword/json_path check.
+    # Used to bypass UA-based bot filters (Cloudflare etc.) or to inject auth tokens.
+    custom_headers: Mapped[dict | None] = mapped_column(_JSON, nullable=True)
+
     # API schema drift detection
     schema_drift_enabled: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False, server_default="false"

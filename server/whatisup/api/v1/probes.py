@@ -267,6 +267,7 @@ async def heartbeat(
             smtp_starttls=m.smtp_starttls,
             udp_port=m.udp_port,
             domain_expiry_warn_days=m.domain_expiry_warn_days,
+            custom_headers=m.custom_headers,
         )
         for m in monitors
     ]

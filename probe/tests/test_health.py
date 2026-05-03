@@ -89,7 +89,7 @@ async def test_reporter_heartbeat_sends_health_in_body() -> None:
     result = await reporter.heartbeat(health)
     await reporter.aclose()
 
-    assert result == []
+    assert result == {"monitors": []}
     assert route.called
     body = json.loads(route.calls[0].request.content)
     assert body["health"]["cpu_percent"] == 33.0
@@ -111,8 +111,8 @@ async def test_reporter_heartbeat_returns_monitors() -> None:
     await reporter.aclose()
 
     assert result is not None
-    assert len(result) == 1
-    assert result[0]["id"] == "mon-1"
+    assert len(result["monitors"]) == 1
+    assert result["monitors"][0]["id"] == "mon-1"
 
 
 @pytest.mark.asyncio

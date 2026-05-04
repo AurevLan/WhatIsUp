@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.9.0](https://github.com/AurevLan/WhatIsUp/compare/v1.8.0...v1.9.0) (2026-05-04)
+
+
+### Added
+
+* **probes:** V2-02-03/04/05/08 — TLS audit + grade A-F, DNS consistency, BGP looking-glass, TLS fleet dashboard ([9cf2315](https://github.com/AurevLan/WhatIsUp/commit/9cf2315c9e5794c6f7f2e71a9fc829512c0755d0))
+
 ## [1.8.0](https://github.com/AurevLan/WhatIsUp/compare/v1.7.0...v1.8.0) (2026-05-03)
 
 

@@ -82,6 +82,11 @@ class CheckResult(Base):
     # API schema fingerprint (JSON structure hash sent by probe)
     schema_fingerprint: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # V2-02-03 — TLS chain audit (version, cipher, SAN, SCT, grade A-F)
+    tls_audit: Mapped[dict | None] = mapped_column(_JSON, nullable=True)
+    # V2-02-04 — DNS authoritative consistency (per-NS responses + drift flag)
+    dns_consistency: Mapped[dict | None] = mapped_column(_JSON, nullable=True)
+
     # Relationships
     monitor: Mapped[Monitor] = relationship("Monitor", back_populates="check_results")
     probe: Mapped[Probe] = relationship("Probe", back_populates="check_results")

@@ -78,6 +78,10 @@ class ProbeCheckResultIn(BaseModel):
     download_ms: int | None = Field(default=None, ge=0)
     # API schema fingerprint
     schema_fingerprint: str | None = Field(default=None, max_length=64)
+    # V2-02-03 — TLS chain audit (probe-collected, free-form JSONB on server)
+    tls_audit: dict | None = None
+    # V2-02-04 — DNS authoritative consistency snapshot
+    dns_consistency: dict | None = None
 
 
 class ProbeHealthPayload(BaseModel):

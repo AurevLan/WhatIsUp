@@ -366,6 +366,8 @@ async def push_result(
         ttfb_ms=payload.ttfb_ms,
         download_ms=payload.download_ms,
         schema_fingerprint=payload.schema_fingerprint,
+        tls_audit=payload.tls_audit,
+        dns_consistency=payload.dns_consistency,
     )
     db.add(result)
     probe.last_seen_at = datetime.now(UTC)

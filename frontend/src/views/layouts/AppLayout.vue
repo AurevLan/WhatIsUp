@@ -37,6 +37,7 @@
         <NavLink to="/silences"        :icon="BellOff"       :label="t('nav.silences')" />
         <NavLink to="/incidents"       :icon="Clock"         :label="t('nav.incidents')" :badge="openIncidentCount" />
         <NavLink to="/templates"       :icon="Copy"          :label="t('nav.templates')" />
+        <NavLink to="/tls-fleet"       :icon="ShieldCheck"   :label="t('nav.tls_fleet')" />
 
         <div class="nav-section">{{ t('nav.account') }}</div>
         <NavLink to="/api-keys" :icon="KeyRound"      :label="t('nav.apiKeys')" />

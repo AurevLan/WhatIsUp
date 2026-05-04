@@ -271,6 +271,7 @@ def create_app() -> FastAPI:
         api_keys,
         audit,
         auth,
+        bgp,
         config,
         extension,
         groups,
@@ -289,6 +290,7 @@ def create_app() -> FastAPI:
         tags,
         teams,
         templates,
+        tls_fleet,
         web_push,
         ws,
     )
@@ -317,6 +319,8 @@ def create_app() -> FastAPI:
     app.include_router(teams.router, prefix="/api/v1")
     app.include_router(templates.router, prefix="/api/v1")
     app.include_router(web_push.router, prefix="/api/v1")
+    app.include_router(tls_fleet.router, prefix="/api/v1")
+    app.include_router(bgp.router, prefix="/api/v1")
     from whatisup.api.v1 import devices
 
     app.include_router(devices.router, prefix="/api/v1")

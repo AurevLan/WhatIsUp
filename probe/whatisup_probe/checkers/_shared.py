@@ -130,6 +130,157 @@ async def validate_url_ssrf(url: str) -> str | None:
 # ── SSL info extraction ──────────────────────────────────────────────────────
 
 
+def _hostname_matches_san(hostname: str, san_list: list[str]) -> bool:
+    """RFC 6125 wildcard-aware match: '*.example.com' matches 'a.example.com'
+    but not 'a.b.example.com' nor 'example.com'."""
+    hl = hostname.lower()
+    for entry in san_list:
+        e = entry.lower()
+        if e == hl:
+            return True
+        if e.startswith("*."):
+            suffix = e[1:]  # ".example.com"
+            if hl.endswith(suffix) and "." not in hl[: -len(suffix)]:
+                return True
+    return False
+
+
+def _grade_tls(audit: dict) -> str:
+    """Compute SSLLabs-inspired A+/A/B/C/D/E/F grade from a TLS audit dict."""
+    if audit.get("is_self_signed") or not audit.get("san_match", True):
+        return "F"
+    version = audit.get("tls_version") or ""
+    if version not in ("TLSv1.2", "TLSv1.3"):
+        return "E"
+    aead = bool(audit.get("cipher_aead"))
+    if version == "TLSv1.2" and not aead:
+        return "D"
+    sct = bool(audit.get("sct_present"))
+    days = audit.get("days_remaining")
+    if not sct or (days is not None and days < 14):
+        return "C"
+    if version == "TLSv1.2":
+        return "B"
+    # TLS 1.3 + AEAD + SAN + SCT + sane expiry
+    key_size = audit.get("key_size_bits") or 0
+    key_type = (audit.get("key_type") or "").lower()
+    big_key = (key_type == "rsa" and key_size >= 4096) or (
+        key_type in ("ec", "ecdsa") and key_size >= 384
+    )
+    if big_key and (days is not None and days > 90):
+        return "A+"
+    return "A"
+
+
+def _extract_tls_audit_sync(url: str) -> dict | None:
+    """V2-02-03 — Collect a TLS audit (version, cipher, SAN, SCT, grade) for an HTTPS URL.
+
+    Returns a dict suitable for persistence in CheckResult.tls_audit, or None
+    if the connection failed. We deliberately do NOT raise so a failed audit
+    never breaks the surrounding HTTP check.
+    """
+    try:
+        from cryptography import x509
+        from cryptography.hazmat.primitives.asymmetric import ec, rsa
+    except Exception:
+        return None
+
+    try:
+        parsed = urlparse(url)
+        hostname = parsed.hostname or ""
+        port = parsed.port or 443
+
+        ctx = ssl.create_default_context()
+        ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+        # Don't fail on validation errors — we want to AUDIT what's served, even
+        # if the cert isn't trusted. The grade reflects that.
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+
+        with ctx.wrap_socket(
+            socket.create_connection((hostname, port), timeout=5),
+            server_hostname=hostname,
+        ) as ssock:
+            tls_version = ssock.version()
+            cipher = ssock.cipher()  # (name, version, bits)
+            der = ssock.getpeercert(binary_form=True)
+
+        if not der:
+            return None
+
+        cert = x509.load_der_x509_certificate(der)
+        pubkey = cert.public_key()
+
+        # SAN extraction
+        san_list: list[str] = []
+        try:
+            san_ext = cert.extensions.get_extension_for_class(x509.SubjectAlternativeName)
+            san_list = san_ext.value.get_values_for_type(x509.DNSName)
+        except x509.ExtensionNotFound:
+            pass
+
+        # SCT (Signed Certificate Timestamp) extension OID — proof of CT log inclusion
+        sct_present = False
+        try:
+            cert.extensions.get_extension_for_oid(
+                x509.ObjectIdentifier("1.3.6.1.4.1.11129.2.4.2")
+            )
+            sct_present = True
+        except x509.ExtensionNotFound:
+            pass
+
+        # Key info
+        key_type = "unknown"
+        key_size_bits = None
+        if isinstance(pubkey, rsa.RSAPublicKey):
+            key_type = "rsa"
+            key_size_bits = pubkey.key_size
+        elif isinstance(pubkey, ec.EllipticCurvePublicKey):
+            key_type = "ec"
+            key_size_bits = pubkey.curve.key_size
+
+        # Validity (UTC)
+        try:
+            not_after = cert.not_valid_after_utc
+        except AttributeError:  # cryptography < 42 fallback
+            not_after = cert.not_valid_after.replace(tzinfo=UTC)
+        days_remaining = (not_after - datetime.now(UTC)).days
+
+        cipher_name = cipher[0] if cipher else ""
+        cipher_aead = any(tag in cipher_name for tag in ("GCM", "CHACHA", "POLY1305", "CCM"))
+
+        audit = {
+            "tls_version": tls_version,
+            "cipher_name": cipher_name,
+            "cipher_aead": cipher_aead,
+            "san_list": san_list[:20],  # cap to avoid bloat
+            "san_match": _hostname_matches_san(hostname, san_list),
+            "sct_present": sct_present,
+            "key_type": key_type,
+            "key_size_bits": key_size_bits,
+            "is_self_signed": cert.subject == cert.issuer,
+            "signature_algorithm": cert.signature_algorithm_oid._name,
+            "expires_at": not_after.isoformat(),
+            "days_remaining": days_remaining,
+        }
+        audit["grade"] = _grade_tls(audit)
+        return audit
+    except Exception:
+        return None
+
+
+async def extract_tls_audit(url: str) -> dict | None:
+    """Async wrapper around _extract_tls_audit_sync — runs in executor with timeout."""
+    loop = asyncio.get_running_loop()
+    try:
+        return await asyncio.wait_for(
+            loop.run_in_executor(None, _extract_tls_audit_sync, url),
+            timeout=10.0,
+        )
+    except Exception:
+        return None
+
+
 def _extract_ssl_info_sync(
     url: str,
 ) -> tuple[bool, datetime | None, int | None, str | None]:

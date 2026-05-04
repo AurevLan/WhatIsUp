@@ -57,6 +57,7 @@ class AlertCondition(enum.StrEnum):
     response_time_above_baseline = "response_time_above_baseline"  # > N× rolling 7-day avg
     anomaly_detection = "anomaly_detection"  # Z-score based anomaly on response time
     schema_drift = "schema_drift"  # JSON API structure changed vs baseline
+    tls_grade_below = "tls_grade_below"  # V2-02-03 — TLS grade < threshold
 
 
 class AlertEventStatus(enum.StrEnum):

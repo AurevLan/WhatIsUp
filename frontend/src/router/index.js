@@ -80,6 +80,11 @@ const routes = [
         component: () => import('../views/AuditView.vue'),
       },
       {
+        path: 'tls-fleet',
+        name: 'TlsFleet',
+        component: () => import('../views/TlsFleetView.vue'),
+      },
+      {
         path: 'incident-groups',
         redirect: '/incidents',
       },

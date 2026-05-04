@@ -26,6 +26,8 @@ class CheckResultOut(BaseModel):
     error_message: str | None
     scenario_result: dict | None = None
     dns_resolved_values: list[str] | None = None
+    tls_audit: dict | None = None
+    dns_consistency: dict | None = None
 
     model_config = {"from_attributes": True}
 

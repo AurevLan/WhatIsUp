@@ -17,6 +17,7 @@ from ._shared import (
     _cached_getaddrinfo,
     compute_schema_fingerprint,
     extract_ssl_info,
+    extract_tls_audit,
     get_http_client,
     validate_url_ssrf,
 )
@@ -318,6 +319,12 @@ class HTTPChecker(BaseChecker):
                 except Exception:
                     pass
 
+            # V2-02-03 — TLS audit (parallel to ssl_check, more thorough).
+            # Only collected on HTTPS — null otherwise. Failure is non-fatal.
+            tls_audit: dict | None = None
+            if ssl_check_enabled and url.startswith("https://"):
+                tls_audit = await extract_tls_audit(final_url or url)
+
             return CheckResult(
                 monitor_id=monitor_id,
                 checked_at=checked_at,
@@ -334,6 +341,7 @@ class HTTPChecker(BaseChecker):
                 ttfb_ms=ttfb_ms,
                 download_ms=download_ms,
                 schema_fingerprint=schema_fingerprint,
+                tls_audit=tls_audit,
             )
 
         except httpx.TimeoutException:

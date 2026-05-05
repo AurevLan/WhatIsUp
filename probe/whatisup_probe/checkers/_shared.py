@@ -173,7 +173,7 @@ def _grade_tls(audit: dict) -> str:
 
 
 def _extract_tls_audit_sync(url: str) -> dict | None:
-    """V2-02-03 — Collect a TLS audit (version, cipher, SAN, SCT, grade) for an HTTPS URL.
+    """Collect a TLS audit (version, cipher, SAN, SCT, grade) for an HTTPS URL.
 
     Returns a dict suitable for persistence in CheckResult.tls_audit, or None
     if the connection failed. We deliberately do NOT raise so a failed audit

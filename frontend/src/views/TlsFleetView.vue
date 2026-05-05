@@ -94,24 +94,24 @@ function daysClass(d) {
   return 'text-gray-300'
 }
 
+function buildParams() {
+  const params = {}
+  if (filters.grade_below) params.grade_below = filters.grade_below
+  if (filters.expires_within_days) params.expires_within_days = filters.expires_within_days
+  if (filters.san_mismatch) params.san_mismatch = true
+  return params
+}
+
 async function reload() {
   loading.value = true
   try {
-    const params = {}
-    if (filters.grade_below) params.grade_below = filters.grade_below
-    if (filters.expires_within_days) params.expires_within_days = filters.expires_within_days
-    if (filters.san_mismatch) params.san_mismatch = true
-    const { data } = await tlsFleetApi.list(params)
+    const { data } = await tlsFleetApi.list(buildParams())
     items.value = data.items || []
   } finally { loading.value = false }
 }
 
 async function exportCsv() {
-  const params = {}
-  if (filters.grade_below) params.grade_below = filters.grade_below
-  if (filters.expires_within_days) params.expires_within_days = filters.expires_within_days
-  if (filters.san_mismatch) params.san_mismatch = true
-  const resp = await tlsFleetApi.exportCsv(params)
+  const resp = await tlsFleetApi.exportCsv(buildParams())
   const blob = new Blob([resp.data], { type: 'text/csv' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')

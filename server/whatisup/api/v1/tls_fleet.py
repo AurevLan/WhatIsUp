@@ -1,4 +1,4 @@
-"""V2-02-08 — TLS fleet dashboard.
+"""TLS fleet dashboard.
 
 Aggregates the most recent ``CheckResult.tls_audit`` per monitor for the
 caller, with grade / expiry filters and CSV export.

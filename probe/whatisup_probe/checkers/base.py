@@ -31,9 +31,7 @@ class CheckResult:
     download_ms: int | None = None
     # API schema fingerprint
     schema_fingerprint: str | None = None
-    # V2-02-03 — TLS chain audit (version, cipher, SAN, SCT, grade)
     tls_audit: dict | None = None
-    # V2-02-04 — DNS authoritative consistency (per-NS responses + drift flag)
     dns_consistency: dict | None = None
 
     def to_dict(self) -> dict[str, Any]:

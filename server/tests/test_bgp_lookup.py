@@ -1,4 +1,4 @@
-"""V2-02-05 — BGP looking-glass parser + cache + verdict gate (unit-level)."""
+"""BGP looking-glass parser + cache + verdict gate (unit-level)."""
 
 from __future__ import annotations
 

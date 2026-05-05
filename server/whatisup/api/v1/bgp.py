@@ -1,4 +1,4 @@
-"""V2-02-05 — BGP looking-glass via RIPEstat data API.
+"""BGP looking-glass via RIPEstat data API.
 
 Returns AS-paths observed from multiple RIPE NCC RRC vantage points for the
 target IP of an incident. Cached 60 s in Redis to keep the upstream load low.
@@ -6,6 +6,7 @@ target IP of an incident. Cached 60 s in Redis to keep the upstream load low.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import socket
 import uuid
@@ -31,10 +32,13 @@ _RIPESTAT_URL = "https://stat.ripe.net/data/looking-glass/data.json"
 _VALID_VERDICTS = {"network_partition_asn", "network_partition_geo"}
 
 
-def _resolve_ip(host: str) -> str | None:
-    """Best-effort hostname → IP resolution (sync, in-process; caller is async route)."""
+async def _resolve_ip(host: str) -> str | None:
     try:
-        return socket.gethostbyname(host)
+        loop = asyncio.get_running_loop()
+        return await asyncio.wait_for(
+            loop.run_in_executor(None, socket.gethostbyname, host),
+            timeout=3.0,
+        )
     except Exception:
         return None
 
@@ -92,7 +96,7 @@ async def get_bgp_paths(
         )
 
     host = urlparse(url).hostname or url
-    target_ip = _resolve_ip(host)
+    target_ip = await _resolve_ip(host)
     if not target_ip:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,

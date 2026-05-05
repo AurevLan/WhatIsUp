@@ -91,9 +91,7 @@ class DNSChecker(BaseChecker):
                     ),
                 )
 
-            # V2-02-04 — DNS authoritative consistency.
-            # Best-effort: query each authoritative NS for the same record and
-            # compare. Failure is non-fatal — main check stays "up".
+            # Best-effort authoritative-NS consistency check; never flips status.
             consistency = await _collect_dns_consistency(host, record_type, timeout_seconds)
 
             return CheckResult(
@@ -133,7 +131,7 @@ class DNSChecker(BaseChecker):
 async def _collect_dns_consistency(
     host: str, record_type: str, timeout_seconds: int
 ) -> dict | None:
-    """V2-02-04 — Query each authoritative NS for the same record and compare.
+    """Query each authoritative NS for the same record and compare.
 
     Returns a dict with keys ``ns_count``, ``consistent``, ``drift``, and
     ``ns_responses`` (per-NS ``{ns, ip?, values?, ttl?, error?}``), or
@@ -143,8 +141,7 @@ async def _collect_dns_consistency(
     import dns.resolver  # type: ignore[import]
 
     try:
-        # Resolve apex domain (drop subdomain) to find authoritative NS.
-        # For a host like "api.example.com", we query NS for "example.com".
+        # Apex = strip subdomain so "api.example.com" → NS for "example.com".
         labels = host.split(".")
         apex = ".".join(labels[-2:]) if len(labels) >= 2 else host
 
@@ -166,9 +163,7 @@ async def _collect_dns_consistency(
         if not ns_hostnames:
             return None
 
-        # Resolve each NS hostname to an IP, then query the record directly against it.
-        ns_responses: list[dict] = []
-        for ns_host in ns_hostnames[:8]:  # cap to avoid latency on huge NS sets
+        async def _query_one(ns_host: str) -> dict:
             try:
                 ns_ip_ans = await asyncio.wait_for(
                     loop.run_in_executor(None, resolver.resolve, ns_host, "A"),
@@ -176,8 +171,7 @@ async def _collect_dns_consistency(
                 )
                 ns_ip = str(ns_ip_ans[0])
             except Exception:
-                ns_responses.append({"ns": ns_host, "error": "ns_unresolvable"})
-                continue
+                return {"ns": ns_host, "error": "ns_unresolvable"}
 
             per_resolver = dns.resolver.Resolver(configure=False)
             per_resolver.nameservers = [ns_ip]
@@ -190,15 +184,16 @@ async def _collect_dns_consistency(
                 )
                 ttl = getattr(ans.rrset, "ttl", None) if ans.rrset else None
                 values = sorted(str(r) for r in ans)
-                ns_responses.append(
-                    {"ns": ns_host, "ip": ns_ip, "values": values, "ttl": ttl}
-                )
+                return {"ns": ns_host, "ip": ns_ip, "values": values, "ttl": ttl}
             except dns.resolver.NXDOMAIN:
-                ns_responses.append({"ns": ns_host, "ip": ns_ip, "error": "NXDOMAIN"})
+                return {"ns": ns_host, "ip": ns_ip, "error": "NXDOMAIN"}
             except Exception as exc:
-                ns_responses.append(
-                    {"ns": ns_host, "ip": ns_ip, "error": type(exc).__name__}
-                )
+                return {"ns": ns_host, "ip": ns_ip, "error": type(exc).__name__}
+
+        # Cap at 8 to bound latency on huge NS sets, then fan out concurrently.
+        ns_responses = list(
+            await asyncio.gather(*(_query_one(ns) for ns in ns_hostnames[:8]))
+        )
 
         # Compute drift: any divergent value sets across the responding NSes.
         value_sets = {tuple(r["values"]) for r in ns_responses if "values" in r}

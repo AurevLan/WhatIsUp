@@ -277,16 +277,20 @@ class HTTPChecker(BaseChecker):
                     status = "down"
                     error_message = f"json_schema_error: {exc}"
 
-            # SSL check
+            # SSL check + TLS audit run concurrently — both open a handshake
+            # to the same host, so gather halves the wall-clock cost.
             ssl_valid = ssl_expires_at = ssl_days_remaining = None
+            tls_audit: dict | None = None
             if ssl_check_enabled and url.startswith("https://"):
-                ssl_info = await extract_ssl_info(final_url or url)
+                target = final_url or url
+                ssl_info, tls_audit = await asyncio.gather(
+                    extract_ssl_info(target),
+                    extract_tls_audit(target),
+                )
                 ssl_valid, ssl_expires_at, ssl_days_remaining, leaf_sha256 = ssl_info
 
-                # T2-05: pinning — refuse the cert if its SHA-256 doesn't match
-                # the configured pin. We do this even when ssl_valid was True
-                # (chain trusted) because pinning catches a valid-but-rotated
-                # cert that the operator hasn't approved yet.
+                # T2-05: pinning catches a valid-but-rotated cert the operator
+                # hasn't approved yet, so we apply it even when chain is trusted.
                 if ssl_pin_sha256 and leaf_sha256 and leaf_sha256 != ssl_pin_sha256:
                     if status == "up":
                         status = "down"
@@ -296,8 +300,7 @@ class HTTPChecker(BaseChecker):
                         )
                     ssl_valid = False
 
-                # T2-05: stricter chain expiry threshold than the user-facing
-                # warning (ssl_expiry_warn_days only tints the UI).
+                # T2-05: stricter than ssl_expiry_warn_days (which only tints UI).
                 if (
                     ssl_min_chain_days is not None
                     and ssl_days_remaining is not None
@@ -318,12 +321,6 @@ class HTTPChecker(BaseChecker):
                     schema_fingerprint = compute_schema_fingerprint(data)
                 except Exception:
                     pass
-
-            # V2-02-03 — TLS audit (parallel to ssl_check, more thorough).
-            # Only collected on HTTPS — null otherwise. Failure is non-fatal.
-            tls_audit: dict | None = None
-            if ssl_check_enabled and url.startswith("https://"):
-                tls_audit = await extract_tls_audit(final_url or url)
 
             return CheckResult(
                 monitor_id=monitor_id,

@@ -386,10 +386,21 @@ async def push_result(
     async def _process():
         from whatisup.core.database import get_session_factory
         from whatisup.models.result import CheckResult as CR
+        from whatisup.services import health as health_service
 
         async with get_session_factory()() as bg_db:
             bg_result = (await bg_db.execute(select(CR).where(CR.id == result_id))).scalar_one()
             await process_check_result(bg_db, bg_result, manager.broadcast)
+            try:
+                await health_service.ingest(bg_db, bg_result)
+            except Exception as exc:
+                # Health-engine ingest must never break the legacy pipeline —
+                # M1 ships in shadow mode (no SLO eval yet), so log and move on.
+                logger.warning(
+                    "health_ingest_failed",
+                    monitor_id=str(bg_result.monitor_id),
+                    error=str(exc),
+                )
             await bg_db.commit()
 
     background_tasks.add_task(_process)

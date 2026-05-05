@@ -839,6 +839,48 @@ async def get_history(
     return await compute_daily_history(db, monitor_id, days)
 
 
+@router.get("/{monitor_id}/health-state")
+async def get_health_state(
+    monitor_id: uuid.UUID,
+    current_user: User = Depends(require_superadmin),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Global Health Engine debug view — superadmin only.
+
+    Returns the rolling MonitorHealthState (probes_state, p50/p95/p99 5m,
+    quorum_down_ratio, current_scope) maintained by ``services/health.py``.
+    Intended for ops/debug while M1-M5 ship; will be exposed to monitor
+    owners once the engine is stabilized.
+    """
+    from whatisup.models.monitor_health import MonitorHealthState
+
+    state = (
+        await db.execute(
+            select(MonitorHealthState).where(MonitorHealthState.monitor_id == monitor_id)
+        )
+    ).scalar_one_or_none()
+    if state is None:
+        return {
+            "monitor_id": str(monitor_id),
+            "exists": False,
+            "probes_state": {},
+            "sample_count_5m": 0,
+        }
+    return {
+        "monitor_id": str(monitor_id),
+        "exists": True,
+        "updated_at": state.updated_at.isoformat() if state.updated_at else None,
+        "probes_state": state.probes_state,
+        "p50_5m": state.p50_5m,
+        "p95_5m": state.p95_5m,
+        "p99_5m": state.p99_5m,
+        "sample_count_5m": state.sample_count_5m,
+        "quorum_down_ratio": state.quorum_down_ratio,
+        "current_scope": state.current_scope,
+        "probe_health": state.probe_health,
+    }
+
+
 @router.get("/{monitor_id}/percentiles")
 @limiter.limit("60/minute")
 async def get_percentiles(

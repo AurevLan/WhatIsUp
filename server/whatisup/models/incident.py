@@ -108,6 +108,17 @@ class Incident(Base):
         DateTime(timezone=True), nullable=True
     )
 
+    # Global Health Engine — null on incidents created by the legacy pipeline.
+    slo_rule_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("slo_rules.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    trigger_kind: Mapped[str] = mapped_column(
+        String(30), nullable=False, default="legacy", server_default="legacy"
+    )
+
     # Relationships
     monitor: Mapped[Monitor] = relationship("Monitor", back_populates="incidents")
     alert_events: Mapped[list[AlertEvent]] = relationship(

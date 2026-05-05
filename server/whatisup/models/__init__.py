@@ -26,6 +26,7 @@ from whatisup.models.monitor import (
     MonitorGroup,
     PublicPage,
 )
+from whatisup.models.monitor_health import MonitorHealthState, SLORule, SLORuleType
 from whatisup.models.monitor_template import MonitorTemplate
 from whatisup.models.probe import Probe
 from whatisup.models.probe_group import ProbeGroup, probe_group_members, user_probe_group_access
@@ -79,6 +80,9 @@ __all__ = [
     "UserApiKey",
     "IncidentUpdate",
     "IncidentUpdateStatus",
+    "MonitorHealthState",
+    "SLORule",
+    "SLORuleType",
     "MonitorTemplate",
     "Team",
     "TeamMembership",

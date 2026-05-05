@@ -55,6 +55,7 @@ class NetworkScope(enum.StrEnum):
 if TYPE_CHECKING:
     from whatisup.models.alert import AlertRule
     from whatisup.models.incident import Incident
+    from whatisup.models.monitor_health import MonitorHealthState, SLORule
     from whatisup.models.result import CheckResult
     from whatisup.models.tag import Tag
 
@@ -343,6 +344,11 @@ class Monitor(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         DateTime(timezone=True), nullable=True
     )
 
+    # Global Health Engine opt-in (V2). Default False = legacy per-probe pipeline.
+    health_engine_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false", nullable=False
+    )
+
     # Relationships
     tags: Mapped[list[Tag]] = relationship("Tag", secondary=monitor_tags, lazy="selectin")
     group: Mapped[MonitorGroup | None] = relationship("MonitorGroup", back_populates="monitors")
@@ -382,6 +388,15 @@ class Monitor(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         foreign_keys="CompositeMonitorMember.monitor_id",
         back_populates="member",
         cascade="all, delete-orphan",
+    )
+
+    # Global Health Engine
+    health_state: Mapped[MonitorHealthState | None] = relationship(
+        "MonitorHealthState", back_populates="monitor", cascade="all, delete-orphan",
+        uselist=False,
+    )
+    slo_rules: Mapped[list[SLORule]] = relationship(
+        "SLORule", back_populates="monitor", cascade="all, delete-orphan",
     )
 
     __table_args__ = (Index("ix_monitors_enabled_owner", "enabled", "owner_id"),)

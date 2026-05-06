@@ -7,13 +7,13 @@ toggle get flipped.
 Usage (inside the server container or a venv with the package installed):
 
     # Show what would happen, change nothing
-    python -m scripts.migrate_to_health_engine --dry-run
+    python -m whatisup.scripts.migrate_to_health_engine --dry-run
 
     # Apply migration
-    python -m scripts.migrate_to_health_engine
+    python -m whatisup.scripts.migrate_to_health_engine
 
     # Restrict to a single monitor (UUID), useful for staged rollouts
-    python -m scripts.migrate_to_health_engine --monitor-id <uuid>
+    python -m whatisup.scripts.migrate_to_health_engine --monitor-id <uuid>
 
 Default rule created per monitor:
     quorum_down · 60% / 5 min · min 2 probes · cooldown 60s

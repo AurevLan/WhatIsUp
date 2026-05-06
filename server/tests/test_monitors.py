@@ -74,6 +74,34 @@ async def test_update_monitor(client: AsyncClient, user_token: str) -> None:
 
 
 @pytest.mark.asyncio
+async def test_health_engine_toggle_roundtrip(client: AsyncClient, user_token: str) -> None:
+    """V2-M4: ``health_engine_enabled`` is editable via PATCH and surfaces in
+    MonitorOut so the frontend toggle reflects the persisted state."""
+    create = await client.post(
+        "/api/v1/monitors/",
+        json={"name": "Toggle Me", "url": "https://example.com"},
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    monitor_id = create.json()["id"]
+    assert create.json()["health_engine_enabled"] is False
+
+    enabled = await client.patch(
+        f"/api/v1/monitors/{monitor_id}",
+        json={"health_engine_enabled": True},
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert enabled.status_code == 200
+    assert enabled.json()["health_engine_enabled"] is True
+
+    disabled = await client.patch(
+        f"/api/v1/monitors/{monitor_id}",
+        json={"health_engine_enabled": False},
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert disabled.json()["health_engine_enabled"] is False
+
+
+@pytest.mark.asyncio
 async def test_delete_monitor(client: AsyncClient, user_token: str) -> None:
     create = await client.post(
         "/api/v1/monitors/",

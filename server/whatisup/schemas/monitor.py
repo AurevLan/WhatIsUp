@@ -231,6 +231,8 @@ class MonitorUpdate(BaseModel):
     # runbook_markdown is wiped (option B). See api/v1/monitors.py update logic.
     runbook_enabled: bool | None = None
     runbook_markdown: str | None = Field(default=None, max_length=20000)
+    # V2 Global Health Engine — opt-in toggle
+    health_engine_enabled: bool | None = None
 
     @field_validator("custom_headers")
     @classmethod
@@ -304,6 +306,8 @@ class MonitorOut(BaseModel):
     # Runbook
     runbook_enabled: bool = False
     runbook_markdown: str | None = None
+    # V2 Global Health Engine — opt-in toggle
+    health_engine_enabled: bool = False
     # Runtime fields — populated by list_monitors, not stored in the DB row
     last_status: str | None = None
     uptime_24h: float | None = None

@@ -75,6 +75,20 @@ export async function getHealthState(monitorId) {
   return res.data
 }
 
+export async function createSloRule(monitorId, payload) {
+  const res = await api.post(`/monitors/${monitorId}/slo-rules`, payload)
+  return res.data
+}
+
+export async function updateSloRule(monitorId, ruleId, payload) {
+  const res = await api.patch(`/monitors/${monitorId}/slo-rules/${ruleId}`, payload)
+  return res.data
+}
+
+export async function deleteSloRule(monitorId, ruleId) {
+  await api.delete(`/monitors/${monitorId}/slo-rules/${ruleId}`)
+}
+
 export const groupsApi = {
   list: () => api.get('/groups/'),
   get: (id) => api.get(`/groups/${id}`),

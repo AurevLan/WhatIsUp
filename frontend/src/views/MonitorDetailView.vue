@@ -1171,19 +1171,24 @@
       </div>
     </div>
 
-    <!-- V2 Global Health Engine — Quorum & SLO (read-only, M2) -->
-    <div v-if="monitor && (monitor.health_engine_enabled || sloRules.length)" class="card mb-6">
-      <div class="flex items-center justify-between mb-4">
+    <!-- V2 Global Health Engine — Quorum & SLO -->
+    <div v-if="monitor" class="card mb-6">
+      <div class="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <h2 class="text-sm font-semibold text-gray-300">{{ t('monitor_detail.health_engine_title') }}</h2>
-        <span
-          v-if="monitor.health_engine_enabled"
-          class="text-xs font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-        >ENABLED</span>
-        <span
-          v-else
-          class="text-xs font-mono px-2 py-0.5 rounded bg-gray-700 text-gray-400 border border-gray-600"
-        >DISABLED</span>
+        <label class="flex items-center gap-2 cursor-pointer text-xs">
+          <span :class="monitor.health_engine_enabled ? 'text-emerald-400' : 'text-gray-500'">
+            {{ monitor.health_engine_enabled ? t('monitor_detail.health_engine_on') : t('monitor_detail.health_engine_off') }}
+          </span>
+          <input type="checkbox" :checked="monitor.health_engine_enabled" @change="toggleHealthEngine($event.target.checked)"
+            class="w-9 h-5 appearance-none bg-gray-700 rounded-full relative cursor-pointer transition-colors checked:bg-emerald-600
+                   before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:w-4 before:h-4
+                   before:bg-white before:rounded-full before:transition-transform checked:before:translate-x-4" />
+        </label>
       </div>
+
+      <p v-if="!monitor.health_engine_enabled && !sloRules.length" class="text-xs text-gray-500 mb-4">
+        {{ t('monitor_detail.health_engine_disabled_hint') }}
+      </p>
 
       <div v-if="healthState && healthState.exists" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
         <div class="bg-gray-800/40 rounded-lg p-3 text-center">
@@ -1214,7 +1219,12 @@
       </div>
 
       <div>
-        <h3 class="text-xs font-semibold text-gray-400 uppercase mb-2">{{ t('monitor_detail.health_engine_rules') }}</h3>
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-xs font-semibold text-gray-400 uppercase">{{ t('monitor_detail.health_engine_rules') }}</h3>
+          <button @click="openSloEditor()" class="btn-ghost text-xs flex items-center gap-1">
+            <span>+</span> {{ t('monitor_detail.health_engine_add_rule') }}
+          </button>
+        </div>
         <p v-if="!sloRules.length" class="text-gray-500 text-sm py-2">
           {{ t('monitor_detail.health_engine_no_rules') }}
         </p>
@@ -1225,13 +1235,72 @@
               : 'border-gray-600 text-gray-500'">
               {{ rule.rule_type }}
             </span>
-            <span class="text-gray-300">{{ formatRuleSummary(rule) }}</span>
-            <span v-if="rule.cooldown_seconds" class="text-xs text-gray-500 ml-auto">
+            <span class="text-gray-300 flex-1 min-w-0">{{ formatRuleSummary(rule) }}</span>
+            <span v-if="rule.cooldown_seconds" class="text-xs text-gray-500">
               cooldown {{ rule.cooldown_seconds }}s
             </span>
+            <button @click="toggleSloRule(rule)" class="text-xs text-gray-500 hover:text-gray-300">
+              {{ rule.enabled ? t('monitor_detail.health_engine_pause') : t('monitor_detail.health_engine_resume') }}
+            </button>
+            <button @click="openSloEditor(rule)" class="text-xs text-gray-500 hover:text-indigo-300">
+              {{ t('common.edit') }}
+            </button>
+            <button @click="confirmDeleteSloRule(rule)" class="text-xs text-red-500 hover:text-red-400">
+              ✕
+            </button>
           </li>
         </ul>
-        <p class="text-xs text-gray-500 mt-3">{{ t('monitor_detail.health_engine_readonly_hint') }}</p>
+      </div>
+
+      <!-- Editor modal -->
+      <div v-if="sloEditor.open" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+           @click.self="sloEditor.open = false">
+        <div class="card w-full max-w-md">
+          <h3 class="text-sm font-semibold text-gray-300 mb-3">
+            {{ sloEditor.rule ? t('monitor_detail.health_engine_edit_rule') : t('monitor_detail.health_engine_new_rule') }}
+          </h3>
+          <div class="space-y-3 text-sm">
+            <label class="block">
+              <span class="text-xs text-gray-500 mb-1 block">{{ t('monitor_detail.health_engine_rule_type') }}</span>
+              <select v-model="sloEditor.form.rule_type" :disabled="!!sloEditor.rule" class="input w-full text-xs">
+                <option value="quorum_down">quorum_down</option>
+                <option value="quorum_slow">quorum_slow</option>
+              </select>
+            </label>
+            <label v-if="sloEditor.form.rule_type === 'quorum_down'" class="block">
+              <span class="text-xs text-gray-500 mb-1 block">{{ t('monitor_detail.health_engine_quorum_ratio') }} (0–1)</span>
+              <input v-model.number="sloEditor.form.quorum_ratio" type="number" min="0" max="1" step="0.05" class="input w-full text-xs" />
+            </label>
+            <label v-if="sloEditor.form.rule_type === 'quorum_slow'" class="block">
+              <span class="text-xs text-gray-500 mb-1 block">{{ t('monitor_detail.health_engine_p95_threshold') }} (ms)</span>
+              <input v-model.number="sloEditor.form.p95_threshold_ms" type="number" min="1" class="input w-full text-xs" />
+            </label>
+            <div class="grid grid-cols-2 gap-3">
+              <label class="block">
+                <span class="text-xs text-gray-500 mb-1 block">{{ t('monitor_detail.health_engine_window') }} (s)</span>
+                <input v-model.number="sloEditor.form.window_seconds" type="number" min="30" max="86400" class="input w-full text-xs" />
+              </label>
+              <label class="block">
+                <span class="text-xs text-gray-500 mb-1 block">{{ t('monitor_detail.health_engine_min_probes') }}</span>
+                <input v-model.number="sloEditor.form.min_probes" type="number" min="1" class="input w-full text-xs" />
+              </label>
+            </div>
+            <label class="block">
+              <span class="text-xs text-gray-500 mb-1 block">{{ t('monitor_detail.health_engine_cooldown') }} (s)</span>
+              <input v-model.number="sloEditor.form.cooldown_seconds" type="number" min="0" max="86400" class="input w-full text-xs" />
+            </label>
+            <label class="flex items-center gap-2 text-xs text-gray-400">
+              <input v-model="sloEditor.form.enabled" type="checkbox" /> {{ t('monitor_detail.health_engine_rule_enabled') }}
+            </label>
+            <p v-if="sloEditor.error" class="text-xs text-red-400">{{ sloEditor.error }}</p>
+          </div>
+          <div class="flex justify-end gap-2 mt-4">
+            <button @click="sloEditor.open = false" class="btn-ghost text-xs">{{ t('common.cancel') }}</button>
+            <button @click="saveSloRule" :disabled="sloEditor.saving" class="btn-primary text-xs">
+              {{ sloEditor.saving ? '…' : t('common.save') }}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1679,7 +1748,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { Shield, ShieldAlert, ShieldCheck, Copy, CalendarClock } from 'lucide-vue-next'
 import { useToast } from '../composables/useToast'
 import api from '../api/client'
-import { monitorsApi, triggerCheck, getSlaReport, listAnnotations, createAnnotation, deleteAnnotation, getSlo, listSloRules, getHealthState } from '../api/monitors'
+import { monitorsApi, triggerCheck, getSlaReport, listAnnotations, createAnnotation, deleteAnnotation, getSlo, listSloRules, getHealthState, createSloRule, updateSloRule, deleteSloRule } from '../api/monitors'
 import { probesApi } from '../api/probes'
 import { metricsApi } from '../api/metrics'
 import { incidentUpdatesApi } from '../api/incidentUpdates'
@@ -1822,9 +1891,22 @@ async function loadAll() {
   loadHealthEngine(id)
 }
 
-// ── V2 Global Health Engine — read-only panel (M2) ─────────────────────────
+// ── V2 Global Health Engine — toggle + SLO CRUD (M4) ─────────────────────
 const sloRules = ref([])
 const healthState = ref(null)
+const sloEditor = ref({ open: false, rule: null, form: blankSloForm(), saving: false, error: null })
+
+function blankSloForm() {
+  return {
+    rule_type: 'quorum_down',
+    enabled: true,
+    quorum_ratio: 0.6,
+    window_seconds: 300,
+    p95_threshold_ms: 1000,
+    min_probes: 2,
+    cooldown_seconds: 60,
+  }
+}
 
 async function loadHealthEngine(id) {
   try {
@@ -1835,8 +1917,88 @@ async function loadHealthEngine(id) {
   try {
     healthState.value = await getHealthState(id)
   } catch {
-    // 403 for non-superadmin — keep null, panel still shows rules.
     healthState.value = null
+  }
+}
+
+async function toggleHealthEngine(enabled) {
+  try {
+    await monitorsApi.update(monitor.value.id, { health_engine_enabled: enabled })
+    monitor.value.health_engine_enabled = enabled
+    toastSuccess(enabled ? t('monitor_detail.health_engine_enabled_toast') : t('monitor_detail.health_engine_disabled_toast'))
+  } catch (err) {
+    toastError(err?.response?.data?.detail || 'Update failed')
+  }
+}
+
+function openSloEditor(rule = null) {
+  sloEditor.value.open = true
+  sloEditor.value.rule = rule
+  sloEditor.value.error = null
+  if (rule) {
+    sloEditor.value.form = {
+      rule_type: rule.rule_type,
+      enabled: rule.enabled,
+      quorum_ratio: rule.quorum_ratio ?? 0.6,
+      window_seconds: rule.window_seconds ?? 300,
+      p95_threshold_ms: rule.p95_threshold_ms ?? 1000,
+      min_probes: rule.min_probes ?? 2,
+      cooldown_seconds: rule.cooldown_seconds ?? 60,
+    }
+  } else {
+    sloEditor.value.form = blankSloForm()
+  }
+}
+
+async function saveSloRule() {
+  const f = sloEditor.value.form
+  const payload = {
+    enabled: f.enabled,
+    window_seconds: f.window_seconds,
+    min_probes: f.min_probes,
+    cooldown_seconds: f.cooldown_seconds,
+  }
+  if (f.rule_type === 'quorum_down') {
+    payload.quorum_ratio = f.quorum_ratio
+    payload.p95_threshold_ms = null
+  } else if (f.rule_type === 'quorum_slow') {
+    payload.p95_threshold_ms = f.p95_threshold_ms
+    payload.quorum_ratio = null
+  }
+  sloEditor.value.saving = true
+  sloEditor.value.error = null
+  try {
+    if (sloEditor.value.rule) {
+      await updateSloRule(monitor.value.id, sloEditor.value.rule.id, payload)
+    } else {
+      payload.rule_type = f.rule_type
+      await createSloRule(monitor.value.id, payload)
+    }
+    sloEditor.value.open = false
+    await loadHealthEngine(monitor.value.id)
+  } catch (err) {
+    sloEditor.value.error = err?.response?.data?.detail || 'Save failed'
+  } finally {
+    sloEditor.value.saving = false
+  }
+}
+
+async function toggleSloRule(rule) {
+  try {
+    await updateSloRule(monitor.value.id, rule.id, { enabled: !rule.enabled })
+    await loadHealthEngine(monitor.value.id)
+  } catch (err) {
+    toastError(err?.response?.data?.detail || 'Update failed')
+  }
+}
+
+async function confirmDeleteSloRule(rule) {
+  if (!confirm(t('monitor_detail.health_engine_confirm_delete'))) return
+  try {
+    await deleteSloRule(monitor.value.id, rule.id)
+    await loadHealthEngine(monitor.value.id)
+  } catch (err) {
+    toastError(err?.response?.data?.detail || 'Delete failed')
   }
 }
 

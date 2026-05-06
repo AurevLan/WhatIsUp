@@ -331,6 +331,7 @@ export default {
     health_engine_rules: 'Règles actives',
     health_engine_no_rules: 'Aucune règle SLO configurée pour ce monitor.',
     health_engine_readonly_hint: 'Lecture seule en M2 — édition prévue en M4.',
+    fleet_p95: 'p95 fleet',
     slo_target: 'Objectif SLO (%)',
     slo_window: 'Fenêtre (jours)',
     slo_save: 'Enregistrer',

@@ -341,6 +341,7 @@ export default {
     health_engine_rules: 'Active rules',
     health_engine_no_rules: 'No SLO rule configured for this monitor.',
     health_engine_readonly_hint: 'Read-only in M2 — rule editing lands in M4.',
+    fleet_p95: 'Fleet p95',
     slo_target: 'SLO target (%)',
     slo_window: 'Window (days)',
     slo_save: 'Save',

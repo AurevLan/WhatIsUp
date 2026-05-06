@@ -7,13 +7,16 @@ state and recent persisted incidents — no side effects here. The bridge to
 :class:`Incident` lifecycle lives in ``services/incident.py``
 (``open_incident_from_health`` / ``resolve_incident_for_slo``).
 
-Phase scope (M2):
+Phase scope (M2 + M3):
 
 - ``quorum_down`` — open if ≥ quorum_ratio probes are reported down (after
   staleness filter on ``window_seconds``), with at least ``min_probes`` fresh
   samples. Close when the ratio drops back below the threshold.
-- ``quorum_slow`` — stub raising NotImplementedError (M3).
-- ``burn_rate`` — stub raising NotImplementedError (M6).
+- ``quorum_slow`` — open if the fleet ``p95_5m`` exceeds the configured
+  ``p95_threshold_ms``, requiring ≥ ``min_probes`` distinct fresh probes
+  (M3). Recomputed exactly each ingest from raw CheckResults.
+- ``burn_rate`` — stub raising NotImplementedError (M6, requires T-Digest
+  long-window percentiles).
 """
 
 from __future__ import annotations
@@ -99,6 +102,26 @@ def _evaluate_quorum_down(rule: SLORule, state: MonitorHealthState, now: datetim
     return Close(reason=f"below_quorum:{down}/{total}<{ratio:.2f}")
 
 
+def _evaluate_quorum_slow(rule: SLORule, state: MonitorHealthState, now: datetime) -> Decision:
+    threshold = rule.p95_threshold_ms
+    if threshold is None:
+        return Hold(reason="no_threshold_configured")
+    window = rule.window_seconds or 300
+    fresh = _fresh_probes(state, window, now)
+    total = len(fresh)
+    if total < rule.min_probes:
+        return Hold(reason=f"not_enough_probes:{total}<{rule.min_probes}")
+    if state.sample_count_5m == 0 or state.p95_5m is None:
+        return Hold(reason="no_p95_signal")
+    if state.p95_5m > threshold:
+        return Open(
+            reason=f"quorum_slow:p95_5m={state.p95_5m:.0f}>{threshold}ms",
+            scope=IncidentScope.global_,
+            affected_probe_ids=[pid for pid, _ in fresh],
+        )
+    return Close(reason=f"p95_5m={state.p95_5m:.0f}<={threshold}ms")
+
+
 def evaluate_rule(rule: SLORule, state: MonitorHealthState, now: datetime) -> Decision:
     """Single-rule decision dispatcher. Pure — no DB calls."""
     if not rule.enabled:
@@ -106,7 +129,7 @@ def evaluate_rule(rule: SLORule, state: MonitorHealthState, now: datetime) -> De
     if rule.rule_type == SLORuleType.quorum_down:
         return _evaluate_quorum_down(rule, state, now)
     if rule.rule_type == SLORuleType.quorum_slow:
-        raise NotImplementedError("quorum_slow lands in M3")
+        return _evaluate_quorum_slow(rule, state, now)
     if rule.rule_type == SLORuleType.burn_rate:
         raise NotImplementedError("burn_rate lands in M6")
     raise ValueError(f"unknown SLO rule type: {rule.rule_type}")

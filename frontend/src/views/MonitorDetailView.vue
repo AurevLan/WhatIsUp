@@ -828,7 +828,17 @@
                 </span>
                 <span v-else class="text-red-400 font-medium ml-1">{{ t('incidents.ongoing') }}</span>
               </p>
-              <p class="text-xs text-gray-600 mt-0.5 capitalize">{{ selectedIncident.scope }}</p>
+              <p class="text-xs text-gray-600 mt-0.5 flex items-center gap-2 flex-wrap">
+                <span class="capitalize">{{ selectedIncident.scope }}</span>
+                <span v-if="selectedIncident.trigger_kind && selectedIncident.trigger_kind !== 'legacy'"
+                  class="font-mono text-[10px] px-1.5 py-px rounded border border-indigo-500/30 bg-indigo-500/10 text-indigo-300">
+                  {{ selectedIncident.trigger_kind }}
+                </span>
+                <span v-if="selectedIncident.trigger_kind === 'quorum_slow' && healthState && healthState.p95_5m != null"
+                  class="text-amber-400">
+                  {{ t('monitor_detail.fleet_p95') }}: {{ healthState.p95_5m.toFixed(0) }} ms
+                </span>
+              </p>
             </div>
             <button v-if="selectedIncident.resolved_at"
               @click="openPostmortem(selectedIncident)"
@@ -891,7 +901,13 @@
                 </span>
                 <span v-else class="text-red-400 font-medium ml-1">{{ t('incidents.ongoing') }}</span>
               </p>
-              <p class="text-xs text-gray-600 mt-0.5 capitalize">{{ inc.scope }}</p>
+              <p class="text-xs text-gray-600 mt-0.5 flex items-center gap-2 flex-wrap">
+                <span class="capitalize">{{ inc.scope }}</span>
+                <span v-if="inc.trigger_kind && inc.trigger_kind !== 'legacy'"
+                  class="font-mono text-[10px] px-1.5 py-px rounded border border-indigo-500/30 bg-indigo-500/10 text-indigo-300">
+                  {{ inc.trigger_kind }}
+                </span>
+              </p>
             </div>
             <button v-if="inc.resolved_at" @click="openPostmortem(inc)"
               class="btn-ghost text-xs flex-shrink-0 flex items-center gap-1.5">

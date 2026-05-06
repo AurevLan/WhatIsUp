@@ -32,6 +32,11 @@ class IncidentOut(BaseModel):
     # | inconclusive). Recomputed every 5 min while open.
     network_verdict: str | None = None
     network_verdict_computed_at: datetime | None = None
+    # V2 Global Health Engine — populated when the incident was opened by a
+    # SLO rule (``quorum_down`` / ``quorum_slow`` / ``burn_rate``); ``"legacy"``
+    # for incidents emitted by the per-probe decider.
+    trigger_kind: str = "legacy"
+    slo_rule_id: uuid.UUID | None = None
 
     model_config = {"from_attributes": True}
 

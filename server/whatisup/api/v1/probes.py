@@ -76,9 +76,7 @@ async def probe_stats(
     """Return all probes with their 24h uptime percentage — used for dashboard map."""
     since = datetime.now(UTC) - timedelta(hours=24)
 
-    probes = (
-        await db.execute(select(Probe).order_by(Probe.created_at.desc()))
-    ).scalars().all()
+    probes = (await db.execute(select(Probe).order_by(Probe.created_at.desc()))).scalars().all()
 
     # Single aggregation query: up checks / total checks per probe in last 24h
     agg = (
@@ -114,25 +112,27 @@ async def probe_stats(
         total = int(row.total) if row else 0
         up = int(row.up_count) if row else 0
         uptime = round(up / total * 100, 2) if total > 0 else None
-        out.append({
-            "id": probe.id,
-            "name": probe.name,
-            "location_name": probe.location_name,
-            "latitude": probe.latitude,
-            "longitude": probe.longitude,
-            "is_active": probe.is_active,
-            "last_seen_at": probe.last_seen_at,
-            "network_type": probe.network_type,
-            "uptime_24h": uptime,
-            "check_count_24h": total,
-            "health": health_map.get(probe.id),
-            # V2-02-06 + V2-02-07 — surface ASN + outbound IP info to the map.
-            "public_ip": probe.public_ip,
-            "asn": probe.asn,
-            "asn_name": probe.asn_name,
-            "self_reported_ip": probe.self_reported_ip,
-            "self_reported_asn": probe.self_reported_asn,
-        })
+        out.append(
+            {
+                "id": probe.id,
+                "name": probe.name,
+                "location_name": probe.location_name,
+                "latitude": probe.latitude,
+                "longitude": probe.longitude,
+                "is_active": probe.is_active,
+                "last_seen_at": probe.last_seen_at,
+                "network_type": probe.network_type,
+                "uptime_24h": uptime,
+                "check_count_24h": total,
+                "health": health_map.get(probe.id),
+                # V2-02-06 + V2-02-07 — surface ASN + outbound IP info to the map.
+                "public_ip": probe.public_ip,
+                "asn": probe.asn,
+                "asn_name": probe.asn_name,
+                "self_reported_ip": probe.self_reported_ip,
+                "self_reported_asn": probe.self_reported_asn,
+            }
+        )
     return out
 
 
@@ -225,7 +225,9 @@ async def heartbeat(
                     ),
                 )
             )
-        ).scalars().all()
+        )
+        .scalars()
+        .all()
     )
 
     # Check for immediate trigger requests set via the trigger-check endpoint
@@ -260,9 +262,7 @@ async def heartbeat(
             expected_json_value=m.expected_json_value,
             scenario_steps=m.scenario_steps,
             scenario_variables=(
-                decrypt_scenario_variables(m.scenario_variables)
-                if m.scenario_variables
-                else None
+                decrypt_scenario_variables(m.scenario_variables) if m.scenario_variables else None
             ),
             trigger_now=trigger_map.get(str(m.id), False),
             smtp_port=m.smtp_port,
@@ -303,9 +303,7 @@ async def push_diagnostics(
         await db.execute(select(Incident).where(Incident.id == payload.incident_id))
     ).scalar_one_or_none()
     if incident is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Incident not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incident not found")
 
     valid_kinds = set(DIAGNOSTIC_KINDS)
     inserted = 0
@@ -392,10 +390,11 @@ async def push_result(
             bg_result = (await bg_db.execute(select(CR).where(CR.id == result_id))).scalar_one()
             await process_check_result(bg_db, bg_result, manager.broadcast)
             try:
-                await health_service.ingest(bg_db, bg_result)
+                # publish_event passed → ingest evaluates SLO rules and may
+                # drive incidents on monitors with health_engine_enabled=True.
+                # Failure must never break the legacy pipeline.
+                await health_service.ingest(bg_db, bg_result, publish_event=manager.broadcast)
             except Exception as exc:
-                # Health-engine ingest must never break the legacy pipeline —
-                # M1 ships in shadow mode (no SLO eval yet), so log and move on.
                 logger.warning(
                     "health_ingest_failed",
                     monitor_id=str(bg_result.monitor_id),
@@ -503,8 +502,7 @@ async def get_probe_incident_timeline(
 
     # Filter in Python for probe membership (JSON array contains probe_id)
     relevant = [
-        row for row in all_incidents
-        if probe_id_str in (row.Incident.affected_probe_ids or [])
+        row for row in all_incidents if probe_id_str in (row.Incident.affected_probe_ids or [])
     ]
 
     # Group by monitor

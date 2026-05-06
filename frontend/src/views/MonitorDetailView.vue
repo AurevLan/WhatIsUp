@@ -1155,6 +1155,70 @@
       </div>
     </div>
 
+    <!-- V2 Global Health Engine — Quorum & SLO (read-only, M2) -->
+    <div v-if="monitor && (monitor.health_engine_enabled || sloRules.length)" class="card mb-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-sm font-semibold text-gray-300">{{ t('monitor_detail.health_engine_title') }}</h2>
+        <span
+          v-if="monitor.health_engine_enabled"
+          class="text-xs font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+        >ENABLED</span>
+        <span
+          v-else
+          class="text-xs font-mono px-2 py-0.5 rounded bg-gray-700 text-gray-400 border border-gray-600"
+        >DISABLED</span>
+      </div>
+
+      <div v-if="healthState && healthState.exists" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <div class="bg-gray-800/40 rounded-lg p-3 text-center">
+          <p class="text-xs text-gray-500">{{ t('monitor_detail.health_engine_quorum') }}</p>
+          <p class="text-xl font-bold" :class="healthState.quorum_down_ratio > 0 ? 'text-red-400' : 'text-emerald-400'">
+            {{ Math.round((healthState.quorum_down_ratio || 0) * 100) }}%
+          </p>
+          <p class="text-xs text-gray-600">{{ healthState.current_scope || t('monitor_detail.health_engine_all_up') }}</p>
+        </div>
+        <div class="bg-gray-800/40 rounded-lg p-3 text-center">
+          <p class="text-xs text-gray-500">p50 / 5m</p>
+          <p class="text-xl font-bold text-blue-400">
+            {{ healthState.p50_5m != null ? healthState.p50_5m.toFixed(0) + ' ms' : '—' }}
+          </p>
+        </div>
+        <div class="bg-gray-800/40 rounded-lg p-3 text-center">
+          <p class="text-xs text-gray-500">p95 / 5m</p>
+          <p class="text-xl font-bold text-amber-400">
+            {{ healthState.p95_5m != null ? healthState.p95_5m.toFixed(0) + ' ms' : '—' }}
+          </p>
+        </div>
+        <div class="bg-gray-800/40 rounded-lg p-3 text-center">
+          <p class="text-xs text-gray-500">p99 / 5m</p>
+          <p class="text-xl font-bold text-red-400">
+            {{ healthState.p99_5m != null ? healthState.p99_5m.toFixed(0) + ' ms' : '—' }}
+          </p>
+        </div>
+      </div>
+
+      <div>
+        <h3 class="text-xs font-semibold text-gray-400 uppercase mb-2">{{ t('monitor_detail.health_engine_rules') }}</h3>
+        <p v-if="!sloRules.length" class="text-gray-500 text-sm py-2">
+          {{ t('monitor_detail.health_engine_no_rules') }}
+        </p>
+        <ul v-else class="divide-y divide-gray-700/60">
+          <li v-for="rule in sloRules" :key="rule.id" class="py-2 flex items-center gap-3 text-sm">
+            <span class="font-mono text-xs px-2 py-0.5 rounded border" :class="rule.enabled
+              ? 'border-emerald-500/30 text-emerald-300 bg-emerald-500/10'
+              : 'border-gray-600 text-gray-500'">
+              {{ rule.rule_type }}
+            </span>
+            <span class="text-gray-300">{{ formatRuleSummary(rule) }}</span>
+            <span v-if="rule.cooldown_seconds" class="text-xs text-gray-500 ml-auto">
+              cooldown {{ rule.cooldown_seconds }}s
+            </span>
+          </li>
+        </ul>
+        <p class="text-xs text-gray-500 mt-3">{{ t('monitor_detail.health_engine_readonly_hint') }}</p>
+      </div>
+    </div>
+
     <!-- Annotations -->
     <div class="card mb-6">
       <div class="flex items-center justify-between mb-4">
@@ -1599,7 +1663,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { Shield, ShieldAlert, ShieldCheck, Copy, CalendarClock } from 'lucide-vue-next'
 import { useToast } from '../composables/useToast'
 import api from '../api/client'
-import { monitorsApi, triggerCheck, getSlaReport, listAnnotations, createAnnotation, deleteAnnotation, getSlo } from '../api/monitors'
+import { monitorsApi, triggerCheck, getSlaReport, listAnnotations, createAnnotation, deleteAnnotation, getSlo, listSloRules, getHealthState } from '../api/monitors'
 import { probesApi } from '../api/probes'
 import { metricsApi } from '../api/metrics'
 import { incidentUpdatesApi } from '../api/incidentUpdates'
@@ -1739,6 +1803,41 @@ async function loadAll() {
   uptime24.value = up24Resp.data
   uptime7d.value = up7dResp.data
   loadPercentiles()
+  loadHealthEngine(id)
+}
+
+// ── V2 Global Health Engine — read-only panel (M2) ─────────────────────────
+const sloRules = ref([])
+const healthState = ref(null)
+
+async function loadHealthEngine(id) {
+  try {
+    sloRules.value = await listSloRules(id)
+  } catch {
+    sloRules.value = []
+  }
+  try {
+    healthState.value = await getHealthState(id)
+  } catch {
+    // 403 for non-superadmin — keep null, panel still shows rules.
+    healthState.value = null
+  }
+}
+
+function formatRuleSummary(rule) {
+  if (rule.rule_type === 'quorum_down') {
+    const pct = Math.round((rule.quorum_ratio || 0) * 100)
+    const win = Math.round((rule.window_seconds || 0) / 60)
+    return `≥ ${pct}% probes down · ${win} min · min ${rule.min_probes} probes`
+  }
+  if (rule.rule_type === 'quorum_slow') {
+    const win = Math.round((rule.window_seconds || 0) / 60)
+    return `fleet p95 > ${rule.p95_threshold_ms} ms · ${win} min`
+  }
+  if (rule.rule_type === 'burn_rate') {
+    return `burn ≥ ${rule.burn_factor}× · target ${rule.slo_target}`
+  }
+  return rule.rule_type
 }
 
 // ── Incidents & Post-mortem ───────────────────────────────────────────────────

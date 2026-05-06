@@ -65,6 +65,16 @@ export async function getSlo(monitorId) {
   return res.data
 }
 
+export async function listSloRules(monitorId) {
+  const res = await api.get(`/monitors/${monitorId}/slo-rules`)
+  return res.data
+}
+
+export async function getHealthState(monitorId) {
+  const res = await api.get(`/monitors/${monitorId}/health-state`)
+  return res.data
+}
+
 export const groupsApi = {
   list: () => api.get('/groups/'),
   get: (id) => api.get(`/groups/${id}`),

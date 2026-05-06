@@ -42,6 +42,7 @@ from whatisup.schemas.monitor import (
 )
 from whatisup.schemas.probe import ProbeMonitorStatus
 from whatisup.schemas.result import CheckResultOut, UptimeStats
+from whatisup.schemas.slo import SLORuleCreate, SLORuleOut, SLORuleUpdate
 from whatisup.services.stats import compute_uptime, compute_uptime_bulk, compute_uptime_in_range
 
 logger = logging.getLogger(__name__)
@@ -583,12 +584,10 @@ async def bulk_action(
             )
         # Validate that all tags exist (cheap, scoped to provided IDs).
         existing = (
-            await db.execute(select(Tag.id).where(Tag.id.in_(payload.tag_ids)))
-        ).scalars().all()
+            (await db.execute(select(Tag.id).where(Tag.id.in_(payload.tag_ids)))).scalars().all()
+        )
         if len(existing) != len(set(payload.tag_ids)):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown tag id"
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown tag id")
         # Resolve target monitor IDs once, respecting access.
         target_ids = list(
             (await db.execute(select(Monitor.id).where(ownership_clause))).scalars().all()
@@ -602,9 +601,7 @@ async def bulk_action(
             for mid in target_ids:
                 for tid in set(payload.tag_ids):
                     stmt = insert_fn(monitor_tags).values(monitor_id=mid, tag_id=tid)
-                    stmt = stmt.on_conflict_do_nothing(
-                        index_elements=["monitor_id", "tag_id"]
-                    )
+                    stmt = stmt.on_conflict_do_nothing(index_elements=["monitor_id", "tag_id"])
                     await db.execute(stmt)
         else:  # remove_tags
             await db.execute(
@@ -615,9 +612,7 @@ async def bulk_action(
             )
         affected = len(target_ids)
     else:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown bulk action"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown bulk action")
 
     return {"affected": affected}
 
@@ -1770,6 +1765,113 @@ async def remove_composite_member(
     if member is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Member not found")
     await db.delete(member)
+
+
+# ── SLO rules (V2 Global Health Engine) ─────────────────────────────────
+
+
+@router.get("/{monitor_id}/slo-rules", response_model=list[SLORuleOut])
+async def list_slo_rules(
+    monitor_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[SLORuleOut]:
+    from whatisup.models.monitor_health import SLORule
+
+    await _get_monitor_or_404(monitor_id, current_user, db)
+    rules = (
+        (
+            await db.execute(
+                select(SLORule)
+                .where(SLORule.monitor_id == monitor_id)
+                .order_by(SLORule.created_at.asc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return [SLORuleOut.model_validate(r) for r in rules]
+
+
+@router.post(
+    "/{monitor_id}/slo-rules",
+    response_model=SLORuleOut,
+    status_code=status.HTTP_201_CREATED,
+)
+@limiter.limit("30/minute")
+async def create_slo_rule(
+    monitor_id: uuid.UUID,
+    request: Request,
+    payload: SLORuleCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> SLORuleOut:
+    from whatisup.models.monitor_health import SLORule
+
+    await _get_monitor_or_404(monitor_id, current_user, db, min_role=TeamRole.editor)
+    rule = SLORule(
+        monitor_id=monitor_id,
+        rule_type=payload.rule_type,
+        enabled=payload.enabled,
+        quorum_ratio=payload.quorum_ratio,
+        window_seconds=payload.window_seconds,
+        p95_threshold_ms=payload.p95_threshold_ms,
+        slo_target=payload.slo_target,
+        burn_factor=payload.burn_factor,
+        min_probes=payload.min_probes,
+        cooldown_seconds=payload.cooldown_seconds,
+    )
+    db.add(rule)
+    await db.flush()
+    return SLORuleOut.model_validate(rule)
+
+
+@router.patch("/{monitor_id}/slo-rules/{rule_id}", response_model=SLORuleOut)
+@limiter.limit("30/minute")
+async def update_slo_rule(
+    monitor_id: uuid.UUID,
+    rule_id: uuid.UUID,
+    request: Request,
+    payload: SLORuleUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> SLORuleOut:
+    from whatisup.models.monitor_health import SLORule
+
+    await _get_monitor_or_404(monitor_id, current_user, db, min_role=TeamRole.editor)
+    rule = (
+        await db.execute(
+            select(SLORule).where(SLORule.id == rule_id, SLORule.monitor_id == monitor_id)
+        )
+    ).scalar_one_or_none()
+    if rule is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SLO rule not found")
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(rule, field, value)
+    await db.flush()
+    return SLORuleOut.model_validate(rule)
+
+
+@router.delete("/{monitor_id}/slo-rules/{rule_id}", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("30/minute")
+async def delete_slo_rule(
+    monitor_id: uuid.UUID,
+    rule_id: uuid.UUID,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    from whatisup.models.monitor_health import SLORule
+
+    await _get_monitor_or_404(monitor_id, current_user, db, min_role=TeamRole.editor)
+    rule = (
+        await db.execute(
+            select(SLORule).where(SLORule.id == rule_id, SLORule.monitor_id == monitor_id)
+        )
+    ).scalar_one_or_none()
+    if rule is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SLO rule not found")
+    await db.delete(rule)
 
 
 # ── Correlation patterns ─────────────────────────────────────────────────

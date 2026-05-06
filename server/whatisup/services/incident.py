@@ -81,13 +81,17 @@ async def _has_ancestor_incident(
 
     # Get direct parents with suppression enabled
     parents = (
-        await db.execute(
-            select(MonitorDependency).where(
-                MonitorDependency.child_id == monitor_id,
-                MonitorDependency.suppress_on_parent_down.is_(True),
+        (
+            await db.execute(
+                select(MonitorDependency).where(
+                    MonitorDependency.child_id == monitor_id,
+                    MonitorDependency.suppress_on_parent_down.is_(True),
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     if not parents:
         return False
@@ -96,10 +100,12 @@ async def _has_ancestor_incident(
         # Check if this parent has an open incident
         has_incident = (
             await db.execute(
-                select(Incident.id).where(
+                select(Incident.id)
+                .where(
                     Incident.monitor_id == dep.parent_id,
                     Incident.resolved_at.is_(None),
-                ).limit(1)
+                )
+                .limit(1)
             )
         ).scalar_one_or_none()
 
@@ -113,9 +119,7 @@ async def _has_ancestor_incident(
     return False
 
 
-async def _is_suppressed_by_dependency(
-    db: AsyncSession, monitor_id: uuid.UUID
-) -> bool:
+async def _is_suppressed_by_dependency(db: AsyncSession, monitor_id: uuid.UUID) -> bool:
     """Return True if any ancestor monitor in the dependency chain has an open incident."""
     return await _has_ancestor_incident(db, monitor_id)
 
@@ -157,8 +161,7 @@ async def _correlate_common_cause(
         open_incidents = (await db.execute(base_query)).scalars().all()
         probe_set = set(affected_probe_ids)
         correlated_incidents = [
-            inc for inc in open_incidents
-            if set(inc.affected_probe_ids) & probe_set
+            inc for inc in open_incidents if set(inc.affected_probe_ids) & probe_set
         ]
 
     if not correlated_incidents:
@@ -240,13 +243,17 @@ async def _correlate_by_group(
 
     # Count enabled monitors in this group
     group_monitors = (
-        await db.execute(
-            select(Monitor.id).where(
-                Monitor.group_id == monitor.group_id,
-                Monitor.enabled.is_(True),
+        (
+            await db.execute(
+                select(Monitor.id).where(
+                    Monitor.group_id == monitor.group_id,
+                    Monitor.enabled.is_(True),
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     if len(group_monitors) < 2:
         return
@@ -342,21 +349,25 @@ async def _correlate_by_dependency(
 
     # Find parent monitors for the current monitor
     parent_deps = (
-        await db.execute(
-            select(MonitorDependency.parent_id).where(
-                MonitorDependency.child_id == monitor_id
+        (
+            await db.execute(
+                select(MonitorDependency.parent_id).where(MonitorDependency.child_id == monitor_id)
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     # Find child monitors for the current monitor
     child_deps = (
-        await db.execute(
-            select(MonitorDependency.child_id).where(
-                MonitorDependency.parent_id == monitor_id
+        (
+            await db.execute(
+                select(MonitorDependency.child_id).where(MonitorDependency.parent_id == monitor_id)
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     related_ids = list(set(parent_deps) | set(child_deps))
     if not related_ids:
@@ -462,7 +473,8 @@ async def _fire_alerts(
 
     monitor_tag_names = {t.name for t in (monitor.tags or [])}
     rules = [
-        r for r in candidate_rules
+        r
+        for r in candidate_rules
         if r.monitor_id == monitor.id
         or (monitor.group_id is not None and r.group_id == monitor.group_id)
         or (r.tag_selector and monitor_tag_names.intersection(r.tag_selector))
@@ -471,6 +483,7 @@ async def _fire_alerts(
     # Web push: notify monitor owner for open/resolve events (independent of rules)
     if event_type in ("incident_opened", "incident_resolved"):
         from whatisup.services.web_push import dispatch_web_push_for_incident
+
         await dispatch_web_push_for_incident(db, incident, monitor, event_type)
 
     if not rules:
@@ -550,11 +563,7 @@ async def _fire_alerts(
             continue
 
         # Storm protection: skip if too many alerts sent recently for this rule
-        if (
-            rule.storm_window_seconds
-            and rule.storm_max_alerts
-            and event_type == "incident_opened"
-        ):
+        if rule.storm_window_seconds and rule.storm_max_alerts and event_type == "incident_opened":
             storm_cutoff = now - timedelta(seconds=rule.storm_window_seconds)
             channel_ids = [c.id for c in rule.channels]
             if channel_ids:
@@ -821,14 +830,19 @@ async def process_check_result(
             # Check if all other monitors in the group are also down
             from whatisup.models.incident import Incident as _Incident
             from whatisup.models.monitor import Monitor as _Monitor
+
             all_in_group = (
-                await db.execute(
-                    select(_Monitor.id).where(
-                        _Monitor.group_id == group_id,
-                        _Monitor.enabled.is_(True),
+                (
+                    await db.execute(
+                        select(_Monitor.id).where(
+                            _Monitor.group_id == group_id,
+                            _Monitor.enabled.is_(True),
+                        )
                     )
                 )
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
             if all_in_group:
                 open_incidents_count = (
                     await db.execute(
@@ -849,6 +863,16 @@ async def process_check_result(
 
     # Invalidate uptime cache — a new result arrived, cached stats are stale
     await invalidate_uptime_cache(monitor_id)
+
+    # V2 Global Health Engine opt-in: skip the per-probe decider — SLO
+    # evaluation in services/health.evaluate_slos() drives incidents instead.
+    # Post-decider side effects (composite cascade, schema drift, anomaly,
+    # auto-pause) still run below.
+    if monitor and monitor.health_engine_enabled:
+        # Skip directly to the side-effects section by jumping over the
+        # legacy decider via an early-return into the post-decider helper.
+        await _post_decider_side_effects(db, result, monitor, publish_event)
+        return
 
     # Fetch all active probes
     active_probes = (await db.execute(select(Probe).where(Probe.is_active))).scalars().all()
@@ -1141,10 +1165,12 @@ async def process_check_result(
             if group and group.status == "open":
                 siblings = (
                     await db.execute(
-                        select(Incident).where(
+                        select(Incident)
+                        .where(
                             Incident.group_id == group.id,
                             Incident.resolved_at.is_(None),
-                        ).limit(1)
+                        )
+                        .limit(1)
                     )
                 ).scalar_one_or_none()
                 if siblings is None:
@@ -1153,22 +1179,39 @@ async def process_check_result(
                     group.resolved_at = now
                     logger.info("incident_group_resolved", group_id=str(group.id))
 
+    await _post_decider_side_effects(db, result, monitor, publish_event)
+
+
+async def _post_decider_side_effects(
+    db: AsyncSession,
+    result: CheckResult,
+    monitor: Monitor | None,
+    publish_event,
+) -> None:
+    """Side effects that fire on every CheckResult regardless of decider path.
+
+    Shared between the legacy per-probe pipeline and the V2 Global Health
+    Engine: composite cascade, schema drift, anomaly detection, auto-pause.
+    """
+    if monitor is None:
+        return
+
+    monitor_id = monitor.id
+
     # Propagate state change to any composite monitors that include this monitor
     # (skip if this monitor itself is composite to avoid infinite recursion)
-    if monitor and monitor.check_type != "composite":
+    if monitor.check_type != "composite":
         from whatisup.services.composite import evaluate_composite_parents
 
         await evaluate_composite_parents(db, monitor_id, publish_event)
 
     # Schema drift detection — update baseline on first result, fire alerts on change
     if (
-        monitor
-        and monitor.schema_drift_enabled
+        monitor.schema_drift_enabled
         and result.schema_fingerprint
         and result.status == CheckStatus.up
     ):
         if not monitor.schema_baseline:
-            # Set initial baseline silently
             monitor.schema_baseline = result.schema_fingerprint
             monitor.schema_baseline_updated_at = datetime.now(UTC)
             logger.info("schema_baseline_set", monitor_id=str(monitor_id))
@@ -1182,12 +1225,7 @@ async def process_check_result(
             await _create_point_in_time_incident(db, monitor_id, monitor, result)
 
     # Anomaly detection — fire point-in-time alerts when z-score threshold exceeded
-    if (
-        monitor
-        and result.status == CheckStatus.up
-        and result.response_time_ms is not None
-    ):
-        # Check if any anomaly_detection rules exist for this monitor before doing z-score
+    if result.status == CheckStatus.up and result.response_time_ms is not None:
         anomaly_conditions = [AlertRule.monitor_id == monitor.id]
         if monitor.group_id:
             anomaly_conditions.append(AlertRule.group_id == monitor.group_id)
@@ -1204,7 +1242,6 @@ async def process_check_result(
         ).scalar_one_or_none()
 
         if has_anomaly_rule:
-            # Compute z-score once; _fire_alerts will check per-rule threshold from ctx
             zscore = await compute_zscore(db, monitor_id, result.response_time_ms)
             if zscore is not None:
                 logger.info(
@@ -1218,22 +1255,228 @@ async def process_check_result(
                 )
 
     # Auto-pause: if monitor.auto_pause_after is set, check last N results
-    if monitor and monitor.auto_pause_after and monitor.enabled:
+    if monitor.auto_pause_after and monitor.enabled:
         last_n = (
-            await db.execute(
-                select(CheckResult.status)
-                .where(CheckResult.monitor_id == monitor.id)
-                .order_by(CheckResult.checked_at.desc())
-                .limit(monitor.auto_pause_after)
+            (
+                await db.execute(
+                    select(CheckResult.status)
+                    .where(CheckResult.monitor_id == monitor.id)
+                    .order_by(CheckResult.checked_at.desc())
+                    .limit(monitor.auto_pause_after)
+                )
             )
-        ).scalars().all()
-        if (
-            len(last_n) >= monitor.auto_pause_after
-            and all(s != CheckStatus.up for s in last_n)
-        ):
+            .scalars()
+            .all()
+        )
+        if len(last_n) >= monitor.auto_pause_after and all(s != CheckStatus.up for s in last_n):
             monitor.enabled = False
             logger.warning(
                 "auto_pause_triggered",
                 monitor_id=str(monitor.id),
                 consecutive_failures=len(last_n),
             )
+
+
+# ---------------------------------------------------------------------------
+# V2 Global Health Engine bridge — incidents driven by services/slo.py
+# ---------------------------------------------------------------------------
+
+
+async def open_incident_from_health(
+    db: AsyncSession,
+    monitor: Monitor,
+    slo_rule_id: uuid.UUID,
+    trigger_kind: str,
+    scope: IncidentScope,
+    affected_probe_ids: list[str],
+    reason: str,
+    publish_event,
+) -> Incident | None:
+    """Open (or no-op if already open) an incident tied to an SLO rule.
+
+    Idempotent on (monitor_id, slo_rule_id, resolved_at IS NULL): a second call
+    while the incident is still live returns the existing row without firing
+    duplicate alerts.
+    """
+    monitor_id = monitor.id
+
+    if await is_in_maintenance(db, monitor_id, monitor.group_id):
+        logger.info(
+            "slo_incident_suppressed_maintenance",
+            monitor_id=str(monitor_id),
+            slo_rule_id=str(slo_rule_id),
+        )
+        return None
+
+    existing = (
+        await db.execute(
+            select(Incident).where(
+                Incident.monitor_id == monitor_id,
+                Incident.slo_rule_id == slo_rule_id,
+                Incident.resolved_at.is_(None),
+            )
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        # Refresh scope/probes if quorum membership shifted
+        if existing.scope != scope or set(existing.affected_probe_ids) != set(affected_probe_ids):
+            existing.scope = scope
+            existing.affected_probe_ids = affected_probe_ids
+            await db.flush()
+        return existing
+
+    now = datetime.now(UTC)
+    suppressed = await _is_suppressed_by_dependency(db, monitor_id)
+    incident = Incident(
+        monitor_id=monitor_id,
+        started_at=now,
+        scope=scope,
+        affected_probe_ids=affected_probe_ids,
+        dependency_suppressed=suppressed,
+        first_failure_at=now,
+        slo_rule_id=slo_rule_id,
+        trigger_kind=trigger_kind,
+    )
+    db.add(incident)
+    try:
+        await db.flush()
+    except IntegrityError:
+        await db.rollback()
+        logger.info(
+            "slo_incident_creation_deduplicated",
+            monitor_id=str(monitor_id),
+            slo_rule_id=str(slo_rule_id),
+        )
+        return None
+
+    # Reuse the diagnostic + verdict pipeline so health-engine incidents are
+    # observability-equivalent to legacy ones.
+    try:
+        from whatisup.services.diagnostics import enqueue_diagnostic_requests
+
+        await enqueue_diagnostic_requests(
+            incident_id=incident.id,
+            monitor_id=monitor_id,
+            target=monitor.url,
+            check_type=monitor.check_type,
+            affected_probe_ids=affected_probe_ids,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "slo_diagnostic_enqueue_failed",
+            incident_id=str(incident.id),
+            error=str(exc),
+        )
+
+    logger.info(
+        "slo_incident_opened",
+        monitor_id=str(monitor_id),
+        incident_id=str(incident.id),
+        slo_rule_id=str(slo_rule_id),
+        trigger_kind=trigger_kind,
+        scope=scope.value,
+        reason=reason,
+        probes=len(affected_probe_ids),
+    )
+    await publish_event(
+        {
+            "type": "incident_opened",
+            "monitor_id": str(monitor_id),
+            "incident_id": str(incident.id),
+            "scope": scope.value,
+            "affected_probes": affected_probe_ids,
+            "started_at": now.isoformat(),
+            "dependency_suppressed": suppressed,
+            "trigger_kind": trigger_kind,
+        }
+    )
+
+    if not suppressed:
+        await _correlate_common_cause(db, incident, affected_probe_ids, publish_event)
+        if incident.group_id is None:
+            await _correlate_by_group(db, incident, monitor, publish_event)
+        if incident.group_id is None:
+            await _correlate_by_dependency(db, incident, monitor_id, publish_event)
+        extra_ctx = (
+            {"correlated_group_id": str(incident.group_id)}
+            if incident.group_id is not None
+            else None
+        )
+        await _fire_alerts(db, incident, monitor, None, "incident_opened", extra_ctx=extra_ctx)
+
+    await invalidate_uptime_cache(monitor_id)
+    return incident
+
+
+async def resolve_incident_for_slo(
+    db: AsyncSession,
+    monitor: Monitor,
+    slo_rule_id: uuid.UUID,
+    publish_event,
+    reason: str = "slo_recovered",
+) -> Incident | None:
+    """Resolve the open incident for an SLO rule, if any. No-op otherwise."""
+    monitor_id = monitor.id
+    incident = (
+        await db.execute(
+            select(Incident).where(
+                Incident.monitor_id == monitor_id,
+                Incident.slo_rule_id == slo_rule_id,
+                Incident.resolved_at.is_(None),
+            )
+        )
+    ).scalar_one_or_none()
+    if incident is None:
+        return None
+
+    now = datetime.now(UTC)
+    started = incident.started_at
+    if started.tzinfo is None:
+        started = started.replace(tzinfo=UTC)
+    duration = int((now - started).total_seconds())
+    incident.resolved_at = now
+    incident.duration_seconds = duration
+    incident.acked_at = None
+    incident.acked_by_id = None
+    incident.snooze_until = None
+    await db.flush()
+
+    logger.info(
+        "slo_incident_resolved",
+        monitor_id=str(monitor_id),
+        incident_id=str(incident.id),
+        slo_rule_id=str(slo_rule_id),
+        duration_seconds=duration,
+        reason=reason,
+    )
+    await publish_event(
+        {
+            "type": "incident_resolved",
+            "monitor_id": str(monitor_id),
+            "incident_id": str(incident.id),
+            "duration_seconds": duration,
+            "resolved_at": now.isoformat(),
+        }
+    )
+    if not incident.dependency_suppressed:
+        await _fire_alerts(db, incident, monitor, None, "incident_resolved")
+
+    if incident.group_id is not None:
+        group = await db.get(IncidentGroup, incident.group_id)
+        if group and group.status == "open":
+            sibling = (
+                await db.execute(
+                    select(Incident)
+                    .where(
+                        Incident.group_id == group.id,
+                        Incident.resolved_at.is_(None),
+                    )
+                    .limit(1)
+                )
+            ).scalar_one_or_none()
+            if sibling is None:
+                group.status = "resolved"
+                group.resolved_at = now
+
+    await invalidate_uptime_cache(monitor_id)
+    return incident

@@ -33,6 +33,7 @@ from whatisup.models.incident import Incident, IncidentScope
 from whatisup.models.monitor_health import MonitorHealthState, SLORule, SLORuleType
 
 _DOWN_STATES = {"down", "timeout", "error"}
+_DIVERGENCE_EXCLUSION_THRESHOLD = 0.5
 
 
 @dataclass(frozen=True)
@@ -59,10 +60,26 @@ def _is_down(status: str | None) -> bool:
     return status in _DOWN_STATES
 
 
+def _is_divergent(state: MonitorHealthState, probe_id: str) -> bool:
+    """A probe is divergent (and excluded from quorum, M5) when its rolling
+    ``divergence_score`` in ``probe_health`` exceeds the threshold."""
+    health = (state.probe_health or {}).get(probe_id) or {}
+    return float(health.get("divergence_score") or 0.0) > _DIVERGENCE_EXCLUSION_THRESHOLD
+
+
 def _fresh_probes(
-    state: MonitorHealthState, window_seconds: int, now: datetime
+    state: MonitorHealthState,
+    window_seconds: int,
+    now: datetime,
+    *,
+    exclude_divergent: bool = True,
 ) -> list[tuple[str, dict]]:
-    """Return ``(probe_id, view)`` pairs whose ``last_at`` is within window."""
+    """Return ``(probe_id, view)`` pairs whose ``last_at`` is within window.
+
+    Probes flagged as divergent (M5) are skipped by default — they still ingest
+    samples and remain visible in ``probes_state``, but they don't count toward
+    the quorum so a single misbehaving probe can't fabricate or mask incidents.
+    """
     cutoff = now - timedelta(seconds=window_seconds)
     fresh: list[tuple[str, dict]] = []
     for pid, view in (state.probes_state or {}).items():
@@ -75,8 +92,11 @@ def _fresh_probes(
             continue
         if ts.tzinfo is None:
             ts = ts.replace(tzinfo=UTC)
-        if ts >= cutoff:
-            fresh.append((pid, view))
+        if ts < cutoff:
+            continue
+        if exclude_divergent and _is_divergent(state, pid):
+            continue
+        fresh.append((pid, view))
     return fresh
 
 

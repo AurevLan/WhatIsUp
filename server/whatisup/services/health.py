@@ -89,6 +89,64 @@ def _update_probe_view(state: MonitorHealthState, cr: CheckResult) -> None:
     state.probes_state = cur
 
 
+_DIVERGENCE_DOWN_WEIGHT = 0.10  # probe says down but fleet majority up
+_DIVERGENCE_UP_WEIGHT = 0.05  # probe says up but fleet majority down (lighter)
+_DIVERGENCE_DECAY_PER_HOUR = 0.05  # 5%/h decay so old divergences fade
+_DIVERGENCE_FLEET_AGREEMENT = 0.7  # fraction of *other* probes needed for "majority"
+_DIVERGENCE_MIN_OTHER_PROBES = 2  # need at least 2 peers to judge divergence
+
+
+def _update_probe_divergence(
+    state: MonitorHealthState, cr: CheckResult, now: datetime
+) -> None:
+    """Per-probe divergence score — flags probes systematically out of sync.
+
+    Compared at each ingest: the current probe's verdict vs the latest verdict
+    of *other* fresh probes. A probe whose ``divergence_score`` exceeds 0.5 is
+    excluded from the quorum count by ``services.slo`` (M5).
+    """
+    if cr.probe_id is None:
+        return
+    pid = str(cr.probe_id)
+    others = [v for ppid, v in (state.probes_state or {}).items() if ppid != pid]
+    if len(others) < _DIVERGENCE_MIN_OTHER_PROBES:
+        return
+    n_up = sum(1 for v in others if not _is_down(v.get("last_status", "")))
+    n_down = sum(1 for v in others if _is_down(v.get("last_status", "")))
+    sample_total = n_up + n_down
+    if sample_total == 0:
+        return
+    fleet_up_ratio = n_up / sample_total
+
+    health = dict(state.probe_health or {})
+    entry = dict(health.get(pid) or {})
+    score = float(entry.get("divergence_score") or 0.0)
+
+    last_eval = entry.get("last_eval_at")
+    if last_eval:
+        try:
+            dt = datetime.fromisoformat(last_eval)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=UTC)
+            hours = max(0.0, (now - dt).total_seconds() / 3600.0)
+            score = max(0.0, score * ((1.0 - _DIVERGENCE_DECAY_PER_HOUR) ** hours))
+        except ValueError:
+            pass
+
+    is_cur_down = _is_down(cr.status.value)
+    if is_cur_down and fleet_up_ratio >= _DIVERGENCE_FLEET_AGREEMENT:
+        score = min(1.0, score + _DIVERGENCE_DOWN_WEIGHT)
+    elif (not is_cur_down) and (1.0 - fleet_up_ratio) >= _DIVERGENCE_FLEET_AGREEMENT:
+        score = min(1.0, score + _DIVERGENCE_UP_WEIGHT)
+
+    health[pid] = {
+        "divergence_score": round(score, 4),
+        "samples": int(entry.get("samples") or 0) + 1,
+        "last_eval_at": now.isoformat(),
+    }
+    state.probe_health = health
+
+
 def _recompute_quorum(state: MonitorHealthState) -> None:
     """Quorum ratio = fraction of probes whose latest sample is in a down state.
 
@@ -207,6 +265,7 @@ async def ingest(
     state = await ensure_state(db, check_result.monitor_id)
     now = datetime.now(UTC)
 
+    _update_probe_divergence(state, check_result, now)
     _update_probe_view(state, check_result)
     _recompute_quorum(state)
     await _refresh_5m_percentiles(db, state, now)

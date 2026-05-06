@@ -1189,6 +1189,16 @@
       <p v-if="!monitor.health_engine_enabled && !sloRules.length" class="text-xs text-gray-500 mb-4">
         {{ t('monitor_detail.health_engine_disabled_hint') }}
       </p>
+      <div v-if="divergentProbes.length"
+        class="mb-4 px-3 py-2 rounded-lg bg-amber-900/30 border border-amber-700/40 text-amber-200 text-xs flex items-start gap-2">
+        <span class="font-semibold flex-shrink-0">{{ t('monitor_detail.health_engine_divergent_label') }}:</span>
+        <span class="flex flex-wrap gap-x-3 gap-y-1">
+          <span v-for="d in divergentProbes" :key="d.probe_id" class="font-mono">
+            {{ probeName(d.probe_id) }}
+            <span class="text-amber-400/70">({{ Math.round(d.score * 100) }}%)</span>
+          </span>
+        </span>
+      </div>
 
       <div v-if="healthState && healthState.exists" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
         <div class="bg-gray-800/40 rounded-lg p-3 text-center">
@@ -1920,6 +1930,15 @@ async function loadHealthEngine(id) {
     healthState.value = null
   }
 }
+
+const divergentProbes = computed(() => {
+  const ph = healthState.value?.probe_health
+  if (!ph || typeof ph !== 'object') return []
+  return Object.entries(ph)
+    .map(([probe_id, v]) => ({ probe_id, score: Number(v?.divergence_score || 0) }))
+    .filter(d => d.score > 0.5)
+    .sort((a, b) => b.score - a.score)
+})
 
 async function toggleHealthEngine(enabled) {
   try {

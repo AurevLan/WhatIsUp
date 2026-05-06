@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     app_version: str = "1.0.0"
     debug: bool = False
     environment: str = "production"
+    # V2 Global Health Engine — emergency rollback. When True, the per-probe
+    # legacy decider runs even on monitors with health_engine_enabled=True.
+    # Flip to True (no code change, no migration) if M5 misbehaves in prod.
+    legacy_incident_engine: bool = False
 
     # Security
     secret_key: str = _DEFAULT_SECRET

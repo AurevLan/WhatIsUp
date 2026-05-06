@@ -14,6 +14,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from whatisup.core.config import get_settings
 from whatisup.core.database import dialect_name
 from whatisup.models.alert import AlertCondition, AlertEvent, AlertEventStatus, AlertRule
 from whatisup.models.incident import Incident, IncidentGroup, IncidentScope
@@ -867,10 +868,14 @@ async def process_check_result(
     # V2 Global Health Engine opt-in: skip the per-probe decider — SLO
     # evaluation in services/health.evaluate_slos() drives incidents instead.
     # Post-decider side effects (composite cascade, schema drift, anomaly,
-    # auto-pause) still run below.
-    if monitor and monitor.health_engine_enabled:
-        # Skip directly to the side-effects section by jumping over the
-        # legacy decider via an early-return into the post-decider helper.
+    # auto-pause) still run below. Bypassed entirely when LEGACY_INCIDENT_ENGINE
+    # is set (M5 emergency rollback — no code change, no migration).
+    settings = get_settings()
+    if (
+        monitor
+        and monitor.health_engine_enabled
+        and not settings.legacy_incident_engine
+    ):
         await _post_decider_side_effects(db, result, monitor, publish_event)
         return
 

@@ -358,6 +358,7 @@ export default {
     health_engine_pause: 'Pause',
     health_engine_resume: 'Resume',
     health_engine_confirm_delete: 'Delete this SLO rule?',
+    health_engine_divergent_label: 'Divergent probes (excluded from quorum)',
     fleet_p95: 'Fleet p95',
     slo_target: 'SLO target (%)',
     slo_window: 'Window (days)',

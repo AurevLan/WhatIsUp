@@ -36,9 +36,61 @@ from whatisup.models.probe import Probe
 
 logger = structlog.get_logger(__name__)
 
-_CYMRU_LOOKUP_TIMEOUT_S = 3.0
+_CYMRU_LOOKUP_TIMEOUT_S = 2.0
 _CYMRU_BACKEND = "cymru"
 _DISABLED_BACKEND = "disabled"
+
+# Module-level circuit breaker. After ``_CB_THRESHOLD`` consecutive lookup
+# failures within ``_CB_WINDOW_S``, skip lookups for ``_CB_OPEN_DURATION_S``
+# so a flaky upstream resolver cannot turn every heartbeat into a 2-second
+# blocking wait. Reset on the first successful lookup.
+_CB_THRESHOLD = 5
+_CB_WINDOW_S = 60.0
+_CB_OPEN_DURATION_S = 300.0
+_cb_failures: list[float] = []
+_cb_open_until: float = 0.0
+
+
+def _circuit_open() -> bool:
+    import time
+
+    now = time.monotonic()
+    return now < _cb_open_until
+
+
+def _circuit_record_failure() -> None:
+    import time
+
+    global _cb_open_until
+    now = time.monotonic()
+    _cb_failures.append(now)
+    # Drop entries older than the rolling window.
+    cutoff = now - _CB_WINDOW_S
+    while _cb_failures and _cb_failures[0] < cutoff:
+        _cb_failures.pop(0)
+    if len(_cb_failures) >= _CB_THRESHOLD and not _circuit_open():
+        _cb_open_until = now + _CB_OPEN_DURATION_S
+        logger.warning(
+            "asn_lookup_circuit_open",
+            failures=len(_cb_failures),
+            reopen_in_s=_CB_OPEN_DURATION_S,
+        )
+
+
+def _circuit_record_success() -> None:
+    global _cb_open_until
+    if _cb_failures:
+        _cb_failures.clear()
+    if _cb_open_until:
+        _cb_open_until = 0.0
+        logger.info("asn_lookup_circuit_closed")
+
+
+def _circuit_reset() -> None:
+    """Test helper — clear breaker state between cases."""
+    global _cb_open_until
+    _cb_failures.clear()
+    _cb_open_until = 0.0
 
 
 @dataclass(frozen=True)
@@ -97,6 +149,8 @@ async def lookup_asn(ip: str) -> AsnInfo | None:
     """
     Resolve `ip` to AS info via the configured backend.
     Returns None on any failure or if the backend is disabled.
+    Honors the module-level circuit breaker — when open, returns None
+    without reaching the network.
     """
     settings = get_settings()
     backend = settings.asn_lookup_provider.lower()
@@ -107,7 +161,14 @@ async def lookup_asn(ip: str) -> AsnInfo | None:
         return None
     if not is_public_ip(ip):
         return None
-    return await _lookup_via_cymru(ip)
+    if _circuit_open():
+        return None
+    info = await _lookup_via_cymru(ip)
+    if info is None:
+        _circuit_record_failure()
+    else:
+        _circuit_record_success()
+    return info
 
 
 async def _lookup_via_cymru(ip: str) -> AsnInfo | None:

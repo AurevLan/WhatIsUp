@@ -190,3 +190,96 @@ async def test_classify_persists_verdict_on_incident(
     assert incident.network_verdict_computed_at is not None
     # Computed within the last few seconds
     assert (datetime.now(UTC) - incident.network_verdict_computed_at) < timedelta(seconds=10)
+
+
+# ── Edge cases ────────────────────────────────────────────────────────────────
+
+
+def test_classify_inconclusive_with_two_probes_same_asn() -> None:
+    """Two probes are below `_MIN_TOTAL_PROBES=3` so the verdict is INCONCLUSIVE
+    even if one is up and the other down. Prevents premature ASN partition calls
+    when the fleet is too small."""
+    p1 = _make_probe("p1", asn=15169)
+    p2 = _make_probe("p2", asn=15169)
+    latest = {
+        p1.id: _make_result(p1.id, CheckStatus.down),
+        p2.id: _make_result(p2.id, CheckStatus.up),
+    }
+    assert _classify(latest, [p1, p2]) == NetworkVerdict.INCONCLUSIVE
+
+
+def test_classify_partition_asn_ignores_probes_with_missing_asn() -> None:
+    """Probes whose ASN is unknown do not contribute to the ASN diversity count
+    but still count toward the total. Three probes total (1 unknown ASN, 1 ASN-A,
+    1 ASN-B) — only two ASNs known, partition allowed if pattern fits."""
+    p_unknown = _make_probe("p-unk", asn=None)
+    p_a = _make_probe("p-a", asn=15169)
+    p_b = _make_probe("p-b", asn=2914)
+    latest = {
+        p_unknown.id: _make_result(p_unknown.id, CheckStatus.down),
+        p_a.id: _make_result(p_a.id, CheckStatus.down),
+        p_b.id: _make_result(p_b.id, CheckStatus.up),
+    }
+    # ASN-A all-down, ASN-B all-up → ASN partition expected
+    assert _classify(latest, [p_unknown, p_a, p_b]) == NetworkVerdict.NETWORK_PARTITION_ASN
+
+
+def test_classify_treats_timeout_and_error_as_down() -> None:
+    """Service shouldn't escape a service_down verdict because a probe reported
+    `timeout` or `error` instead of `down` — they're failures from the user's POV."""
+    p1 = _make_probe("p1", asn=15169, location="Paris, FR")
+    p2 = _make_probe("p2", asn=2914, location="Berlin, DE")
+    p3 = _make_probe("p3", asn=701, location="London, UK")
+    latest = {
+        p1.id: _make_result(p1.id, CheckStatus.down),
+        p2.id: _make_result(p2.id, CheckStatus.timeout),
+        p3.id: _make_result(p3.id, CheckStatus.error),
+    }
+    assert _classify(latest, [p1, p2, p3]) == NetworkVerdict.SERVICE_DOWN
+
+
+def test_classify_inconclusive_when_no_diversity_and_mixed_signal() -> None:
+    """3 probes all on ASN-15169 + same country, half down half up.
+    No ASN diversity, no geo diversity, not strong majority down → inconclusive
+    (don't fabricate a partition with a single ASN)."""
+    p1 = _make_probe("p1", asn=15169, location="Paris, FR")
+    p2 = _make_probe("p2", asn=15169, location="Paris, FR")
+    p3 = _make_probe("p3", asn=15169, location="Paris, FR")
+    latest = {
+        p1.id: _make_result(p1.id, CheckStatus.down),
+        p2.id: _make_result(p2.id, CheckStatus.up),
+        p3.id: _make_result(p3.id, CheckStatus.up),
+    }
+    assert _classify(latest, [p1, p2, p3]) == NetworkVerdict.INCONCLUSIVE
+
+
+def test_classify_partition_geo_when_asn_field_present_but_same() -> None:
+    """When all probes share the same ASN, ASN-level partition is impossible;
+    geo-level partition can still fire if locations cluster correctly."""
+    p_paris1 = _make_probe("pa1", asn=15169, location="Paris, FR")
+    p_paris2 = _make_probe("pa2", asn=15169, location="Paris, FR")
+    p_berlin = _make_probe("pb", asn=15169, location="Berlin, DE")
+    latest = {
+        p_paris1.id: _make_result(p_paris1.id, CheckStatus.down),
+        p_paris2.id: _make_result(p_paris2.id, CheckStatus.down),
+        p_berlin.id: _make_result(p_berlin.id, CheckStatus.up),
+    }
+    assert _classify(latest, [p_paris1, p_paris2, p_berlin]) == NetworkVerdict.NETWORK_PARTITION_GEO
+
+
+def test_classify_unknown_probe_id_in_latest_is_dropped_silently() -> None:
+    """The classifier only considers probes from the supplied list — orphan
+    keys (e.g. probes that have been deactivated since the result was recorded)
+    must not blow up the call."""
+    p1 = _make_probe("p1", asn=15169)
+    p2 = _make_probe("p2", asn=2914)
+    p3 = _make_probe("p3", asn=701)
+    orphan_id = uuid.uuid4()
+    latest = {
+        p1.id: _make_result(p1.id, CheckStatus.down),
+        p2.id: _make_result(p2.id, CheckStatus.down),
+        p3.id: _make_result(p3.id, CheckStatus.down),
+        orphan_id: _make_result(orphan_id, CheckStatus.up),
+    }
+    # 3 valid samples all DOWN → service_down (orphan ignored)
+    assert _classify(latest, [p1, p2, p3]) == NetworkVerdict.SERVICE_DOWN

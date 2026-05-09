@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,13 +11,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from whatisup.models.probe import Probe
 from whatisup.services.probe_enrichment import (
     AsnInfo,
+    _circuit_open,
+    _circuit_reset,
     _cymru_origin_query,
     _parse_cymru_asn_txt,
     _parse_cymru_origin_txt,
     enrich_probe,
     is_public_ip,
+    lookup_asn,
     maybe_enrich_on_heartbeat,
 )
+
+
+@pytest.fixture(autouse=True)
+def _reset_breaker() -> None:
+    """Each test starts with a closed circuit breaker."""
+    _circuit_reset()
+    yield
+    _circuit_reset()
 
 # ── Pure parsing / helpers (no I/O) ───────────────────────────────────────────
 
@@ -136,3 +147,92 @@ async def test_maybe_enrich_skips_when_data_is_fresh(
         await maybe_enrich_on_heartbeat(service_db, probe, "8.8.8.8")
 
     mock_enrich.assert_not_called()
+
+
+# ── Cymru query format ────────────────────────────────────────────────────────
+
+
+def test_cymru_origin_query_uses_origin6_for_ipv6() -> None:
+    """IPv6 addresses must hit the origin6 zone with reversed nibbles, not origin."""
+    result = _cymru_origin_query("2001:4860:4860::8888")
+    assert result.endswith(".origin6.asn.cymru.com")
+    # 2001:4860:4860:0000:0000:0000:0000:8888 -> exploded
+    # nibbles reversed: starts with 8 (last char of last group)
+    assert result.startswith("8.8.8.8.")
+
+
+def test_parse_cymru_asn_txt_handles_short_txt() -> None:
+    """Cymru name TXT with fewer than 5 fields means no organisation name."""
+    assert _parse_cymru_asn_txt("15169 | US | arin") is None
+
+
+# ── lookup_asn — backend gating + circuit breaker ─────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_lookup_asn_returns_none_when_backend_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from whatisup.core.config import get_settings
+    settings = get_settings()
+    monkeypatch.setattr(settings, "asn_lookup_provider", "disabled")
+    assert await lookup_asn("8.8.8.8") is None
+
+
+@pytest.mark.asyncio
+async def test_lookup_asn_returns_none_for_private_ip() -> None:
+    assert await lookup_asn("10.0.0.1") is None
+
+
+@pytest.mark.asyncio
+async def test_lookup_asn_opens_breaker_after_threshold_failures(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """5 consecutive failures within the rolling window flip the breaker open."""
+    from whatisup.core.config import get_settings
+    settings = get_settings()
+    monkeypatch.setattr(settings, "asn_lookup_provider", "cymru")
+
+    fail_call = AsyncMock(return_value=None)
+    monkeypatch.setattr(
+        "whatisup.services.probe_enrichment._lookup_via_cymru",
+        fail_call,
+    )
+
+    # 5 failures → breaker opens after the 5th
+    for _ in range(5):
+        result = await lookup_asn("8.8.8.8")
+        assert result is None
+
+    assert _circuit_open()
+    # 6th call must short-circuit and not invoke the resolver again
+    before = fail_call.call_count
+    assert await lookup_asn("8.8.8.8") is None
+    assert fail_call.call_count == before
+
+
+@pytest.mark.asyncio
+async def test_lookup_asn_breaker_closes_on_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A single successful lookup wipes the failure counter and reopens traffic."""
+    from whatisup.core.config import get_settings
+    settings = get_settings()
+    monkeypatch.setattr(settings, "asn_lookup_provider", "cymru")
+
+    # 3 failures (under threshold), then a success
+    fake = AsyncMock(side_effect=[None, None, None, AsnInfo(asn=15169, asn_name="G")])
+    monkeypatch.setattr(
+        "whatisup.services.probe_enrichment._lookup_via_cymru",
+        fake,
+    )
+
+    for _ in range(3):
+        await lookup_asn("8.8.8.8")
+    assert not _circuit_open()
+
+    result = await lookup_asn("8.8.8.8")
+    assert result is not None
+    assert result.asn == 15169
+    # success cleared internal state — breaker still closed and counter empty
+    assert not _circuit_open()

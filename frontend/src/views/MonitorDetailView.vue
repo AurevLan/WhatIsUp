@@ -281,7 +281,7 @@
                     class="shrink-0 rounded overflow-hidden border border-gray-700 hover:border-blue-500 transition-colors"
                     title="Voir le screenshot"
                   >
-                    <img :src="s.screenshot" class="w-16 h-9 object-cover" />
+                    <img :src="s.screenshot" :alt="s.label || s.type || 'Scenario step screenshot'" class="w-16 h-9 object-cover" />
                   </button>
                 </div>
               </template>
@@ -1673,7 +1673,7 @@
           <span class="text-sm text-gray-300">{{ screenshotModal.label }}</span>
           <button @click="screenshotModal.open = false" class="text-gray-400 hover:text-white text-xl leading-none">✕</button>
         </div>
-        <img :src="screenshotModal.src" class="w-full rounded-lg border border-gray-700 shadow-2xl" />
+        <img :src="screenshotModal.src" :alt="screenshotModal.label || 'Scenario screenshot'" class="w-full rounded-lg border border-gray-700 shadow-2xl" />
       </div>
     </div>
     <EditMonitorModal v-if="editingMonitor" :monitor="editingMonitor" @close="editingMonitor = null" @updated="onMonitorUpdated" />

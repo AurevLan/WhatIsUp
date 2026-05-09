@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.9.0](https://github.com/AurevLan/WhatIsUp/compare/v1.8.0...v1.9.0) (2026-05-09)
+
+
+### Added
+
+* **frontend:** i18n parity checker + global ErrorBoundary ([718acaf](https://github.com/AurevLan/WhatIsUp/commit/718acaf92f16e87e608b614b2a7403fc68b91ab8))
+* **health:** M0 — Global Health Engine foundations (server-side aggregator) ([7793a3a](https://github.com/AurevLan/WhatIsUp/commit/7793a3ad1f71d44f6f64e52a5f33a3325d0a8455))
+* **health:** M1 — ingest aggregator (probes_state, 5-min p50/p95/p99, quorum) ([b907bb9](https://github.com/AurevLan/WhatIsUp/commit/b907bb98d5a23bf30c82fb543a5cc35d192ed7c6))
+* **health:** M2 — SLO quorum_down evaluator + opt-in incident path ([26f8948](https://github.com/AurevLan/WhatIsUp/commit/26f8948601b77d3e9a28d3d153216f123d95f6da))
+* **health:** M3 — SLO quorum_slow evaluator + trigger_kind badge ([82339af](https://github.com/AurevLan/WhatIsUp/commit/82339af4b7fc0264834c6043f8e1f270d1608162))
+* **health:** M4 — toggle UI + SLO rule CRUD editor ([8ed3629](https://github.com/AurevLan/WhatIsUp/commit/8ed36291f90d17cfb122951f6f6bbeec99f002e1))
+* **health:** M5 — probe divergence + migration script + rollback flag ([8185cb5](https://github.com/AurevLan/WhatIsUp/commit/8185cb5bf6da0d98b7f1783faeb5411aa5412c08))
+* **probes:** harden ASN lookup + expand V2 verdict tests ([c70ea5c](https://github.com/AurevLan/WhatIsUp/commit/c70ea5ccaa65252bc27ec5243d6dddce6dafb17b))
+* **probes:** V2-02-03/04/05/08 — TLS audit + grade A-F, DNS consistency, BGP looking-glass, TLS fleet dashboard ([9cf2315](https://github.com/AurevLan/WhatIsUp/commit/9cf2315c9e5794c6f7f2e71a9fc829512c0755d0))
+
+
+### Fixed
+
+* **scripts:** move migrate_to_health_engine into the whatisup package ([f8bc9c3](https://github.com/AurevLan/WhatIsUp/commit/f8bc9c3c5225e57c61041857d546f9bb0a9a548f))
+
+
+### Performance
+
+* **probe:** parallelize TLS audit + DNS NS queries, unblock BGP DNS ([fb85d4d](https://github.com/AurevLan/WhatIsUp/commit/fb85d4de074fa22c1d94e971de4eeea0cd73366a))
+
+
+### Docs
+
+* **claude:** add Health Engine V2 ops section + expand services index ([a798307](https://github.com/AurevLan/WhatIsUp/commit/a798307a3abf725eee800c622a88c70c62ff8e48))
+* refresh FEATURES/CHANGELOG/README for v1.8 + Health Engine V2 ([2546589](https://github.com/AurevLan/WhatIsUp/commit/254658954f651b746481d2eb2a2954cbf922e741))
+
 ## [1.8.0](https://github.com/AurevLan/WhatIsUp/compare/v1.7.0...v1.8.0) (2026-05-03)
 
 

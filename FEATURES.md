@@ -1,8 +1,8 @@
 # WhatIsUp — Inventaire des Fonctionnalités
 
 > **Source de vérité** des features livrées. À amender à chaque release.
-> Référence : v1.5.0 (2026-04-25). Pour la chronologie détaillée, voir `CHANGELOG.md`.
-> Pour les chantiers en cours / planifiés : `plan_roadmap_v2.md`, `plan_audit_followup.md`.
+> Référence : **v1.8.0** (2026-05-03) + Health Engine V2 (M0-M5, livré 2026-05-06, en prod sur 17/17 monitors).
+> Pour la chronologie détaillée, voir `CHANGELOG.md`. Chantiers en cours / planifiés : `plan_roadmap_v2.md`, `plan_audit_followup.md`, `plan_v2_global_health.md`.
 
 **Légende** : ✅ livré · 🔬 livré + tests automatisés · 🚧 partiel (voir notes).
 
@@ -25,7 +25,9 @@
 13. [Mobile (Capacitor)](#13-mobile-capacitor)
 14. [Extensions & Intégrations](#14-extensions--intégrations)
 15. [Internationalisation](#15-internationalisation)
-16. [Récap statistiques](#16-récap-statistiques)
+16. [Health Engine V2 (Global)](#16-health-engine-v2-global)
+17. [Réseau & Intelligence (V2-02)](#17-réseau--intelligence-v2-02)
+18. [Récap statistiques](#18-récap-statistiques)
 
 ---
 
@@ -76,7 +78,7 @@
 
 | Type | Options | Fichier checker |
 |---|---|---|
-| `http` | status codes, follow_redirects, SSL warn-days, body regex, expected_headers (exact ou `/regex/`), keyword (+ negate), expected_json_path/value, json_schema, schema drift baseline, waterfall (DNS+TTFB+download), custom metrics push | `probe/whatisup_probe/checkers/http.py` |
+| `http` | status codes, follow_redirects, SSL warn-days (+ pinning SHA-256 V2-02-05), body regex, expected_headers (exact ou `/regex/`), keyword (+ negate), expected_json_path/value, json_schema, schema drift baseline, waterfall (DNS+TTFB+download), custom metrics push, **custom_headers per-monitor + UA presets** (v1.7) | `probe/whatisup_probe/checkers/http.py` |
 | `tcp` | port, timeout, banner capture | `checkers/tcp.py` |
 | `udp` | port, timeout (ICMP unreachable / open) | `checkers/udp.py` |
 | `dns` | record_type (A/AAAA/CNAME/MX/TXT/NS), expected_value, custom nameservers, **DNS drift** (baseline auto-learn), **split horizon** (baseline interne/externe distincte) | `checkers/dns.py` + `services/dns.py` |
@@ -152,17 +154,20 @@
 
 ## 5. Alerting
 
-### Canaux (8)
+### Canaux (11)
 | Canal | Fichier | Notes |
 |---|---|---|
 | Email | `channels/email.py` | SMTP, TLS/STARTTLS, `aiosmtplib` |
 | Webhook | `channels/webhook.py` | HMAC-SHA256, template `string.Template` (safe_substitute) |
 | Telegram | `channels/telegram.py` | bot_token chiffré Fernet |
 | Slack | `channels/slack.py` | webhook URL chiffré |
+| Discord | `channels/discord.py` | **T2-10** webhook URL chiffré, embed format |
+| Mattermost | `channels/mattermost.py` | **T2-11** webhook (format proche Slack mais dédié) |
+| Microsoft Teams | `channels/teams.py` | **T2-12** Adaptive Card via webhook |
 | PagerDuty | `channels/pagerduty.py` | integration_key chiffré, severity mapping |
 | Opsgenie | `channels/opsgenie.py` | api_key chiffré, team/responder routing |
 | Signal | `channels/signal.py` | gateway `bbernhard/signal-cli-rest-api` |
-| FCM | `channels/fcm.py` + `services/fcm.py` | Firebase push mobile (actions ack/snooze) |
+| FCM | `services/fcm.py` | Firebase push mobile (actions ack/snooze) |
 
 ### Règles
 - ✅ Cibles : `monitor_id` | `group_id` | `tag_selector`
@@ -346,6 +351,8 @@
 - ✅ `Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()`
 
 ### Rate limiting (slowapi)
+- ✅ **Backend distribué Redis** (SC-07, v1.8) : cohérence des compteurs cross-instances FastAPI, fallback mémoire si Redis indisponible
+
 | Endpoint | Limite |
 |---|---|
 | `/auth/login` | 10/min |
@@ -440,34 +447,127 @@
 
 ---
 
-## 16. Récap statistiques
+## 16. Health Engine V2 (Global)
+
+> Refonte du modèle de détection : **probe = capteur**, **serveur = juge unique**. Déployé en prod sur 17/17 monitors depuis 2026-05-06. Voir `plan_v2_global_health.md` pour la genèse.
+
+### Foundation (M0–M1)
+- ✅ **M0** — Modèle `MonitorHealthState` + table `monitor_health_states` (état agrégé par monitor, JSONB `probe_health`, percentiles 5 min, sample_count)
+- ✅ **M1** — Aggregator serveur (`services/health.py`) : ingestion en continu des `CheckResult`, calcul p50/p95/p99 sur fenêtre glissante 5 min via `core/percentile.py`, état up/down par probe, ratio quorum
+- ✅ Toggle per-monitor `Monitor.health_engine_enabled` (opt-in à la migration, opt-out via PATCH ou UI)
+- ✅ Rollback global env `LEGACY_INCIDENT_ENGINE=true` (court-circuite le bridge SLO dans `services/incident.py`)
+
+### SLO rules (M2–M3)
+- ✅ **M2** — Évaluateur `quorum_down` : "≥ X% des probes voient down sur N min, min M probes" → ouvre `Incident.trigger_kind=quorum_down`
+- ✅ **M3** — Évaluateur `quorum_slow` : "p95 fleet > seuil ms sur N min" → `trigger_kind=quorum_slow`
+- ✅ Modèle `SLORule` (rule_type, quorum_ratio, p95_threshold_ms, window_seconds, min_probes, cooldown_seconds, enabled)
+- ✅ Cooldown anti-flap par règle (60s par défaut)
+- ✅ Badge `trigger_kind` coloré dans `IncidentsView`
+
+### Toggle UI + CRUD (M4)
+- ✅ Panel "Quorum & SLO" dans `MonitorDetailView` : toggle Health Engine + table SLO rules
+- ✅ CRUD complet `/monitors/{id}/slo-rules` (POST/PATCH/DELETE) avec validation Pydantic
+- ✅ Lecture state `/monitors/{id}/health` (probe_health JSONB, percentiles courants)
+
+### Probe divergence + migration (M5)
+- ✅ **M5** — `divergence_score` par probe (S2L1 dans `services/slo.py`) : probe systématiquement en désaccord avec le fleet → `divergence_score > 0.5` → exclue automatiquement du quorum (mais reste visible et ingère)
+- ✅ Script `whatisup.scripts.migrate_to_health_engine` : migration en masse opt-in avec règle par défaut `quorum_down` 60% / 5 min / min 2 probes / cooldown 60s
+- ✅ Coexistence legacy ↔ V2 testée (`test_health_engine_legacy_coexistence.py`, `test_legacy_engine_flag.py`)
+
+### Tests dédiés
+`test_health_ingest.py`, `test_health_state_model.py`, `test_slo_quorum_down.py`, `test_slo_quorum_slow.py`, `test_probe_divergence.py`, `test_health_engine_legacy_coexistence.py`, `test_legacy_engine_flag.py`, `test_incident_timeline.py`.
+
+### Restant (M6+, planifié)
+- 🚧 Burn-rate fast/slow (Google SRE multi-fenêtres) côté Health Engine
+- 🚧 UI history des `monitor_health_states` (timeline percentiles)
+- 🚧 Migration des règles legacy `response_time_above` → `quorum_slow`
+
+---
+
+## 17. Réseau & Intelligence (V2-02)
+
+> Vague β : enrichir chaque incident avec une compréhension réseau (qui parle à qui via quel ASN, partition vs panne service, qualité TLS/DNS/BGP). Voir `plan_vague_gamma_tls_dns_bgp.md`.
+
+### ASN enrichment (V2-02-01)
+- ✅ Lookup ASN + AS-name via Team Cymru DNS (`services/probe_enrichment.py`)
+- ✅ Champs `Probe.public_ip`, `asn`, `asn_name`, `ixp_membership`, `asn_updated_at`
+- ✅ Refresh opportuniste sur heartbeat si stale (24h par défaut, `ASN_REFRESH_HOURS`) + tâche fond toutes les 6h
+- ✅ Backend pluggable `ASN_LOOKUP_PROVIDER ∈ {cymru, disabled}`
+- ✅ Best-effort : aucun blocage du heartbeat en cas d'échec lookup
+
+### Network verdict (V2-02-02)
+- ✅ Classification automatique `service_down` / `network_partition_asn` / `network_partition_geo` / `inconclusive` (`services/network_verdict.py`)
+- ✅ Champ `Incident.network_verdict` calculé à l'ouverture, recompute toutes les 5 min tant que ouvert
+- ✅ Flag `AlertRule.suppress_on_network_partition` opt-in : court-circuite le dispatch si verdict = `network_partition_*`
+- ✅ Évènement `alert_suppressed_network_partition` loggé pour audit
+- ✅ Badge contextuel coloré + chip de filtre dans `IncidentsView` (i18n EN+FR)
+
+### TLS audit + grade A-F (V2-02-03 / V2-02-05)
+- ✅ Audit TLS approfondi par check HTTP : version protocole, cipher suite, courbe ECDHE, chain validation
+- ✅ Grade A-F calculé selon Mozilla Server Side TLS Guidelines
+- ✅ SSL pinning SHA-256 (T2-05) : option `expected_certificate_sha256`, alerte sur drift
+- ✅ Tests dédiés `test_tls_audit.py`, `test_ssl_advanced.py`, `test_monitors_ssl_advanced.py`
+
+### DNS consistency (V2-02-04)
+- ✅ Comparaison cross-NS : détecte les NS du domaine qui retournent des records divergents
+- ✅ Fold dans le check DNS standard (`probe/checkers/dns.py`)
+- ✅ Tests `test_dns_consistency.py`
+
+### BGP looking-glass (V2-02-04)
+- ✅ Endpoint `/api/v1/bgp/lookup` (rate-limit) : interroge un looking-glass externe pour résoudre un préfixe → ASN d'origine
+- ✅ Fold dans le pipeline diagnostic à l'ouverture d'un incident
+- ✅ Tests `test_bgp_lookup.py`
+
+### Outbound IP intelligence (V2-02-07)
+- ✅ La sonde résout sa propre IP de sortie via `api.ipify.org` (+ fallbacks `ifconfig.me`, `icanhazip.com`)
+- ✅ Champs `Probe.self_reported_ip` + `self_reported_asn` poussés au heartbeat
+- ✅ Si différent de `public_ip` (vu par serveur via `request.client.host`) → badge `NAT/VPN` UI + tooltip
+
+### TLS fleet dashboard (V2-02-08)
+- ✅ Vue dédiée `TlsFleetView` listant tous les monitors HTTPS avec leur grade, expiration, cipher
+- ✅ Endpoint `/api/v1/tls-fleet/` (rate-limit) avec filtres
+- ✅ Module API client `frontend/src/api/tlsFleet.js`
+
+### Carte ASN-aware + Incident playback (V2-02-06)
+- ✅ `ProbeMap.vue` : anneau extérieur des markers coloré selon ASN (palette FNV-1a `lib/asnPalette.js`), intérieur selon uptime
+- ✅ Filtre par chip ASN + légende auto-générée
+- ✅ Pop-up enrichi `AS<num> <name>` + warning NAT/VPN
+- ✅ Endpoint `GET /incidents/{id}/timeline` (rate-limit 30/min, cap 2000 points)
+- ✅ Composant `IncidentPlaybackMap.vue` + composable `useIncidentPlayback.js` (scrubber play/pause/reset)
+
+---
+
+## 18. Récap statistiques
 
 | Pilier | Items livrés | Fichiers clés |
 |---|---|---|
 | Auth | 8 axes | `auth.py`, `user.py`, `security.py`, `teams.py`, `tag.py`, `api_key.py` |
 | Check types | 11 types | `probe/whatisup_probe/checkers/*.py` |
-| Probes | 7 axes | `probe.py`, `probes.py`, `probe_group.py`, `ProbeMap.vue` |
-| Incidents | 9 axes | `incident.py` (model + service), `correlation.py`, `anomaly.py` |
-| Alerting | 12 axes | `alert.py`, `alerts.py`, `services/channels/*.py` |
+| Probes | 9 axes (+ASN +outbound IP) | `probe.py`, `probes.py`, `probe_group.py`, `probe_enrichment.py`, `ProbeMap.vue` |
+| Incidents | 10 axes (+playback +diagnostic engine) | `incident.py`, `correlation.py`, `anomaly.py`, `diagnostics.py`, `incident_diagnostic.py` |
+| Alerting | 13 axes (+silences +network suppress +matrix preview) | `alert.py`, `alerts.py`, `silences.py`, `services/channels/*.py` (11 canaux) |
 | Status pages | 4 axes | `public.py`, `PublicPageView.vue` |
 | Dashboard UX | 13 axes | `ws.py`, `stats.py`, components shared/* + monitors/* |
 | Maintenance | 4 axes | `maintenance.py` × 2 |
 | Audit/Compliance | 5 axes | `audit_log.py`, `retention.py`, `reports.py` |
 | Infra | 8 axes | `docker-compose.yml`, Dockerfiles, deploy.sh |
-| Sécurité | 11 axes | `security.py`, `middleware.py`, `_helpers.py` |
-| CI/CD | 6 workflows | `.github/workflows/*.yml` |
+| Sécurité | 12 axes (+SC-07 distributed RL) | `security.py`, `middleware.py`, `_helpers.py`, `core/limiter.py` |
+| CI/CD | 6 workflows + release-please | `.github/workflows/*.yml` |
 | Mobile | 6 axes | Capacitor 7, FCM, biometrics, mobile-release.yml |
 | Extensions | 5 axes | extension/, config IaC, web_push, templates, prometheus |
-| i18n | 2 langues | i18n/{en,fr}.js |
+| i18n | 2 langues | i18n/{en,fr}.js (~1330 / 1298 clés) |
+| **Health Engine V2** | M0-M5 livrés (M6+ à venir) | `services/health.py`, `services/slo.py`, `monitor_health.py`, `core/percentile.py` |
+| **Réseau & Intelligence (V2-02)** | 8 axes (ASN, partition, TLS, BGP, DNS consistency, playback, NAT/VPN, fleet dashboard) | `services/network_verdict.py`, `services/probe_enrichment.py`, `api/v1/bgp.py`, `api/v1/tls_fleet.py` |
 
 **Stack** : Python 3.12 (FastAPI / SQLAlchemy 2 async / Alembic), Vue 3.5 (Pinia / Tailwind 4 / vue-i18n@9), Postgres 16, Redis 7, Nginx, Capacitor 7 (JDK 21), Docker Compose multi-stage.
 
-**Volumétrie** :
-- ~26 modèles SQLAlchemy
-- ~21 services métier
-- ~22 vues frontend
-- ~40 endpoints API v1
-- ~11 checkers probe
+**Volumétrie** (mise à jour 2026-05-10) :
+- ~28 modèles SQLAlchemy (+`monitor_health`, `silence`, `incident_diagnostic`, `alert_matrix_template`)
+- ~26 services métier (+`health`, `slo`, `network_verdict`, `probe_enrichment`, `diagnostics`, `alert_matrix_preview`, `alert_matrix_templates`)
+- ~24 vues frontend (+`SilencesView`, `TlsFleetView`)
+- ~45 endpoints API v1 (+`silences`, `bgp`, `tls_fleet`, SLO rules, health state, diagnostics)
+- ~11 checkers probe + module `diagnostics.py` + `public_ip.py`
+- 11 canaux d'alerte (8 historiques + Discord/Mattermost/Teams)
 
 ---
 
@@ -478,5 +578,6 @@
 > 2. Compléter la section `## [Unreleased]` du `CHANGELOG.md`.
 > 3. Si la PR ajoute un endpoint avec rate-limit → reporter dans la table §11.
 > 4. Si la PR introduit un nouveau type de check ou canal → reporter dans §2 ou §5.
+> 5. Si la PR touche le Health Engine ou les V2-02 → reporter dans §16 ou §17.
 
-*Dernière revue exhaustive : 2026-04-29 — basée sur v1.5.0.*
+*Dernière revue exhaustive : 2026-05-10 — basée sur v1.8.0 + Health Engine V2 (M0-M5, en prod sur 17/17 monitors depuis 2026-05-06).*

@@ -19,7 +19,7 @@
 
 <p align="center">
   <a href="#quick-start">Quick start</a> ·
-  <a href="#whats-new-in-15">What's new in 1.5</a> ·
+  <a href="#whats-new-in-18--v2">What's new in 1.8 + V2</a> ·
   <a href="#why-whatisup">Why WhatIsUp</a> ·
   <a href="#features">Features</a> ·
   <a href="#architecture">Architecture</a> ·
@@ -37,6 +37,23 @@ There's no shortage of uptime tools. WhatIsUp focuses on three things most of th
 - 🎛 **Self-hosted, batteries included** — one `docker compose up`, no SaaS lock-in, no per-monitor pricing. Playwright scenarios, SSO/OIDC, teams & RBAC, IaC import/export, and a mobile app all ship in the box.
 
 It's built for teams who want Datadog-grade monitoring without Datadog-grade bills, and who'd rather own their data than rent it.
+
+---
+
+## What's new in 1.8 + V2
+
+Three release lines have shipped since v1.5: **v1.6** (network intelligence), **v1.7** (custom headers + diagnostic engine foundation), **v1.8** (chat channels + distributed rate limit), and the **V2 Global Health Engine** (M0–M5, in production on every monitor since 2026-05-06).
+
+- 🧠 **Global Health Engine V2** — refonte of the detection model: probes are now sensors, the server is the sole judge. New `MonitorHealthState` aggregator running 5-min rolling p50/p95/p99 + per-probe up/down state. Two SLO rule types: **`quorum_down`** ("≥ X% of probes see down for N min") and **`quorum_slow`** ("p95 fleet > threshold ms"). Per-monitor opt-in toggle (`Monitor.health_engine_enabled`), global rollback flag (`LEGACY_INCIDENT_ENGINE=true`), automatic exclusion of probes with `divergence_score > 0.5` from the quorum. Migration script `whatisup.scripts.migrate_to_health_engine` ships defaults (60% / 5 min / min 2 probes / 60 s cooldown).
+- 🌐 **Network intelligence (V2-02)** — every probe is auto-enriched with its **ASN + AS-name** via Team Cymru DNS. Every incident gets a **`network_verdict`** (`service_down` / `network_partition_asn` / `network_partition_geo` / `inconclusive`) recomputed every 5 min while open. Opt-in `AlertRule.suppress_on_network_partition` stops paging the on-call when an upstream operator is the actual culprit. Probes also report their **outbound public IP** — divergence with the server-observed IP yields a NAT/VPN badge in the UI.
+- 🛰 **TLS / DNS / BGP audit** — HTTP checks now grade the TLS handshake (A–F per Mozilla SSTLS), support **SHA-256 certificate pinning**, run **DNS consistency** across all NS of a domain, and resolve prefixes via a **BGP looking-glass** at incident time. New dedicated **TLS fleet dashboard** view.
+- 🔬 **Auto-traceroute on incident** (V2-01-01) — at incident open, every affected probe runs `traceroute`, `dig +trace`, `openssl s_client`, `ping`, `curl -v` in parallel. Persisted under `incident_diagnostics`, surfaced in a collapsible Diagnostic panel per incident.
+- 🗺 **ASN-aware probe map + incident playback** (V2-02-06) — markers now show ASN as outer ring (deterministic palette), uptime as inner colour, with an ASN filter chip and auto-legend. Click 📍 on any incident to scrub through a `play / pause` map of how the outage propagated across probes.
+- 🛠 **Custom headers per monitor + UA presets** (v1.7) — wire monitor-specific headers (auth tokens, custom UA) into HTTP / keyword / json_path checks without forking probes.
+- 💬 **Three new chat channels** (T2-10/11/12) — Discord, Mattermost, Microsoft Teams (Adaptive Card) join the alerting channel pool, all with Fernet-encrypted webhook URLs and SSRF guard.
+- ⚡ **Distributed rate-limit** (SC-07) — slowapi now backed by Redis with memory fallback, so multiple FastAPI instances share counters consistently.
+
+Full per-version breakdown: see [CHANGELOG.md](CHANGELOG.md). Operational notes for the Health Engine (knobs, rollback, investigation queries) are in `plan_v2_global_health.md`.
 
 ---
 

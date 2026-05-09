@@ -53,14 +53,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- **V2-01-01 — Auto-traceroute corrélé sur incident** — Foundation de la vague α (Pilier 1 : Diagnostic Engine). À l'ouverture d'un incident, chaque sonde affectée reçoit (via clé Redis transitoire consommée au heartbeat suivant) une demande de collecte parallèle de 5 diagnostics réseau : `traceroute -n`, `dig +trace`, `openssl s_client -showcerts`, `ping -c 5`, `curl -v`. Le payload structuré est persisté dans la nouvelle table `incident_diagnostics` (FK `incident_id`/`probe_id`, JSONB `payload`, champ `error` si la collecte échoue). Nouvelle section dépliable "Diagnostic" sous chaque incident dans `IncidentsView` (icône Activity), groupée par sonde, avec rendu typé par kind (hops cliquables pour traceroute, métriques pour ping, en-têtes HTTP en monospace, etc.).
-  - **Modèle** : `IncidentDiagnostic` + migration Alembic `k3l4m5n6o7p8` (rétrocompatible).
-  - **Probe** : nouveau module `whatisup_probe/diagnostics.py` (collecteurs `asyncio.gather`, timeout 10 s par kind, raw output tronqué 8 KB). Binaires ajoutés à l'image runtime probe : `traceroute`, `iputils-ping`, `dnsutils`, `openssl`, `curl`.
-  - **API** : `POST /api/v1/probes/diagnostics` (auth `X-Probe-Api-Key`, rate-limit 60/min) ingest, et `GET /api/v1/incidents/{id}/diagnostics` (auth user, rate-limit 30/min, accès vérifié via owner du monitor).
-  - **Service** : `services/diagnostics.py` (`enqueue_diagnostic_requests` + `drain_pending_diagnostics`), hook ajouté dans `services/incident.py` au moment de l'ouverture d'un incident (best-effort, ne casse pas le pipeline si Redis tombe).
-  - **Tests** : 4 pytest (hook trigger, payload schema, multi-probe distinct FK, drain Redis at-most-once) + 3 vitest UI. Suite complète : 252 backend + 175 frontend, tous verts.
-  - i18n en/fr (`incidents.diagnostic_title`, `diagnostic.*`).
+> Depuis v1.6.0, le CHANGELOG est généré automatiquement par **release-please** à partir des Conventional Commits (`feat:`, `fix:`, `perf:`, …). Les sections versionnées en haut du fichier sont la source de vérité. Cette section `[Unreleased]` reste un placeholder jusqu'au prochain tag.
+>
+> Commits actuellement en attente de release (à partir de v1.8.0) :
+> - **feat(health):** Global Health Engine V2 — M0 foundations, M1 ingest aggregator, M2 quorum_down, M3 quorum_slow, M4 toggle UI + SLO CRUD, M5 probe divergence + migration script + rollback flag (`LEGACY_INCIDENT_ENGINE`). En prod sur 17/17 monitors depuis 2026-05-06.
+> - **feat(probes):** V2-02-03/04/05/08 — TLS audit + grade A-F, DNS consistency, BGP looking-glass, TLS fleet dashboard.
+> - **perf(probe):** parallelize TLS audit + DNS NS queries, unblock BGP DNS.
+> - **fix(scripts):** move `migrate_to_health_engine` into the `whatisup` package.
 
 ---
 

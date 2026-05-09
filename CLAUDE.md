@@ -185,9 +185,39 @@ cd frontend && npm run dev -- --host
 ## Services clés
 
 - `services/stats.py` : `compute_uptime()`, `compute_daily_history()`, `latest_results_subq()`
-- `services/incident.py` : pipeline post-check (flapping → incident → renotify → common_cause)
-- `services/alert.py` : dispatch email/webhook/Telegram/Slack/PagerDuty/Opsgenie + SSRF guard + digest Redis
+- `services/incident.py` : pipeline post-check (flapping → incident → renotify → common_cause). Bridge SLO via Health Engine si `Monitor.health_engine_enabled=True` (et flag env `LEGACY_INCIDENT_ENGINE` non set)
+- `services/alert.py` : dispatch email/webhook/Telegram/Slack/Discord/Mattermost/Teams/PagerDuty/Opsgenie/Signal + SSRF guard + digest Redis + `suppress_on_network_partition`
+- `services/health.py` + `services/slo.py` : **Health Engine V2** — agrégation 5 min p50/p95/p99, quorum_down/quorum_slow, divergence_score probe (seuil 0.5)
+- `services/network_verdict.py` : classification incident `service_down` / `network_partition_asn|geo` / `inconclusive` (recompute toutes les 5 min)
+- `services/probe_enrichment.py` : ASN lookup Team Cymru DNS (refresh opportuniste sur heartbeat, TTL 24 h)
+- `services/diagnostics.py` : V2-01-01 enqueue/drain Redis pour traceroute/dig/openssl/ping/curl à l'ouverture d'incident
 - `services/heartbeat.py` : tâche de fond — ouvre incidents si ping absent > `interval + grace`
 - `services/retention.py` : purge nightly des `CheckResult` > `DATA_RETENTION_DAYS` (défaut 90)
 - `api/v1/ws.py` : WebSocket dashboard (auth message) + `public/{slug}` (sans auth)
 - `core/security.py` : JWT, bcrypt, Fernet (`encrypt_channel_config` / `decrypt_channel_config`)
+
+## Health Engine V2 — ops prod
+
+> Engine actif sur 17/17 monitors depuis 2026-05-06. Détails complets : `plan_v2_global_health.md`.
+
+**Knobs critiques :**
+- Activation per-monitor : toggle UI panel "Quorum & SLO" dans `MonitorDetailView` ou `PATCH /monitors/{id}` body `{"health_engine_enabled": false}`.
+- Rollback global : env `LEGACY_INCIDENT_ENGINE=true` → court-circuite le bridge SLO dans `services/incident.process_check_result`. Aucune migration.
+- Règle par défaut migration : `quorum_down` 60% / 5 min / min 2 probes / cooldown 60 s.
+- Seuil divergence : `divergence_score > 0.5` → probe exclue du quorum (constante `_DIVERGENCE_EXCLUSION_THRESHOLD` dans `services/slo.py`).
+
+**Diagnostic rapide** quand l'utilisateur signale un comportement bizarre incidents/alertes :
+1. `Monitor.health_engine_enabled` ? Toggle ON sans `SLORule` active = monitor silencieux.
+2. Faux positif `quorum_down` ? Check `monitor_health_states.probe_health` JSONB pour le `divergence_score` des probes.
+3. Pas d'alerte perf alors que p95 élevé ? La migration ne crée que `quorum_down`. Créer manuellement une `quorum_slow`.
+4. Comportement bizarre sur tous les monitors d'un coup ? Check `LEGACY_INCIDENT_ENGINE` env + redémarrages.
+
+```sql
+-- État engine d'un monitor
+SELECT m.health_engine_enabled, sr.rule_type, sr.enabled, sr.quorum_ratio, sr.p95_threshold_ms,
+       mhs.sample_count_5m, mhs.p95_5m::int, mhs.quorum_down_ratio, mhs.probe_health
+FROM monitors m
+LEFT JOIN slo_rules sr ON sr.monitor_id = m.id
+LEFT JOIN monitor_health_states mhs ON mhs.monitor_id = m.id
+WHERE m.id = '<uuid>';
+```

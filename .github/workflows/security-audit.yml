@@ -24,9 +24,10 @@ jobs:
         run: pip install -e ".[dev]" pip-audit
       - name: Audit server dependencies
         # CVE-2026-4539 (pygments): no fix release yet — revisit when pygments > 2.19.2
-        # CVE-2026-3219 (pip 26.0.1 in runner image): upstream pip itself, not a
-        # project dependency we ship. Revisit when GH Actions ships pip > 26.0.1.
-        run: pip-audit --ignore-vuln CVE-2026-4539 --ignore-vuln CVE-2026-3219
+        # CVE-2026-3219 / CVE-2026-6357 (pip 26.0.1 in runner image): upstream pip
+        # itself, not a project dependency we ship. Revisit when GH Actions ships
+        # pip > 26.1.
+        run: pip-audit --ignore-vuln CVE-2026-4539 --ignore-vuln CVE-2026-3219 --ignore-vuln CVE-2026-6357
 
   pip-audit-probe:
     name: pip-audit (probe)
@@ -43,9 +44,10 @@ jobs:
         run: pip install -e ".[dev]" pip-audit
       - name: Audit probe dependencies
         # CVE-2026-4539 (pygments): no fix release yet — revisit when pygments > 2.19.2
-        # CVE-2026-3219 (pip 26.0.1 in runner image): upstream pip itself, not a
-        # project dependency we ship. Revisit when GH Actions ships pip > 26.0.1.
-        run: pip-audit --ignore-vuln CVE-2026-4539 --ignore-vuln CVE-2026-3219
+        # CVE-2026-3219 / CVE-2026-6357 (pip 26.0.1 in runner image): upstream pip
+        # itself, not a project dependency we ship. Revisit when GH Actions ships
+        # pip > 26.1.
+        run: pip-audit --ignore-vuln CVE-2026-4539 --ignore-vuln CVE-2026-3219 --ignore-vuln CVE-2026-6357
 
   npm-audit-frontend:
     name: npm audit (frontend)

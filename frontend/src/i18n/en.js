@@ -115,6 +115,14 @@ export default {
     show_cheatsheet: 'Show this cheatsheet',
   },
 
+  error_boundary: {
+    title: 'Something went wrong',
+    description: 'The page hit an unexpected error. Reload to try again, or dismiss to continue.',
+    details: 'Show technical details',
+    reload: 'Reload page',
+    dismiss: 'Dismiss',
+  },
+
   empty: {
     monitors_text: 'Monitors check that your services are alive. Add your first one to start tracking uptime.',
     monitors_filtered_text: 'No monitor matches the current filters.',

@@ -112,6 +112,14 @@ export default {
     show_cheatsheet: 'Afficher ce mémo',
   },
 
+  error_boundary: {
+    title: "Une erreur s'est produite",
+    description: "La page a rencontré une erreur inattendue. Rechargez pour réessayer, ou ignorez pour continuer.",
+    details: 'Afficher les détails techniques',
+    reload: 'Recharger la page',
+    dismiss: 'Ignorer',
+  },
+
   empty: {
     monitors_text: 'Les monitors vérifient que vos services répondent. Ajoutez votre premier monitor pour suivre la disponibilité.',
     monitors_filtered_text: 'Aucun monitor ne correspond aux filtres actuels.',

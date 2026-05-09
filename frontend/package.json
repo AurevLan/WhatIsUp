@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs --fix --ignore-path .gitignore",
+    "check:i18n": "node scripts/check-i18n.mjs",
     "cap:sync": "npm run build && cap sync android",
     "cap:open": "cap open android",
     "cap:run": "cap run android"

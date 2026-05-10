@@ -1008,6 +1008,7 @@ import { useMonitorPercentiles } from '../composables/useMonitorPercentiles'
 import { useMonitorCustomMetrics } from '../composables/useMonitorCustomMetrics'
 import { useMonitorCharts, PROBE_COLORS } from '../composables/useMonitorCharts'
 import { useMonitorDns } from '../composables/useMonitorDns'
+import { useMonitorAlerts } from '../composables/useMonitorAlerts'
 import MonitorRunbookTab from '../components/monitors/detail/MonitorRunbookTab.vue'
 import MonitorIncidentsTab from '../components/monitors/detail/MonitorIncidentsTab.vue'
 import MonitorSloPanel from '../components/monitors/detail/MonitorSloPanel.vue'
@@ -1474,45 +1475,17 @@ const chartWindow = ref(24)
 // Reload results when chart window changes (watch must be after chartWindow declaration)
 watch(chartWindow, () => { loadResults(); loadPercentiles() })
 
-const alertRules = ref([])
-const alertRulesLoaded = ref(false)
-
-async function loadAlertRules() {
-  if (!monitor.value) return
-  try {
-    const { data } = await api.get('/alerts/rules')
-    alertRules.value = data.filter(r => r.monitor_id && String(r.monitor_id) === String(monitor.value.id))
-  } catch {}
-  alertRulesLoaded.value = true
-}
-
-// ── Auto-alert setup modal (A2 banner) ───────────────────────────────────────
-const showAutoAlertModal = ref(false)
-const autoAlertChannels = ref([])
-const autoAlertSelectedChannels = ref([])
-const autoAlertCreating = ref(false)
-
-watch(showAutoAlertModal, async (v) => {
-  if (!v) return
-  try {
-    const { data } = await api.get('/alerts/channels')
-    autoAlertChannels.value = data
-    autoAlertSelectedChannels.value = data.map(c => c.id)
-  } catch {}
-})
-
-async function createAutoAlertRules() {
-  if (!monitor.value || autoAlertSelectedChannels.value.length === 0) return
-  autoAlertCreating.value = true
-  try {
-    await api.post(`/alerts/auto-rules/${monitor.value.id}`, null, {
-      params: { channel_ids: autoAlertSelectedChannels.value },
-    })
-    showAutoAlertModal.value = false
-    await loadAlertRules()
-  } catch {}
-  autoAlertCreating.value = false
-}
+// ── Alert rules + auto-alert "no rules" banner setup ────────────────────────
+const {
+  rules: alertRules,
+  rulesLoaded: alertRulesLoaded,
+  loadRules: loadAlertRules,
+  showAutoModal: showAutoAlertModal,
+  autoChannels: autoAlertChannels,
+  autoSelectedChannels: autoAlertSelectedChannels,
+  autoCreating: autoAlertCreating,
+  createAutoRules: createAutoAlertRules,
+} = useMonitorAlerts(monitor)
 
 // ── Charts (RT line + Availability bar) ──────────────────────────────────────
 const {

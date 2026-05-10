@@ -114,8 +114,8 @@ jobs:
         run: npm ci
       - name: i18n parity check (en.js vs fr.js)
         run: npm run check:i18n
-      - name: ESLint (max 50 warnings)
-        run: npx eslint . --max-warnings 50
+      - name: ESLint (zero warnings)
+        run: npx eslint . --max-warnings 0
       - name: Run vitest
         run: npm test
 

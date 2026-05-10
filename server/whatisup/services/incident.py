@@ -1,36 +1,39 @@
 """Incident lifecycle orchestrator.
 
-Thin coordinator over two extracted services:
+Thin coordinator over the extracted services:
 - ``incident_decider``: flapping detection + dependency suppression checks.
 - ``incident_correlation``: probe / group / dependency grouping strategies.
+- ``incident_alerts``: alert rule evaluation and channel dispatch.
+- ``incident_slo``: V2 Health Engine SLO-driven open / resolve.
 
-This module owns the open/update/resolve lifecycle, alert dispatch
-(``_fire_alerts``), the V2 Health Engine bridge, and post-decider side
-effects (composite cascade, schema drift, anomaly detection, auto-pause).
+This module owns the legacy per-probe open/update/resolve lifecycle and
+post-decider side effects (composite cascade, schema drift, anomaly detection,
+auto-pause). SLO bridge functions are re-exported below so existing imports
+``from whatisup.services.incident import open_incident_from_health`` keep
+working.
 """
 
 from __future__ import annotations
 
 import asyncio
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 import structlog
 from redis.exceptions import RedisError
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from whatisup.core.config import get_settings
-from whatisup.models.alert import AlertCondition, AlertEvent, AlertEventStatus, AlertRule
+from whatisup.models.alert import AlertCondition, AlertRule
 from whatisup.models.incident import Incident, IncidentGroup, IncidentScope
 from whatisup.models.monitor import Monitor
 from whatisup.models.probe import Probe
 from whatisup.models.result import CheckResult, CheckStatus
-from whatisup.services.alert import dispatch_alert, maybe_digest_or_dispatch
 from whatisup.services.anomaly import compute_zscore
 from whatisup.services.correlation import update_patterns_for_group
+from whatisup.services.incident_alerts import fire_alerts
 from whatisup.services.incident_correlation import (
     correlate_by_dependency,
     correlate_by_group,
@@ -41,6 +44,7 @@ from whatisup.services.incident_decider import (
     is_flapping,
     is_suppressed_by_dependency,
 )
+from whatisup.services.incident_slo import open_incident_from_health, resolve_incident_for_slo
 from whatisup.services.maintenance import is_group_maintenance_suppressed, is_in_maintenance
 from whatisup.services.stats import invalidate_uptime_cache, latest_results_subq
 
@@ -54,228 +58,15 @@ _is_suppressed_by_dependency = is_suppressed_by_dependency
 _correlate_common_cause = correlate_common_cause
 _correlate_by_group = correlate_by_group
 _correlate_by_dependency = correlate_by_dependency
+_fire_alerts = fire_alerts
 
-
-async def _fire_alerts(
-    db: AsyncSession,
-    incident: Incident,
-    monitor: Monitor,
-    result: CheckResult | None = None,
-    event_type: str = "incident_opened",
-    extra_ctx: dict | None = None,
-) -> None:
-    """Evaluate alert rules for this monitor/group and dispatch matching ones.
-
-    event_type values:
-      - "incident_opened": new incident just opened
-      - "incident_resolved": incident just resolved
-      - "incident_renotify": incident still open, check for periodic re-notification
-    """
-    conditions = [AlertRule.monitor_id == monitor.id]
-    if monitor.group_id:
-        conditions.append(AlertRule.group_id == monitor.group_id)
-    conditions.append(AlertRule.tag_selector.isnot(None))
-
-    candidate_rules = (
-        (
-            await db.execute(
-                select(AlertRule).where(or_(*conditions)).options(selectinload(AlertRule.channels))
-            )
-        )
-        .scalars()
-        .all()
-    )
-
-    monitor_tag_names = {t.name for t in (monitor.tags or [])}
-    rules = [
-        r
-        for r in candidate_rules
-        if r.monitor_id == monitor.id
-        or (monitor.group_id is not None and r.group_id == monitor.group_id)
-        or (r.tag_selector and monitor_tag_names.intersection(r.tag_selector))
-    ]
-
-    # Web push: notify monitor owner for open/resolve events (independent of rules)
-    if event_type in ("incident_opened", "incident_resolved"):
-        from whatisup.services.web_push import dispatch_web_push_for_incident
-
-        await dispatch_web_push_for_incident(db, incident, monitor, event_type)
-
-    if not rules:
-        return
-
-    probe_names: dict[str, str] = {}
-    if incident.affected_probe_ids:
-        probe_uuids = []
-        for pid in incident.affected_probe_ids:
-            try:
-                probe_uuids.append(uuid.UUID(pid))
-            except ValueError:
-                pass
-        if probe_uuids:
-            probes = (
-                (await db.execute(select(Probe).where(Probe.id.in_(probe_uuids)))).scalars().all()
-            )
-            probe_names = {str(p.id): p.name for p in probes}
-
-    ctx: dict = {
-        "monitor_name": monitor.name,
-        "monitor_url": monitor.url,
-        "check_type": monitor.check_type,
-        "probe_names": probe_names,
-        **(extra_ctx or {}),
-    }
-
-    now = datetime.now(UTC)
-
-    for rule in rules:
-        if not rule.enabled:
-            continue
-
-        # H-10: min_duration_seconds — skip if incident too short for "opened" events
-        if (
-            event_type == "incident_opened"
-            and rule.min_duration_seconds > 0
-            and (now - incident.started_at).total_seconds() < rule.min_duration_seconds
-        ):
-            continue
-
-        # H-11: renotify logic — only fire for renotify events if rule allows it
-        if event_type == "incident_renotify":
-            if not rule.renotify_after_minutes:
-                continue
-            if incident.acked_at is not None:
-                continue
-            # T1-04: skip renotify while a snooze window is still active.
-            if incident.snooze_until is not None and incident.snooze_until > now:
-                continue
-            channel_ids = [c.id for c in rule.channels]
-            if channel_ids:
-                last_event = (
-                    await db.execute(
-                        select(AlertEvent)
-                        .where(
-                            AlertEvent.incident_id == incident.id,
-                            AlertEvent.channel_id.in_(channel_ids),
-                            AlertEvent.status == AlertEventStatus.sent,
-                        )
-                        .order_by(AlertEvent.sent_at.desc())
-                        .limit(1)
-                    )
-                ).scalar_one_or_none()
-                if last_event:
-                    minutes_since = (now - last_event.sent_at).total_seconds() / 60
-                    if minutes_since < rule.renotify_after_minutes:
-                        continue
-            # Dispatch renotify directly (digest does not apply to renotify)
-            for channel in rule.channels:
-                await dispatch_alert(db, incident, channel, "incident_opened", ctx=ctx)
-            continue
-
-        # Storm protection: skip if too many alerts sent recently for this rule
-        if rule.storm_window_seconds and rule.storm_max_alerts and event_type == "incident_opened":
-            storm_cutoff = now - timedelta(seconds=rule.storm_window_seconds)
-            channel_ids = [c.id for c in rule.channels]
-            if channel_ids:
-                recent_count = (
-                    await db.execute(
-                        select(func.count(AlertEvent.id)).where(
-                            AlertEvent.incident_id == incident.id,
-                            AlertEvent.status == AlertEventStatus.sent,
-                            AlertEvent.sent_at >= storm_cutoff,
-                        )
-                    )
-                ).scalar_one()
-                if recent_count >= rule.storm_max_alerts:
-                    logger.info(
-                        "alert_storm_throttled",
-                        rule_id=str(rule.id),
-                        recent_count=recent_count,
-                        storm_max=rule.storm_max_alerts,
-                    )
-                    continue
-
-        if rule.condition == AlertCondition.any_down:
-            if event_type not in ("incident_opened", "incident_resolved"):
-                continue
-        elif rule.condition == AlertCondition.all_down:
-            if incident.scope != IncidentScope.global_ and event_type == "incident_opened":
-                continue
-            if event_type not in ("incident_opened", "incident_resolved"):
-                continue
-        elif rule.condition == AlertCondition.ssl_expiry:
-            if not (
-                result.ssl_valid is False
-                or (
-                    result.ssl_days_remaining is not None
-                    and monitor.ssl_expiry_warn_days is not None
-                    and result.ssl_days_remaining <= monitor.ssl_expiry_warn_days
-                )
-            ):
-                continue
-            if event_type != "incident_opened":
-                continue
-        elif rule.condition == AlertCondition.response_time_above:
-            if rule.threshold_value is None:
-                continue
-            if result.response_time_ms is None or result.response_time_ms <= rule.threshold_value:
-                continue
-            if event_type != "incident_opened":
-                continue
-        elif rule.condition == AlertCondition.response_time_above_baseline:
-            if event_type != "incident_opened":
-                continue
-            if rule.baseline_factor is None or result.response_time_ms is None:
-                continue
-            # 7-day rolling average — TODO: bucket by hour-of-week if needed
-            baseline_cutoff = now - timedelta(days=7)
-            baseline_row = (
-                await db.execute(
-                    select(func.avg(CheckResult.response_time_ms)).where(
-                        CheckResult.monitor_id == monitor.id,
-                        CheckResult.checked_at >= baseline_cutoff,
-                        CheckResult.response_time_ms.isnot(None),
-                    )
-                )
-            ).scalar_one_or_none()
-            if not baseline_row or baseline_row <= 0:
-                continue
-            if result.response_time_ms <= baseline_row * rule.baseline_factor:
-                continue
-
-        elif rule.condition == AlertCondition.anomaly_detection:
-            if event_type != "incident_opened":
-                continue
-            if result.response_time_ms is None:
-                continue
-            # zscore is pre-computed by process_check_result and injected into ctx
-            zscore = ctx.get("zscore")
-            if zscore is None:
-                continue
-            threshold = rule.anomaly_zscore_threshold or 3.0
-            if zscore <= threshold:
-                continue
-            ctx = {**ctx, "response_time_ms": result.response_time_ms}
-
-        elif rule.condition == AlertCondition.schema_drift:
-            if event_type != "incident_opened":
-                continue
-            if not result.schema_fingerprint:
-                continue
-            if not monitor.schema_baseline:
-                continue
-            if result.schema_fingerprint == monitor.schema_baseline:
-                continue
-            ctx = {
-                **ctx,
-                "schema_fingerprint": result.schema_fingerprint,
-                "schema_baseline": monitor.schema_baseline,
-            }
-
-        for channel in rule.channels:
-            await maybe_digest_or_dispatch(db, incident, channel, rule, event_type, ctx=ctx)
-
-    await db.flush()
+# SLO bridge — re-exported so ``services.health`` and tests can keep importing
+# ``open_incident_from_health`` / ``resolve_incident_for_slo`` from here.
+__all__ = [
+    "open_incident_from_health",
+    "process_check_result",
+    "resolve_incident_for_slo",
+]
 
 
 async def _process_composite_result(
@@ -883,208 +674,3 @@ async def _post_decider_side_effects(
                 monitor_id=str(monitor.id),
                 consecutive_failures=len(last_n),
             )
-
-
-# ---------------------------------------------------------------------------
-# V2 Global Health Engine bridge — incidents driven by services/slo.py
-# ---------------------------------------------------------------------------
-
-
-async def open_incident_from_health(
-    db: AsyncSession,
-    monitor: Monitor,
-    slo_rule_id: uuid.UUID,
-    trigger_kind: str,
-    scope: IncidentScope,
-    affected_probe_ids: list[str],
-    reason: str,
-    publish_event,
-) -> Incident | None:
-    """Open (or no-op if already open) an incident tied to an SLO rule.
-
-    Idempotent on (monitor_id, slo_rule_id, resolved_at IS NULL): a second call
-    while the incident is still live returns the existing row without firing
-    duplicate alerts.
-    """
-    monitor_id = monitor.id
-
-    if await is_in_maintenance(db, monitor_id, monitor.group_id):
-        logger.info(
-            "slo_incident_suppressed_maintenance",
-            monitor_id=str(monitor_id),
-            slo_rule_id=str(slo_rule_id),
-        )
-        return None
-
-    existing = (
-        await db.execute(
-            select(Incident).where(
-                Incident.monitor_id == monitor_id,
-                Incident.slo_rule_id == slo_rule_id,
-                Incident.resolved_at.is_(None),
-            )
-        )
-    ).scalar_one_or_none()
-    if existing is not None:
-        # Refresh scope/probes if quorum membership shifted
-        if existing.scope != scope or set(existing.affected_probe_ids) != set(affected_probe_ids):
-            existing.scope = scope
-            existing.affected_probe_ids = affected_probe_ids
-            await db.flush()
-        return existing
-
-    now = datetime.now(UTC)
-    suppressed = await _is_suppressed_by_dependency(db, monitor_id)
-    incident = Incident(
-        monitor_id=monitor_id,
-        started_at=now,
-        scope=scope,
-        affected_probe_ids=affected_probe_ids,
-        dependency_suppressed=suppressed,
-        first_failure_at=now,
-        slo_rule_id=slo_rule_id,
-        trigger_kind=trigger_kind,
-    )
-    db.add(incident)
-    try:
-        await db.flush()
-    except IntegrityError:
-        await db.rollback()
-        logger.info(
-            "slo_incident_creation_deduplicated",
-            monitor_id=str(monitor_id),
-            slo_rule_id=str(slo_rule_id),
-        )
-        return None
-
-    # Reuse the diagnostic + verdict pipeline so health-engine incidents are
-    # observability-equivalent to legacy ones.
-    try:
-        from whatisup.services.diagnostics import enqueue_diagnostic_requests
-
-        await enqueue_diagnostic_requests(
-            incident_id=incident.id,
-            monitor_id=monitor_id,
-            target=monitor.url,
-            check_type=monitor.check_type,
-            affected_probe_ids=affected_probe_ids,
-        )
-    except (ImportError, RedisError, OSError) as exc:
-        logger.warning(
-            "slo_diagnostic_enqueue_failed",
-            incident_id=str(incident.id),
-            error=str(exc),
-        )
-
-    logger.info(
-        "slo_incident_opened",
-        monitor_id=str(monitor_id),
-        incident_id=str(incident.id),
-        slo_rule_id=str(slo_rule_id),
-        trigger_kind=trigger_kind,
-        scope=scope.value,
-        reason=reason,
-        probes=len(affected_probe_ids),
-    )
-    await publish_event(
-        {
-            "type": "incident_opened",
-            "monitor_id": str(monitor_id),
-            "incident_id": str(incident.id),
-            "scope": scope.value,
-            "affected_probes": affected_probe_ids,
-            "started_at": now.isoformat(),
-            "dependency_suppressed": suppressed,
-            "trigger_kind": trigger_kind,
-        }
-    )
-
-    if not suppressed:
-        await _correlate_common_cause(db, incident, affected_probe_ids, publish_event)
-        if incident.group_id is None:
-            await _correlate_by_group(db, incident, monitor, publish_event)
-        if incident.group_id is None:
-            await _correlate_by_dependency(db, incident, monitor_id, publish_event)
-        extra_ctx = (
-            {"correlated_group_id": str(incident.group_id)}
-            if incident.group_id is not None
-            else None
-        )
-        await _fire_alerts(db, incident, monitor, None, "incident_opened", extra_ctx=extra_ctx)
-
-    await invalidate_uptime_cache(monitor_id)
-    return incident
-
-
-async def resolve_incident_for_slo(
-    db: AsyncSession,
-    monitor: Monitor,
-    slo_rule_id: uuid.UUID,
-    publish_event,
-    reason: str = "slo_recovered",
-) -> Incident | None:
-    """Resolve the open incident for an SLO rule, if any. No-op otherwise."""
-    monitor_id = monitor.id
-    incident = (
-        await db.execute(
-            select(Incident).where(
-                Incident.monitor_id == monitor_id,
-                Incident.slo_rule_id == slo_rule_id,
-                Incident.resolved_at.is_(None),
-            )
-        )
-    ).scalar_one_or_none()
-    if incident is None:
-        return None
-
-    now = datetime.now(UTC)
-    started = incident.started_at
-    if started.tzinfo is None:
-        started = started.replace(tzinfo=UTC)
-    duration = int((now - started).total_seconds())
-    incident.resolved_at = now
-    incident.duration_seconds = duration
-    incident.acked_at = None
-    incident.acked_by_id = None
-    incident.snooze_until = None
-    await db.flush()
-
-    logger.info(
-        "slo_incident_resolved",
-        monitor_id=str(monitor_id),
-        incident_id=str(incident.id),
-        slo_rule_id=str(slo_rule_id),
-        duration_seconds=duration,
-        reason=reason,
-    )
-    await publish_event(
-        {
-            "type": "incident_resolved",
-            "monitor_id": str(monitor_id),
-            "incident_id": str(incident.id),
-            "duration_seconds": duration,
-            "resolved_at": now.isoformat(),
-        }
-    )
-    if not incident.dependency_suppressed:
-        await _fire_alerts(db, incident, monitor, None, "incident_resolved")
-
-    if incident.group_id is not None:
-        group = await db.get(IncidentGroup, incident.group_id)
-        if group and group.status == "open":
-            sibling = (
-                await db.execute(
-                    select(Incident)
-                    .where(
-                        Incident.group_id == group.id,
-                        Incident.resolved_at.is_(None),
-                    )
-                    .limit(1)
-                )
-            ).scalar_one_or_none()
-            if sibling is None:
-                group.status = "resolved"
-                group.resolved_at = now
-
-    await invalidate_uptime_cache(monitor_id)
-    return incident

@@ -996,7 +996,6 @@ import MetricsDashboard from '../components/monitors/MetricsDashboard.vue'
 import BaseModal from '../components/BaseModal.vue'
 import SkeletonBox from '../components/shared/SkeletonBox.vue'
 import { useCommandPaletteStore } from '../stores/commandPalette'
-import { maintenanceApi } from '../api/maintenance'
 import { useTimezone } from '../composables/useTimezone'
 import { useMonitorRunbook } from '../composables/useMonitorRunbook'
 import { useMonitorDependencies } from '../composables/useMonitorDependencies'
@@ -1012,6 +1011,7 @@ import { useMonitorAlerts } from '../composables/useMonitorAlerts'
 import { useMonitorTesting } from '../composables/useMonitorTesting'
 import { useMonitorMap } from '../composables/useMonitorMap'
 import { useMonitorPatch } from '../composables/useMonitorPatch'
+import { useMonitorMaintenance } from '../composables/useMonitorMaintenance'
 import MonitorRunbookTab from '../components/monitors/detail/MonitorRunbookTab.vue'
 import MonitorIncidentsTab from '../components/monitors/detail/MonitorIncidentsTab.vue'
 import MonitorSloPanel from '../components/monitors/detail/MonitorSloPanel.vue'
@@ -1044,57 +1044,13 @@ const showClone = ref(false)
 const clonePayload = ref(null)
 
 // ── Maintenance quick-schedule ─────────────────────────────────────────────
-const showMaintenanceModal = ref(false)
-const maintSaving = ref(false)
-const maintForm = ref({
-  name: '',
-  description: '',
-  starts_at: '',
-  ends_at: '',
-  suppress_alerts: true,
-})
-
-function openScheduleMaintenance() {
-  const pad = n => String(n).padStart(2, '0')
-  const toLocalDt = (d) =>
-    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
-  const now  = new Date()
-  const end  = new Date(now.getTime() + 2 * 60 * 60 * 1000) // default 2h window
-  maintForm.value = {
-    name:            monitor.value ? `${monitor.value.name} — maintenance` : '',
-    description:     '',
-    starts_at:       toLocalDt(now),
-    ends_at:         toLocalDt(end),
-    suppress_alerts: true,
-  }
-  showMaintenanceModal.value = true
-}
-
-async function createMaintWindow() {
-  if (!maintForm.value.name.trim() || !maintForm.value.starts_at || !maintForm.value.ends_at) {
-    toastError(t('maintenance.error_required'))
-    return
-  }
-  maintSaving.value = true
-  try {
-    await maintenanceApi.create({
-      name:            maintForm.value.name.trim(),
-      description:     maintForm.value.description || null,
-      monitor_id:      monitor.value?.id ?? null,
-      group_id:        null,
-      starts_at:       new Date(maintForm.value.starts_at).toISOString(),
-      ends_at:         new Date(maintForm.value.ends_at).toISOString(),
-      suppress_alerts: maintForm.value.suppress_alerts,
-    })
-    showMaintenanceModal.value = false
-    toastSuccess(t('common.success'))
-  } catch (err) {
-    toastError(t('common.error'))
-    if (import.meta.env.DEV) console.error(err)
-  } finally {
-    maintSaving.value = false
-  }
-}
+const {
+  showModal: showMaintenanceModal,
+  saving: maintSaving,
+  form: maintForm,
+  openSchedule: openScheduleMaintenance,
+  createWindow: createMaintWindow,
+} = useMonitorMaintenance(monitor)
 
 function duplicateMonitor() {
   if (!monitor.value) return

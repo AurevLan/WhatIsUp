@@ -1,4 +1,13 @@
-"""Incident detection — multi-probe correlation logic with flapping detection."""
+"""Incident lifecycle orchestrator.
+
+Thin coordinator over two extracted services:
+- ``incident_decider``: flapping detection + dependency suppression checks.
+- ``incident_correlation``: probe / group / dependency grouping strategies.
+
+This module owns the open/update/resolve lifecycle, alert dispatch
+(``_fire_alerts``), the V2 Health Engine bridge, and post-decider side
+effects (composite cascade, schema drift, anomaly detection, auto-pause).
+"""
 
 from __future__ import annotations
 
@@ -6,439 +15,45 @@ import asyncio
 import uuid
 from datetime import UTC, datetime, timedelta
 
-import sqlalchemy as sa
 import structlog
-from sqlalchemy import cast, func, or_, select
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB
-from sqlalchemy.exc import IntegrityError
+from redis.exceptions import RedisError
+from sqlalchemy import func, or_, select
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from whatisup.core.config import get_settings
-from whatisup.core.database import dialect_name
 from whatisup.models.alert import AlertCondition, AlertEvent, AlertEventStatus, AlertRule
 from whatisup.models.incident import Incident, IncidentGroup, IncidentScope
-from whatisup.models.monitor import Monitor, MonitorDependency
+from whatisup.models.monitor import Monitor
 from whatisup.models.probe import Probe
 from whatisup.models.result import CheckResult, CheckStatus
 from whatisup.services.alert import dispatch_alert, maybe_digest_or_dispatch
 from whatisup.services.anomaly import compute_zscore
 from whatisup.services.correlation import update_patterns_for_group
+from whatisup.services.incident_correlation import (
+    correlate_by_dependency,
+    correlate_by_group,
+    correlate_common_cause,
+)
+from whatisup.services.incident_decider import (
+    has_ancestor_incident,
+    is_flapping,
+    is_suppressed_by_dependency,
+)
 from whatisup.services.maintenance import is_group_maintenance_suppressed, is_in_maintenance
 from whatisup.services.stats import invalidate_uptime_cache, latest_results_subq
 
 logger = structlog.get_logger(__name__)
 
-# Global defaults — overridden per-monitor by flap_threshold / flap_window_minutes
-_DEFAULT_FLAP_THRESHOLD = 5
-_DEFAULT_FLAP_WINDOW_MINUTES = 10
-
-
-async def _is_flapping(db: AsyncSession, monitor: Monitor) -> bool:
-    """Detect rapid up/down oscillation within the monitor's flap window."""
-    threshold = monitor.flap_threshold or _DEFAULT_FLAP_THRESHOLD
-    window = monitor.flap_window_minutes or _DEFAULT_FLAP_WINDOW_MINUTES
-    cutoff = datetime.now(UTC) - timedelta(minutes=window)
-    rows = (
-        await db.execute(
-            select(CheckResult.status, CheckResult.checked_at)
-            .where(
-                CheckResult.monitor_id == monitor.id,
-                CheckResult.checked_at >= cutoff,
-            )
-            .order_by(CheckResult.checked_at.asc())
-        )
-    ).all()
-
-    if len(rows) < threshold:
-        return False
-
-    transitions = sum(
-        1
-        for i in range(1, len(rows))
-        if (rows[i].status == CheckStatus.up) != (rows[i - 1].status == CheckStatus.up)
-    )
-    return transitions >= threshold
-
-
-async def _has_ancestor_incident(
-    db: AsyncSession,
-    monitor_id: uuid.UUID,
-    visited: set[uuid.UUID] | None = None,
-    depth: int = 0,
-) -> bool:
-    """Check if any ancestor in the dependency chain has an open incident.
-
-    Follows the dependency graph recursively up to 5 hops to handle transitive
-    suppression (e.g. A -> B -> C: if A is down, both B and C are suppressed).
-    """
-    if depth > 5:
-        return False
-    if visited is None:
-        visited = set()
-    if monitor_id in visited:
-        return False
-    visited.add(monitor_id)
-
-    # Get direct parents with suppression enabled
-    parents = (
-        (
-            await db.execute(
-                select(MonitorDependency).where(
-                    MonitorDependency.child_id == monitor_id,
-                    MonitorDependency.suppress_on_parent_down.is_(True),
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
-
-    if not parents:
-        return False
-
-    for dep in parents:
-        # Check if this parent has an open incident
-        has_incident = (
-            await db.execute(
-                select(Incident.id)
-                .where(
-                    Incident.monitor_id == dep.parent_id,
-                    Incident.resolved_at.is_(None),
-                )
-                .limit(1)
-            )
-        ).scalar_one_or_none()
-
-        if has_incident:
-            return True
-
-        # Recurse to grandparents
-        if await _has_ancestor_incident(db, dep.parent_id, visited, depth + 1):
-            return True
-
-    return False
-
-
-async def _is_suppressed_by_dependency(db: AsyncSession, monitor_id: uuid.UUID) -> bool:
-    """Return True if any ancestor monitor in the dependency chain has an open incident."""
-    return await _has_ancestor_incident(db, monitor_id)
-
-
-async def _correlate_common_cause(
-    db: AsyncSession,
-    incident: Incident,
-    affected_probe_ids: list[str],
-    publish_event,
-) -> None:
-    """
-    If multiple monitors became down at the same time via the same probes,
-    persist a correlation group and emit a WebSocket event.
-    """
-    if not affected_probe_ids:
-        return
-
-    monitor_id = incident.monitor_id
-    window_start = datetime.now(UTC) - timedelta(seconds=90)
-
-    # Find open incidents started recently with overlapping affected probes
-    # PostgreSQL: use JSONB ?| for efficient GIN-indexed overlap check
-    # Fallback: Python-side filtering for non-PostgreSQL (tests use SQLite)
-    base_query = select(Incident).where(
-        Incident.resolved_at.is_(None),
-        Incident.started_at >= window_start,
-        Incident.monitor_id != monitor_id,
-    )
-
-    if dialect_name(db) == "postgresql":
-        base_query = base_query.where(
-            cast(Incident.affected_probe_ids, JSONB).op("?|")(
-                cast(affected_probe_ids, ARRAY(sa.Text))
-            )
-        )
-        correlated_incidents = (await db.execute(base_query)).scalars().all()
-    else:
-        # Fallback for SQLite (tests)
-        open_incidents = (await db.execute(base_query)).scalars().all()
-        probe_set = set(affected_probe_ids)
-        correlated_incidents = [
-            inc for inc in open_incidents if set(inc.affected_probe_ids) & probe_set
-        ]
-
-    if not correlated_incidents:
-        return
-
-    # Find if any correlated incident already belongs to a group
-    existing_group_id: uuid.UUID | None = next(
-        (inc.group_id for inc in correlated_incidents if inc.group_id is not None),
-        None,
-    )
-
-    now = datetime.now(UTC)
-
-    group: IncidentGroup | None = None
-    if existing_group_id:
-        group = await db.get(IncidentGroup, existing_group_id)
-        if group:
-            # Merge probe IDs
-            merged = list(set(group.cause_probe_ids) | set(affected_probe_ids))
-            group.cause_probe_ids = merged
-
-    if group is None:
-        # Identify root cause: the monitor whose incident started earliest
-        all_incidents = [*correlated_incidents, incident]
-        root_incident = min(all_incidents, key=lambda i: i.started_at)
-
-        group = IncidentGroup(
-            triggered_at=now,
-            cause_probe_ids=list(set(affected_probe_ids)),
-            status="open",
-            root_cause_monitor_id=root_incident.monitor_id,
-            correlation_type="probe",
-        )
-        db.add(group)
-        await db.flush()  # generate group.id
-        # Attach all correlated incidents to the new group
-        for inc in correlated_incidents:
-            if inc.group_id is None:
-                inc.group_id = group.id
-
-    # Attach the new incident to the group
-    incident.group_id = group.id
-    await db.flush()
-
-    correlated_monitor_ids = [str(inc.monitor_id) for inc in correlated_incidents]
-    logger.info(
-        "common_cause_detected",
-        monitor_id=str(monitor_id),
-        group_id=str(group.id),
-        correlated_monitors=correlated_monitor_ids,
-        shared_probes=affected_probe_ids,
-    )
-    await publish_event(
-        {
-            "type": "common_cause_detected",
-            "group_id": str(group.id),
-            "monitor_id": str(monitor_id),
-            "correlated_monitor_ids": correlated_monitor_ids,
-            "shared_probe_ids": affected_probe_ids,
-        }
-    )
-
-
-async def _correlate_by_group(
-    db: AsyncSession,
-    incident: Incident,
-    monitor: Monitor,
-    publish_event,
-) -> None:
-    """
-    If ≥50% of monitors in the same group went down within 2 minutes,
-    create/join an IncidentGroup even without shared probe IDs.
-    Detects shared infrastructure failures invisible to probe-level correlation.
-    """
-    if not monitor.group_id or incident.group_id is not None:
-        return
-
-    window_start = datetime.now(UTC) - timedelta(minutes=2)
-
-    # Count enabled monitors in this group
-    group_monitors = (
-        (
-            await db.execute(
-                select(Monitor.id).where(
-                    Monitor.group_id == monitor.group_id,
-                    Monitor.enabled.is_(True),
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
-
-    if len(group_monitors) < 2:
-        return
-
-    # Find open incidents from the same group started recently
-    sibling_incidents = (
-        (
-            await db.execute(
-                select(Incident).where(
-                    Incident.monitor_id.in_(group_monitors),
-                    Incident.monitor_id != monitor.id,
-                    Incident.resolved_at.is_(None),
-                    Incident.started_at >= window_start,
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
-
-    # Need ≥50% of group monitors to be down (including the current one)
-    down_count = len(sibling_incidents) + 1  # +1 for current incident
-    threshold = len(group_monitors) / 2
-    if down_count < threshold:
-        return
-
-    # Check if any sibling is already in a group
-    existing_group_id = next(
-        (inc.group_id for inc in sibling_incidents if inc.group_id is not None),
-        None,
-    )
-
-    now = datetime.now(UTC)
-    group: IncidentGroup | None = None
-
-    if existing_group_id:
-        group = await db.get(IncidentGroup, existing_group_id)
-
-    if group is None:
-        all_incidents = [*sibling_incidents, incident]
-        root_incident = min(all_incidents, key=lambda i: i.started_at)
-
-        group = IncidentGroup(
-            triggered_at=now,
-            cause_probe_ids=[],
-            status="open",
-            root_cause_monitor_id=root_incident.monitor_id,
-            correlation_type="group",
-        )
-        db.add(group)
-        await db.flush()
-        for inc in sibling_incidents:
-            if inc.group_id is None:
-                inc.group_id = group.id
-
-    incident.group_id = group.id
-    await db.flush()
-
-    correlated_monitor_ids = [str(inc.monitor_id) for inc in sibling_incidents]
-    logger.info(
-        "group_correlation_detected",
-        monitor_id=str(monitor.id),
-        group_id=str(group.id),
-        down_count=down_count,
-        group_size=len(group_monitors),
-    )
-    await publish_event(
-        {
-            "type": "common_cause_detected",
-            "group_id": str(group.id),
-            "monitor_id": str(monitor.id),
-            "correlated_monitor_ids": correlated_monitor_ids,
-            "correlation_type": "group",
-        }
-    )
-
-
-async def _correlate_by_dependency(
-    db: AsyncSession,
-    incident: Incident,
-    monitor_id: uuid.UUID,
-    publish_event,
-) -> None:
-    """
-    Cascade correlation: if a parent and its children go down within 5 minutes,
-    group them together using existing MonitorDependency edges.
-    """
-    if incident.group_id is not None:
-        return
-
-    window_start = datetime.now(UTC) - timedelta(minutes=5)
-    now = datetime.now(UTC)
-
-    # Find parent monitors for the current monitor
-    parent_deps = (
-        (
-            await db.execute(
-                select(MonitorDependency.parent_id).where(MonitorDependency.child_id == monitor_id)
-            )
-        )
-        .scalars()
-        .all()
-    )
-
-    # Find child monitors for the current monitor
-    child_deps = (
-        (
-            await db.execute(
-                select(MonitorDependency.child_id).where(MonitorDependency.parent_id == monitor_id)
-            )
-        )
-        .scalars()
-        .all()
-    )
-
-    related_ids = list(set(parent_deps) | set(child_deps))
-    if not related_ids:
-        return
-
-    # Find open incidents on related monitors within the cascade window
-    related_incidents = (
-        (
-            await db.execute(
-                select(Incident).where(
-                    Incident.monitor_id.in_(related_ids),
-                    Incident.resolved_at.is_(None),
-                    Incident.started_at >= window_start,
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
-
-    if not related_incidents:
-        return
-
-    # Check if any related incident is already in a group
-    existing_group_id = next(
-        (inc.group_id for inc in related_incidents if inc.group_id is not None),
-        None,
-    )
-
-    group: IncidentGroup | None = None
-    if existing_group_id:
-        group = await db.get(IncidentGroup, existing_group_id)
-        if group and incident.group_id is None:
-            incident.group_id = group.id
-
-    if group is None:
-        all_incidents = [*related_incidents, incident]
-        root_incident = min(all_incidents, key=lambda i: i.started_at)
-
-        group = IncidentGroup(
-            triggered_at=now,
-            cause_probe_ids=[],
-            status="open",
-            root_cause_monitor_id=root_incident.monitor_id,
-            correlation_type="dependency",
-        )
-        db.add(group)
-        await db.flush()
-        for inc in related_incidents:
-            if inc.group_id is None:
-                inc.group_id = group.id
-        incident.group_id = group.id
-
-    await db.flush()
-
-    logger.info(
-        "dependency_cascade_detected",
-        monitor_id=str(monitor_id),
-        group_id=str(group.id),
-        related_monitors=[str(inc.monitor_id) for inc in related_incidents],
-    )
-    await publish_event(
-        {
-            "type": "common_cause_detected",
-            "group_id": str(group.id),
-            "monitor_id": str(monitor_id),
-            "correlated_monitor_ids": [str(inc.monitor_id) for inc in related_incidents],
-            "correlation_type": "dependency",
-        }
-    )
+# Backwards-compatible private aliases — external callers (heartbeat, renotify)
+# and tests still import these names from ``services.incident``.
+_is_flapping = is_flapping
+_has_ancestor_incident = has_ancestor_incident
+_is_suppressed_by_dependency = is_suppressed_by_dependency
+_correlate_common_cause = correlate_common_cause
+_correlate_by_group = correlate_by_group
+_correlate_by_dependency = correlate_by_dependency
 
 
 async def _fire_alerts(
@@ -456,7 +71,6 @@ async def _fire_alerts(
       - "incident_resolved": incident just resolved
       - "incident_renotify": incident still open, check for periodic re-notification
     """
-    # Collect applicable rules (by monitor, group, or tag selector intersecting monitor tags)
     conditions = [AlertRule.monitor_id == monitor.id]
     if monitor.group_id:
         conditions.append(AlertRule.group_id == monitor.group_id)
@@ -490,7 +104,6 @@ async def _fire_alerts(
     if not rules:
         return
 
-    # Resolve probe names for enriched context
     probe_names: dict[str, str] = {}
     if incident.affected_probe_ids:
         probe_uuids = []
@@ -516,7 +129,6 @@ async def _fire_alerts(
     now = datetime.now(UTC)
 
     for rule in rules:
-        # Skip disabled rules
         if not rule.enabled:
             continue
 
@@ -532,14 +144,11 @@ async def _fire_alerts(
         if event_type == "incident_renotify":
             if not rule.renotify_after_minutes:
                 continue
-            # Skip renotify if incident has been acknowledged
             if incident.acked_at is not None:
                 continue
-            # T1-04: skip renotify while a snooze window is still active. Once
-            # snooze_until is in the past the next cycle picks the incident up.
+            # T1-04: skip renotify while a snooze window is still active.
             if incident.snooze_until is not None and incident.snooze_until > now:
                 continue
-            # Check last sent alert event for this incident + rule channels
             channel_ids = [c.id for c in rule.channels]
             if channel_ids:
                 last_event = (
@@ -558,7 +167,7 @@ async def _fire_alerts(
                     minutes_since = (now - last_event.sent_at).total_seconds() / 60
                     if minutes_since < rule.renotify_after_minutes:
                         continue
-            # Dispatch renotify directly (digest ne s'applique pas au renotify)
+            # Dispatch renotify directly (digest does not apply to renotify)
             for channel in rule.channels:
                 await dispatch_alert(db, incident, channel, "incident_opened", ctx=ctx)
             continue
@@ -586,7 +195,6 @@ async def _fire_alerts(
                     )
                     continue
 
-        # Standard condition evaluation for opened/resolved
         if rule.condition == AlertCondition.any_down:
             if event_type not in ("incident_opened", "incident_resolved"):
                 continue
@@ -619,7 +227,7 @@ async def _fire_alerts(
                 continue
             if rule.baseline_factor is None or result.response_time_ms is None:
                 continue
-            # Compute 7-day rolling average for the same hour-of-week
+            # 7-day rolling average — TODO: bucket by hour-of-week if needed
             baseline_cutoff = now - timedelta(days=7)
             baseline_row = (
                 await db.execute(
@@ -652,13 +260,12 @@ async def _fire_alerts(
         elif rule.condition == AlertCondition.schema_drift:
             if event_type != "incident_opened":
                 continue
-            # schema_drift fires when the fingerprint differs from the stored baseline
             if not result.schema_fingerprint:
                 continue
             if not monitor.schema_baseline:
-                continue  # No baseline set yet → no alert
+                continue
             if result.schema_fingerprint == monitor.schema_baseline:
-                continue  # No change
+                continue
             ctx = {
                 **ctx,
                 "schema_fingerprint": result.schema_fingerprint,
@@ -871,11 +478,7 @@ async def process_check_result(
     # auto-pause) still run below. Bypassed entirely when LEGACY_INCIDENT_ENGINE
     # is set (M5 emergency rollback — no code change, no migration).
     settings = get_settings()
-    if (
-        monitor
-        and monitor.health_engine_enabled
-        and not settings.legacy_incident_engine
-    ):
+    if monitor and monitor.health_engine_enabled and not settings.legacy_incident_engine:
         await _post_decider_side_effects(db, result, monitor, publish_event)
         return
 
@@ -1001,7 +604,7 @@ async def process_check_result(
                 check_type=monitor.check_type,
                 affected_probe_ids=affected_probe_ids,
             )
-        except Exception as exc:  # noqa: BLE001
+        except (ImportError, RedisError, OSError) as exc:
             logger.warning(
                 "diagnostic_enqueue_in_pipeline_failed",
                 incident_id=str(incident.id),
@@ -1018,7 +621,7 @@ async def process_check_result(
             await classify_network_verdict(
                 db, incident, latest_by_probe=latest_by_probe, persist=True
             )
-        except Exception as exc:  # noqa: BLE001
+        except (ImportError, SQLAlchemyError, OSError) as exc:
             logger.warning(
                 "network_verdict_initial_failed",
                 incident_id=str(incident.id),
@@ -1366,7 +969,7 @@ async def open_incident_from_health(
             check_type=monitor.check_type,
             affected_probe_ids=affected_probe_ids,
         )
-    except Exception as exc:  # noqa: BLE001
+    except (ImportError, RedisError, OSError) as exc:
         logger.warning(
             "slo_diagnostic_enqueue_failed",
             incident_id=str(incident.id),

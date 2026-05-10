@@ -406,6 +406,7 @@ export default {
     custom_metrics: 'Custom metrics',
     push_url: 'Show push URL',
     web_vitals: 'Core Web Vitals',
+    scenario_no_detail: 'No detail available for this run.',
     tab_availability: 'Availability',
     tab_scenario: 'Scenario',
     tab_map: 'Map',

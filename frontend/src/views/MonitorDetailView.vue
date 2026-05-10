@@ -1007,6 +1007,7 @@ import { useMonitorAnnotations } from '../composables/useMonitorAnnotations'
 import { useMonitorPercentiles } from '../composables/useMonitorPercentiles'
 import { useMonitorCustomMetrics } from '../composables/useMonitorCustomMetrics'
 import { useMonitorCharts, PROBE_COLORS } from '../composables/useMonitorCharts'
+import { useMonitorDns } from '../composables/useMonitorDns'
 import MonitorRunbookTab from '../components/monitors/detail/MonitorRunbookTab.vue'
 import MonitorIncidentsTab from '../components/monitors/detail/MonitorIncidentsTab.vue'
 import MonitorSloPanel from '../components/monitors/detail/MonitorSloPanel.vue'
@@ -1394,57 +1395,22 @@ const responseTrend = computed(() => {
   return { up: pct > 0, pct: Math.abs(pct).toFixed(0) }
 })
 
-// ── DNS changelog ─────────────────────────────────────────────────────────────
-// Normalize DNS values: sort for stable comparison — ["5.6.7.8","1.2.3.4"] === ["1.2.3.4","5.6.7.8"]
-function normalizeDnsValue(vals) {
-  if (!vals || !vals.length) return null
-  return [...vals].sort().join(', ')
-}
-
-function dnsValueStr(r) {
-  if (r.status !== 'up') return null
-  if (r.dns_resolved_values?.length) return r.dns_resolved_values.join(', ')
-  return null
-}
-
-// results are DESC (newest first) — compare chronologically (reversed)
-const dnsChangelog = computed(() => {
-  if (monitor.value?.check_type !== 'dns') return []
-  const chronological = [...results.value].reverse()
-  const changes = []
-  let lastNorm = undefined // undefined = no previous result yet
-  let lastVals = null
-  for (const r of chronological) {
-    const vals = r.status === 'up' ? (r.dns_resolved_values ?? []) : null
-    const norm = normalizeDnsValue(vals)
-    if (norm !== lastNorm) {
-      changes.push({
-        checked_at: r.checked_at,
-        probe_id: r.probe_id,
-        old_value: lastNorm === undefined ? null : (lastVals ? lastVals.join(', ') : null),
-        new_value: vals ? vals.join(', ') : null,
-      })
-      lastNorm = norm
-      lastVals = vals
-    }
-  }
-  return changes.reverse() // most recent first
-})
-
-// Returns true if the result at `idx` has a genuinely different value set than the next one
-function isDnsValueChange(idx) {
-  const slice = results.value.slice(0, 100)
-  if (idx >= slice.length - 1) return false
-  const curr = normalizeDnsValue(slice[idx].status === 'up' ? slice[idx].dns_resolved_values : null)
-  const prev = normalizeDnsValue(slice[idx + 1].status === 'up' ? slice[idx + 1].dns_resolved_values : null)
-  return curr !== prev
-}
-
-// Most recent successful DNS resolution
-const currentDnsValues = computed(() => {
-  const r = results.value.find(r => r.status === 'up' && r.dns_resolved_values?.length)
-  return r?.dns_resolved_values ?? null
-})
+// ── DNS (changelog, baseline, drift toggles, alert-suggestion modal) ─────────
+const {
+  changelog: dnsChangelog,
+  isValueChange: isDnsValueChange,
+  currentValues: currentDnsValues,
+  baselineLoading: dnsBaselineLoading,
+  baselineMsg: dnsBaselineMsg,
+  acceptBaseline: acceptDnsBaseline,
+  resetBaseline: resetDnsBaseline,
+  alertModal: dnsAlertModal,
+  alertChannels: dnsAlertChannels,
+  alertChannelId: dnsAlertChannelId,
+  alertCreating: dnsAlertCreating,
+  toggleSetting: toggleDnsSetting,
+  createAlertRule: createDnsAlertRule,
+} = useMonitorDns(monitor, results)
 
 // Auto-select the most recent run when results load
 watch(results, (res) => {
@@ -1646,48 +1612,6 @@ function formatDateShort(dt) {
   return new Date(dt).toLocaleDateString(locale.value, { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-// ── DNS Baseline ──────────────────────────────────────────────────────────────
-const dnsBaselineLoading = ref(false)
-const dnsBaselineMsg = ref('')
-
-async function acceptDnsBaseline() {
-  dnsBaselineLoading.value = true
-  dnsBaselineMsg.value = ''
-  try {
-    const { data } = await monitorsApi.acceptDnsBaseline(monitor.value.id)
-    monitor.value.dns_baseline_ips = data.baseline
-    dnsBaselineMsg.value = `Baseline updated: ${data.baseline.join(', ')}`
-    setTimeout(() => { dnsBaselineMsg.value = '' }, 4000)
-  } catch (e) {
-    dnsBaselineMsg.value = e.response?.data?.detail || 'Error'
-  } finally {
-    dnsBaselineLoading.value = false
-  }
-}
-
-async function resetDnsBaseline(type = 'all') {
-  dnsBaselineLoading.value = true
-  dnsBaselineMsg.value = ''
-  try {
-    await monitorsApi.resetDnsBaseline(monitor.value.id, type)
-    if (type === 'internal') {
-      monitor.value.dns_baseline_ips_internal = null
-    } else if (type === 'external') {
-      monitor.value.dns_baseline_ips_external = null
-    } else {
-      monitor.value.dns_baseline_ips = null
-      monitor.value.dns_baseline_ips_internal = null
-      monitor.value.dns_baseline_ips_external = null
-    }
-    dnsBaselineMsg.value = 'Baseline cleared — will re-learn on next check.'
-    setTimeout(() => { dnsBaselineMsg.value = '' }, 4000)
-  } catch (e) {
-    dnsBaselineMsg.value = e.response?.data?.detail || 'Error'
-  } finally {
-    dnsBaselineLoading.value = false
-  }
-}
-
 // ── Schema Drift Baseline ─────────────────────────────────────────────────────
 async function toggleSchemaDrift(enabled) {
   try {
@@ -1718,12 +1642,7 @@ async function resetSchemaBaseline() {
   }
 }
 
-// ── DNS alert suggestion modal ─────────────────────────────────────────────
-const dnsAlertModal = ref(false)
-const dnsAlertChannels = ref([])
-const dnsAlertChannelId = ref('')
-const dnsAlertCreating = ref(false)
-
+// ── Tags change handler (optimistic, rolls back on failure) ─────────────────
 async function onTagsChange(newTags) {
   const previous = monitor.value.tags || []
   monitor.value.tags = newTags
@@ -1731,35 +1650,6 @@ async function onTagsChange(newTags) {
     await monitorsApi.update(monitor.value.id, { tag_ids: newTags.map(t => t.id) })
   } catch (e) {
     monitor.value.tags = previous
-  }
-}
-
-async function toggleDnsSetting(field) {
-  const newVal = !monitor.value[field]
-  monitor.value[field] = newVal
-  try {
-    await monitorsApi.update(monitor.value.id, { [field]: newVal })
-  } catch (e) {
-    monitor.value[field] = !newVal
-    return
-  }
-  // When enabling dns_drift_alert or dns_split_enabled, check if an any_down rule already exists
-  if ((field === 'dns_drift_alert' || field === 'dns_split_enabled') && newVal && monitor.value.dns_drift_alert) {
-    try {
-      const [chResp, rulesResp] = await Promise.all([
-        api.get('/alerts/channels'),
-        api.get('/alerts/rules'),
-      ])
-      const channels = chResp.data
-      const hasRule = rulesResp.data.some(r =>
-        r.monitor_id === monitor.value.id && r.condition === 'any_down'
-      )
-      if (!hasRule && channels.length) {
-        dnsAlertChannels.value = channels
-        dnsAlertChannelId.value = channels[0].id
-        dnsAlertModal.value = true
-      }
-    } catch {}
   }
 }
 
@@ -1792,24 +1682,6 @@ const {
   cancelEdit: cancelEditRunbook,
   save: saveRunbook,
 } = useMonitorRunbook(monitor)
-
-async function createDnsAlertRule() {
-  if (!dnsAlertChannelId.value) return
-  dnsAlertCreating.value = true
-  try {
-    await api.post('/alerts/rules', {
-      monitor_id: monitor.value.id,
-      condition: 'any_down',
-      min_duration_seconds: 0,
-      channel_ids: [dnsAlertChannelId.value],
-    })
-    dnsAlertModal.value = false
-  } catch (e) {
-    toastError(e.response?.data?.detail || 'Erreur lors de la création de la règle')
-  } finally {
-    dnsAlertCreating.value = false
-  }
-}
 
 // ── Dependencies & composite members ─────────────────────────────────────────
 const {

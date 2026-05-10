@@ -1,3 +1,14 @@
+<!--
+  ConditionCard mutates `row.<field>` directly via v-model — the parent
+  (AlertMatrix) passes a reactive list item, and Vue propagates the change
+  back to the parent's state without any explicit update event. The
+  vue/no-mutating-props warning is correct in principle but the alternative
+  (7 computed wrappers + emit('update:row', ...) per field) would force the
+  parent to thread a 2-way binding for every input here. Disabled for this
+  file only.
+-->
+<!-- eslint-disable vue/no-mutating-props -->
+
 <template>
   <div
     class="rounded-xl border bg-gray-900/40 transition-colors"
@@ -123,7 +134,9 @@ const hasAdvancedValues = computed(() => {
 
 function toggleChannel(id) {
   const idx = props.row.channel_ids.indexOf(id)
+  // eslint-disable-next-line vue/no-mutating-props
   if (idx >= 0) props.row.channel_ids.splice(idx, 1)
+  // eslint-disable-next-line vue/no-mutating-props
   else props.row.channel_ids.push(id)
 }
 </script>

@@ -20,7 +20,13 @@ from whatisup.models.probe import Probe
 from whatisup.models.probe_group import ProbeGroup, probe_group_members, user_probe_group_access
 from whatisup.models.system_settings import SystemSettings
 from whatisup.models.user import User
-from whatisup.schemas.probe_group import ProbeGroupCreate, ProbeGroupOut, ProbeGroupUpdate
+from whatisup.schemas.probe_group import (
+    ProbeGroupCreate,
+    ProbeGroupMembersIn,
+    ProbeGroupOut,
+    ProbeGroupUpdate,
+    ProbeGroupUsersIn,
+)
 from whatisup.schemas.user import AdminUserCreate, AdminUserOut, AdminUserUpdate, UserOut
 
 logger = structlog.get_logger(__name__)
@@ -342,12 +348,12 @@ async def delete_probe_group(
 async def add_probes_to_group(
     request: Request,
     group_id: uuid.UUID,
-    payload: dict,
+    payload: ProbeGroupMembersIn,
     _admin: User = Depends(require_superadmin),
     db: AsyncSession = Depends(get_db),
 ) -> ProbeGroupOut:
     await _get_probe_group_or_404(group_id, db)
-    probe_ids: list[uuid.UUID] = [uuid.UUID(str(pid)) for pid in payload.get("probe_ids", [])]
+    probe_ids: list[uuid.UUID] = payload.probe_ids
     # Fetch existing probe_ids in group to avoid duplicate inserts
     existing = set(
         r[0]
@@ -403,12 +409,12 @@ async def remove_probe_from_group(
 async def grant_group_access(
     request: Request,
     group_id: uuid.UUID,
-    payload: dict,
+    payload: ProbeGroupUsersIn,
     _admin: User = Depends(require_superadmin),
     db: AsyncSession = Depends(get_db),
 ) -> ProbeGroupOut:
     await _get_probe_group_or_404(group_id, db)
-    user_ids: list[uuid.UUID] = [uuid.UUID(str(uid)) for uid in payload.get("user_ids", [])]
+    user_ids: list[uuid.UUID] = payload.user_ids
     existing = set(
         r[0]
         for r in (

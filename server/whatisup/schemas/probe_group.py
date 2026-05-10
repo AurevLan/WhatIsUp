@@ -15,6 +15,18 @@ class ProbeGroupUpdate(BaseModel):
     description: str | None = None
 
 
+class ProbeGroupMembersIn(BaseModel):
+    """Body of POST/DELETE /admin/probe-groups/{id}/probes — list of probe UUIDs."""
+
+    probe_ids: list[uuid.UUID] = Field(default_factory=list)
+
+
+class ProbeGroupUsersIn(BaseModel):
+    """Body of POST/DELETE /admin/probe-groups/{id}/users — list of user UUIDs."""
+
+    user_ids: list[uuid.UUID] = Field(default_factory=list)
+
+
 class ProbeGroupOut(BaseModel):
     id: uuid.UUID
     name: str

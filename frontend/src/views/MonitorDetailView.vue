@@ -1009,6 +1009,7 @@ import { useMonitorCustomMetrics } from '../composables/useMonitorCustomMetrics'
 import { useMonitorCharts, PROBE_COLORS } from '../composables/useMonitorCharts'
 import { useMonitorDns } from '../composables/useMonitorDns'
 import { useMonitorAlerts } from '../composables/useMonitorAlerts'
+import { useMonitorTesting } from '../composables/useMonitorTesting'
 import MonitorRunbookTab from '../components/monitors/detail/MonitorRunbookTab.vue'
 import MonitorIncidentsTab from '../components/monitors/detail/MonitorIncidentsTab.vue'
 import MonitorSloPanel from '../components/monitors/detail/MonitorSloPanel.vue'
@@ -1191,81 +1192,8 @@ const {
 
 // Percentiles P50/P95/P99 — instantiated below, after chartWindow is declared.
 
-// ── "Tester maintenant" ───────────────────────────────────────────────────────
-const testing      = ref(false)
-const testingState = ref(null)  // null | 'queued' | 'running' | 'done'
-const newResultId  = ref(null)
-let   testPollInterval   = null
-let   testPollTimeout    = null  // 30-second hard limit
-let   highlightTimeout   = null  // 5-second highlight clear
-const testingElapsed = ref(0)
-let   elapsedInterval = null
-
-async function loadResults() {
-  const id    = route.params.id
-  const since = new Date(Date.now() - chartWindow.value * 60 * 60 * 1000).toISOString()
-  const { data } = await monitorsApi.results(id, { limit: 2000, since })
-  // Only update ref when data actually changed to avoid spurious re-renders
-  const latest = data[0]
-  const current = results.value[0]
-  if (!current || !latest || latest.id !== current.id || data.length !== results.value.length) {
-    results.value = data
-  }
-}
-
-async function handleTriggerCheck() {
-  if (testing.value) return
-  testing.value      = true
-  testingState.value = 'queued'
-  newResultId.value  = null
-  testingElapsed.value = 0
-  elapsedInterval = setInterval(() => { testingElapsed.value++ }, 1000)
-
-  const clickedAt = new Date().toISOString()
-
-  try {
-    await triggerCheck(monitor.value.id)
-    testingState.value = 'running'
-  } catch {
-    clearInterval(elapsedInterval)
-    elapsedInterval = null
-    testingElapsed.value = 0
-    testing.value      = false
-    testingState.value = null
-    return
-  }
-
-  // Poll every 3 s; hard-cancel after 30 s
-  const stopPolling = () => {
-    clearInterval(testPollInterval)
-    clearTimeout(testPollTimeout)
-    clearInterval(elapsedInterval)
-    testPollInterval = null
-    testPollTimeout  = null
-    elapsedInterval  = null
-  }
-
-  testPollTimeout = setTimeout(() => {
-    stopPolling()
-    testing.value      = false
-    testingState.value = null
-  }, 30000)
-
-  testPollInterval = setInterval(async () => {
-    try {
-      await loadResults()
-      const fresh = results.value.find(r => r.checked_at > clickedAt)
-      if (fresh) {
-        stopPolling()
-        newResultId.value  = fresh.id
-        testingState.value = 'done'
-        testing.value      = false
-        // Remove highlight after 5 s; track timeout for unmount cleanup
-        highlightTimeout = setTimeout(() => { newResultId.value = null }, 5000)
-      }
-    } catch { /* network error — keep polling */ }
-  }, 3000)
-}
+// "Tester maintenant" — trigger check + 30s polling: instantiated below,
+// after chartWindow is declared.
 
 
 // ── Scenario run selection ────────────────────────────────────────────────────
@@ -1472,6 +1400,16 @@ const CHART_WINDOWS = [
 ]
 const chartWindow = ref(24)
 
+// ── "Tester maintenant" — trigger check + 30s polling ───────────────────────
+const {
+  testing,
+  testingState,
+  newResultId,
+  testingElapsed,
+  loadResults,
+  handleTriggerCheck,
+} = useMonitorTesting(monitor, monitorIdRef, results, chartWindow)
+
 // Reload results when chart window changes (watch must be after chartWindow declaration)
 watch(chartWindow, () => { loadResults(); loadPercentiles() })
 
@@ -1670,15 +1608,8 @@ const {
 } = useMonitorDependencies(monitor)
 
 // ── Cleanup ───────────────────────────────────────────────────────────────────
+// (timer cleanup for "Test now" polling is handled by useMonitorTesting)
 onUnmounted(() => {
-  clearInterval(testPollInterval)
-  clearTimeout(testPollTimeout)
-  clearTimeout(highlightTimeout)
-  clearInterval(elapsedInterval)
-  testPollInterval = null
-  testPollTimeout  = null
-  highlightTimeout = null
-  elapsedInterval  = null
   if (monitorLeafletMap) {
     monitorLeafletMap.remove()
     monitorLeafletMap = null

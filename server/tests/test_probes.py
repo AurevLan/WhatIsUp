@@ -312,3 +312,179 @@ async def test_probe_toggle_active(
     )
     assert resp.status_code == 200
     assert resp.json()["is_active"] is True
+
+
+# ── Probe incident timeline (T4) ──────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_probe_incident_timeline_empty_when_no_incidents(
+    client: AsyncClient, admin_token: str, probe_with_key: Probe
+) -> None:
+    """A fresh probe with no recorded incidents returns an empty timeline."""
+    resp = await client.get(
+        f"/api/v1/probes/{probe_with_key.id}/incident-timeline",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+@pytest.mark.asyncio
+async def test_probe_incident_timeline_groups_by_monitor(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    admin_token: str,
+    admin_user,
+    probe_with_key: Probe,
+) -> None:
+    """Two incidents on the same monitor appear once with two incident entries."""
+    from datetime import UTC, datetime, timedelta
+
+    from whatisup.models.incident import Incident, IncidentScope
+    from whatisup.models.monitor import Monitor
+
+    monitor = Monitor(name="mon-t4", url="http://example.com", owner_id=admin_user.id)
+    db_session.add(monitor)
+    await db_session.flush()
+
+    now = datetime.now(UTC)
+    inc_old = Incident(
+        monitor_id=monitor.id,
+        started_at=now - timedelta(days=3),
+        resolved_at=now - timedelta(days=3, hours=-1),
+        duration_seconds=3600,
+        scope=IncidentScope.global_,
+        affected_probe_ids=[str(probe_with_key.id)],
+    )
+    inc_recent = Incident(
+        monitor_id=monitor.id,
+        started_at=now - timedelta(hours=2),
+        scope=IncidentScope.global_,
+        affected_probe_ids=[str(probe_with_key.id)],
+    )
+    db_session.add_all([inc_old, inc_recent])
+    await db_session.flush()
+
+    resp = await client.get(
+        f"/api/v1/probes/{probe_with_key.id}/incident-timeline",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 1
+    entry = data[0]
+    assert entry["monitor_name"] == "mon-t4"
+    assert entry["monitor_url"] == "http://example.com"
+    assert len(entry["incidents"]) == 2
+    # Sorted DESC by started_at — newest incident first.
+    assert entry["incidents"][0]["resolved_at"] is None
+    assert entry["incidents"][1]["duration_seconds"] == 3600
+
+
+@pytest.mark.asyncio
+async def test_probe_incident_timeline_filters_by_window(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    admin_token: str,
+    admin_user,
+    probe_with_key: Probe,
+) -> None:
+    """Incidents older than `days` are excluded from the timeline."""
+    from datetime import UTC, datetime, timedelta
+
+    from whatisup.models.incident import Incident, IncidentScope
+    from whatisup.models.monitor import Monitor
+
+    monitor = Monitor(name="mon-t4-window", url="http://example.com", owner_id=admin_user.id)
+    db_session.add(monitor)
+    await db_session.flush()
+
+    now = datetime.now(UTC)
+    inc_outside = Incident(
+        monitor_id=monitor.id,
+        started_at=now - timedelta(days=30),
+        scope=IncidentScope.global_,
+        affected_probe_ids=[str(probe_with_key.id)],
+    )
+    inc_inside = Incident(
+        monitor_id=monitor.id,
+        started_at=now - timedelta(hours=2),
+        scope=IncidentScope.global_,
+        affected_probe_ids=[str(probe_with_key.id)],
+    )
+    db_session.add_all([inc_outside, inc_inside])
+    await db_session.flush()
+
+    # days=7 should exclude the 30-day-old incident
+    resp = await client.get(
+        f"/api/v1/probes/{probe_with_key.id}/incident-timeline?days=7",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 1
+    assert len(data[0]["incidents"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_probe_incident_timeline_excludes_other_probes(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    admin_token: str,
+    admin_user,
+    probe_with_key: Probe,
+) -> None:
+    """Incidents that don't reference this probe's id are not surfaced."""
+    from datetime import UTC, datetime, timedelta
+
+    from whatisup.models.incident import Incident, IncidentScope
+    from whatisup.models.monitor import Monitor
+
+    other_probe = Probe(name="other", location_name="Elsewhere", api_key_hash="x")
+    db_session.add(other_probe)
+    await db_session.flush()
+
+    monitor = Monitor(name="mon-other", url="http://example.com", owner_id=admin_user.id)
+    db_session.add(monitor)
+    await db_session.flush()
+
+    db_session.add(
+        Incident(
+            monitor_id=monitor.id,
+            started_at=datetime.now(UTC) - timedelta(hours=1),
+            scope=IncidentScope.global_,
+            affected_probe_ids=[str(other_probe.id)],  # not our probe
+        )
+    )
+    await db_session.flush()
+
+    resp = await client.get(
+        f"/api/v1/probes/{probe_with_key.id}/incident-timeline",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+@pytest.mark.asyncio
+async def test_probe_incident_timeline_404_on_unknown_probe(
+    client: AsyncClient, admin_token: str
+) -> None:
+    resp = await client.get(
+        f"/api/v1/probes/{uuid.uuid4()}/incident-timeline",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_probe_incident_timeline_requires_superadmin(
+    client: AsyncClient, user_token: str, probe_with_key: Probe
+) -> None:
+    """Non-superadmin users get 403."""
+    resp = await client.get(
+        f"/api/v1/probes/{probe_with_key.id}/incident-timeline",
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert resp.status_code == 403

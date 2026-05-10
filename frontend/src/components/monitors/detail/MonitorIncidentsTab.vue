@@ -391,15 +391,19 @@
 </template>
 
 <script setup>
+import { inject } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { IncidentsStateKey } from './injectionKeys'
 
 defineProps({
-  // Object returned by useMonitorIncidents() — passed verbatim to keep the
-  // refs reactive across the boundary without verbose prop plumbing.
-  state: { type: Object, required: true },
   healthState: { type: Object, default: null },
   fmtDateTime: { type: Function, required: true },
 })
+
+// Provided by MonitorDetailView via provide(IncidentsStateKey, incidentsState).
+// The injection sidesteps vue/no-mutating-props for the intentional
+// `state.x.value = …` pattern below.
+const state = inject(IncidentsStateKey)
 
 const { t } = useI18n()
 </script>

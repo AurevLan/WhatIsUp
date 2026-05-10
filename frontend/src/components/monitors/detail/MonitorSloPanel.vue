@@ -360,17 +360,22 @@
 </template>
 
 <script setup>
+import { inject } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { SloStateKey } from './injectionKeys'
 
 defineProps({
   monitor: { type: Object, required: true },
-  // Object returned by useMonitorSlo() — refs accessed via .value
-  state: { type: Object, required: true },
   // True when the legacy SLO panel applies to this check_type (computed in parent)
   hasSlo: { type: Boolean, default: false },
   // Resolves a probe UUID to a display name (parent computes from probeMap)
   probeName: { type: Function, required: true },
 })
+
+// Provided by MonitorDetailView via provide(SloStateKey, sloState).
+// Mutations via `state.x.value = …` are intentional and don't trip
+// vue/no-mutating-props through inject.
+const state = inject(SloStateKey)
 
 const { t } = useI18n()
 </script>

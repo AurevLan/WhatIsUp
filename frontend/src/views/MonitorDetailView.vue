@@ -498,7 +498,6 @@
 
     <!-- Incidents + Post-mortem + SLA Report -->
     <MonitorIncidentsTab
-      :state="incidentsState"
       :health-state="healthState"
       :fmt-date-time="fmtDateTime"
     />
@@ -568,7 +567,6 @@
     <MonitorSloPanel
       v-if="monitor"
       :monitor="monitor"
-      :state="sloState"
       :has-slo="hasSlo"
       :probe-name="probeName"
     />
@@ -913,7 +911,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, provide, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { Shield, ShieldAlert, ShieldCheck } from 'lucide-vue-next'
@@ -950,6 +948,7 @@ import MonitorRunbookTab from '../components/monitors/detail/MonitorRunbookTab.v
 import MonitorIncidentsTab from '../components/monitors/detail/MonitorIncidentsTab.vue'
 import MonitorSloPanel from '../components/monitors/detail/MonitorSloPanel.vue'
 import MonitorScenarioTab from '../components/monitors/detail/MonitorScenarioTab.vue'
+import { IncidentsStateKey, SloStateKey } from '../components/monitors/detail/injectionKeys'
 import MonitorRecentChecksTable from '../components/monitors/detail/MonitorRecentChecksTable.vue'
 
 const { t, locale } = useI18n()
@@ -1031,14 +1030,16 @@ async function loadAll() {
 }
 
 // ── SLO panel (legacy SLO + V2 Health Engine) ────────────────────────────
-// Sub-component reads via :state="sloState"; we only destructure what
+// Sub-component reads via inject(SloStateKey); we only destructure what
 // MonitorDetailView itself touches directly.
 const sloState = useMonitorSlo(monitor)
+provide(SloStateKey, sloState)
 const { healthState, loadHealthEngine, loadSlo, sloEditTarget, sloEditDays } = sloState
 
 // ── Incidents + Post-mortem + SLA Report ─────────────────────────────────────
 const monitorIdRef = computed(() => route.params.id)
 const incidentsState = useMonitorIncidents(monitor, monitorIdRef)
+provide(IncidentsStateKey, incidentsState)
 // `incidents` feeds useMonitorCharts annotations; loadIncidents fires on mount.
 const { incidents, loadIncidents } = incidentsState
 

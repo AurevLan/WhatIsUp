@@ -159,8 +159,7 @@ async def _fetch_check_rows(
     )
     rows = (await db.execute(stmt)).all()
     return [
-        (r.monitor_id, r.checked_at, r.status, r.response_time_ms, r.network_type)
-        for r in rows
+        (r.monitor_id, r.checked_at, r.status, r.response_time_ms, r.network_type) for r in rows
     ]
 
 
@@ -332,15 +331,9 @@ async def compute_percentile_timeseries(
     stmt = (
         select(
             bucket.label("bucket"),
-            func.percentile_cont(0.50)
-            .within_group(CheckResult.response_time_ms)
-            .label("p50"),
-            func.percentile_cont(0.95)
-            .within_group(CheckResult.response_time_ms)
-            .label("p95"),
-            func.percentile_cont(0.99)
-            .within_group(CheckResult.response_time_ms)
-            .label("p99"),
+            func.percentile_cont(0.50).within_group(CheckResult.response_time_ms).label("p50"),
+            func.percentile_cont(0.95).within_group(CheckResult.response_time_ms).label("p95"),
+            func.percentile_cont(0.99).within_group(CheckResult.response_time_ms).label("p99"),
             func.count().label("count"),
         )
         .where(

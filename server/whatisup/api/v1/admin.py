@@ -134,9 +134,7 @@ async def update_user(
             )
         ).scalar_one_or_none()
         if conflict:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT, detail="Email already in use"
-            )
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already in use")
         user.email = str(payload.email)
 
     if payload.full_name is not None:
@@ -232,9 +230,7 @@ async def list_all_monitors(
 # ---------------------------------------------------------------------------
 
 
-async def _get_probe_group_or_404(
-    group_id: uuid.UUID, db: AsyncSession
-) -> ProbeGroup:
+async def _get_probe_group_or_404(group_id: uuid.UUID, db: AsyncSession) -> ProbeGroup:
     group = (
         await db.execute(select(ProbeGroup).where(ProbeGroup.id == group_id))
     ).scalar_one_or_none()
@@ -265,12 +261,16 @@ async def list_probe_groups(
     db: AsyncSession = Depends(get_db),
 ) -> list[ProbeGroupOut]:
     groups = (
-        await db.execute(
-            select(ProbeGroup)
-            .options(selectinload(ProbeGroup.probes), selectinload(ProbeGroup.users))
-            .order_by(ProbeGroup.created_at.desc())
+        (
+            await db.execute(
+                select(ProbeGroup)
+                .options(selectinload(ProbeGroup.probes), selectinload(ProbeGroup.users))
+                .order_by(ProbeGroup.created_at.desc())
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return [ProbeGroupOut.from_orm_obj(g) for g in groups]
 
 
@@ -309,9 +309,7 @@ async def update_probe_group(
     if payload.name is not None:
         conflict = (
             await db.execute(
-                select(ProbeGroup).where(
-                    ProbeGroup.name == payload.name, ProbeGroup.id != group_id
-                )
+                select(ProbeGroup).where(ProbeGroup.name == payload.name, ProbeGroup.id != group_id)
             )
         ).scalar_one_or_none()
         if conflict:
@@ -352,7 +350,8 @@ async def add_probes_to_group(
     probe_ids: list[uuid.UUID] = [uuid.UUID(str(pid)) for pid in payload.get("probe_ids", [])]
     # Fetch existing probe_ids in group to avoid duplicate inserts
     existing = set(
-        r[0] for r in (
+        r[0]
+        for r in (
             await db.execute(
                 select(probe_group_members.c.probe_id).where(
                     probe_group_members.c.probe_group_id == group_id
@@ -368,17 +367,13 @@ async def add_probes_to_group(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail=f"Probe {pid} not found"
             )
-        await db.execute(
-            insert(probe_group_members).values(probe_group_id=group_id, probe_id=pid)
-        )
+        await db.execute(insert(probe_group_members).values(probe_group_id=group_id, probe_id=pid))
     await db.flush()
     logger.info("probe_group_probes_added", group_id=str(group_id), admin_id=str(_admin.id))
     return await _load_probe_group_out(group_id, db)
 
 
-@router.delete(
-    "/probe-groups/{group_id}/probes/{probe_id}", status_code=status.HTTP_204_NO_CONTENT
-)
+@router.delete("/probe-groups/{group_id}/probes/{probe_id}", status_code=status.HTTP_204_NO_CONTENT)
 @limiter.limit("30/minute")
 async def remove_probe_from_group(
     request: Request,
@@ -415,7 +410,8 @@ async def grant_group_access(
     await _get_probe_group_or_404(group_id, db)
     user_ids: list[uuid.UUID] = [uuid.UUID(str(uid)) for uid in payload.get("user_ids", [])]
     existing = set(
-        r[0] for r in (
+        r[0]
+        for r in (
             await db.execute(
                 select(user_probe_group_access.c.user_id).where(
                     user_probe_group_access.c.probe_group_id == group_id
@@ -439,9 +435,7 @@ async def grant_group_access(
     return await _load_probe_group_out(group_id, db)
 
 
-@router.delete(
-    "/probe-groups/{group_id}/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT
-)
+@router.delete("/probe-groups/{group_id}/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 @limiter.limit("30/minute")
 async def revoke_group_access(
     request: Request,

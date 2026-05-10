@@ -21,8 +21,12 @@ def _validate_webhook_url_sync(url: str) -> None:
         raise ValueError("Webhook URL has no hostname")
 
     if hostname.lower() in {
-        "localhost", "127.0.0.1", "::1", "0.0.0.0",
-        "169.254.169.254", "metadata.google.internal",
+        "localhost",
+        "127.0.0.1",
+        "::1",
+        "0.0.0.0",
+        "169.254.169.254",
+        "metadata.google.internal",
     }:
         raise ValueError(f"Webhook URL points to blocked host: {hostname!r}")
 

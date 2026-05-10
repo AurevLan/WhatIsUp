@@ -58,9 +58,7 @@ async def test_create_silence_global_when_monitor_id_null(
 
 
 @pytest.mark.asyncio
-async def test_create_silence_rejects_inverted_window(
-    client: AsyncClient, user_token: str
-) -> None:
+async def test_create_silence_rejects_inverted_window(client: AsyncClient, user_token: str) -> None:
     auth = _auth(user_token)
     starts = datetime.now(UTC).isoformat()
     ends = (datetime.now(UTC) - timedelta(minutes=1)).isoformat()
@@ -118,9 +116,7 @@ async def test_delete_silence(client: AsyncClient, user_token: str) -> None:
 
 
 @pytest.mark.asyncio
-async def test_dispatch_skipped_when_silenced(
-    db_session, admin_user, monkeypatch
-) -> None:
+async def test_dispatch_skipped_when_silenced(db_session, admin_user, monkeypatch) -> None:
     """A matching active silence shortcuts dispatch_alert before any IO."""
     from whatisup.models.alert import AlertChannel, AlertChannelType
     from whatisup.models.incident import Incident, IncidentScope
@@ -133,21 +129,28 @@ async def test_dispatch_skipped_when_silenced(
     await db_session.flush()
 
     incident = Incident(
-        monitor_id=monitor.id, started_at=datetime.now(UTC),
-        scope=IncidentScope.global_, affected_probe_ids=[],
+        monitor_id=monitor.id,
+        started_at=datetime.now(UTC),
+        scope=IncidentScope.global_,
+        affected_probe_ids=[],
     )
     db_session.add(incident)
 
     channel = AlertChannel(
         owner_id=admin_user.id,
-        name="dummy", type=AlertChannelType.webhook, config={"url": "https://example.com"},
+        name="dummy",
+        type=AlertChannelType.webhook,
+        config={"url": "https://example.com"},
     )
     db_session.add(channel)
 
     now = datetime.now(UTC)
     silence = AlertSilence(
-        owner_id=admin_user.id, name="active", monitor_id=monitor.id,
-        starts_at=now - timedelta(minutes=5), ends_at=now + timedelta(hours=1),
+        owner_id=admin_user.id,
+        name="active",
+        monitor_id=monitor.id,
+        starts_at=now - timedelta(minutes=5),
+        ends_at=now + timedelta(hours=1),
     )
     db_session.add(silence)
     await db_session.commit()
@@ -161,6 +164,7 @@ async def test_dispatch_skipped_when_silenced(
             return "spy:sent"
 
     from whatisup.services import channels as ch_module
+
     monkeypatch.setitem(ch_module.CHANNEL_REGISTRY, "webhook", SpyHandler())
 
     await dispatch_alert(db_session, incident, channel, "incident_opened", ctx={})

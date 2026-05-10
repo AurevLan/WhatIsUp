@@ -144,9 +144,7 @@ async def test_delete_team(client: AsyncClient, user_token: str) -> None:
 
 
 @pytest.mark.asyncio
-async def test_add_member(
-    client: AsyncClient, user_token: str, user_b: User
-) -> None:
+async def test_add_member(client: AsyncClient, user_token: str, user_b: User) -> None:
     create_resp = await client.post(
         "/api/v1/teams/",
         json={"name": "Members Team", "slug": "members-team"},
@@ -165,9 +163,7 @@ async def test_add_member(
 
 
 @pytest.mark.asyncio
-async def test_add_member_duplicate(
-    client: AsyncClient, user_token: str, user_b: User
-) -> None:
+async def test_add_member_duplicate(client: AsyncClient, user_token: str, user_b: User) -> None:
     create_resp = await client.post(
         "/api/v1/teams/",
         json={"name": "Dup Members", "slug": "dup-members"},
@@ -189,9 +185,7 @@ async def test_add_member_duplicate(
 
 
 @pytest.mark.asyncio
-async def test_update_member_role(
-    client: AsyncClient, user_token: str, user_b: User
-) -> None:
+async def test_update_member_role(client: AsyncClient, user_token: str, user_b: User) -> None:
     create_resp = await client.post(
         "/api/v1/teams/",
         json={"name": "Role Change", "slug": "role-change"},
@@ -215,9 +209,7 @@ async def test_update_member_role(
 
 
 @pytest.mark.asyncio
-async def test_remove_member(
-    client: AsyncClient, user_token: str, user_b: User
-) -> None:
+async def test_remove_member(client: AsyncClient, user_token: str, user_b: User) -> None:
     create_resp = await client.post(
         "/api/v1/teams/",
         json={"name": "Remove Test", "slug": "remove-test"},
@@ -239,9 +231,7 @@ async def test_remove_member(
 
 
 @pytest.mark.asyncio
-async def test_cannot_remove_last_owner(
-    client: AsyncClient, user_token: str
-) -> None:
+async def test_cannot_remove_last_owner(client: AsyncClient, user_token: str) -> None:
     create_resp = await client.post(
         "/api/v1/teams/",
         json={"name": "Last Owner", "slug": "last-owner"},

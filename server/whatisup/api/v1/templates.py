@@ -26,8 +26,10 @@ router = APIRouter(prefix="/templates", tags=["templates"])
 
 def _substitute(value: str, values: dict[str, str]) -> str:
     """Replace {{VAR}} placeholders with provided values."""
+
     def replacer(m: re.Match) -> str:
         return values.get(m.group(1).strip(), m.group(0))
+
     return re.sub(r"\{\{([^}]+)\}\}", replacer, value)
 
 
@@ -53,17 +55,21 @@ async def list_templates(
 ) -> list:
     """List templates owned by the current user plus all public templates."""
     templates = (
-        await db.execute(
-            select(MonitorTemplate)
-            .where(
-                or_(
-                    MonitorTemplate.owner_id == current_user.id,
-                    MonitorTemplate.is_public.is_(True),
+        (
+            await db.execute(
+                select(MonitorTemplate)
+                .where(
+                    or_(
+                        MonitorTemplate.owner_id == current_user.id,
+                        MonitorTemplate.is_public.is_(True),
+                    )
                 )
+                .order_by(MonitorTemplate.created_at.desc())
             )
-            .order_by(MonitorTemplate.created_at.desc())
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return list(templates)
 
 

@@ -55,10 +55,14 @@ async def send_push_to_user(
     from whatisup.models.web_push import WebPushSubscription
 
     subs = (
-        await db.execute(
-            select(WebPushSubscription).where(WebPushSubscription.user_id == user_id)
+        (
+            await db.execute(
+                select(WebPushSubscription).where(WebPushSubscription.user_id == user_id)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     if not subs:
         return

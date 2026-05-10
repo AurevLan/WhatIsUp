@@ -34,9 +34,7 @@ def upgrade() -> None:
     op.add_column("alert_rules", sa.Column("baseline_factor", sa.Float(), nullable=True))
 
     # New AlertCondition enum value (PostgreSQL only)
-    op.execute(
-        "ALTER TYPE alert_condition ADD VALUE IF NOT EXISTS 'response_time_above_baseline'"
-    )
+    op.execute("ALTER TYPE alert_condition ADD VALUE IF NOT EXISTS 'response_time_above_baseline'")
 
 
 def downgrade() -> None:

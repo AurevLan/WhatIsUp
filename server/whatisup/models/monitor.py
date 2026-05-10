@@ -392,11 +392,15 @@ class Monitor(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     # Global Health Engine
     health_state: Mapped[MonitorHealthState | None] = relationship(
-        "MonitorHealthState", back_populates="monitor", cascade="all, delete-orphan",
+        "MonitorHealthState",
+        back_populates="monitor",
+        cascade="all, delete-orphan",
         uselist=False,
     )
     slo_rules: Mapped[list[SLORule]] = relationship(
-        "SLORule", back_populates="monitor", cascade="all, delete-orphan",
+        "SLORule",
+        back_populates="monitor",
+        cascade="all, delete-orphan",
     )
 
     __table_args__ = (Index("ix_monitors_enabled_owner", "enabled", "owner_id"),)

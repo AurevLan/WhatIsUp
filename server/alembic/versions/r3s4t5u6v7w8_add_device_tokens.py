@@ -55,9 +55,7 @@ def upgrade() -> None:
             server_default=sa.func.now(),
         ),
     )
-    op.create_index(
-        "ix_device_tokens_token", "device_tokens", ["token"], unique=True
-    )
+    op.create_index("ix_device_tokens_token", "device_tokens", ["token"], unique=True)
 
 
 def downgrade() -> None:

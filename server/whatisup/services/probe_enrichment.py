@@ -327,13 +327,17 @@ async def refresh_stale_probes(db: AsyncSession) -> int:
 
     cutoff = datetime.now(UTC) - timedelta(hours=settings.asn_refresh_hours)
     rows = (
-        await db.execute(
-            select(Probe).where(
-                Probe.is_active.is_(True),
-                Probe.public_ip.is_not(None),
+        (
+            await db.execute(
+                select(Probe).where(
+                    Probe.is_active.is_(True),
+                    Probe.public_ip.is_not(None),
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     refreshed = 0
     for probe in rows:

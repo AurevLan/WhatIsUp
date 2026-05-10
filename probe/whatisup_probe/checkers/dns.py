@@ -191,9 +191,7 @@ async def _collect_dns_consistency(
                 return {"ns": ns_host, "ip": ns_ip, "error": type(exc).__name__}
 
         # Cap at 8 to bound latency on huge NS sets, then fan out concurrently.
-        ns_responses = list(
-            await asyncio.gather(*(_query_one(ns) for ns in ns_hostnames[:8]))
-        )
+        ns_responses = list(await asyncio.gather(*(_query_one(ns) for ns in ns_hostnames[:8])))
 
         # Compute drift: any divergent value sets across the responding NSes.
         value_sets = {tuple(r["values"]) for r in ns_responses if "values" in r}

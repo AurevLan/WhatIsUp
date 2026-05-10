@@ -28,9 +28,7 @@ def upgrade() -> None:
         "incidents",
         sa.Column("snooze_until", sa.DateTime(timezone=True), nullable=True),
     )
-    op.create_index(
-        "ix_incidents_snooze_until", "incidents", ["snooze_until"]
-    )
+    op.create_index("ix_incidents_snooze_until", "incidents", ["snooze_until"])
 
 
 def downgrade() -> None:

@@ -39,12 +39,16 @@ async def list_api_keys(
 ) -> list[UserApiKey]:
     """List all API keys for the current user (never returns the raw key)."""
     rows = (
-        await db.execute(
-            select(UserApiKey)
-            .where(UserApiKey.user_id == current_user.id)
-            .order_by(UserApiKey.created_at.desc())
+        (
+            await db.execute(
+                select(UserApiKey)
+                .where(UserApiKey.user_id == current_user.id)
+                .order_by(UserApiKey.created_at.desc())
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return list(rows)
 
 
@@ -59,13 +63,17 @@ async def create_api_key(
     """Create a new API key.  The raw key is returned **once** — store it safely."""
     # Enforce per-user cap
     count = (
-        await db.execute(
-            select(UserApiKey).where(
-                UserApiKey.user_id == current_user.id,
-                UserApiKey.is_revoked.is_(False),
+        (
+            await db.execute(
+                select(UserApiKey).where(
+                    UserApiKey.user_id == current_user.id,
+                    UserApiKey.is_revoked.is_(False),
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     if len(count) >= _MAX_KEYS_PER_USER:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

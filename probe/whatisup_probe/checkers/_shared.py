@@ -60,8 +60,12 @@ def validate_host_ssrf(hostname: str) -> str | None:
     Works for non-HTTP checkers (TCP, UDP, SMTP, DNS).
     """
     blocked = {
-        "localhost", "127.0.0.1", "::1", "0.0.0.0",
-        "169.254.169.254", "metadata.google.internal",
+        "localhost",
+        "127.0.0.1",
+        "::1",
+        "0.0.0.0",
+        "169.254.169.254",
+        "metadata.google.internal",
     }
     if hostname.lower() in blocked:
         return f"Blocked host: {hostname!r}"
@@ -88,8 +92,12 @@ def _validate_url_ssrf_fast(url: str) -> str | None:
         return f"Blocked scheme: {parsed.scheme!r}"
     hostname = parsed.hostname or ""
     blocked = {
-        "localhost", "127.0.0.1", "::1", "0.0.0.0",
-        "169.254.169.254", "metadata.google.internal",
+        "localhost",
+        "127.0.0.1",
+        "::1",
+        "0.0.0.0",
+        "169.254.169.254",
+        "metadata.google.internal",
     }
     if hostname.lower() in blocked:
         return f"Blocked host: {hostname!r}"
@@ -222,9 +230,7 @@ def _extract_tls_audit_sync(url: str) -> dict | None:
         # SCT (Signed Certificate Timestamp) extension OID — proof of CT log inclusion
         sct_present = False
         try:
-            cert.extensions.get_extension_for_oid(
-                x509.ObjectIdentifier("1.3.6.1.4.1.11129.2.4.2")
-            )
+            cert.extensions.get_extension_for_oid(x509.ObjectIdentifier("1.3.6.1.4.1.11129.2.4.2"))
             sct_present = True
         except x509.ExtensionNotFound:
             pass
@@ -370,6 +376,7 @@ async def get_http_client() -> httpx.AsyncClient:
 
 def compute_schema_fingerprint(data: Any) -> str:
     """Compute a structural fingerprint of a JSON value (keys + types, not values)."""
+
     def _structure(obj: Any, depth: int = 0) -> Any:
         if depth > 8:
             return "..."
@@ -414,6 +421,7 @@ class PlaywrightPool:
     async def start(self) -> None:
         try:
             from playwright.async_api import async_playwright
+
             self._pw = await async_playwright().start()
             self._browser = await self._pw.chromium.launch(
                 headless=True,
@@ -434,11 +442,12 @@ class PlaywrightPool:
                 return
             try:
                 from playwright.async_api import async_playwright
+
                 if self._pw is None:
                     self._pw = await async_playwright().start()
                 self._browser = await self._pw.chromium.launch(
                     headless=True,
-                args=BROWSER_LAUNCH_ARGS,
+                    args=BROWSER_LAUNCH_ARGS,
                 )
                 logger.info("playwright_browser_relaunched")
             except Exception as exc:

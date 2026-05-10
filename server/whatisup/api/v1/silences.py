@@ -42,12 +42,16 @@ async def list_silences(
     db: AsyncSession = Depends(get_db),
 ) -> list[AlertSilence]:
     rows = (
-        await db.execute(
-            select(AlertSilence)
-            .where(AlertSilence.owner_id == current_user.id)
-            .order_by(AlertSilence.starts_at.desc())
+        (
+            await db.execute(
+                select(AlertSilence)
+                .where(AlertSilence.owner_id == current_user.id)
+                .order_by(AlertSilence.starts_at.desc())
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return list(rows)
 
 
@@ -64,9 +68,7 @@ async def create_silence(
             await db.execute(select(Monitor).where(Monitor.id == payload.monitor_id))
         ).scalar_one_or_none()
         if monitor is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Monitor not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Monitor not found")
         if not current_user.is_superadmin:
             await check_resource_access(monitor, current_user, db)
 

@@ -78,9 +78,7 @@ async def check_heartbeats() -> None:
                 duration = int((now - open_incident.started_at).total_seconds())
                 open_incident.resolved_at = now
                 open_incident.duration_seconds = duration
-                await _fire_alerts(
-                    db, open_incident, monitor, event_type="incident_resolved"
-                )
+                await _fire_alerts(db, open_incident, monitor, event_type="incident_resolved")
                 logger.info(
                     "heartbeat_recovered",
                     monitor_id=str(monitor.id),

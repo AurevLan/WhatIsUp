@@ -31,21 +31,23 @@ ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "RecettePass1!")
 
 # ── ANSI colors ───────────────────────────────────────────────────────────────
 
-GREEN  = "\033[92m"
-RED    = "\033[91m"
+GREEN = "\033[92m"
+RED = "\033[91m"
 YELLOW = "\033[93m"
-CYAN   = "\033[96m"
-BOLD   = "\033[1m"
-DIM    = "\033[2m"
-RESET  = "\033[0m"
+CYAN = "\033[96m"
+BOLD = "\033[1m"
+DIM = "\033[2m"
+RESET = "\033[0m"
 
 # ── State ─────────────────────────────────────────────────────────────────────
+
 
 @dataclass
 class Results:
     passed: list[str] = field(default_factory=list)
     failed: list[tuple[str, str]] = field(default_factory=list)
     skipped: list[str] = field(default_factory=list)
+
 
 results = Results()
 _section = ""
@@ -54,9 +56,9 @@ _section = ""
 def section(name: str) -> None:
     global _section
     _section = name
-    print(f"\n{CYAN}{BOLD}{'─'*60}{RESET}")
+    print(f"\n{CYAN}{BOLD}{'─' * 60}{RESET}")
     print(f"{CYAN}{BOLD}  {name}{RESET}")
-    print(f"{CYAN}{'─'*60}{RESET}")
+    print(f"{CYAN}{'─' * 60}{RESET}")
 
 
 def ok(label: str) -> None:
@@ -80,7 +82,14 @@ def skip(label: str, reason: str = "") -> None:
     print(msg)
 
 
-def check(label: str, response: httpx.Response, expected: int | list[int], *, store: dict | None = None, key: str | None = None) -> Any:
+def check(
+    label: str,
+    response: httpx.Response,
+    expected: int | list[int],
+    *,
+    store: dict | None = None,
+    key: str | None = None,
+) -> Any:
     """Assert status code and optionally store a field from JSON response."""
     expected_list = [expected] if isinstance(expected, int) else expected
     if response.status_code in expected_list:
@@ -130,6 +139,7 @@ def probe_headers() -> dict:
 # TESTS
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 def test_health() -> None:
     section("Health")
     r = client.get("/api/health")
@@ -151,7 +161,9 @@ def test_auth() -> None:
     section("Authentication")
 
     # Login
-    r = client.post("/api/v1/auth/login", data={"username": ADMIN_EMAIL, "password": ADMIN_PASSWORD})
+    r = client.post(
+        "/api/v1/auth/login", data={"username": ADMIN_EMAIL, "password": ADMIN_PASSWORD}
+    )
     data = check("POST /auth/login", r, 200)
     if data is None:
         fail("Cannot proceed — login failed")
@@ -180,7 +192,10 @@ def test_auth() -> None:
     check("GET /auth/oidc/config", r, 200)
 
     # Register (should be disabled → 403, or 422 if validation runs first)
-    r = client.post("/api/v1/auth/register", json={"email": "x@x.com", "username": "recette_noop", "password": "Disabled1!"})
+    r = client.post(
+        "/api/v1/auth/register",
+        json={"email": "x@x.com", "username": "recette_noop", "password": "Disabled1!"},
+    )
     check("POST /auth/register (disabled → 403)", r, [403, 422])
 
 
@@ -188,13 +203,17 @@ def test_monitors() -> None:
     section("Monitors")
 
     # Create
-    r = client.post("/api/v1/monitors/", headers=auth_headers(), json={
-        "name": "Recette HTTP Monitor",
-        "url": "https://httpbin.org/get",
-        "check_type": "http",
-        "interval_seconds": 60,
-        "network_scope": "all",
-    })
+    r = client.post(
+        "/api/v1/monitors/",
+        headers=auth_headers(),
+        json={
+            "name": "Recette HTTP Monitor",
+            "url": "https://httpbin.org/get",
+            "check_type": "http",
+            "interval_seconds": 60,
+            "network_scope": "all",
+        },
+    )
     data = check("POST /monitors/ (create)", r, 201)
     if data:
         IDS["monitor_id"] = data["id"]
@@ -214,10 +233,14 @@ def test_monitors() -> None:
     check("GET /monitors/{id}", r, 200)
 
     # Patch — including network_scope
-    r = client.patch(f"/api/v1/monitors/{mid}", headers=auth_headers(), json={
-        "name": "Recette HTTP Monitor (updated)",
-        "network_scope": "external",
-    })
+    r = client.patch(
+        f"/api/v1/monitors/{mid}",
+        headers=auth_headers(),
+        json={
+            "name": "Recette HTTP Monitor (updated)",
+            "network_scope": "external",
+        },
+    )
     data = check("PATCH /monitors/{id} (update + network_scope)", r, 200)
     if data and data.get("network_scope") == "external":
         ok("network_scope field round-trips correctly")
@@ -256,21 +279,30 @@ def test_monitors() -> None:
     check("GET /monitors/{id}/slo", r, [200, 404])
 
     # Report (requires ?from= query param)
-    r = client.get(f"/api/v1/monitors/{mid}/report", headers=auth_headers(),
-                   params={"from": "2026-01-01T00:00:00Z"})
+    r = client.get(
+        f"/api/v1/monitors/{mid}/report",
+        headers=auth_headers(),
+        params={"from": "2026-01-01T00:00:00Z"},
+    )
     check("GET /monitors/{id}/report", r, 200)
 
     # Annotations CRUD
-    r = client.post(f"/api/v1/monitors/{mid}/annotations", headers=auth_headers(), json={
-        "content": "Recette annotation",
-        "annotated_at": "2026-01-01T00:00:00Z",
-    })
+    r = client.post(
+        f"/api/v1/monitors/{mid}/annotations",
+        headers=auth_headers(),
+        json={
+            "content": "Recette annotation",
+            "annotated_at": "2026-01-01T00:00:00Z",
+        },
+    )
     ann = check("POST /monitors/{id}/annotations", r, 201)
     if ann:
         IDS["annotation_id"] = ann["id"]
         r2 = client.get(f"/api/v1/monitors/{mid}/annotations", headers=auth_headers())
         check("GET /monitors/{id}/annotations", r2, 200)
-        r3 = client.delete(f"/api/v1/monitors/{mid}/annotations/{ann['id']}", headers=auth_headers())
+        r3 = client.delete(
+            f"/api/v1/monitors/{mid}/annotations/{ann['id']}", headers=auth_headers()
+        )
         check("DELETE /monitors/{id}/annotations/{id}", r3, 204)
 
     # DNS baseline (HTTP monitor → 400 bad request type)
@@ -286,24 +318,34 @@ def test_monitors() -> None:
     check("GET /monitors/{id}/composite-members (HTTP → 400)", r, [200, 400])
 
     # Bulk action (pause then re-enable the current monitor)
-    r = client.post("/api/v1/monitors/bulk", headers=auth_headers(), json={
-        "ids": [mid],
-        "action": "pause",
-    })
+    r = client.post(
+        "/api/v1/monitors/bulk",
+        headers=auth_headers(),
+        json={
+            "ids": [mid],
+            "action": "pause",
+        },
+    )
     bulk_data = check("POST /monitors/bulk (pause)", r, 200)
     if bulk_data and bulk_data.get("affected", 0) == 1:
         ok("Bulk pause: 1 monitor affected")
     # Re-enable
-    client.post("/api/v1/monitors/bulk", headers=auth_headers(), json={"ids": [mid], "action": "enable"})
+    client.post(
+        "/api/v1/monitors/bulk", headers=auth_headers(), json={"ids": [mid], "action": "enable"}
+    )
 
 
 def test_groups() -> None:
     section("Monitor Groups")
 
-    r = client.post("/api/v1/groups/", headers=auth_headers(), json={
-        "name": "Recette Group",
-        "description": "Test group",
-    })
+    r = client.post(
+        "/api/v1/groups/",
+        headers=auth_headers(),
+        json={
+            "name": "Recette Group",
+            "description": "Test group",
+        },
+    )
     data = check("POST /groups/ (create)", r, 201)
     if data:
         IDS["group_id"] = data["id"]
@@ -323,12 +365,16 @@ def test_groups() -> None:
     r = client.get(f"/api/v1/groups/{gid}/monitors", headers=auth_headers())
     check("GET /groups/{id}/monitors", r, 200)
 
-    r = client.patch(f"/api/v1/groups/{gid}", headers=auth_headers(), json={"name": "Recette Group (updated)"})
+    r = client.patch(
+        f"/api/v1/groups/{gid}", headers=auth_headers(), json={"name": "Recette Group (updated)"}
+    )
     check("PATCH /groups/{id}", r, 200)
 
     # Assign monitor to group
     if "monitor_id" in IDS:
-        client.patch(f"/api/v1/monitors/{IDS['monitor_id']}", headers=auth_headers(), json={"group_id": gid})
+        client.patch(
+            f"/api/v1/monitors/{IDS['monitor_id']}", headers=auth_headers(), json={"group_id": gid}
+        )
         ok("Monitor assigned to group")
 
 
@@ -345,13 +391,17 @@ def test_probes() -> None:
     check("GET /probes/stats", r, 200)
 
     # Register
-    r = client.post("/api/v1/probes/register", headers=auth_headers(), json={
-        "name": "Recette-Probe",
-        "location_name": "Test Lab",
-        "latitude": 47.9,
-        "longitude": 1.9,
-        "network_type": "external",
-    })
+    r = client.post(
+        "/api/v1/probes/register",
+        headers=auth_headers(),
+        json={
+            "name": "Recette-Probe",
+            "location_name": "Test Lab",
+            "latitude": 47.9,
+            "longitude": 1.9,
+            "network_type": "external",
+        },
+    )
     data = check("POST /probes/register", r, 201)
     if data:
         IDS["probe_id"] = data["id"]
@@ -369,7 +419,11 @@ def test_probes() -> None:
     check("GET /probes/{id}", r, 200)
 
     # Patch
-    r = client.patch(f"/api/v1/probes/{pid}", headers=auth_headers(), json={"location_name": "Test Lab (updated)"})
+    r = client.patch(
+        f"/api/v1/probes/{pid}",
+        headers=auth_headers(),
+        json={"location_name": "Test Lab (updated)"},
+    )
     check("PATCH /probes/{id}", r, 200)
 
     # Heartbeat (probe auth)
@@ -387,12 +441,16 @@ def test_probes() -> None:
 
     # Push result
     if "monitor_id" in IDS:
-        r = probe_client.post("/api/v1/probes/results", headers=probe_headers(), json={
-            "monitor_id": IDS["monitor_id"],
-            "checked_at": "2026-01-01T00:00:00Z",
-            "status": "up",
-            "response_time_ms": 120,
-        })
+        r = probe_client.post(
+            "/api/v1/probes/results",
+            headers=probe_headers(),
+            json={
+                "monitor_id": IDS["monitor_id"],
+                "checked_at": "2026-01-01T00:00:00Z",
+                "status": "up",
+                "response_time_ms": 120,
+            },
+        )
         check("POST /probes/results (push result)", r, 202)
 
     # Incident timeline
@@ -404,11 +462,15 @@ def test_alerts() -> None:
     section("Alerts")
 
     # Channels
-    r = client.post("/api/v1/alerts/channels", headers=auth_headers(), json={
-        "name": "Recette Webhook",
-        "type": "webhook",
-        "config": {"url": "https://httpbin.org/post"},
-    })
+    r = client.post(
+        "/api/v1/alerts/channels",
+        headers=auth_headers(),
+        json={
+            "name": "Recette Webhook",
+            "type": "webhook",
+            "config": {"url": "https://httpbin.org/post"},
+        },
+    )
     ch_data = check("POST /alerts/channels (create webhook)", r, 201)
     if ch_data:
         IDS["channel_id"] = ch_data["id"]
@@ -424,12 +486,16 @@ def test_alerts() -> None:
 
     # Rules
     if "monitor_id" in IDS:
-        r = client.post("/api/v1/alerts/rules", headers=auth_headers(), json={
-            "monitor_id": IDS["monitor_id"],
-            "condition": "any_down",
-            "min_duration_seconds": 0,
-            "channel_ids": [cid],
-        })
+        r = client.post(
+            "/api/v1/alerts/rules",
+            headers=auth_headers(),
+            json={
+                "monitor_id": IDS["monitor_id"],
+                "condition": "any_down",
+                "min_duration_seconds": 0,
+                "channel_ids": [cid],
+            },
+        )
         rule = check("POST /alerts/rules (create)", r, 201)
         if rule:
             IDS["rule_id"] = rule["id"]
@@ -441,7 +507,9 @@ def test_alerts() -> None:
         rid = IDS["rule_id"]
 
         # Patch rule
-        r = client.patch(f"/api/v1/alerts/rules/{rid}", headers=auth_headers(), json={"enabled": False})
+        r = client.patch(
+            f"/api/v1/alerts/rules/{rid}", headers=auth_headers(), json={"enabled": False}
+        )
         check("PATCH /alerts/rules/{id}", r, 200)
 
         # Simulate
@@ -457,7 +525,11 @@ def test_alerts() -> None:
     check("GET /alerts/events", r, 200)
 
     # Telegram resolve (invalid token → expect 400/422/502)
-    r = client.post("/api/v1/alerts/telegram/resolve", headers=auth_headers(), json={"bot_token": "invalid:token"})
+    r = client.post(
+        "/api/v1/alerts/telegram/resolve",
+        headers=auth_headers(),
+        json={"bot_token": "invalid:token"},
+    )
     check("POST /alerts/telegram/resolve (bad token → 400/502)", r, [400, 422, 502, 503])
 
     # Delete channel
@@ -472,13 +544,17 @@ def test_admin() -> None:
     check("GET /admin/users", r, 200)
 
     # Create user
-    r = client.post("/api/v1/admin/users", headers=auth_headers(), json={
-        "email": "recette_sub@example.com",
-        "username": "recette_sub",
-        "password": "RecettePass1!",
-        "full_name": "Recette Sub",
-        "can_create_monitors": True,
-    })
+    r = client.post(
+        "/api/v1/admin/users",
+        headers=auth_headers(),
+        json={
+            "email": "recette_sub@example.com",
+            "username": "recette_sub",
+            "password": "RecettePass1!",
+            "full_name": "Recette Sub",
+            "can_create_monitors": True,
+        },
+    )
     udata = check("POST /admin/users (create)", r, 201)
     if udata:
         IDS["sub_user_id"] = udata["id"]
@@ -486,7 +562,11 @@ def test_admin() -> None:
     if "sub_user_id" in IDS:
         uid = IDS["sub_user_id"]
 
-        r = client.patch(f"/api/v1/admin/users/{uid}", headers=auth_headers(), json={"can_create_monitors": False})
+        r = client.patch(
+            f"/api/v1/admin/users/{uid}",
+            headers=auth_headers(),
+            json={"can_create_monitors": False},
+        )
         check("PATCH /admin/users/{id} (update permissions)", r, 200)
 
     # Admin monitors list
@@ -495,10 +575,14 @@ def test_admin() -> None:
 
     section("Admin — Probe Groups")
 
-    r = client.post("/api/v1/admin/probe-groups", headers=auth_headers(), json={
-        "name": "Recette ProbeGroup",
-        "description": "Test probe group",
-    })
+    r = client.post(
+        "/api/v1/admin/probe-groups",
+        headers=auth_headers(),
+        json={
+            "name": "Recette ProbeGroup",
+            "description": "Test probe group",
+        },
+    )
     pg_data = check("POST /admin/probe-groups (create)", r, 201)
     if pg_data:
         IDS["probe_group_id"] = pg_data["id"]
@@ -511,22 +595,40 @@ def test_admin() -> None:
 
         # Add probe to group
         if "probe_id" in IDS:
-            r = client.post(f"/api/v1/admin/probe-groups/{pgid}/probes", headers=auth_headers(), json={"probe_ids": [str(IDS["probe_id"])]})
+            r = client.post(
+                f"/api/v1/admin/probe-groups/{pgid}/probes",
+                headers=auth_headers(),
+                json={"probe_ids": [str(IDS["probe_id"])]},
+            )
             check("POST /admin/probe-groups/{id}/probes", r, 200)
 
         # Add user to group
         if "sub_user_id" in IDS:
-            r = client.post(f"/api/v1/admin/probe-groups/{pgid}/users", headers=auth_headers(), json={"user_ids": [str(IDS["sub_user_id"])]})
+            r = client.post(
+                f"/api/v1/admin/probe-groups/{pgid}/users",
+                headers=auth_headers(),
+                json={"user_ids": [str(IDS["sub_user_id"])]},
+            )
             check("POST /admin/probe-groups/{id}/users", r, 200)
 
-            r = client.delete(f"/api/v1/admin/probe-groups/{pgid}/users/{IDS['sub_user_id']}", headers=auth_headers())
+            r = client.delete(
+                f"/api/v1/admin/probe-groups/{pgid}/users/{IDS['sub_user_id']}",
+                headers=auth_headers(),
+            )
             check("DELETE /admin/probe-groups/{id}/users/{user_id}", r, 204)
 
         if "probe_id" in IDS:
-            r = client.delete(f"/api/v1/admin/probe-groups/{pgid}/probes/{IDS['probe_id']}", headers=auth_headers())
+            r = client.delete(
+                f"/api/v1/admin/probe-groups/{pgid}/probes/{IDS['probe_id']}",
+                headers=auth_headers(),
+            )
             check("DELETE /admin/probe-groups/{id}/probes/{probe_id}", r, 204)
 
-        r = client.patch(f"/api/v1/admin/probe-groups/{pgid}", headers=auth_headers(), json={"name": "Recette PG (updated)"})
+        r = client.patch(
+            f"/api/v1/admin/probe-groups/{pgid}",
+            headers=auth_headers(),
+            json={"name": "Recette PG (updated)"},
+        )
         check("PATCH /admin/probe-groups/{id}", r, 200)
 
         r = client.delete(f"/api/v1/admin/probe-groups/{pgid}", headers=auth_headers())
@@ -545,13 +647,17 @@ def test_maintenance() -> None:
     if not monitor_id_for_mw:
         skip("Maintenance Windows", "no monitor_id")
         return
-    r = client.post("/api/v1/maintenance/", headers=auth_headers(), json={
-        "name": "Recette Maintenance",
-        "monitor_id": str(monitor_id_for_mw),
-        "starts_at": "2026-12-01T00:00:00Z",
-        "ends_at": "2026-12-02T00:00:00Z",
-        "suppress_alerts": True,
-    })
+    r = client.post(
+        "/api/v1/maintenance/",
+        headers=auth_headers(),
+        json={
+            "name": "Recette Maintenance",
+            "monitor_id": str(monitor_id_for_mw),
+            "starts_at": "2026-12-01T00:00:00Z",
+            "ends_at": "2026-12-02T00:00:00Z",
+            "suppress_alerts": True,
+        },
+    )
     mw = check("POST /maintenance/ (create)", r, 201)
     if mw:
         IDS["mw_id"] = mw["id"]
@@ -561,12 +667,16 @@ def test_maintenance() -> None:
 
     if "mw_id" in IDS:
         mwid = IDS["mw_id"]
-        r = client.patch(f"/api/v1/maintenance/{mwid}", headers=auth_headers(), json={
-            "name": "Updated MW",
-            "monitor_id": str(monitor_id_for_mw),
-            "starts_at": "2026-12-01T00:00:00Z",
-            "ends_at": "2026-12-02T00:00:00Z",
-        })
+        r = client.patch(
+            f"/api/v1/maintenance/{mwid}",
+            headers=auth_headers(),
+            json={
+                "name": "Updated MW",
+                "monitor_id": str(monitor_id_for_mw),
+                "starts_at": "2026-12-01T00:00:00Z",
+                "ends_at": "2026-12-02T00:00:00Z",
+            },
+        )
         check("PATCH /maintenance/{id}", r, 200)
         r = client.delete(f"/api/v1/maintenance/{mwid}", headers=auth_headers())
         check("DELETE /maintenance/{id}", r, 204)
@@ -600,11 +710,15 @@ def test_templates() -> None:
     r = client.get("/api/v1/templates/", headers=auth_headers())
     check("GET /templates/ (list)", r, 200)
 
-    r = client.post("/api/v1/templates/", headers=auth_headers(), json={
-        "name": "Recette Template",
-        "check_type": "http",
-        "monitor_config": {"interval_seconds": 30, "timeout_seconds": 5},
-    })
+    r = client.post(
+        "/api/v1/templates/",
+        headers=auth_headers(),
+        json={
+            "name": "Recette Template",
+            "check_type": "http",
+            "monitor_config": {"interval_seconds": 30, "timeout_seconds": 5},
+        },
+    )
     tpl = check("POST /templates/ (create)", r, 201)
     if tpl:
         IDS["template_id"] = tpl["id"]
@@ -614,7 +728,11 @@ def test_templates() -> None:
         r = client.get(f"/api/v1/templates/{tid}", headers=auth_headers())
         check("GET /templates/{id}", r, 200)
 
-        r = client.patch(f"/api/v1/templates/{tid}", headers=auth_headers(), json={"name": "Recette TPL (updated)"})
+        r = client.patch(
+            f"/api/v1/templates/{tid}",
+            headers=auth_headers(),
+            json={"name": "Recette TPL (updated)"},
+        )
         check("PATCH /templates/{id}", r, 200)
 
         r = client.delete(f"/api/v1/templates/{tid}", headers=auth_headers())
@@ -635,14 +753,18 @@ def test_ping() -> None:
     section("Ping / Heartbeat monitors")
 
     # Create heartbeat monitor
-    r = client.post("/api/v1/monitors/", headers=auth_headers(), json={
-        "name": "Recette Heartbeat",
-        "url": "http://heartbeat",
-        "check_type": "heartbeat",
-        "heartbeat_slug": "recette-hb-test",
-        "heartbeat_interval_seconds": 3600,
-        "heartbeat_grace_seconds": 300,
-    })
+    r = client.post(
+        "/api/v1/monitors/",
+        headers=auth_headers(),
+        json={
+            "name": "Recette Heartbeat",
+            "url": "http://heartbeat",
+            "check_type": "heartbeat",
+            "heartbeat_slug": "recette-hb-test",
+            "heartbeat_interval_seconds": 3600,
+            "heartbeat_grace_seconds": 300,
+        },
+    )
     hb = check("POST /monitors/ (heartbeat type)", r, 201)
     if hb:
         IDS["hb_monitor_id"] = hb["id"]
@@ -680,11 +802,15 @@ def test_metrics() -> None:
         return
 
     mid = IDS["monitor_id"]
-    r = client.post(f"/api/v1/metrics/{mid}", headers=auth_headers(), json={
-        "metric_name": "recette_metric",
-        "value": 42.0,
-        "unit": "ms",
-    })
+    r = client.post(
+        f"/api/v1/metrics/{mid}",
+        headers=auth_headers(),
+        json={
+            "metric_name": "recette_metric",
+            "value": 42.0,
+            "unit": "ms",
+        },
+    )
     check("POST /metrics/{monitor_id} (push)", r, [201, 202])
 
     r = client.get(f"/api/v1/metrics/{mid}", headers=auth_headers())
@@ -694,10 +820,14 @@ def test_metrics() -> None:
 def test_public_pages() -> None:
     section("Public Status Pages")
     # Create a group with public_slug
-    r = client.post("/api/v1/groups/", headers=auth_headers(), json={
-        "name": "Recette Public Group",
-        "public_slug": "recette-public-test",
-    })
+    r = client.post(
+        "/api/v1/groups/",
+        headers=auth_headers(),
+        json={
+            "name": "Recette Public Group",
+            "public_slug": "recette-public-test",
+        },
+    )
     pub_group = check("POST /groups/ (with public_slug)", r, 201)
     if pub_group:
         slug = pub_group.get("public_slug")
@@ -736,19 +866,27 @@ def test_smart_alerts() -> None:
 
     # ── Auto-rules creation ────────────────────────────────────────────────
     # Create a fresh monitor + channel for auto-rule testing
-    ch_r = client.post("/api/v1/alerts/channels", headers=auth_headers(), json={
-        "name": "Auto-rule Channel",
-        "type": "webhook",
-        "config": {"url": "https://httpbin.org/post"},
-    })
+    ch_r = client.post(
+        "/api/v1/alerts/channels",
+        headers=auth_headers(),
+        json={
+            "name": "Auto-rule Channel",
+            "type": "webhook",
+            "config": {"url": "https://httpbin.org/post"},
+        },
+    )
     ch = check("POST /alerts/channels (for auto-rules)", ch_r, 201)
     auto_ch_id = ch["id"] if ch else None
 
-    mon_r = client.post("/api/v1/monitors/", headers=auth_headers(), json={
-        "name": "Auto-Alert Monitor",
-        "url": "https://httpbin.org/get",
-        "check_type": "http",
-    })
+    mon_r = client.post(
+        "/api/v1/monitors/",
+        headers=auth_headers(),
+        json={
+            "name": "Auto-Alert Monitor",
+            "url": "https://httpbin.org/get",
+            "check_type": "http",
+        },
+    )
     auto_mon = check("POST /monitors/ (for auto-rules)", mon_r, 201)
     auto_mon_id = auto_mon["id"] if auto_mon else None
 
@@ -767,7 +905,10 @@ def test_smart_alerts() -> None:
             else:
                 fail("Auto-rules include any_down", f"got {conditions}")
         elif rules is not None:
-            fail("Auto-rules count", f"expected >=1, got {len(rules) if isinstance(rules, list) else type(rules)}")
+            fail(
+                "Auto-rules count",
+                f"expected >=1, got {len(rules) if isinstance(rules, list) else type(rules)}",
+            )
 
         # Calling again should create 0 (no duplicates)
         r = client.post(
@@ -783,12 +924,16 @@ def test_smart_alerts() -> None:
 
     # ── Monitor creation with alert_channel_ids ─────────────────────────
     if auto_ch_id:
-        r = client.post("/api/v1/monitors/", headers=auth_headers(), json={
-            "name": "Monitor With Auto-Alert",
-            "url": "https://httpbin.org/get",
-            "check_type": "http",
-            "alert_channel_ids": [auto_ch_id],
-        })
+        r = client.post(
+            "/api/v1/monitors/",
+            headers=auth_headers(),
+            json={
+                "name": "Monitor With Auto-Alert",
+                "url": "https://httpbin.org/get",
+                "check_type": "http",
+                "alert_channel_ids": [auto_ch_id],
+            },
+        )
         mon_alert = check("POST /monitors/ (with alert_channel_ids)", r, 201)
         if mon_alert:
             # Verify rules were created automatically
@@ -845,11 +990,12 @@ def test_cleanup() -> None:
 # MAIN
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 def print_summary() -> None:
     total = len(results.passed) + len(results.failed) + len(results.skipped)
-    print(f"\n{BOLD}{'═'*60}{RESET}")
+    print(f"\n{BOLD}{'═' * 60}{RESET}")
     print(f"{BOLD}  RÉSULTATS DE RECETTE{RESET}")
-    print(f"{'═'*60}")
+    print(f"{'═' * 60}")
     print(f"  {GREEN}✓ Passés   : {len(results.passed)}{RESET}")
     print(f"  {RED}✗ Échoués  : {len(results.failed)}{RESET}")
     print(f"  {YELLOW}· Ignorés  : {len(results.skipped)}{RESET}")
@@ -860,7 +1006,7 @@ def print_summary() -> None:
             print(f"  {RED}✗{RESET} {label}")
             if detail:
                 print(f"    {DIM}→ {detail}{RESET}")
-    print(f"{'═'*60}\n")
+    print(f"{'═' * 60}\n")
 
 
 def main() -> int:
@@ -887,7 +1033,9 @@ def main() -> int:
     try:
         r = client.get("/api/health", timeout=5)
         if r.status_code != 200:
-            print(f"\n{RED}Serveur non disponible ({r.status_code}). Vérifiez que Docker est lancé.{RESET}")
+            print(
+                f"\n{RED}Serveur non disponible ({r.status_code}). Vérifiez que Docker est lancé.{RESET}"
+            )
             return 1
     except Exception as e:
         print(f"\n{RED}Impossible de joindre le serveur : {e}{RESET}")

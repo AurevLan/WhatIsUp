@@ -63,9 +63,7 @@ async def _ensure_quorum_rule(db: AsyncSession, monitor_id: uuid.UUID) -> bool:
     return True
 
 
-async def migrate(
-    *, dry_run: bool, only_monitor: uuid.UUID | None = None
-) -> dict[str, int]:
+async def migrate(*, dry_run: bool, only_monitor: uuid.UUID | None = None) -> dict[str, int]:
     stats = {"checked": 0, "rules_created": 0, "toggles_flipped": 0}
     factory = get_session_factory()
     async with factory() as db:

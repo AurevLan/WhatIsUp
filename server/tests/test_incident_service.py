@@ -62,7 +62,10 @@ async def test_flapping_stable_down(
 ) -> None:
     for i in range(8):
         await _add_result(
-            service_db, test_monitor, test_probe, CheckStatus.down,
+            service_db,
+            test_monitor,
+            test_probe,
+            CheckStatus.down,
             datetime.now(UTC) - timedelta(minutes=i),
         )
     assert await _is_flapping(service_db, test_monitor) is False
@@ -73,12 +76,19 @@ async def test_flapping_detects_oscillation(
     service_db: AsyncSession, test_monitor: Monitor, test_probe: Probe
 ) -> None:
     statuses = [
-        CheckStatus.up, CheckStatus.down, CheckStatus.up,
-        CheckStatus.down, CheckStatus.up, CheckStatus.down,
+        CheckStatus.up,
+        CheckStatus.down,
+        CheckStatus.up,
+        CheckStatus.down,
+        CheckStatus.up,
+        CheckStatus.down,
     ]
     for i, st in enumerate(statuses):
         await _add_result(
-            service_db, test_monitor, test_probe, st,
+            service_db,
+            test_monitor,
+            test_probe,
+            st,
             datetime.now(UTC) - timedelta(minutes=i),
         )
     # 5 transitions >= default threshold (5) → flapping
@@ -101,15 +111,19 @@ async def test_suppressed_parent_incident_open(
     service_db.add(parent)
     await service_db.flush()
 
-    service_db.add(MonitorDependency(
-        parent_id=parent.id, child_id=test_monitor.id, suppress_on_parent_down=True
-    ))
-    service_db.add(Incident(
-        monitor_id=parent.id,
-        started_at=datetime.now(UTC),
-        scope=IncidentScope.global_,
-        affected_probe_ids=[],
-    ))
+    service_db.add(
+        MonitorDependency(
+            parent_id=parent.id, child_id=test_monitor.id, suppress_on_parent_down=True
+        )
+    )
+    service_db.add(
+        Incident(
+            monitor_id=parent.id,
+            started_at=datetime.now(UTC),
+            scope=IncidentScope.global_,
+            affected_probe_ids=[],
+        )
+    )
     await service_db.flush()
 
     assert await _is_suppressed_by_dependency(service_db, test_monitor.id) is True
@@ -123,17 +137,21 @@ async def test_suppressed_parent_incident_resolved(
     service_db.add(parent)
     await service_db.flush()
 
-    service_db.add(MonitorDependency(
-        parent_id=parent.id, child_id=test_monitor.id, suppress_on_parent_down=True
-    ))
+    service_db.add(
+        MonitorDependency(
+            parent_id=parent.id, child_id=test_monitor.id, suppress_on_parent_down=True
+        )
+    )
     now = datetime.now(UTC)
-    service_db.add(Incident(
-        monitor_id=parent.id,
-        started_at=now - timedelta(hours=1),
-        resolved_at=now,
-        scope=IncidentScope.global_,
-        affected_probe_ids=[],
-    ))
+    service_db.add(
+        Incident(
+            monitor_id=parent.id,
+            started_at=now - timedelta(hours=1),
+            resolved_at=now,
+            scope=IncidentScope.global_,
+            affected_probe_ids=[],
+        )
+    )
     await service_db.flush()
 
     assert await _is_suppressed_by_dependency(service_db, test_monitor.id) is False
@@ -194,12 +212,18 @@ async def test_process_no_incident_when_flapping(
 ) -> None:
     # Create oscillating history to trigger flap detection
     statuses = [
-        CheckStatus.up, CheckStatus.down, CheckStatus.up,
-        CheckStatus.down, CheckStatus.up,
+        CheckStatus.up,
+        CheckStatus.down,
+        CheckStatus.up,
+        CheckStatus.down,
+        CheckStatus.up,
     ]
     for i, st in enumerate(statuses):
         await _add_result(
-            service_db, test_monitor, test_probe, st,
+            service_db,
+            test_monitor,
+            test_probe,
+            st,
             datetime.now(UTC) - timedelta(minutes=5 - i),
         )
 
@@ -210,9 +234,7 @@ async def test_process_no_incident_when_flapping(
     await process_check_result(service_db, result, collector)
 
     incident = (
-        await service_db.execute(
-            select(Incident).where(Incident.monitor_id == test_monitor.id)
-        )
+        await service_db.execute(select(Incident).where(Incident.monitor_id == test_monitor.id))
     ).scalar_one_or_none()
     assert incident is None
     assert any(e["type"] == "flapping_detected" for e in collector.events)

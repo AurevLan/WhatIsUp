@@ -80,9 +80,7 @@ def test_encrypt_payload_round_trip() -> None:
 
 @pytest.mark.asyncio
 async def test_send_to_devices_returns_zero_when_disabled() -> None:
-    out = await fcm.send_to_devices(
-        [("token1", Fernet.generate_key().decode())], {"x": 1}
-    )
+    out = await fcm.send_to_devices([("token1", Fernet.generate_key().decode())], {"x": 1})
     assert out == {"sent": 0, "failed": 0, "invalid_tokens": []}
 
 
@@ -111,9 +109,7 @@ async def test_send_to_devices_happy_path(monkeypatch, fake_redis) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         captured_requests.append(request)
         if request.url.host == "oauth2.googleapis.com":
-            return httpx.Response(
-                200, json={"access_token": "fake-token", "expires_in": 3600}
-            )
+            return httpx.Response(200, json={"access_token": "fake-token", "expires_in": 3600})
         if request.url.host == "fcm.googleapis.com":
             return httpx.Response(200, json={"name": "projects/x/messages/abc"})
         return httpx.Response(404)
@@ -160,12 +156,8 @@ async def test_send_to_devices_marks_invalid_tokens(monkeypatch, fake_redis) -> 
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.host == "oauth2.googleapis.com":
-            return httpx.Response(
-                200, json={"access_token": "fake-token", "expires_in": 3600}
-            )
-        return httpx.Response(
-            404, json={"error": {"status": "UNREGISTERED", "code": 404}}
-        )
+            return httpx.Response(200, json={"access_token": "fake-token", "expires_in": 3600})
+        return httpx.Response(404, json={"error": {"status": "UNREGISTERED", "code": 404}})
 
     transport = httpx.MockTransport(handler)
     real_async_client = httpx.AsyncClient

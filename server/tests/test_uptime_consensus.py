@@ -52,11 +52,15 @@ async def test_one_broken_probe_does_not_lower_uptime(
     await service_db.flush()
 
     healthy = Probe(
-        name="p-healthy", location_name="Paris", api_key_hash="x",
+        name="p-healthy",
+        location_name="Paris",
+        api_key_hash="x",
         network_type=NetworkType.external,
     )
     broken = Probe(
-        name="p-broken", location_name="NYC", api_key_hash="y",
+        name="p-broken",
+        location_name="NYC",
+        api_key_hash="y",
         network_type=NetworkType.external,
     )
     service_db.add_all([healthy, broken])
@@ -110,10 +114,16 @@ async def test_internal_view_down_external_view_up(
     await service_db.flush()
 
     internal = Probe(
-        name="p-int", location_name="HQ", api_key_hash="x", network_type=NetworkType.internal,
+        name="p-int",
+        location_name="HQ",
+        api_key_hash="x",
+        network_type=NetworkType.internal,
     )
     external = Probe(
-        name="p-ext", location_name="Cloud", api_key_hash="y", network_type=NetworkType.external,
+        name="p-ext",
+        location_name="Cloud",
+        api_key_hash="y",
+        network_type=NetworkType.external,
     )
     service_db.add_all([internal, external])
     await service_db.flush()
@@ -139,11 +149,15 @@ async def test_compute_uptime_in_range_uses_consensus(
     await service_db.flush()
 
     healthy = Probe(
-        name="ph", location_name="Paris", api_key_hash="x",
+        name="ph",
+        location_name="Paris",
+        api_key_hash="x",
         network_type=NetworkType.external,
     )
     broken = Probe(
-        name="pb", location_name="NYC", api_key_hash="y",
+        name="pb",
+        location_name="NYC",
+        api_key_hash="y",
         network_type=NetworkType.external,
     )
     service_db.add_all([healthy, broken])
@@ -165,9 +179,7 @@ async def test_compute_uptime_in_range_uses_consensus(
 
 
 @pytest.mark.asyncio
-async def test_no_results_returns_full_uptime(
-    service_db: AsyncSession, test_user: User
-) -> None:
+async def test_no_results_returns_full_uptime(service_db: AsyncSession, test_user: User) -> None:
     monitor = Monitor(name="mon-empty", url="http://example.com", owner_id=test_user.id)
     service_db.add(monitor)
     await service_db.flush()

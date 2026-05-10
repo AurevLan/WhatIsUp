@@ -23,9 +23,18 @@ depends_on: str | Sequence[str] | None = None
 
 
 SYSTEM_NAMES = {
-    "standard": ("Standard", "Défauts raisonnables : détection rapide, expiration SSL, dérive baseline."),
-    "strict": ("Strict / Paging", "Configuration agressive pour services critiques. Panne globale immédiate + checks de latence."),
-    "silent": ("Faible bruit", "Configuration tolérante pour dev/staging. Longue période de grâce, re-notifications rares."),
+    "standard": (
+        "Standard",
+        "Défauts raisonnables : détection rapide, expiration SSL, dérive baseline.",
+    ),
+    "strict": (
+        "Strict / Paging",
+        "Configuration agressive pour services critiques. Panne globale immédiate + checks de latence.",
+    ),
+    "silent": (
+        "Faible bruit",
+        "Configuration tolérante pour dev/staging. Longue période de grâce, re-notifications rares.",
+    ),
 }
 
 
@@ -33,15 +42,21 @@ def upgrade() -> None:
     op.create_table(
         "alert_matrix_templates",
         sa.Column("id", sa.Uuid(as_uuid=True), primary_key=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
         sa.Column("name", sa.String(100), nullable=False),
         sa.Column("description", sa.Text, nullable=True),
         sa.Column("check_type", sa.String(32), nullable=False),
         sa.Column("rows", JSONB().with_variant(sa.JSON(), "sqlite"), nullable=False),
         sa.Column("is_system", sa.Boolean(), nullable=False, server_default="false"),
     )
-    op.create_index("ix_alert_matrix_templates_check_type", "alert_matrix_templates", ["check_type"])
+    op.create_index(
+        "ix_alert_matrix_templates_check_type", "alert_matrix_templates", ["check_type"]
+    )
 
     # Seed system templates from current code definitions
     bind = op.get_bind()

@@ -110,6 +110,7 @@ async def status_monitor(
     if monitor is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Monitor not found")
     from whatisup.api.deps import check_resource_access
+
     await check_resource_access(monitor, current_user, db)
 
     uptime_24h = await compute_uptime(db, monitor_id, period_hours=24)
@@ -176,8 +177,7 @@ async def status_summary(
     )
     latest_results = (
         await db.execute(
-            select(CheckResult.monitor_id, CheckResult.status, CheckResult.response_time_ms)
-            .join(
+            select(CheckResult.monitor_id, CheckResult.status, CheckResult.response_time_ms).join(
                 latest_subq,
                 and_(
                     CheckResult.monitor_id == latest_subq.c.monitor_id,
@@ -195,9 +195,9 @@ async def status_summary(
             select(
                 CheckResult.monitor_id,
                 func.count(CheckResult.id).label("total"),
-                func.sum(
-                case((CheckResult.status == CheckStatus.up, 1), else_=0)
-            ).label("up_count"),
+                func.sum(case((CheckResult.status == CheckStatus.up, 1), else_=0)).label(
+                    "up_count"
+                ),
             )
             .where(
                 CheckResult.monitor_id.in_(monitor_ids),
@@ -212,27 +212,33 @@ async def status_summary(
 
     # Open incidents (batch)
     open_incidents = (
-        await db.execute(
-            select(Incident.monitor_id).where(
-                Incident.monitor_id.in_(monitor_ids),
-                Incident.resolved_at.is_(None),
+        (
+            await db.execute(
+                select(Incident.monitor_id).where(
+                    Incident.monitor_id.in_(monitor_ids),
+                    Incident.resolved_at.is_(None),
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     down_set = set(open_incidents)
 
     components = []
     for m in monitors:
         latest = latest_map.get(m.id)
-        components.append({
-            "id": str(m.id),
-            "name": m.name,
-            "check_type": m.check_type,
-            "status": latest.status.value if latest else "unknown",
-            "response_time_ms": latest.response_time_ms if latest else None,
-            "uptime_24h_percent": uptime_map.get(m.id),
-            "has_open_incident": m.id in down_set,
-        })
+        components.append(
+            {
+                "id": str(m.id),
+                "name": m.name,
+                "check_type": m.check_type,
+                "status": latest.status.value if latest else "unknown",
+                "response_time_ms": latest.response_time_ms if latest else None,
+                "uptime_24h_percent": uptime_map.get(m.id),
+                "has_open_incident": m.id in down_set,
+            }
+        )
 
     down_count = sum(1 for c in components if c["has_open_incident"])
     total = len(components)

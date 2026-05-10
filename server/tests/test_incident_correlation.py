@@ -202,13 +202,17 @@ async def test_process_check_result_no_duplicate_incident(
 
     # Still exactly one open incident
     incidents = (
-        await service_db.execute(
-            select(Incident).where(
-                Incident.monitor_id == test_monitor.id,
-                Incident.resolved_at.is_(None),
+        (
+            await service_db.execute(
+                select(Incident).where(
+                    Incident.monitor_id == test_monitor.id,
+                    Incident.resolved_at.is_(None),
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert len(incidents) == 1
     # No new "incident_opened" event
     assert not any(e["type"] == "incident_opened" for e in collector.events)
@@ -255,9 +259,7 @@ async def test_flapping_detection(
     await process_check_result(service_db, result, collector)
 
     incident = (
-        await service_db.execute(
-            select(Incident).where(Incident.monitor_id == test_monitor.id)
-        )
+        await service_db.execute(select(Incident).where(Incident.monitor_id == test_monitor.id))
     ).scalar_one_or_none()
 
     assert incident is None

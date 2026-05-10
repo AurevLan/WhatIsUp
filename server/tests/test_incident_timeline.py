@@ -42,21 +42,26 @@ async def test_timeline_returns_per_probe_points(
     db_session.add(incident)
     await db_session.flush()
 
-    db_session.add_all([
-        CheckResult(
-            monitor_id=monitor.id, probe_id=probe_a.id,
-            checked_at=started + timedelta(minutes=i),
-            status=CheckStatus.down if i >= 3 else CheckStatus.up,
-        )
-        for i in range(8)
-    ] + [
-        CheckResult(
-            monitor_id=monitor.id, probe_id=probe_b.id,
-            checked_at=started + timedelta(minutes=i),
-            status=CheckStatus.up,
-        )
-        for i in range(8)
-    ])
+    db_session.add_all(
+        [
+            CheckResult(
+                monitor_id=monitor.id,
+                probe_id=probe_a.id,
+                checked_at=started + timedelta(minutes=i),
+                status=CheckStatus.down if i >= 3 else CheckStatus.up,
+            )
+            for i in range(8)
+        ]
+        + [
+            CheckResult(
+                monitor_id=monitor.id,
+                probe_id=probe_b.id,
+                checked_at=started + timedelta(minutes=i),
+                status=CheckStatus.up,
+            )
+            for i in range(8)
+        ]
+    )
     await db_session.flush()
 
     resp = await client.get(
@@ -81,9 +86,7 @@ async def test_timeline_returns_per_probe_points(
 
 
 @pytest.mark.asyncio
-async def test_timeline_unknown_incident_returns_404(
-    client: AsyncClient, admin_token: str
-) -> None:
+async def test_timeline_unknown_incident_returns_404(client: AsyncClient, admin_token: str) -> None:
     resp = await client.get(
         f"/api/v1/incidents/{uuid.uuid4()}/timeline",
         headers={"Authorization": f"Bearer {admin_token}"},

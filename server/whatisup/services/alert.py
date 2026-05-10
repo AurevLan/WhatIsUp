@@ -60,17 +60,11 @@ async def simulate_rule(db: AsyncSession, rule) -> dict:
     # Collect monitors targeted by this rule
     if rule.monitor_id:
         monitors = (
-            (await db.execute(select(Monitor).where(Monitor.id == rule.monitor_id)))
-            .scalars()
-            .all()
+            (await db.execute(select(Monitor).where(Monitor.id == rule.monitor_id))).scalars().all()
         )
     elif rule.group_id:
         monitors = (
-            (
-                await db.execute(
-                    select(Monitor).where(Monitor.group_id == rule.group_id)
-                )
-            )
+            (await db.execute(select(Monitor).where(Monitor.group_id == rule.group_id)))
             .scalars()
             .all()
         )
@@ -162,9 +156,7 @@ async def simulate_rule(db: AsyncSession, rule) -> dict:
             results = results_by_monitor.get(mid, [])
             for r in results:
                 if r.response_time_ms is not None and r.response_time_ms > threshold:
-                    slow_monitors.append(
-                        f"{monitors_by_id[mid].name} ({r.response_time_ms:.0f}ms)"
-                    )
+                    slow_monitors.append(f"{monitors_by_id[mid].name} ({r.response_time_ms:.0f}ms)")
                     break
         would_fire = len(slow_monitors) > 0
         reason = (
@@ -384,9 +376,7 @@ async def _flush_digest(rule_id: str, channels: list[AlertChannel], ctx: dict) -
 
             rule_uuid = uuid.UUID(rule_id)
             dw = (
-                await db.execute(
-                    select(DigestWindow).where(DigestWindow.rule_id == rule_uuid)
-                )
+                await db.execute(select(DigestWindow).where(DigestWindow.rule_id == rule_uuid))
             ).scalar_one_or_none()
             if dw:
                 await db.delete(dw)
@@ -438,9 +428,7 @@ async def flush_pending_digests() -> None:
             if not channel_ids:
                 continue
 
-            channels = (
-                (await db.execute(select(AC).where(AC.id.in_(channel_ids)))).scalars().all()
-            )
+            channels = (await db.execute(select(AC).where(AC.id.in_(channel_ids)))).scalars().all()
             await _flush_digest(rule_id_str, list(channels), ctx_data.get("ctx", {}))
 
 
@@ -500,11 +488,10 @@ async def maybe_digest_or_dispatch(
     # V2-02-02 — Network partition guard: skip dispatch if the verdict says the
     # outage is only visible from one ASN / one geographic zone (i.e. transit
     # issue, not a real service down). The rule must opt in.
-    if (
-        getattr(rule, "suppress_on_network_partition", False)
-        and incident.network_verdict
-        in {"network_partition_asn", "network_partition_geo"}
-    ):
+    if getattr(rule, "suppress_on_network_partition", False) and incident.network_verdict in {
+        "network_partition_asn",
+        "network_partition_geo",
+    }:
         logger.info(
             "alert_suppressed_network_partition",
             rule_id=str(rule.id),
@@ -581,29 +568,29 @@ async def _upsert_digest_window(
     flush_at = datetime.fromtimestamp((int(now.timestamp()) // ttl + 1) * ttl, tz=UTC)
 
     if dialect_name(db) == "postgresql":
-        stmt = pg_insert(DigestWindow).values(
-            id=uuid.uuid4(),
-            rule_id=rule_id,
-            flush_at=flush_at,
-            events_json=[event_data],
-            ctx_json=ctx_data,
-            created_at=now,
-        ).on_conflict_do_update(
-            index_elements=["rule_id"],
-            set_={
-                "events_json": DigestWindow.events_json.op("||")(
-                    json.dumps([event_data])
-                ),
-                "ctx_json": ctx_data,
-            },
+        stmt = (
+            pg_insert(DigestWindow)
+            .values(
+                id=uuid.uuid4(),
+                rule_id=rule_id,
+                flush_at=flush_at,
+                events_json=[event_data],
+                ctx_json=ctx_data,
+                created_at=now,
+            )
+            .on_conflict_do_update(
+                index_elements=["rule_id"],
+                set_={
+                    "events_json": DigestWindow.events_json.op("||")(json.dumps([event_data])),
+                    "ctx_json": ctx_data,
+                },
+            )
         )
         await db.execute(stmt)
     else:
         # SQLite fallback — no JSONB `||` operator, so append in Python.
         existing = (
-            await db.execute(
-                select(DigestWindow).where(DigestWindow.rule_id == rule_id)
-            )
+            await db.execute(select(DigestWindow).where(DigestWindow.rule_id == rule_id))
         ).scalar_one_or_none()
         if existing is None:
             db.add(
@@ -633,11 +620,7 @@ async def recover_digest_windows() -> None:
 
     async with get_session_factory()() as db:
         stale_windows = (
-            (
-                await db.execute(
-                    select(DigestWindow).where(DigestWindow.flush_at <= now)
-                )
-            )
+            (await db.execute(select(DigestWindow).where(DigestWindow.flush_at <= now)))
             .scalars()
             .all()
         )
@@ -796,5 +779,3 @@ async def dispatch_alert(
         response_body=response_body,
     )
     db.add(event)
-
-

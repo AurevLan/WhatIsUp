@@ -64,10 +64,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index(
-        "ix_incident_diagnostics_incident_probe", table_name="incident_diagnostics"
-    )
-    op.drop_index(
-        "ix_incident_diagnostics_incident_kind", table_name="incident_diagnostics"
-    )
+    op.drop_index("ix_incident_diagnostics_incident_probe", table_name="incident_diagnostics")
+    op.drop_index("ix_incident_diagnostics_incident_kind", table_name="incident_diagnostics")
     op.drop_table("incident_diagnostics")

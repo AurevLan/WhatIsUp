@@ -28,9 +28,9 @@ from whatisup.services.alert import maybe_digest_or_dispatch
     [
         ("network_partition_asn", True, False),
         ("network_partition_geo", True, False),
-        ("service_down",          True, True),
-        ("inconclusive",          True, True),
-        (None,                    True, True),
+        ("service_down", True, True),
+        ("inconclusive", True, True),
+        (None, True, True),
         ("network_partition_asn", False, True),  # opt-out → still paged
     ],
 )
@@ -80,9 +80,7 @@ async def test_partition_suppression_matrix(
     service_db.add(incident)
     await service_db.flush()
 
-    with patch(
-        "whatisup.services.alert.dispatch_alert", new_callable=AsyncMock
-    ) as mock_dispatch:
+    with patch("whatisup.services.alert.dispatch_alert", new_callable=AsyncMock) as mock_dispatch:
         await maybe_digest_or_dispatch(
             service_db,
             incident=incident,

@@ -116,6 +116,4 @@ class SLORule(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     monitor: Mapped[Monitor] = relationship("Monitor", back_populates="slo_rules")
 
-    __table_args__ = (
-        Index("ix_slo_rules_monitor_enabled", "monitor_id", "enabled"),
-    )
+    __table_args__ = (Index("ix_slo_rules_monitor_enabled", "monitor_id", "enabled"),)

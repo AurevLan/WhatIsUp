@@ -110,8 +110,12 @@ class DiscordChannelConfig(BaseModel):
     @field_validator("webhook_url")
     @classmethod
     def validate_discord_url(cls, v: str) -> str:
-        if not v.startswith(("https://discord.com/api/webhooks/", "https://discordapp.com/api/webhooks/")):
-            raise ValueError("Discord webhook URL must start with https://discord.com/api/webhooks/")
+        if not v.startswith(
+            ("https://discord.com/api/webhooks/", "https://discordapp.com/api/webhooks/")
+        ):
+            raise ValueError(
+                "Discord webhook URL must start with https://discord.com/api/webhooks/"
+            )
         return v
 
 

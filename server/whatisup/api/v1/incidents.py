@@ -48,11 +48,9 @@ async def list_incident_groups(
     # (or all if superadmin)
     if not current_user.is_superadmin:
         owned_monitor_ids = set(
-            (
-                await db.execute(
-                    select(Monitor.id).where(Monitor.owner_id == current_user.id)
-                )
-            ).scalars().all()
+            (await db.execute(select(Monitor.id).where(Monitor.owner_id == current_user.id)))
+            .scalars()
+            .all()
         )
         groups = [
             g for g in groups if any(inc.monitor_id in owned_monitor_ids for inc in g.incidents)
@@ -67,9 +65,7 @@ async def list_incident_groups(
             cause_probe_ids=g.cause_probe_ids,
             status=g.status,
             root_cause_monitor_id=g.root_cause_monitor_id,
-            root_cause_monitor_name=(
-                g.root_cause_monitor.name if g.root_cause_monitor else None
-            ),
+            root_cause_monitor_name=(g.root_cause_monitor.name if g.root_cause_monitor else None),
             correlation_type=g.correlation_type,
             incident_ids=[inc.id for inc in g.incidents],
             incident_refs=[
@@ -104,11 +100,9 @@ async def get_incident_group(
     # Ownership check for non-superadmins
     if not current_user.is_superadmin:
         owned_monitor_ids = set(
-            (
-                await db.execute(
-                    select(Monitor.id).where(Monitor.owner_id == current_user.id)
-                )
-            ).scalars().all()
+            (await db.execute(select(Monitor.id).where(Monitor.owner_id == current_user.id)))
+            .scalars()
+            .all()
         )
         if not any(inc.monitor_id in owned_monitor_ids for inc in group.incidents):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")

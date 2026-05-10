@@ -5,6 +5,7 @@ Revises: l2m3n4o5p6q7
 Create Date: 2026-03-29 12:00:00.000000
 
 """
+
 from __future__ import annotations
 
 from typing import Sequence, Union
@@ -60,7 +61,13 @@ def upgrade() -> None:
     op.create_index("ix_tm_team_id", "team_memberships", ["team_id"])
 
     # ── Add team_id FK to ownable resources ──────────────────────────────
-    for table in ("monitors", "monitor_groups", "alert_channels", "maintenance_windows", "monitor_templates"):
+    for table in (
+        "monitors",
+        "monitor_groups",
+        "alert_channels",
+        "maintenance_windows",
+        "monitor_templates",
+    ):
         op.add_column(table, sa.Column("team_id", sa.Uuid(), nullable=True))
         op.create_index(f"ix_{table}_team_id", table, ["team_id"])
         op.create_foreign_key(
@@ -74,7 +81,13 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    for table in ("monitor_templates", "maintenance_windows", "alert_channels", "monitor_groups", "monitors"):
+    for table in (
+        "monitor_templates",
+        "maintenance_windows",
+        "alert_channels",
+        "monitor_groups",
+        "monitors",
+    ):
         op.drop_constraint(f"fk_{table}_team_id", table, type_="foreignkey")
         op.drop_index(f"ix_{table}_team_id", table_name=table)
         op.drop_column(table, "team_id")

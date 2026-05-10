@@ -83,9 +83,7 @@ def _classify(
     """Pure function — extracted for direct unit testing without DB."""
     probe_by_id = {p.id: p for p in probes}
     samples = [
-        (probe_by_id[pid], result)
-        for pid, result in latest_by_probe.items()
-        if pid in probe_by_id
+        (probe_by_id[pid], result) for pid, result in latest_by_probe.items() if pid in probe_by_id
     ]
     total = len(samples)
     if total < _MIN_TOTAL_PROBES:
@@ -219,13 +217,7 @@ async def recompute_open_incidents_verdicts(db: AsyncSession) -> int:
     multi-probe semantics there). Returns the number of incidents updated.
     """
     rows = (
-        (
-            await db.execute(
-                select(Incident).where(Incident.resolved_at.is_(None))
-            )
-        )
-        .scalars()
-        .all()
+        (await db.execute(select(Incident).where(Incident.resolved_at.is_(None)))).scalars().all()
     )
     if not rows:
         return 0

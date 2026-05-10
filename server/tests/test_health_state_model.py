@@ -25,17 +25,19 @@ async def test_monitor_health_engine_disabled_by_default(
 
 
 @pytest.mark.asyncio
-async def test_ensure_state_is_idempotent(
-    service_db: AsyncSession, test_monitor: Monitor
-) -> None:
+async def test_ensure_state_is_idempotent(service_db: AsyncSession, test_monitor: Monitor) -> None:
     s1 = await health.ensure_state(service_db, test_monitor.id)
     s2 = await health.ensure_state(service_db, test_monitor.id)
     assert s1.monitor_id == s2.monitor_id == test_monitor.id
     rows = (
-        await service_db.execute(
-            select(MonitorHealthState).where(MonitorHealthState.monitor_id == test_monitor.id)
+        (
+            await service_db.execute(
+                select(MonitorHealthState).where(MonitorHealthState.monitor_id == test_monitor.id)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert len(rows) == 1
     assert rows[0].probes_state == {}
     assert rows[0].probe_health == {}
@@ -80,9 +82,7 @@ async def test_slo_rule_crud(service_db: AsyncSession, test_monitor: Monitor) ->
     await service_db.flush()
 
     fetched = (
-        await service_db.execute(
-            select(SLORule).where(SLORule.monitor_id == test_monitor.id)
-        )
+        await service_db.execute(select(SLORule).where(SLORule.monitor_id == test_monitor.id))
     ).scalar_one()
     assert fetched.rule_type == SLORuleType.quorum_down
     assert fetched.quorum_ratio == 0.6

@@ -211,7 +211,9 @@ class HTTPChecker(BaseChecker):
                         compiled = re.compile(body_regex, re.DOTALL)
                         match = await asyncio.wait_for(
                             asyncio.get_running_loop().run_in_executor(
-                                None, compiled.search, body_text,
+                                None,
+                                compiled.search,
+                                body_text,
                             ),
                             timeout=5.0,
                         )
@@ -235,7 +237,9 @@ class HTTPChecker(BaseChecker):
                             compiled = re.compile(pattern)
                             match = await asyncio.wait_for(
                                 asyncio.get_running_loop().run_in_executor(
-                                    None, compiled.search, actual,
+                                    None,
+                                    compiled.search,
+                                    actual,
                                 ),
                                 timeout=5.0,
                             )

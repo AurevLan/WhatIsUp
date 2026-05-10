@@ -89,9 +89,7 @@ async def test_incident_open_enqueues_diagnostic_requests(
     await process_check_result(service_db, result, _Collector())
 
     incident = (
-        await service_db.execute(
-            select(Incident).where(Incident.monitor_id == monitor.id)
-        )
+        await service_db.execute(select(Incident).where(Incident.monitor_id == monitor.id))
     ).scalar_one_or_none()
     assert incident is not None
 
@@ -147,10 +145,14 @@ async def test_diagnostic_ingest_persists_valid_payload(
     assert resp.json()["accepted"] == 2
 
     rows = (
-        await db_session.execute(
-            select(IncidentDiagnostic).where(IncidentDiagnostic.incident_id == incident.id)
+        (
+            await db_session.execute(
+                select(IncidentDiagnostic).where(IncidentDiagnostic.incident_id == incident.id)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert {r.kind for r in rows} == {"traceroute", "icmp_ping"}
 
     # Bogus payload — empty results list rejected by Pydantic min_length=1
@@ -213,17 +215,19 @@ async def test_multi_probe_parallel_ingest(
                 }
             ],
         }
-        resp = await client.post(
-            "/api/v1/probes/diagnostics", json=body, headers=_PROBE_HEADERS
-        )
+        resp = await client.post("/api/v1/probes/diagnostics", json=body, headers=_PROBE_HEADERS)
         codes.append(resp.status_code)
     assert all(c == 202 for c in codes), codes
 
     rows = (
-        await db_session.execute(
-            select(IncidentDiagnostic).where(IncidentDiagnostic.incident_id == incident.id)
+        (
+            await db_session.execute(
+                select(IncidentDiagnostic).where(IncidentDiagnostic.incident_id == incident.id)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert len(rows) == 3
 
 

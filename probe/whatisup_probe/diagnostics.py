@@ -129,9 +129,12 @@ async def collect_dig_trace(host: str) -> dict[str, Any]:
 
 async def collect_openssl_handshake(host: str, port: int) -> dict[str, Any]:
     cmd = [
-        "openssl", "s_client",
-        "-connect", f"{host}:{port}",
-        "-servername", host,
+        "openssl",
+        "s_client",
+        "-connect",
+        f"{host}:{port}",
+        "-servername",
+        host,
         "-showcerts",
         "-verify_return_error",
     ]
@@ -188,9 +191,15 @@ async def collect_icmp_ping(host: str) -> dict[str, Any]:
 
 async def collect_http_verbose(target: str) -> dict[str, Any]:
     cmd = [
-        "curl", "-sS", "-v", "-o", "/dev/null",
-        "--max-time", "8",
-        "-A", "WhatIsUp-Probe-Diagnostic/1.0",
+        "curl",
+        "-sS",
+        "-v",
+        "-o",
+        "/dev/null",
+        "--max-time",
+        "8",
+        "-A",
+        "WhatIsUp-Probe-Diagnostic/1.0",
         target,
     ]
     rc, _out, err = await _run(cmd)

@@ -137,9 +137,7 @@ class Reporter:
             logger.error("heartbeat_failed", error=str(exc))
             return None
 
-    async def push_diagnostics(
-        self, incident_id: str, results: list[dict]
-    ) -> bool:
+    async def push_diagnostics(self, incident_id: str, results: list[dict]) -> bool:
         """POST a batch of diagnostic results for an incident (V2-01-01)."""
         url = f"{self._settings.central_api_url}/api/v1/probes/diagnostics"
         body = {"incident_id": incident_id, "results": results}
@@ -154,9 +152,7 @@ class Reporter:
             )
             return False
         except Exception as exc:
-            logger.warning(
-                "diagnostics_push_error", incident_id=incident_id, error=str(exc)
-            )
+            logger.warning("diagnostics_push_error", incident_id=incident_id, error=str(exc))
             return False
 
     async def aclose(self) -> None:

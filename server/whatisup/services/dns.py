@@ -101,9 +101,7 @@ async def apply_dns_semantic_check(
         baseline = sorted(monitor.dns_baseline_ips)
         if current_ips != baseline:
             result.status = CheckStatus.down
-            result.error_message = (
-                f"DNS drift detected: expected {baseline}, got {current_ips}"
-            )
+            result.error_message = f"DNS drift detected: expected {baseline}, got {current_ips}"
             logger.warning(
                 "dns_drift_detected",
                 monitor_id=str(monitor.id),

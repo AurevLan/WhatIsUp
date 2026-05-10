@@ -24,9 +24,7 @@ async def test_create_group(client: AsyncClient, user_token: str) -> None:
 
 @pytest.mark.asyncio
 async def test_list_groups(client: AsyncClient, user_token: str) -> None:
-    await client.post(
-        "/api/v1/groups/", json={"name": "G1"}, headers=_auth(user_token)
-    )
+    await client.post("/api/v1/groups/", json={"name": "G1"}, headers=_auth(user_token))
     resp = await client.get("/api/v1/groups/", headers=_auth(user_token))
     assert resp.status_code == 200
     assert len(resp.json()) >= 1
@@ -55,9 +53,7 @@ async def test_delete_group(client: AsyncClient, user_token: str) -> None:
     )
     group_id = create.json()["id"]
 
-    del_resp = await client.delete(
-        f"/api/v1/groups/{group_id}", headers=_auth(user_token)
-    )
+    del_resp = await client.delete(f"/api/v1/groups/{group_id}", headers=_auth(user_token))
     assert del_resp.status_code == 204
 
 

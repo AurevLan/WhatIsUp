@@ -32,8 +32,13 @@ async def probe3(service_db: AsyncSession) -> Probe:
     return p
 
 
-def _make_result(monitor: Monitor, probe: Probe, status: CheckStatus, rt_ms: float | None,
-                 at: datetime | None = None) -> CheckResult:
+def _make_result(
+    monitor: Monitor,
+    probe: Probe,
+    status: CheckStatus,
+    rt_ms: float | None,
+    at: datetime | None = None,
+) -> CheckResult:
     return CheckResult(
         monitor_id=monitor.id,
         probe_id=probe.id,
@@ -98,8 +103,7 @@ async def test_quorum_zero_when_all_up(
 
 @pytest.mark.asyncio
 async def test_quorum_partial_marks_geographic(
-    service_db: AsyncSession, test_monitor: Monitor, test_probe: Probe,
-    probe2: Probe, probe3: Probe
+    service_db: AsyncSession, test_monitor: Monitor, test_probe: Probe, probe2: Probe, probe3: Probe
 ) -> None:
     await _ingest_one(service_db, _make_result(test_monitor, test_probe, CheckStatus.up, 100))
     await _ingest_one(service_db, _make_result(test_monitor, probe2, CheckStatus.down, None))

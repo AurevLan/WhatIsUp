@@ -87,12 +87,8 @@ def upgrade() -> None:
         sa.Column("weight", sa.Integer(), nullable=False, server_default="1"),
         sa.Column("role", sa.String(50), nullable=True),
     )
-    op.create_index(
-        "ix_cmm_composite_id", "composite_monitor_members", ["composite_id"]
-    )
-    op.create_index(
-        "ix_cmm_monitor_id", "composite_monitor_members", ["monitor_id"]
-    )
+    op.create_index("ix_cmm_composite_id", "composite_monitor_members", ["composite_id"])
+    op.create_index("ix_cmm_monitor_id", "composite_monitor_members", ["monitor_id"])
     op.create_unique_constraint(
         "uq_composite_member",
         "composite_monitor_members",

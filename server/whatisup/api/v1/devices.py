@@ -148,12 +148,16 @@ async def list_devices(
 ) -> list[DeviceListItem]:
     """List the current user's registered devices (no token / encryption_key)."""
     rows = (
-        await db.execute(
-            select(DeviceToken)
-            .where(DeviceToken.user_id == current_user.id)
-            .order_by(DeviceToken.last_seen_at.desc().nullslast())
+        (
+            await db.execute(
+                select(DeviceToken)
+                .where(DeviceToken.user_id == current_user.id)
+                .order_by(DeviceToken.last_seen_at.desc().nullslast())
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return [DeviceListItem.model_validate(r) for r in rows]
 
 

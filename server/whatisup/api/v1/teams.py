@@ -31,12 +31,8 @@ router = APIRouter(prefix="/teams", tags=["teams"])
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 
-async def _get_team_or_404(
-    team_id: uuid.UUID, db: AsyncSession
-) -> Team:
-    team = (
-        await db.execute(select(Team).where(Team.id == team_id))
-    ).scalar_one_or_none()
+async def _get_team_or_404(team_id: uuid.UUID, db: AsyncSession) -> Team:
+    team = (await db.execute(select(Team).where(Team.id == team_id))).scalar_one_or_none()
     if team is None:
         raise HTTPException(status_code=404, detail="Team not found")
     return team
@@ -63,6 +59,7 @@ async def _get_membership_or_403(
             # Create a synthetic object for superadmins not in the team
             class _FakeMembership:
                 role = TeamRole.owner
+
             return _FakeMembership()
         return membership
 
@@ -101,14 +98,10 @@ async def list_teams(
     teams = (await db.execute(query.order_by(Team.name))).scalars().all()
 
     # Compute member counts
-    counts_q = (
-        select(TeamMembership.team_id, func.count().label("cnt"))
-        .group_by(TeamMembership.team_id)
+    counts_q = select(TeamMembership.team_id, func.count().label("cnt")).group_by(
+        TeamMembership.team_id
     )
-    counts = {
-        r.team_id: r.cnt
-        for r in (await db.execute(counts_q)).all()
-    }
+    counts = {r.team_id: r.cnt for r in (await db.execute(counts_q)).all()}
 
     return [
         TeamOut(
@@ -168,9 +161,9 @@ async def get_team(
     await _get_membership_or_403(team_id, current_user, db)
     count = (
         await db.execute(
-            select(func.count()).select_from(TeamMembership).where(
-                TeamMembership.team_id == team_id
-            )
+            select(func.count())
+            .select_from(TeamMembership)
+            .where(TeamMembership.team_id == team_id)
         )
     ).scalar()
     return TeamOut(
@@ -198,9 +191,9 @@ async def update_team(
     await db.flush()
     count = (
         await db.execute(
-            select(func.count()).select_from(TeamMembership).where(
-                TeamMembership.team_id == team_id
-            )
+            select(func.count())
+            .select_from(TeamMembership)
+            .where(TeamMembership.team_id == team_id)
         )
     ).scalar()
     return TeamOut(
@@ -334,9 +327,7 @@ async def update_member_role(
 
     target_membership.role = new_role
 
-    target_user = (
-        await db.execute(select(User).where(User.id == user_id))
-    ).scalar_one_or_none()
+    target_user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
 
     return TeamMemberOut(
         user_id=user_id,
@@ -372,7 +363,9 @@ async def remove_member(
     if membership.role == TeamRole.owner:
         owner_count = (
             await db.execute(
-                select(func.count()).select_from(TeamMembership).where(
+                select(func.count())
+                .select_from(TeamMembership)
+                .where(
                     TeamMembership.team_id == team_id,
                     TeamMembership.role == TeamRole.owner,
                 )

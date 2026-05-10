@@ -22,10 +22,7 @@ class ProbeSettings(BaseSettings):
     @classmethod
     def _validate_api_key(cls, v: str) -> str:
         if not v:
-            raise ValueError(
-                "PROBE_API_KEY is required. "
-                "Set it in the environment or .env file."
-            )
+            raise ValueError("PROBE_API_KEY is required. Set it in the environment or .env file.")
         if not v.startswith("wiu_"):
             raise ValueError("Invalid probe API key format (expected wiu_ prefix)")
         return v

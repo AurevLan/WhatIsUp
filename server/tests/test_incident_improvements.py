@@ -116,13 +116,17 @@ async def test_no_duplicate_open_incidents(
     await process_check_result(service_db, result2, _EventCollector())
 
     open_incidents = (
-        await service_db.execute(
-            select(Incident).where(
-                Incident.monitor_id == test_monitor.id,
-                Incident.resolved_at.is_(None),
+        (
+            await service_db.execute(
+                select(Incident).where(
+                    Incident.monitor_id == test_monitor.id,
+                    Incident.resolved_at.is_(None),
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert len(open_incidents) == 1
 
 
@@ -214,8 +218,10 @@ async def test_snooze_endpoint(
     await db_session.flush()
 
     incident = Incident(
-        monitor_id=monitor.id, started_at=datetime.now(UTC),
-        scope=IncidentScope.global_, affected_probe_ids=[],
+        monitor_id=monitor.id,
+        started_at=datetime.now(UTC),
+        scope=IncidentScope.global_,
+        affected_probe_ids=[],
     )
     db_session.add(incident)
     await db_session.commit()
@@ -243,7 +249,10 @@ async def test_snooze_endpoint(
 
 @pytest.mark.asyncio
 async def test_snooze_validates_duration_bounds(
-    client, admin_token: str, db_session: AsyncSession, admin_user: User,
+    client,
+    admin_token: str,
+    db_session: AsyncSession,
+    admin_user: User,
 ) -> None:
     from whatisup.models.monitor import Monitor
 
@@ -251,8 +260,10 @@ async def test_snooze_validates_duration_bounds(
     db_session.add(monitor)
     await db_session.flush()
     incident = Incident(
-        monitor_id=monitor.id, started_at=datetime.now(UTC),
-        scope=IncidentScope.global_, affected_probe_ids=[],
+        monitor_id=monitor.id,
+        started_at=datetime.now(UTC),
+        scope=IncidentScope.global_,
+        affected_probe_ids=[],
     )
     db_session.add(incident)
     await db_session.commit()
@@ -276,7 +287,10 @@ async def test_snooze_validates_duration_bounds(
 
 @pytest.mark.asyncio
 async def test_snooze_resolved_incident_fails(
-    client, admin_token: str, db_session: AsyncSession, admin_user: User,
+    client,
+    admin_token: str,
+    db_session: AsyncSession,
+    admin_user: User,
 ) -> None:
     from whatisup.models.monitor import Monitor
 
@@ -285,8 +299,12 @@ async def test_snooze_resolved_incident_fails(
     await db_session.flush()
     now = datetime.now(UTC)
     incident = Incident(
-        monitor_id=monitor.id, started_at=now - timedelta(hours=1), resolved_at=now,
-        duration_seconds=3600, scope=IncidentScope.global_, affected_probe_ids=[],
+        monitor_id=monitor.id,
+        started_at=now - timedelta(hours=1),
+        resolved_at=now,
+        duration_seconds=3600,
+        scope=IncidentScope.global_,
+        affected_probe_ids=[],
     )
     db_session.add(incident)
     await db_session.commit()
@@ -315,23 +333,32 @@ async def test_bulk_ack_endpoint(
 
     now = datetime.now(UTC)
     open_a = Incident(
-        monitor_id=monitor.id, started_at=now,
-        scope=IncidentScope.global_, affected_probe_ids=[],
+        monitor_id=monitor.id,
+        started_at=now,
+        scope=IncidentScope.global_,
+        affected_probe_ids=[],
     )
     open_b = Incident(
-        monitor_id=monitor.id, started_at=now,
-        scope=IncidentScope.global_, affected_probe_ids=[],
+        monitor_id=monitor.id,
+        started_at=now,
+        scope=IncidentScope.global_,
+        affected_probe_ids=[],
     )
     already_acked = Incident(
-        monitor_id=monitor.id, started_at=now,
-        acked_at=now, acked_by_id=admin_user.id,
-        scope=IncidentScope.global_, affected_probe_ids=[],
+        monitor_id=monitor.id,
+        started_at=now,
+        acked_at=now,
+        acked_by_id=admin_user.id,
+        scope=IncidentScope.global_,
+        affected_probe_ids=[],
     )
     resolved = Incident(
         monitor_id=monitor.id,
-        started_at=now - timedelta(hours=1), resolved_at=now,
+        started_at=now - timedelta(hours=1),
+        resolved_at=now,
         duration_seconds=3600,
-        scope=IncidentScope.global_, affected_probe_ids=[],
+        scope=IncidentScope.global_,
+        affected_probe_ids=[],
     )
     db_session.add_all([open_a, open_b, already_acked, resolved])
     await db_session.commit()

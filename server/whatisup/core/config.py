@@ -72,10 +72,10 @@ class Settings(BaseSettings):
 
     # OIDC / SSO
     oidc_enabled: bool = False
-    oidc_issuer_url: str = ""        # e.g. https://accounts.google.com
+    oidc_issuer_url: str = ""  # e.g. https://accounts.google.com
     oidc_client_id: str = ""
     oidc_client_secret: str = ""
-    oidc_redirect_uri: str = ""      # full callback URL; auto-derived if empty
+    oidc_redirect_uri: str = ""  # full callback URL; auto-derived if empty
     oidc_scopes: str = "openid email profile"
     # If True, create a new local account on first OIDC login (invite-only = False)
     oidc_auto_provision: bool = True
@@ -84,8 +84,8 @@ class Settings(BaseSettings):
     # Generate keys:
     #   python -c "from py_vapid import Vapid; v=Vapid(); v.generate_keys();
     #              print('Private:', v.private_key); print('Public:', v.public_key_urlsafe)"
-    vapid_private_key: str = ""   # PEM string or base64url private key
-    vapid_public_key: str = ""    # base64url public key — sent to frontend
+    vapid_private_key: str = ""  # PEM string or base64url private key
+    vapid_public_key: str = ""  # base64url public key — sent to frontend
     vapid_contact_email: str = "admin@example.com"
 
     # Feature flags
@@ -117,8 +117,8 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "FERNET_KEY is not set — scenario variable secrets and alert channel "
                     "credentials would be stored in plaintext. "
-                    "Generate one with: python -c \"from cryptography.fernet import Fernet; "
-                    "print(Fernet.generate_key().decode())\""
+                    'Generate one with: python -c "from cryptography.fernet import Fernet; '
+                    'print(Fernet.generate_key().decode())"'
                 )
             # Validate Fernet key format early to avoid runtime surprises
             try:

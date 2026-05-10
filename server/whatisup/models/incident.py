@@ -127,8 +127,10 @@ class Incident(Base):
     group: Mapped[IncidentGroup | None] = relationship("IncidentGroup", back_populates="incidents")
     acked_by: Mapped[User | None] = relationship("User", foreign_keys=[acked_by_id])
     updates: Mapped[list[IncidentUpdate]] = relationship(
-        "IncidentUpdate", back_populates="incident", cascade="all, delete-orphan",
-        order_by="IncidentUpdate.created_at.asc()"
+        "IncidentUpdate",
+        back_populates="incident",
+        cascade="all, delete-orphan",
+        order_by="IncidentUpdate.created_at.asc()",
     )
 
     __table_args__ = (

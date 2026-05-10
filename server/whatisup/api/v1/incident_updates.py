@@ -43,9 +43,7 @@ async def _get_incident_for_user(
         from whatisup.api.deps import check_resource_access
 
         monitor = (
-            await db.execute(
-                select(Monitor).where(Monitor.id == incident.monitor_id)
-            )
+            await db.execute(select(Monitor).where(Monitor.id == incident.monitor_id))
         ).scalar_one_or_none()
         if monitor is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Monitor not found")
@@ -64,12 +62,16 @@ async def list_incident_updates(
 ) -> list:
     await _get_incident_for_user(incident_id, current_user, db)
     updates = (
-        await db.execute(
-            select(IncidentUpdate)
-            .where(IncidentUpdate.incident_id == incident_id)
-            .order_by(IncidentUpdate.created_at.asc())
+        (
+            await db.execute(
+                select(IncidentUpdate)
+                .where(IncidentUpdate.incident_id == incident_id)
+                .order_by(IncidentUpdate.created_at.asc())
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return list(updates)
 
 
@@ -171,10 +173,14 @@ async def bulk_ack_incidents(
         # incidents accordingly. Two queries beats inline join-update.
         team_ids = await get_user_team_ids(current_user, db)
         accessible_monitors = (
-            await db.execute(
-                select(Monitor.id).where(build_access_filter(Monitor, current_user, team_ids))
+            (
+                await db.execute(
+                    select(Monitor.id).where(build_access_filter(Monitor, current_user, team_ids))
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         access_clause = and_(
             Incident.id.in_(payload.ids),
             Incident.monitor_id.in_(accessible_monitors),
@@ -293,21 +299,18 @@ async def incident_timeline(
     window_end = (incident.resolved_at or datetime.now(UTC)) + grace
 
     rows = (
-        (
-            await db.execute(
-                select(CheckResult, Probe)
-                .join(Probe, CheckResult.probe_id == Probe.id)
-                .where(
-                    CheckResult.monitor_id == incident.monitor_id,
-                    CheckResult.checked_at >= window_start,
-                    CheckResult.checked_at <= window_end,
-                )
-                .order_by(CheckResult.checked_at.asc())
-                .limit(2000)
+        await db.execute(
+            select(CheckResult, Probe)
+            .join(Probe, CheckResult.probe_id == Probe.id)
+            .where(
+                CheckResult.monitor_id == incident.monitor_id,
+                CheckResult.checked_at >= window_start,
+                CheckResult.checked_at <= window_end,
             )
+            .order_by(CheckResult.checked_at.asc())
+            .limit(2000)
         )
-        .all()
-    )
+    ).all()
 
     points = [
         IncidentTimelinePoint(
@@ -347,16 +350,13 @@ async def list_incident_diagnostics(
     incident = await _get_incident_for_user(incident_id, current_user, db)
 
     rows = (
-        (
-            await db.execute(
-                select(IncidentDiagnostic, Probe)
-                .outerjoin(Probe, IncidentDiagnostic.probe_id == Probe.id)
-                .where(IncidentDiagnostic.incident_id == incident.id)
-                .order_by(IncidentDiagnostic.collected_at.asc())
-            )
+        await db.execute(
+            select(IncidentDiagnostic, Probe)
+            .outerjoin(Probe, IncidentDiagnostic.probe_id == Probe.id)
+            .where(IncidentDiagnostic.incident_id == incident.id)
+            .order_by(IncidentDiagnostic.collected_at.asc())
         )
-        .all()
-    )
+    ).all()
 
     return [
         {

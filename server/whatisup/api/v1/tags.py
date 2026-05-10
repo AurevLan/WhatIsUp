@@ -36,9 +36,7 @@ async def create_tag(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Tag:
-    existing = (
-        await db.execute(select(Tag).where(Tag.name == payload.name))
-    ).scalar_one_or_none()
+    existing = (await db.execute(select(Tag).where(Tag.name == payload.name))).scalar_one_or_none()
     if existing is not None:
         return existing
     tag = Tag(name=payload.name, color=payload.color, description=payload.description)
@@ -67,9 +65,7 @@ async def update_tag(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Tag:
-    tag = (
-        await db.execute(select(Tag).where(Tag.id == tag_id))
-    ).scalar_one_or_none()
+    tag = (await db.execute(select(Tag).where(Tag.id == tag_id))).scalar_one_or_none()
     if tag is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tag not found")
     if payload.name is not None:
@@ -90,9 +86,7 @@ async def delete_tag(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    tag = (
-        await db.execute(select(Tag).where(Tag.id == tag_id))
-    ).scalar_one_or_none()
+    tag = (await db.execute(select(Tag).where(Tag.id == tag_id))).scalar_one_or_none()
     if tag is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tag not found")
     await db.delete(tag)

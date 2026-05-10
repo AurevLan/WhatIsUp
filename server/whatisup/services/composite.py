@@ -45,9 +45,7 @@ def _apply_aggregation_rule(
     elif rule == "weighted_up":
         total_weight = sum(m.weight for m in members)
         up_weight = sum(
-            m.weight
-            for m in members
-            if status_by_monitor.get(m.monitor_id) == CheckStatus.up
+            m.weight for m in members if status_by_monitor.get(m.monitor_id) == CheckStatus.up
         )
         return CheckStatus.up if up_weight * 2 > total_weight else CheckStatus.down
     else:
@@ -69,12 +67,16 @@ async def evaluate_composite_parents(
     after the triggering result is already committed to the DB).
     """
     memberships = (
-        await db.execute(
-            select(CompositeMonitorMember).where(
-                CompositeMonitorMember.monitor_id == triggered_monitor_id
+        (
+            await db.execute(
+                select(CompositeMonitorMember).where(
+                    CompositeMonitorMember.monitor_id == triggered_monitor_id
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     if not memberships:
         return
@@ -98,12 +100,16 @@ async def _recompute_composite(
     from whatisup.services.incident import process_check_result
 
     all_members = (
-        await db.execute(
-            select(CompositeMonitorMember).where(
-                CompositeMonitorMember.composite_id == composite.id
+        (
+            await db.execute(
+                select(CompositeMonitorMember).where(
+                    CompositeMonitorMember.composite_id == composite.id
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     if not all_members:
         logger.warning("composite_no_members", composite_id=str(composite.id))
@@ -117,14 +123,18 @@ async def _recompute_composite(
         group_col=CheckResult.monitor_id,
     )
     latest_results = (
-        await db.execute(
-            select(CheckResult).join(
-                latest_subq,
-                (CheckResult.monitor_id == latest_subq.c.monitor_id)
-                & (CheckResult.checked_at == latest_subq.c.max_at),
+        (
+            await db.execute(
+                select(CheckResult).join(
+                    latest_subq,
+                    (CheckResult.monitor_id == latest_subq.c.monitor_id)
+                    & (CheckResult.checked_at == latest_subq.c.max_at),
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     status_by_monitor: dict[uuid.UUID, CheckStatus] = {
         r.monitor_id: r.status for r in latest_results
@@ -135,11 +145,7 @@ async def _recompute_composite(
     )
 
     # Build context error message
-    down_members = [
-        m
-        for m in all_members
-        if status_by_monitor.get(m.monitor_id) in _DOWN_STATUSES
-    ]
+    down_members = [m for m in all_members if status_by_monitor.get(m.monitor_id) in _DOWN_STATUSES]
     error_msg: str | None = None
     if computed_status != CheckStatus.up and down_members:
         labels = [m.role or str(m.monitor_id)[:8] for m in down_members]

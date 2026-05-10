@@ -21,6 +21,7 @@ from whatisup.services.channels._helpers import _validate_webhook_url_sync as _v
 def test_validate_webhook_public_url(monkeypatch) -> None:
     # Mock DNS resolution so the test works even when hooks.example.com is unresolvable (CI)
     import socket
+
     monkeypatch.setattr(
         socket,
         "getaddrinfo",
@@ -71,12 +72,14 @@ async def test_simulate_rule_any_down_fires(
     test_monitor: Monitor,
     test_probe: Probe,
 ) -> None:
-    service_db.add(CheckResult(
-        monitor_id=test_monitor.id,
-        probe_id=test_probe.id,
-        checked_at=datetime.now(UTC),
-        status=CheckStatus.down,
-    ))
+    service_db.add(
+        CheckResult(
+            monitor_id=test_monitor.id,
+            probe_id=test_probe.id,
+            checked_at=datetime.now(UTC),
+            status=CheckStatus.down,
+        )
+    )
     rule = AlertRule(
         condition=AlertCondition.any_down,
         monitor_id=test_monitor.id,
@@ -97,12 +100,14 @@ async def test_simulate_rule_any_down_no_fire_when_up(
     test_monitor: Monitor,
     test_probe: Probe,
 ) -> None:
-    service_db.add(CheckResult(
-        monitor_id=test_monitor.id,
-        probe_id=test_probe.id,
-        checked_at=datetime.now(UTC),
-        status=CheckStatus.up,
-    ))
+    service_db.add(
+        CheckResult(
+            monitor_id=test_monitor.id,
+            probe_id=test_probe.id,
+            checked_at=datetime.now(UTC),
+            status=CheckStatus.up,
+        )
+    )
     rule = AlertRule(
         condition=AlertCondition.any_down,
         monitor_id=test_monitor.id,
@@ -117,10 +122,9 @@ async def test_simulate_rule_any_down_no_fire_when_up(
 
 
 @pytest.mark.asyncio
-async def test_simulate_rule_no_monitors_found(
-    service_db: AsyncSession, test_user: User
-) -> None:
+async def test_simulate_rule_no_monitors_found(service_db: AsyncSession, test_user: User) -> None:
     import uuid
+
     rule = AlertRule(
         condition=AlertCondition.any_down,
         monitor_id=uuid.uuid4(),

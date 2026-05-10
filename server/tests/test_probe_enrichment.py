@@ -30,6 +30,7 @@ def _reset_breaker() -> None:
     yield
     _circuit_reset()
 
+
 # ── Pure parsing / helpers (no I/O) ───────────────────────────────────────────
 
 
@@ -51,7 +52,7 @@ def test_cymru_origin_query_reverses_octets_for_ipv4() -> None:
 
 
 def test_parse_cymru_origin_txt_extracts_asn_and_country() -> None:
-    txt = '15169 | 8.8.8.0/24 | US | arin | 1992-12-01'
+    txt = "15169 | 8.8.8.0/24 | US | arin | 1992-12-01"
     asn, country = _parse_cymru_origin_txt(txt)
     assert asn == 15169
     assert country == "US"
@@ -64,7 +65,7 @@ def test_parse_cymru_origin_txt_returns_none_on_garbage() -> None:
 
 
 def test_parse_cymru_asn_txt_extracts_organisation() -> None:
-    txt = '15169 | US | arin | 2000-03-30 | GOOGLE, US'
+    txt = "15169 | US | arin | 2000-03-30 | GOOGLE, US"
     name = _parse_cymru_asn_txt(txt)
     assert name == "GOOGLE, US"
 
@@ -141,9 +142,7 @@ async def test_maybe_enrich_skips_when_data_is_fresh(
     service_db.add(probe)
     await service_db.flush()
 
-    with patch(
-        "whatisup.services.probe_enrichment.enrich_probe"
-    ) as mock_enrich:
+    with patch("whatisup.services.probe_enrichment.enrich_probe") as mock_enrich:
         await maybe_enrich_on_heartbeat(service_db, probe, "8.8.8.8")
 
     mock_enrich.assert_not_called()
@@ -174,6 +173,7 @@ async def test_lookup_asn_returns_none_when_backend_disabled(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from whatisup.core.config import get_settings
+
     settings = get_settings()
     monkeypatch.setattr(settings, "asn_lookup_provider", "disabled")
     assert await lookup_asn("8.8.8.8") is None
@@ -190,6 +190,7 @@ async def test_lookup_asn_opens_breaker_after_threshold_failures(
 ) -> None:
     """5 consecutive failures within the rolling window flip the breaker open."""
     from whatisup.core.config import get_settings
+
     settings = get_settings()
     monkeypatch.setattr(settings, "asn_lookup_provider", "cymru")
 
@@ -217,6 +218,7 @@ async def test_lookup_asn_breaker_closes_on_success(
 ) -> None:
     """A single successful lookup wipes the failure counter and reopens traffic."""
     from whatisup.core.config import get_settings
+
     settings = get_settings()
     monkeypatch.setattr(settings, "asn_lookup_provider", "cymru")
 

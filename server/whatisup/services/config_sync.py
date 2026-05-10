@@ -20,20 +20,48 @@ logger = structlog.get_logger(__name__)
 
 # Fields to include in monitor export (excludes internal/computed fields)
 _MONITOR_EXPORT_FIELDS = [
-    "name", "url", "check_type", "interval_seconds", "timeout_seconds",
-    "follow_redirects", "expected_status_codes", "enabled",
-    "ssl_check_enabled", "ssl_expiry_warn_days", "ssl_pin_sha256", "ssl_min_chain_days",
-    "tcp_port", "udp_port", "smtp_port", "smtp_starttls",
-    "domain_expiry_warn_days", "dns_record_type", "dns_expected_value", "dns_nameservers",
-    "dns_drift_alert", "dns_split_enabled",
-    "keyword", "keyword_negate",
-    "expected_json_path", "expected_json_value",
-    "body_regex", "expected_headers", "json_schema", "custom_headers",
+    "name",
+    "url",
+    "check_type",
+    "interval_seconds",
+    "timeout_seconds",
+    "follow_redirects",
+    "expected_status_codes",
+    "enabled",
+    "ssl_check_enabled",
+    "ssl_expiry_warn_days",
+    "ssl_pin_sha256",
+    "ssl_min_chain_days",
+    "tcp_port",
+    "udp_port",
+    "smtp_port",
+    "smtp_starttls",
+    "domain_expiry_warn_days",
+    "dns_record_type",
+    "dns_expected_value",
+    "dns_nameservers",
+    "dns_drift_alert",
+    "dns_split_enabled",
+    "keyword",
+    "keyword_negate",
+    "expected_json_path",
+    "expected_json_value",
+    "body_regex",
+    "expected_headers",
+    "json_schema",
+    "custom_headers",
     "schema_drift_enabled",
-    "slo_target", "slo_window_days", "network_scope",
-    "flap_threshold", "flap_window_minutes", "auto_pause_after",
-    "heartbeat_slug", "heartbeat_interval_seconds", "heartbeat_grace_seconds",
-    "scenario_steps", "scenario_variables",
+    "slo_target",
+    "slo_window_days",
+    "network_scope",
+    "flap_threshold",
+    "flap_window_minutes",
+    "auto_pause_after",
+    "heartbeat_slug",
+    "heartbeat_interval_seconds",
+    "heartbeat_grace_seconds",
+    "scenario_steps",
+    "scenario_variables",
     "composite_aggregation",
 ]
 
@@ -50,16 +78,18 @@ async def export_config(user: User, db: AsyncSession) -> dict[str, Any]:
     group_names_by_id: dict[uuid.UUID, str] = {}
     for g in groups:
         group_names_by_id[g.id] = g.name
-        groups_export.append({
-            "name": g.name,
-            "description": g.description,
-            "public_slug": g.public_slug,
-            "custom_logo_url": g.custom_logo_url,
-            "accent_color": g.accent_color,
-            "announcement_banner": g.announcement_banner,
-            "report_schedule": g.report_schedule,
-            "report_emails": g.report_emails,
-        })
+        groups_export.append(
+            {
+                "name": g.name,
+                "description": g.description,
+                "public_slug": g.public_slug,
+                "custom_logo_url": g.custom_logo_url,
+                "accent_color": g.accent_color,
+                "announcement_banner": g.announcement_banner,
+                "report_schedule": g.report_schedule,
+                "report_emails": g.report_emails,
+            }
+        )
 
     # Monitors
     monitors_q = select(Monitor).order_by(Monitor.name)
@@ -93,22 +123,23 @@ async def export_config(user: User, db: AsyncSession) -> dict[str, Any]:
     channels_export = []
     for c in channels:
         channel_names_by_id[c.id] = c.name
-        channels_export.append({
-            "name": c.name,
-            "type": c.type.value,
-            "config": _redact_config(decrypt_channel_config(c.config), c.type),
-        })
+        channels_export.append(
+            {
+                "name": c.name,
+                "type": c.type.value,
+                "config": _redact_config(decrypt_channel_config(c.config), c.type),
+            }
+        )
 
     # Alert rules
     rules_q = (
-        select(AlertRule)
-        .options(selectinload(AlertRule.channels))
-        .order_by(AlertRule.created_at)
+        select(AlertRule).options(selectinload(AlertRule.channels)).order_by(AlertRule.created_at)
     )
     if not user.is_superadmin:
         monitor_ids = [m.id for m in monitors]
         group_ids = [g.id for g in groups]
         from sqlalchemy import or_
+
         conditions = []
         if monitor_ids:
             conditions.append(AlertRule.monitor_id.in_(monitor_ids))
@@ -127,9 +158,7 @@ async def export_config(user: User, db: AsyncSession) -> dict[str, Any]:
         rule_entry: dict[str, Any] = {
             "condition": r.condition.value,
             "channels": [
-                channel_names_by_id[c.id]
-                for c in r.channels
-                if c.id in channel_names_by_id
+                channel_names_by_id[c.id] for c in r.channels if c.id in channel_names_by_id
             ],
         }
         if r.monitor_id and r.monitor_id in monitor_names_by_id:
@@ -186,11 +215,9 @@ async def import_config(
     # ── Groups ────────────────────────────────────────────────────────
     existing_groups = {
         g.name: g
-        for g in (
-            await db.execute(
-                select(MonitorGroup).where(MonitorGroup.owner_id == user.id)
-            )
-        ).scalars().all()
+        for g in (await db.execute(select(MonitorGroup).where(MonitorGroup.owner_id == user.id)))
+        .scalars()
+        .all()
     }
 
     config_group_names = set()
@@ -204,8 +231,11 @@ async def import_config(
         if existing:
             changes = []
             for field in (
-                "description", "public_slug", "custom_logo_url",
-                "accent_color", "announcement_banner",
+                "description",
+                "public_slug",
+                "custom_logo_url",
+                "accent_color",
+                "announcement_banner",
             ):
                 new_val = g_cfg.get(field)
                 if new_val != getattr(existing, field, None):
@@ -245,11 +275,9 @@ async def import_config(
     # ── Alert channels ────────────────────────────────────────────────
     existing_channels = {
         c.name: c
-        for c in (
-            await db.execute(
-                select(AlertChannel).where(AlertChannel.owner_id == user.id)
-            )
-        ).scalars().all()
+        for c in (await db.execute(select(AlertChannel).where(AlertChannel.owner_id == user.id)))
+        .scalars()
+        .all()
     }
 
     config_channel_names = set()
@@ -300,11 +328,9 @@ async def import_config(
     # ── Monitors ──────────────────────────────────────────────────────
     existing_monitors = {
         m.name: m
-        for m in (
-            await db.execute(
-                select(Monitor).where(Monitor.owner_id == user.id)
-            )
-        ).scalars().all()
+        for m in (await db.execute(select(Monitor).where(Monitor.owner_id == user.id)))
+        .scalars()
+        .all()
     }
 
     config_monitor_names = set()
@@ -336,9 +362,12 @@ async def import_config(
             if changes:
                 plan["monitors_updated"].append({"name": name, "changed_fields": changes})
         else:
-            plan["monitors_created"].append({
-                "name": name, "check_type": m_cfg.get("check_type", "http"),
-            })
+            plan["monitors_created"].append(
+                {
+                    "name": name,
+                    "check_type": m_cfg.get("check_type", "http"),
+                }
+            )
             if not dry_run:
                 monitor_kwargs = {
                     "name": name,
@@ -371,19 +400,17 @@ async def import_config(
             await db.flush()
             all_monitors = {
                 m.name: m.id
-                for m in (
-                    await db.execute(
-                        select(Monitor).where(Monitor.owner_id == user.id)
-                    )
-                ).scalars().all()
+                for m in (await db.execute(select(Monitor).where(Monitor.owner_id == user.id)))
+                .scalars()
+                .all()
             }
             all_groups = {
                 g.name: g.id
                 for g in (
-                    await db.execute(
-                        select(MonitorGroup).where(MonitorGroup.owner_id == user.id)
-                    )
-                ).scalars().all()
+                    await db.execute(select(MonitorGroup).where(MonitorGroup.owner_id == user.id))
+                )
+                .scalars()
+                .all()
             }
         else:
             all_monitors = {m.name: m.id for m in existing_monitors.values()}
@@ -406,10 +433,10 @@ async def import_config(
                     continue
 
                 channels = (
-                    await db.execute(
-                        select(AlertChannel).where(AlertChannel.id.in_(channel_ids))
-                    )
-                ).scalars().all()
+                    (await db.execute(select(AlertChannel).where(AlertChannel.id.in_(channel_ids))))
+                    .scalars()
+                    .all()
+                )
 
                 rule = AlertRule(
                     owner_id=user.id,

@@ -22,8 +22,12 @@ def upgrade() -> None:
     op.create_table(
         "alert_silences",
         sa.Column("id", sa.Uuid(as_uuid=True), primary_key=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
         sa.Column("name", sa.String(length=120), nullable=False),
         sa.Column("reason", sa.String(length=500), nullable=True),
         sa.Column(
@@ -44,9 +48,7 @@ def upgrade() -> None:
     op.create_index("ix_alert_silences_owner_id", "alert_silences", ["owner_id"])
     op.create_index("ix_alert_silences_monitor_id", "alert_silences", ["monitor_id"])
     op.create_index("ix_alert_silences_window", "alert_silences", ["starts_at", "ends_at"])
-    op.create_index(
-        "ix_alert_silences_owner_monitor", "alert_silences", ["owner_id", "monitor_id"]
-    )
+    op.create_index("ix_alert_silences_owner_monitor", "alert_silences", ["owner_id", "monitor_id"])
 
 
 def downgrade() -> None:

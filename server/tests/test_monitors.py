@@ -273,9 +273,7 @@ async def test_bulk_action_isolation(
 async def test_bulk_set_group(client: AsyncClient, user_token: str) -> None:
     """Bulk set_group reassigns the group_id of every targeted monitor."""
     auth = {"Authorization": f"Bearer {user_token}"}
-    grp = (
-        await client.post("/api/v1/groups/", json={"name": "Bulk Target"}, headers=auth)
-    ).json()
+    grp = (await client.post("/api/v1/groups/", json={"name": "Bulk Target"}, headers=auth)).json()
     m1 = (
         await client.post(
             "/api/v1/monitors/",
@@ -319,9 +317,7 @@ async def test_bulk_set_group(client: AsyncClient, user_token: str) -> None:
 
 
 @pytest.mark.asyncio
-async def test_bulk_set_group_unknown_returns_404(
-    client: AsyncClient, user_token: str
-) -> None:
+async def test_bulk_set_group_unknown_returns_404(client: AsyncClient, user_token: str) -> None:
     auth = {"Authorization": f"Bearer {user_token}"}
     m = (
         await client.post(
@@ -389,9 +385,7 @@ async def test_bulk_add_and_remove_tags(client: AsyncClient, user_token: str) ->
 
 
 @pytest.mark.asyncio
-async def test_bulk_add_tags_requires_tag_ids(
-    client: AsyncClient, user_token: str
-) -> None:
+async def test_bulk_add_tags_requires_tag_ids(client: AsyncClient, user_token: str) -> None:
     auth = {"Authorization": f"Bearer {user_token}"}
     m = (
         await client.post(

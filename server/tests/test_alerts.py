@@ -17,7 +17,11 @@ def _auth(token: str) -> dict:
 async def test_create_alert_channel(client: AsyncClient, user_token: str) -> None:
     resp = await client.post(
         "/api/v1/alerts/channels",
-        json={"name": "My Webhook", "type": "webhook", "config": {"url": "https://hooks.example.com/abc"}},
+        json={
+            "name": "My Webhook",
+            "type": "webhook",
+            "config": {"url": "https://hooks.example.com/abc"},
+        },
         headers=_auth(user_token),
     )
     assert resp.status_code == 201
@@ -42,7 +46,11 @@ async def test_list_alert_channels(client: AsyncClient, user_token: str) -> None
 async def test_delete_alert_channel(client: AsyncClient, user_token: str) -> None:
     create = await client.post(
         "/api/v1/alerts/channels",
-        json={"name": "ToDelete", "type": "webhook", "config": {"url": "https://hooks.example.com/d"}},
+        json={
+            "name": "ToDelete",
+            "type": "webhook",
+            "config": {"url": "https://hooks.example.com/d"},
+        },
         headers=_auth(user_token),
     )
     channel_id = create.json()["id"]
@@ -59,14 +67,16 @@ async def test_delete_other_user_channel_returns_404(
 ) -> None:
     create = await client.post(
         "/api/v1/alerts/channels",
-        json={"name": "AdminCh", "type": "webhook", "config": {"url": "https://hooks.example.com/a"}},
+        json={
+            "name": "AdminCh",
+            "type": "webhook",
+            "config": {"url": "https://hooks.example.com/a"},
+        },
         headers=_auth(admin_token),
     )
     channel_id = create.json()["id"]
 
-    resp = await client.delete(
-        f"/api/v1/alerts/channels/{channel_id}", headers=_auth(user_token)
-    )
+    resp = await client.delete(f"/api/v1/alerts/channels/{channel_id}", headers=_auth(user_token))
     assert resp.status_code == 404
 
 
@@ -114,7 +124,8 @@ async def test_create_signal_channel_invalid_phone(client: AsyncClient, user_tok
 
 @pytest.mark.asyncio
 async def test_create_signal_channel_invalid_recipient(
-    client: AsyncClient, user_token: str,
+    client: AsyncClient,
+    user_token: str,
 ) -> None:
     resp = await client.post(
         "/api/v1/alerts/channels",
@@ -161,7 +172,11 @@ async def _create_monitor_and_channel(client: AsyncClient, token: str) -> tuple[
     )
     ch = await client.post(
         "/api/v1/alerts/channels",
-        json={"name": "RuleCh", "type": "webhook", "config": {"url": "https://hooks.example.com/r"}},
+        json={
+            "name": "RuleCh",
+            "type": "webhook",
+            "config": {"url": "https://hooks.example.com/r"},
+        },
         headers={"Authorization": f"Bearer {token}"},
     )
     return mon.json()["id"], ch.json()["id"]
@@ -187,9 +202,7 @@ async def test_create_alert_rule(client: AsyncClient, user_token: str) -> None:
 
 
 @pytest.mark.asyncio
-async def test_create_rule_requires_monitor_or_group(
-    client: AsyncClient, user_token: str
-) -> None:
+async def test_create_rule_requires_monitor_or_group(client: AsyncClient, user_token: str) -> None:
     _, channel_id = await _create_monitor_and_channel(client, user_token)
 
     resp = await client.post(
@@ -242,9 +255,7 @@ async def test_delete_alert_rule(client: AsyncClient, user_token: str) -> None:
     )
     rule_id = create.json()["id"]
 
-    del_resp = await client.delete(
-        f"/api/v1/alerts/rules/{rule_id}", headers=_auth(user_token)
-    )
+    del_resp = await client.delete(f"/api/v1/alerts/rules/{rule_id}", headers=_auth(user_token))
     assert del_resp.status_code == 204
 
 
@@ -358,9 +369,7 @@ async def test_put_matrix_upserts_and_removes(client: AsyncClient, user_token: s
 
 
 @pytest.mark.asyncio
-async def test_put_matrix_rejects_duplicate_condition(
-    client: AsyncClient, user_token: str
-) -> None:
+async def test_put_matrix_rejects_duplicate_condition(client: AsyncClient, user_token: str) -> None:
     monitor_id, ch1 = await _create_monitor_and_channel(client, user_token)
     resp = await client.put(
         f"/api/v1/alerts/monitors/{monitor_id}/matrix",
@@ -376,9 +385,7 @@ async def test_put_matrix_rejects_duplicate_condition(
 
 
 @pytest.mark.asyncio
-async def test_put_matrix_rejects_empty_channels(
-    client: AsyncClient, user_token: str
-) -> None:
+async def test_put_matrix_rejects_empty_channels(client: AsyncClient, user_token: str) -> None:
     monitor_id, _ = await _create_monitor_and_channel(client, user_token)
     resp = await client.put(
         f"/api/v1/alerts/monitors/{monitor_id}/matrix",
@@ -442,9 +449,7 @@ async def test_create_rule_with_tag_selector(client: AsyncClient, user_token: st
 
 
 @pytest.mark.asyncio
-async def test_create_rule_without_target_rejected(
-    client: AsyncClient, user_token: str
-) -> None:
+async def test_create_rule_without_target_rejected(client: AsyncClient, user_token: str) -> None:
     _, channel_id = await _create_monitor_and_channel(client, user_token)
     resp = await client.post(
         "/api/v1/alerts/rules",
@@ -467,9 +472,7 @@ async def test_delete_tag_selector_rule(client: AsyncClient, user_token: str) ->
         headers=_auth(user_token),
     )
     rule_id = create.json()["id"]
-    resp = await client.delete(
-        f"/api/v1/alerts/rules/{rule_id}", headers=_auth(user_token)
-    )
+    resp = await client.delete(f"/api/v1/alerts/rules/{rule_id}", headers=_auth(user_token))
     assert resp.status_code == 204
 
 

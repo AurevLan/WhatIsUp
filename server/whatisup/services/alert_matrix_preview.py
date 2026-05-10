@@ -73,9 +73,7 @@ async def compute_preview(
         if min_duration <= 0:
             return len(inc_list)
         return sum(
-            1
-            for i in inc_list
-            if i.duration_seconds is None or i.duration_seconds >= min_duration
+            1 for i in inc_list if i.duration_seconds is None or i.duration_seconds >= min_duration
         )
 
     for row in rows:

@@ -108,10 +108,14 @@ async def unsubscribe(
 ) -> None:
     """Remove all push subscriptions for the current user."""
     subs = (
-        await db.execute(
-            select(WebPushSubscription).where(WebPushSubscription.user_id == current_user.id)
+        (
+            await db.execute(
+                select(WebPushSubscription).where(WebPushSubscription.user_id == current_user.id)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     for sub in subs:
         await db.delete(sub)
 

@@ -46,6 +46,7 @@ class MonitorTemplateOut(BaseModel):
 
 class TemplateApplyIn(BaseModel):
     """Variable values to substitute when applying a template."""
+
     values: dict[str, str] = {}
     # Optional override fields (group_id, name suffix, etc.)
     name_override: str | None = None

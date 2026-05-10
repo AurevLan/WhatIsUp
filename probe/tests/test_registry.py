@@ -14,8 +14,16 @@ from whatisup_probe.checkers.base import BaseChecker
 
 def test_registry_contains_all_builtin_types() -> None:
     expected = {
-        "http", "keyword", "json_path", "tcp", "udp",
-        "dns", "smtp", "ping", "domain_expiry", "scenario",
+        "http",
+        "keyword",
+        "json_path",
+        "tcp",
+        "udp",
+        "dns",
+        "smtp",
+        "ping",
+        "domain_expiry",
+        "scenario",
     }
     assert expected == set(REGISTRY.keys())
 
@@ -84,9 +92,7 @@ async def test_keyword_check_passes_when_found() -> None:
 @pytest.mark.asyncio
 @respx.mock
 async def test_keyword_check_fails_when_not_found() -> None:
-    respx.get("https://example.com").mock(
-        return_value=httpx.Response(200, text="something else")
-    )
+    respx.get("https://example.com").mock(return_value=httpx.Response(200, text="something else"))
     result = await perform_check(
         monitor_id="keyword-fail-test",
         url="https://example.com",

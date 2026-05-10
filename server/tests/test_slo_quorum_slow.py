@@ -140,9 +140,7 @@ def test_evaluate_quorum_slow_hold_when_not_enough_probes():
 def test_evaluate_quorum_slow_hold_without_threshold():
     monitor_id = "00000000-0000-0000-0000-000000000001"
     state = _state_with_p95(monitor_id, p95=900.0, sample_count=20, fresh_probes=4)
-    decision = slo.evaluate_rule(
-        _rule(monitor_id, p95_threshold_ms=None), state, datetime.now(UTC)
-    )
+    decision = slo.evaluate_rule(_rule(monitor_id, p95_threshold_ms=None), state, datetime.now(UTC))
     assert isinstance(decision, Hold)
     assert "no_threshold_configured" in decision.reason
 

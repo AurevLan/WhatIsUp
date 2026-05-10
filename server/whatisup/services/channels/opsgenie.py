@@ -30,9 +30,7 @@ class OpsgenieChannel(BaseAlertChannel):
             "source": "WhatIsUp",
         }
         async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.post(
-                f"{base_url}/v2/alerts", json=payload, headers=headers
-            )
+            resp = await client.post(f"{base_url}/v2/alerts", json=payload, headers=headers)
             resp.raise_for_status()
             return True, f"HTTP {resp.status_code}"
 

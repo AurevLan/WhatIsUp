@@ -26,9 +26,7 @@ async def test_export_empty_config(client: AsyncClient, user_token: str) -> None
 
 
 @pytest.mark.asyncio
-async def test_export_includes_created_resources(
-    client: AsyncClient, admin_token: str
-) -> None:
+async def test_export_includes_created_resources(client: AsyncClient, admin_token: str) -> None:
     """Resources created via API should appear in export (superadmin bypasses owner filter)."""
     # Create a group
     grp = await client.post(
@@ -129,9 +127,7 @@ async def test_import_dry_run_no_changes(client: AsyncClient, user_token: str) -
 
 
 @pytest.mark.asyncio
-async def test_import_then_reimport_is_idempotent(
-    client: AsyncClient, user_token: str
-) -> None:
+async def test_import_then_reimport_is_idempotent(client: AsyncClient, user_token: str) -> None:
     """Importing the same config twice should show 0 changes on second run."""
     config = {
         "version": "1",
@@ -174,9 +170,7 @@ async def test_import_then_reimport_is_idempotent(
 
 
 @pytest.mark.asyncio
-async def test_import_prune_deletes_extra_resources(
-    client: AsyncClient, user_token: str
-) -> None:
+async def test_import_prune_deletes_extra_resources(client: AsyncClient, user_token: str) -> None:
     """Import with prune=true should plan deletion of resources created in same import."""
     # First, create a resource via import (not API) so it's visible in same session
     setup_config = {
@@ -213,9 +207,7 @@ async def test_import_prune_deletes_extra_resources(
 
 
 @pytest.mark.asyncio
-async def test_import_no_prune_keeps_extra(
-    client: AsyncClient, user_token: str
-) -> None:
+async def test_import_no_prune_keeps_extra(client: AsyncClient, user_token: str) -> None:
     """Import with prune=false should NOT delete resources not in config."""
     await client.post(
         "/api/v1/groups",
@@ -243,9 +235,7 @@ async def test_import_no_prune_keeps_extra(
 
 
 @pytest.mark.asyncio
-async def test_import_monitor_with_group_reference(
-    client: AsyncClient, user_token: str
-) -> None:
+async def test_import_monitor_with_group_reference(client: AsyncClient, user_token: str) -> None:
     """Monitors should be linked to groups by name."""
     config = {
         "version": "1",

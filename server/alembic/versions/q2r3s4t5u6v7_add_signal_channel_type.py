@@ -5,14 +5,15 @@ Revises: p1q2r3s4t5u6
 Create Date: 2026-04-07 09:00:00.000000
 
 """
+
 from __future__ import annotations
 
 from typing import Sequence, Union
 
 from alembic import op
 
-revision: str = 'q2r3s4t5u6v7'
-down_revision: Union[str, None] = 'p1q2r3s4t5u6'
+revision: str = "q2r3s4t5u6v7"
+down_revision: Union[str, None] = "p1q2r3s4t5u6"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

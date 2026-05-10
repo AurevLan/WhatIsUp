@@ -33,7 +33,8 @@ async def _auth_via_user_api_key(raw_key: str, db: AsyncSession) -> User:
     redis = get_redis()
     # SHA-256 used as cache index only (not for password hashing — bcrypt handles that)
     digest = hashlib.sha256(
-        raw_key.encode(), usedforsecurity=False,
+        raw_key.encode(),
+        usedforsecurity=False,
     ).hexdigest()[:32]
     cache_key = f"whatisup:user_api:{digest}"
 
@@ -50,12 +51,16 @@ async def _auth_via_user_api_key(raw_key: str, db: AsyncSession) -> User:
     now = datetime.now(UTC)
     api_key_row = None
     rows = (
-        await db.execute(
-            select(UserApiKey).where(
-                UserApiKey.is_revoked.is_(False),
+        (
+            await db.execute(
+                select(UserApiKey).where(
+                    UserApiKey.is_revoked.is_(False),
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     for row in rows:
         if row.expires_at and row.expires_at < now:
@@ -72,9 +77,7 @@ async def _auth_via_user_api_key(raw_key: str, db: AsyncSession) -> User:
         )
 
     user = (
-        await db.execute(
-            select(User).where(User.id == api_key_row.user_id, User.is_active)
-        )
+        await db.execute(select(User).where(User.id == api_key_row.user_id, User.is_active))
     ).scalar_one_or_none()
     if user is None:
         raise HTTPException(
@@ -165,7 +168,8 @@ async def get_current_probe(
     redis = get_redis()
     # SHA-256 used as cache index only (not for password hashing — bcrypt handles that)
     digest = hashlib.sha256(
-        x_probe_api_key.encode(), usedforsecurity=False,
+        x_probe_api_key.encode(),
+        usedforsecurity=False,
     ).hexdigest()[:32]
     cache_key = f"whatisup:probe_auth:{digest}"
     cached_id = await redis.get(cache_key)
@@ -220,11 +224,7 @@ async def get_user_team_ids(
             )
         )
     ).all()
-    return [
-        r.team_id
-        for r in rows
-        if _ROLE_HIERARCHY.get(r.role, 0) >= min_level
-    ]
+    return [r.team_id for r in rows if _ROLE_HIERARCHY.get(r.role, 0) >= min_level]
 
 
 async def _get_user_team_ids_with_roles(

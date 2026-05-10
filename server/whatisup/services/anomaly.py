@@ -41,19 +41,23 @@ async def compute_zscore(
         hour_filter = (hour_col >= hour_low) | (hour_col <= hour_high)
 
     rows = (
-        await db.execute(
-            select(CheckResult.response_time_ms)
-            .where(
-                CheckResult.monitor_id == monitor_id,
-                CheckResult.checked_at >= since,
-                CheckResult.status == CheckStatus.up,
-                CheckResult.response_time_ms.is_not(None),
-                hour_filter,
+        (
+            await db.execute(
+                select(CheckResult.response_time_ms)
+                .where(
+                    CheckResult.monitor_id == monitor_id,
+                    CheckResult.checked_at >= since,
+                    CheckResult.status == CheckStatus.up,
+                    CheckResult.response_time_ms.is_not(None),
+                    hour_filter,
+                )
+                .order_by(CheckResult.checked_at.desc())
+                .limit(500)
             )
-            .order_by(CheckResult.checked_at.desc())
-            .limit(500)
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     samples = [v for v in rows if v is not None]
 

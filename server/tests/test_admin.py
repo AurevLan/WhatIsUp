@@ -20,9 +20,7 @@ def _auth(token: str) -> dict:
 
 
 @pytest.mark.asyncio
-async def test_admin_list_users(
-    client: AsyncClient, admin_token: str, admin_user: User
-) -> None:
+async def test_admin_list_users(client: AsyncClient, admin_token: str, admin_user: User) -> None:
     resp = await client.get("/api/v1/admin/users", headers=_auth(admin_token))
     assert resp.status_code == 200
     emails = [u["email"] for u in resp.json()]
@@ -47,9 +45,7 @@ async def test_admin_create_user(client: AsyncClient, admin_token: str) -> None:
 
 
 @pytest.mark.asyncio
-async def test_admin_create_user_duplicate_email(
-    client: AsyncClient, admin_token: str
-) -> None:
+async def test_admin_create_user_duplicate_email(client: AsyncClient, admin_token: str) -> None:
     await client.post(
         "/api/v1/admin/users",
         json={"email": "dup@example.com", "password": "DupPass1!"},
@@ -64,9 +60,7 @@ async def test_admin_create_user_duplicate_email(
 
 
 @pytest.mark.asyncio
-async def test_admin_update_user(
-    client: AsyncClient, admin_token: str, regular_user: User
-) -> None:
+async def test_admin_update_user(client: AsyncClient, admin_token: str, regular_user: User) -> None:
     resp = await client.patch(
         f"/api/v1/admin/users/{regular_user.id}",
         json={"is_active": False},
@@ -90,18 +84,14 @@ async def test_admin_update_can_create_monitors(
 
 
 @pytest.mark.asyncio
-async def test_admin_delete_user(
-    client: AsyncClient, admin_token: str
-) -> None:
+async def test_admin_delete_user(client: AsyncClient, admin_token: str) -> None:
     create = await client.post(
         "/api/v1/admin/users",
         json={"email": "todelete@example.com", "password": "DelPass1!"},
         headers=_auth(admin_token),
     )
     user_id = create.json()["id"]
-    resp = await client.delete(
-        f"/api/v1/admin/users/{user_id}", headers=_auth(admin_token)
-    )
+    resp = await client.delete(f"/api/v1/admin/users/{user_id}", headers=_auth(admin_token))
     assert resp.status_code == 204
 
 
@@ -109,16 +99,12 @@ async def test_admin_delete_user(
 async def test_admin_cannot_delete_self(
     client: AsyncClient, admin_token: str, admin_user: User
 ) -> None:
-    resp = await client.delete(
-        f"/api/v1/admin/users/{admin_user.id}", headers=_auth(admin_token)
-    )
+    resp = await client.delete(f"/api/v1/admin/users/{admin_user.id}", headers=_auth(admin_token))
     assert resp.status_code == 400
 
 
 @pytest.mark.asyncio
-async def test_admin_requires_superadmin(
-    client: AsyncClient, user_token: str
-) -> None:
+async def test_admin_requires_superadmin(client: AsyncClient, user_token: str) -> None:
     resp = await client.get("/api/v1/admin/users", headers=_auth(user_token))
     assert resp.status_code == 403
 
@@ -145,9 +131,7 @@ async def test_admin_list_all_monitors(
 
 
 @pytest.mark.asyncio
-async def test_admin_probe_groups_crud(
-    client: AsyncClient, admin_token: str
-) -> None:
+async def test_admin_probe_groups_crud(client: AsyncClient, admin_token: str) -> None:
     # Create
     resp = await client.post(
         "/api/v1/admin/probe-groups",
@@ -158,9 +142,7 @@ async def test_admin_probe_groups_crud(
     group_id = resp.json()["id"]
 
     # List
-    list_resp = await client.get(
-        "/api/v1/admin/probe-groups", headers=_auth(admin_token)
-    )
+    list_resp = await client.get("/api/v1/admin/probe-groups", headers=_auth(admin_token))
     assert list_resp.status_code == 200
     assert any(g["id"] == group_id for g in list_resp.json())
 
@@ -240,9 +222,7 @@ async def test_admin_probe_group_add_remove_user(
 
 
 @pytest.mark.asyncio
-async def test_admin_get_oidc_settings_env_fallback(
-    client: AsyncClient, admin_token: str
-) -> None:
+async def test_admin_get_oidc_settings_env_fallback(client: AsyncClient, admin_token: str) -> None:
     """No DB row yet → source should be 'env'."""
     resp = await client.get("/api/v1/admin/settings/oidc", headers=_auth(admin_token))
     assert resp.status_code == 200
@@ -253,9 +233,7 @@ async def test_admin_get_oidc_settings_env_fallback(
 
 
 @pytest.mark.asyncio
-async def test_admin_update_oidc_settings(
-    client: AsyncClient, admin_token: str
-) -> None:
+async def test_admin_update_oidc_settings(client: AsyncClient, admin_token: str) -> None:
     payload = {
         "oidc_enabled": True,
         "oidc_issuer_url": "https://accounts.example.com",
@@ -265,9 +243,7 @@ async def test_admin_update_oidc_settings(
         "oidc_scopes": "openid email profile",
         "oidc_auto_provision": False,
     }
-    resp = await client.put(
-        "/api/v1/admin/settings/oidc", json=payload, headers=_auth(admin_token)
-    )
+    resp = await client.put("/api/v1/admin/settings/oidc", json=payload, headers=_auth(admin_token))
     assert resp.status_code == 200
     data = resp.json()
     assert data["source"] == "db"
@@ -330,9 +306,7 @@ async def test_admin_oidc_get_reflects_db_after_update(
         },
         headers=_auth(admin_token),
     )
-    get_resp = await client.get(
-        "/api/v1/admin/settings/oidc", headers=_auth(admin_token)
-    )
+    get_resp = await client.get("/api/v1/admin/settings/oidc", headers=_auth(admin_token))
     assert get_resp.status_code == 200
     data = get_resp.json()
     assert data["source"] == "db"
@@ -340,19 +314,13 @@ async def test_admin_oidc_get_reflects_db_after_update(
 
 
 @pytest.mark.asyncio
-async def test_admin_oidc_requires_superadmin(
-    client: AsyncClient, user_token: str
-) -> None:
-    resp = await client.get(
-        "/api/v1/admin/settings/oidc", headers=_auth(user_token)
-    )
+async def test_admin_oidc_requires_superadmin(client: AsyncClient, user_token: str) -> None:
+    resp = await client.get("/api/v1/admin/settings/oidc", headers=_auth(user_token))
     assert resp.status_code == 403
 
 
 @pytest.mark.asyncio
-async def test_oidc_config_reflects_db_enabled(
-    client: AsyncClient, admin_token: str
-) -> None:
+async def test_oidc_config_reflects_db_enabled(client: AsyncClient, admin_token: str) -> None:
     """After enabling OIDC in DB, /auth/oidc/config should return enabled=True."""
     await client.put(
         "/api/v1/admin/settings/oidc",

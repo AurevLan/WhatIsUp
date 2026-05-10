@@ -29,9 +29,7 @@ class ProbeScheduler:
         self._active_checks = 0
         # Playwright/Chromium is memory-heavy — cap concurrent browser instances
         # independently of max_concurrent_checks to avoid OOM on low-resource machines.
-        self._scenario_semaphore = asyncio.Semaphore(
-            self._settings.max_concurrent_scenarios
-        )
+        self._scenario_semaphore = asyncio.Semaphore(self._settings.max_concurrent_scenarios)
         self._monitors: dict[str, dict[str, Any]] = {}  # monitor_id -> config
         self._browser_pool = PlaywrightPool()
         psutil.cpu_percent(interval=None)  # first call always returns 0.0; discard it
@@ -61,9 +59,7 @@ class ProbeScheduler:
         try:
             results = await run_collection(target, check_type, kinds)
         except Exception as exc:  # noqa: BLE001
-            logger.warning(
-                "diagnostic_run_failed", incident_id=incident_id, error=str(exc)
-            )
+            logger.warning("diagnostic_run_failed", incident_id=incident_id, error=str(exc))
             return
         if results:
             await self._reporter.push_diagnostics(incident_id, results)
@@ -223,12 +219,14 @@ class ProbeScheduler:
                 logger.info("trigger_check_immediate", monitor_id=str(monitor["id"]))
                 task = asyncio.create_task(self._run_check(monitor))
                 task.add_done_callback(
-                    lambda t: logger.error(
-                        "trigger_check_failed",
-                        error=str(t.exception()),
+                    lambda t: (
+                        logger.error(
+                            "trigger_check_failed",
+                            error=str(t.exception()),
+                        )
+                        if not t.cancelled() and t.exception()
+                        else None
                     )
-                    if not t.cancelled() and t.exception()
-                    else None
                 )
 
     async def start(self) -> None:

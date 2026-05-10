@@ -37,25 +37,23 @@ async def get_onboarding_status(
     """Return onboarding progress for the current user."""
     monitor_count = (
         await db.execute(
-            select(func.count()).select_from(Monitor).where(
-                Monitor.owner_id == current_user.id
-            )
+            select(func.count()).select_from(Monitor).where(Monitor.owner_id == current_user.id)
         )
     ).scalar() or 0
 
     channel_count = (
         await db.execute(
-            select(func.count()).select_from(AlertChannel).where(
-                AlertChannel.owner_id == current_user.id
-            )
+            select(func.count())
+            .select_from(AlertChannel)
+            .where(AlertChannel.owner_id == current_user.id)
         )
     ).scalar() or 0
 
     has_team = (
         await db.execute(
-            select(func.count()).select_from(TeamMembership).where(
-                TeamMembership.user_id == current_user.id
-            )
+            select(func.count())
+            .select_from(TeamMembership)
+            .where(TeamMembership.user_id == current_user.id)
         )
     ).scalar() or 0 > 0
 
@@ -87,25 +85,23 @@ async def complete_onboarding(
     # Return fresh status
     monitor_count = (
         await db.execute(
-            select(func.count()).select_from(Monitor).where(
-                Monitor.owner_id == current_user.id
-            )
+            select(func.count()).select_from(Monitor).where(Monitor.owner_id == current_user.id)
         )
     ).scalar() or 0
 
     channel_count = (
         await db.execute(
-            select(func.count()).select_from(AlertChannel).where(
-                AlertChannel.owner_id == current_user.id
-            )
+            select(func.count())
+            .select_from(AlertChannel)
+            .where(AlertChannel.owner_id == current_user.id)
         )
     ).scalar() or 0
 
     has_team = (
         await db.execute(
-            select(func.count()).select_from(TeamMembership).where(
-                TeamMembership.user_id == current_user.id
-            )
+            select(func.count())
+            .select_from(TeamMembership)
+            .where(TeamMembership.user_id == current_user.id)
         )
     ).scalar() or 0 > 0
 

@@ -96,9 +96,7 @@ _DIVERGENCE_FLEET_AGREEMENT = 0.7  # fraction of *other* probes needed for "majo
 _DIVERGENCE_MIN_OTHER_PROBES = 2  # need at least 2 peers to judge divergence
 
 
-def _update_probe_divergence(
-    state: MonitorHealthState, cr: CheckResult, now: datetime
-) -> None:
+def _update_probe_divergence(state: MonitorHealthState, cr: CheckResult, now: datetime) -> None:
     """Per-probe divergence score — flags probes systematically out of sync.
 
     Compared at each ingest: the current probe's verdict vs the latest verdict

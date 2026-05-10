@@ -38,8 +38,10 @@ class PingChecker(BaseChecker):
         try:
             proc = await asyncio.create_subprocess_exec(
                 "ping",
-                "-c", "1",
-                "-W", str(timeout_seconds),
+                "-c",
+                "1",
+                "-W",
+                str(timeout_seconds),
                 host,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,

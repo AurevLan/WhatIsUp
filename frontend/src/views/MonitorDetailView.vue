@@ -1226,9 +1226,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { Shield, ShieldAlert, ShieldCheck, Copy, CalendarClock } from 'lucide-vue-next'
 import { useToast } from '../composables/useToast'
 import api from '../api/client'
-import { monitorsApi, triggerCheck, listAnnotations, createAnnotation, deleteAnnotation } from '../api/monitors'
+import { monitorsApi, triggerCheck } from '../api/monitors'
 import { probesApi } from '../api/probes'
-import { metricsApi } from '../api/metrics'
 import MonitorDependencies from '../components/monitors/MonitorDependencies.vue'
 import EditMonitorModal from '../components/monitors/EditMonitorModal.vue'
 import CreateMonitorModal from '../components/monitors/CreateMonitorModal.vue'
@@ -1247,6 +1246,9 @@ import { useMonitorDependencies } from '../composables/useMonitorDependencies'
 import { useMonitorIncidents } from '../composables/useMonitorIncidents'
 import { useMonitorSlo } from '../composables/useMonitorSlo'
 import { useMonitorTabs } from '../composables/useMonitorTabs'
+import { useMonitorAnnotations } from '../composables/useMonitorAnnotations'
+import { useMonitorPercentiles } from '../composables/useMonitorPercentiles'
+import { useMonitorCustomMetrics } from '../composables/useMonitorCustomMetrics'
 import MonitorRunbookTab from '../components/monitors/detail/MonitorRunbookTab.vue'
 import MonitorIncidentsTab from '../components/monitors/detail/MonitorIncidentsTab.vue'
 import MonitorSloPanel from '../components/monitors/detail/MonitorSloPanel.vue'
@@ -1417,60 +1419,16 @@ const {
 } = incidentsState
 
 // ── Annotations ───────────────────────────────────────────────────────────────
-const annotations   = ref([])
-const showAnnForm   = ref(false)
-const newAnnotation = ref({ content: '', annotated_at: '' })
+const {
+  annotations,
+  showForm: showAnnForm,
+  newAnnotation,
+  load: loadAnnotations,
+  add: addAnnotation,
+  remove: removeAnnotation,
+} = useMonitorAnnotations(monitorIdRef)
 
-async function loadAnnotations() {
-  try { annotations.value = await listAnnotations(route.params.id) }
-  catch { annotations.value = [] }
-}
-
-async function addAnnotation() {
-  if (!newAnnotation.value.content || !newAnnotation.value.annotated_at) return
-  await createAnnotation(route.params.id, {
-    content: newAnnotation.value.content,
-    annotated_at: new Date(newAnnotation.value.annotated_at).toISOString(),
-  })
-  newAnnotation.value = { content: '', annotated_at: '' }
-  showAnnForm.value = false
-  await loadAnnotations()
-}
-
-async function removeAnnotation(id) {
-  await deleteAnnotation(route.params.id, id)
-  await loadAnnotations()
-}
-
-// ── Percentiles P50/P95/P99 ──────────────────────────────────────────────────
-const percentilesData = ref([])
-
-async function loadPercentiles() {
-  const id = route.params.id
-  try {
-    const { data } = await monitorsApi.percentiles(id, { hours: chartWindow.value })
-    percentilesData.value = data
-  } catch { /* ignore */ }
-}
-
-const percentileSeries = computed(() => [
-  { name: 'P50', data: percentilesData.value.map(d => [new Date(d.timestamp).getTime(), d.p50]) },
-  { name: 'P95', data: percentilesData.value.map(d => [new Date(d.timestamp).getTime(), d.p95]) },
-  { name: 'P99', data: percentilesData.value.map(d => [new Date(d.timestamp).getTime(), d.p99]) },
-])
-
-const percentileOptions = computed(() => ({
-  chart: { type: 'line', height: 250, background: 'transparent', toolbar: { show: false }, zoom: { enabled: false }, animations: { enabled: false } },
-  colors: ['#34d399', '#fbbf24', '#f87171'],
-  stroke: { curve: 'smooth', width: 2 },
-  dataLabels: { enabled: false },
-  xaxis: { type: 'datetime', labels: { style: { colors: '#6b7280' }, datetimeUTC: false } },
-  yaxis: { labels: { formatter: v => v ? Math.round(v) + 'ms' : '', style: { colors: '#6b7280' } } },
-  legend: { position: 'top', labels: { colors: '#8899aa' } },
-  tooltip: { theme: 'dark', x: { format: 'dd/MM HH:mm' }, y: { formatter: v => v ? v.toFixed(1) + ' ms' : '—' } },
-  grid: { borderColor: '#1e293b' },
-  theme: { mode: 'dark' },
-}))
+// Percentiles P50/P95/P99 — instantiated below, after chartWindow is declared.
 
 // ── "Tester maintenant" ───────────────────────────────────────────────────────
 const testing      = ref(false)
@@ -1844,19 +1802,24 @@ const rtThresholdMs = computed(() => {
 })
 
 // ── Custom metrics push ───────────────────────────────────────────────────────
-const customMetrics = ref([])
-const showPushUrlModal = ref(false)
 const apiBase = window.location.origin
+const {
+  metrics: customMetrics,
+  showPushUrlModal,
+  names: customMetricNames,
+  unit: customMetricUnit,
+  series: customMetricSeries,
+  options: customMetricOptions,
+  load: loadCustomMetrics,
+} = useMonitorCustomMetrics(monitor)
 
-async function loadCustomMetrics() {
-  if (!monitor.value) return
-  try {
-    const { data } = await metricsApi.list(monitor.value.id, { hours: 24 })
-    customMetrics.value = data
-  } catch {
-    customMetrics.value = []
-  }
-}
+// ── Percentiles P50/P95/P99 ──────────────────────────────────────────────────
+const {
+  data: percentilesData,
+  load: loadPercentiles,
+  series: percentileSeries,
+  options: percentileOptions,
+} = useMonitorPercentiles(monitorIdRef, chartWindow)
 
 // ── Tabs ─────────────────────────────────────────────────────────────────────
 const {
@@ -1871,37 +1834,6 @@ const {
   tabLabel,
   setTab,
 } = useMonitorTabs(monitor, customMetrics, { onMapActivated: loadAndInitMap })
-
-const customMetricNames = computed(() => {
-  return [...new Set(customMetrics.value.map(m => m.metric_name))]
-})
-
-function customMetricUnit(name) {
-  return customMetrics.value.find(m => m.metric_name === name)?.unit ?? null
-}
-
-function customMetricSeries(name) {
-  const pts = customMetrics.value
-    .filter(m => m.metric_name === name)
-    .map(m => ({ x: new Date(m.pushed_at).getTime(), y: m.value }))
-    .sort((a, b) => a.x - b.x)
-  return [{ name, data: pts }]
-}
-
-function customMetricOptions(name) {
-  const unit = customMetricUnit(name)
-  return {
-    chart: { type: 'line', toolbar: { show: false }, background: 'transparent', animations: { enabled: false } },
-    dataLabels: { enabled: false },
-    stroke: { curve: 'smooth', width: 2 },
-    xaxis: { type: 'datetime', labels: { style: { colors: '#6b7280' }, datetimeUTC: false } },
-    yaxis: { labels: { style: { colors: '#6b7280' }, formatter: v => unit ? `${v} ${unit}` : String(v) } },
-    grid: { borderColor: '#1e293b' },
-    theme: { mode: 'dark' },
-    tooltip: { x: { format: 'dd/MM HH:mm:ss' }, y: { formatter: v => unit ? `${v} ${unit}` : String(v) } },
-    legend: { show: false },
-  }
-}
 
 // ── Chart: response time per probe (line) ────────────────────────────────────
 const rtSeries = computed(() => {

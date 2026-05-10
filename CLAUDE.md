@@ -27,6 +27,12 @@ cd frontend && npm run dev
 cd frontend && npm run lint
 cd frontend && npm audit
 
+# Tests vitest — IMPÉRATIF Node 22 LTS (jsdom 29 ne supporte pas le localStorage
+# natif de Node 25, "TypeError: localStorage.clear is not a function" sinon).
+# CI utilise déjà Node 22 (ci.yml). Pour tester localement via Docker :
+docker run --rm -v $(pwd)/frontend:/app -w /app node:22-alpine \
+  sh -c "npm ci && npx vitest run"
+
 # Docker
 docker compose --env-file .env up -d         # démarrer la stack complète
 docker compose --env-file .env build server  # rebuild après modif pyproject.toml

@@ -1591,52 +1591,18 @@
     </div>
 
     <!-- ── Onglet Runbook ───────────────────────────────────────────────────── -->
-    <div v-if="activeTab === TAB_RUNBOOK && monitor" class="space-y-4">
-      <div class="card">
-        <div class="flex items-center justify-between mb-3">
-          <div>
-            <h2 class="text-sm font-semibold text-gray-200">{{ t('runbook.title') }}</h2>
-            <p class="text-xs text-gray-500 mt-0.5">{{ t('runbook.subtitle') }}</p>
-          </div>
-          <div class="flex items-center gap-2">
-            <button v-if="!runbookEditing"
-              @click="startEditRunbook"
-              class="btn-secondary text-xs">
-              ✎ {{ t('common.edit') }}
-            </button>
-            <template v-else>
-              <button @click="cancelEditRunbook" class="btn-secondary text-xs">
-                {{ t('common.cancel') }}
-              </button>
-              <button @click="saveRunbook" :disabled="runbookSaving" class="btn-primary text-xs disabled:opacity-50">
-                {{ runbookSaving ? t('common.loading') : t('common.save') }}
-              </button>
-            </template>
-          </div>
-        </div>
-
-        <!-- Edit mode -->
-        <div v-if="runbookEditing" class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <textarea
-            v-model="runbookDraft"
-            rows="20"
-            maxlength="20000"
-            :placeholder="t('runbook.placeholder')"
-            class="input w-full font-mono text-sm"
-          ></textarea>
-          <div class="runbook-preview prose prose-invert max-w-none text-sm p-3 rounded-lg border border-gray-800 bg-gray-950/40 overflow-auto"
-               v-html="runbookPreviewHtml"></div>
-        </div>
-
-        <!-- Read mode -->
-        <div v-else>
-          <div v-if="monitor.runbook_markdown"
-            class="runbook-preview prose prose-invert max-w-none text-sm"
-            v-html="runbookRenderedHtml"></div>
-          <p v-else class="text-sm text-gray-500 italic">{{ t('runbook.empty') }}</p>
-        </div>
-      </div>
-    </div>
+    <MonitorRunbookTab
+      v-if="activeTab === TAB_RUNBOOK && monitor"
+      :monitor="monitor"
+      :editing="runbookEditing"
+      v-model:draft="runbookDraft"
+      :saving="runbookSaving"
+      :rendered-html="runbookRenderedHtml"
+      :preview-html="runbookPreviewHtml"
+      @start-edit="startEditRunbook"
+      @cancel-edit="cancelEditRunbook"
+      @save="saveRunbook"
+    />
 
     <!-- DNS drift alert suggestion modal -->
     <div v-if="dnsAlertModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
@@ -1774,8 +1740,10 @@ import BaseModal from '../components/BaseModal.vue'
 import SkeletonBox from '../components/shared/SkeletonBox.vue'
 import { useCommandPaletteStore } from '../stores/commandPalette'
 import { maintenanceApi } from '../api/maintenance'
-import { renderRunbookMarkdown } from '../lib/runbookMarkdown'
 import { useTimezone } from '../composables/useTimezone'
+import { useMonitorRunbook } from '../composables/useMonitorRunbook'
+import { useMonitorDependencies } from '../composables/useMonitorDependencies'
+import MonitorRunbookTab from '../components/monitors/detail/MonitorRunbookTab.vue'
 
 const { t, locale } = useI18n()
 const { error: toastError, success: toastSuccess } = useToast()
@@ -1799,7 +1767,6 @@ const results   = ref([])
 const uptime24  = ref(null)
 const uptime7d  = ref(null)
 const probeMap  = ref({})   // probeId → { name, location_name }
-const allMonitors = ref([]) // for dependency picker
 const editingMonitor = ref(null)
 const showClone = ref(false)
 const clonePayload = ref(null)
@@ -3083,39 +3050,16 @@ async function setNetworkScope(scope) {
 }
 
 // ── Runbook ──────────────────────────────────────────────────────────────────
-const runbookEditing = ref(false)
-const runbookDraft = ref('')
-const runbookSaving = ref(false)
-
-const runbookRenderedHtml = computed(() =>
-  renderRunbookMarkdown(monitor.value?.runbook_markdown || '')
-)
-const runbookPreviewHtml = computed(() => renderRunbookMarkdown(runbookDraft.value || ''))
-
-function startEditRunbook() {
-  runbookDraft.value = monitor.value?.runbook_markdown || ''
-  runbookEditing.value = true
-}
-function cancelEditRunbook() {
-  runbookEditing.value = false
-  runbookDraft.value = ''
-}
-async function saveRunbook() {
-  if (!monitor.value) return
-  runbookSaving.value = true
-  try {
-    const { data } = await monitorsApi.update(monitor.value.id, {
-      runbook_markdown: runbookDraft.value || null,
-    })
-    monitor.value.runbook_markdown = data.runbook_markdown
-    runbookEditing.value = false
-    toastSuccess(t('runbook.saved'))
-  } catch {
-    toastError(t('runbook.save_failed'))
-  } finally {
-    runbookSaving.value = false
-  }
-}
+const {
+  editing: runbookEditing,
+  draft: runbookDraft,
+  saving: runbookSaving,
+  renderedHtml: runbookRenderedHtml,
+  previewHtml: runbookPreviewHtml,
+  startEdit: startEditRunbook,
+  cancelEdit: cancelEditRunbook,
+  save: saveRunbook,
+} = useMonitorRunbook(monitor)
 
 async function createDnsAlertRule() {
   if (!dnsAlertChannelId.value) return
@@ -3135,54 +3079,18 @@ async function createDnsAlertRule() {
   }
 }
 
-// ── Composite members ─────────────────────────────────────────────────────────
-const compositeMembers = ref([])
-const newMember = ref({ monitor_id: '', role: '', weight: 1 })
-
-function memberName(monitorId) {
-  const m = allMonitors.value.find(m => m.id === monitorId)
-  return m ? m.name : monitorId.slice(0, 8)
-}
-
-const availableMonitors = computed(() =>
-  allMonitors.value.filter(m =>
-    m.id !== monitor.value?.id &&
-    m.check_type !== 'composite' &&
-    !compositeMembers.value.some(cm => cm.monitor_id === m.id)
-  )
-)
-
-async function loadCompositeMembers() {
-  if (monitor.value?.check_type !== 'composite') return
-  try {
-    const { data } = await monitorsApi.listCompositeMembers(monitor.value.id)
-    compositeMembers.value = data
-  } catch {}
-}
-
-async function addCompositeMember() {
-  if (!newMember.value.monitor_id) return
-  try {
-    const { data } = await monitorsApi.addCompositeMember(monitor.value.id, {
-      monitor_id: newMember.value.monitor_id,
-      role: newMember.value.role || null,
-      weight: newMember.value.weight || 1,
-    })
-    compositeMembers.value.push(data)
-    newMember.value = { monitor_id: '', role: '', weight: 1 }
-  } catch (e) {
-    toastError(e.response?.data?.detail || 'Error adding member')
-  }
-}
-
-async function removeCompositeMember(memberId) {
-  try {
-    await monitorsApi.removeCompositeMember(monitor.value.id, memberId)
-    compositeMembers.value = compositeMembers.value.filter(m => m.id !== memberId)
-  } catch (e) {
-    toastError(e.response?.data?.detail || 'Error removing member')
-  }
-}
+// ── Dependencies & composite members ─────────────────────────────────────────
+const {
+  allMonitors,
+  compositeMembers,
+  newMember,
+  availableMonitors,
+  memberName,
+  loadAllMonitors,
+  loadCompositeMembers,
+  addCompositeMember,
+  removeCompositeMember,
+} = useMonitorDependencies(monitor)
 
 // ── Cleanup ───────────────────────────────────────────────────────────────────
 onUnmounted(() => {
@@ -3237,10 +3145,7 @@ onMounted(async () => {
   loadAlertRules()
 
   // Load all monitors for dependency picker
-  try {
-    const { data } = await monitorsApi.list()
-    allMonitors.value = data
-  } catch {}
+  loadAllMonitors()
 
   // Fetch probe names (graceful fallback if not superadmin)
   try {

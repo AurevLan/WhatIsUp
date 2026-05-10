@@ -1011,6 +1011,7 @@ import { useMonitorDns } from '../composables/useMonitorDns'
 import { useMonitorAlerts } from '../composables/useMonitorAlerts'
 import { useMonitorTesting } from '../composables/useMonitorTesting'
 import { useMonitorMap } from '../composables/useMonitorMap'
+import { useMonitorPatch } from '../composables/useMonitorPatch'
 import MonitorRunbookTab from '../components/monitors/detail/MonitorRunbookTab.vue'
 import MonitorIncidentsTab from '../components/monitors/detail/MonitorIncidentsTab.vue'
 import MonitorSloPanel from '../components/monitors/detail/MonitorSloPanel.vue'
@@ -1449,64 +1450,15 @@ function formatDateShort(dt) {
   return new Date(dt).toLocaleDateString(locale.value, { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-// ── Schema Drift Baseline ─────────────────────────────────────────────────────
-async function toggleSchemaDrift(enabled) {
-  try {
-    await monitorsApi.update(monitor.value.id, { schema_drift_enabled: enabled })
-    monitor.value.schema_drift_enabled = enabled
-  } catch {
-    // ignore
-  }
-}
-
-async function acceptSchemaBaseline() {
-  try {
-    const { data } = await monitorsApi.acceptSchemaBaseline(monitor.value.id)
-    monitor.value.schema_baseline = data.baseline
-    monitor.value.schema_baseline_updated_at = new Date().toISOString()
-  } catch (e) {
-    toastError(e.response?.data?.detail || 'Error accepting baseline')
-  }
-}
-
-async function resetSchemaBaseline() {
-  try {
-    await monitorsApi.resetSchemaBaseline(monitor.value.id)
-    monitor.value.schema_baseline = null
-    monitor.value.schema_baseline_updated_at = null
-  } catch {
-    // ignore
-  }
-}
-
-// ── Tags change handler (optimistic, rolls back on failure) ─────────────────
-async function onTagsChange(newTags) {
-  const previous = monitor.value.tags || []
-  monitor.value.tags = newTags
-  try {
-    await monitorsApi.update(monitor.value.id, { tag_ids: newTags.map(t => t.id) })
-  } catch (e) {
-    monitor.value.tags = previous
-  }
-}
-
-// ── Network scope ────────────────────────────────────────────────────────────
-const networkScopeOptions = [
-  { value: 'all', icon: '🌍', label: t('monitors.network_scope.all'), desc: t('monitors.network_scope.all_desc') },
-  { value: 'internal', icon: '🏠', label: t('monitors.network_scope.internal'), desc: t('monitors.network_scope.internal_desc') },
-  { value: 'external', icon: '☁️', label: t('monitors.network_scope.external'), desc: t('monitors.network_scope.external_desc') },
-]
-
-async function setNetworkScope(scope) {
-  if (monitor.value.network_scope === scope) return
-  const prev = monitor.value.network_scope
-  monitor.value.network_scope = scope
-  try {
-    await monitorsApi.update(monitor.value.id, { network_scope: scope })
-  } catch {
-    monitor.value.network_scope = prev
-  }
-}
+// ── Single-field patches: schema drift, tags, network scope ─────────────────
+const {
+  toggleSchemaDrift,
+  acceptSchemaBaseline,
+  resetSchemaBaseline,
+  patchTags: onTagsChange,
+  networkScopeOptions,
+  setNetworkScope,
+} = useMonitorPatch(monitor)
 
 // ── Runbook ──────────────────────────────────────────────────────────────────
 const {

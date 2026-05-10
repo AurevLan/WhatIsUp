@@ -739,292 +739,12 @@
       </div>
     </div>
 
-    <!-- Incidents récents -->
-    <div class="card mb-6">
-      <div class="flex items-center justify-between mb-4 gap-3 flex-wrap">
-        <h2 class="text-sm font-semibold text-gray-300">{{ t('monitor_detail.incidents') }}</h2>
-        <div class="flex items-center gap-3">
-          <div class="inline-flex rounded-md border border-gray-800 overflow-hidden">
-            <button @click="viewMode = 'timeline'"
-              class="px-2.5 py-1 text-[11px] transition-colors"
-              :class="viewMode === 'timeline' ? 'bg-indigo-600/30 text-indigo-200' : 'text-gray-500 hover:text-gray-300'">
-              {{ t('monitor_detail.view_timeline') }}
-            </button>
-            <button @click="viewMode = 'list'"
-              class="px-2.5 py-1 text-[11px] transition-colors border-l border-gray-800"
-              :class="viewMode === 'list' ? 'bg-indigo-600/30 text-indigo-200' : 'text-gray-500 hover:text-gray-300'">
-              {{ t('monitor_detail.view_list') }}
-            </button>
-          </div>
-          <button @click="downloadIncidentsCsv" :disabled="incidents.length === 0"
-            class="text-xs text-gray-500 hover:text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed">
-            {{ t('monitor_detail.export_csv') }}
-          </button>
-          <button @click="loadIncidents" class="text-xs text-gray-500 hover:text-gray-300">Refresh</button>
-        </div>
-      </div>
-
-      <div v-if="incidentError" class="mb-3 px-3 py-2 rounded-lg bg-red-900/50 border border-red-700 text-red-300 text-xs">
-        {{ incidentError }}
-      </div>
-
-      <div v-if="incidents.length === 0" class="text-gray-600 text-sm text-center py-6">{{ t('monitor_detail.no_incidents') }}</div>
-
-      <!-- ═══ Timeline mode ═══ -->
-      <div v-else-if="viewMode === 'timeline' && timelineLayout" class="space-y-4">
-        <!-- Timeline bar -->
-        <div class="relative rounded-lg bg-gray-900/60 border border-gray-800 px-4 pt-4 pb-8">
-          <div class="relative h-12">
-            <!-- Baseline -->
-            <div class="absolute inset-x-0 top-1/2 h-px bg-gray-800" />
-            <!-- Incident segments -->
-            <button v-for="it in timelineLayout.items" :key="it.id"
-              type="button"
-              @click="selectIncident(it.id)"
-              :title="tooltipFor(it.inc)"
-              :style="{ left: it.x + '%', width: it.w + '%' }"
-              class="absolute top-2 bottom-2 rounded-md transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-              :class="[
-                it.ongoing
-                  ? 'bg-red-500/80 hover:bg-red-400 animate-pulse'
-                  : 'bg-emerald-500/70 hover:bg-emerald-400',
-                selectedIncidentId === it.id
-                  ? 'ring-2 ring-white/90 shadow-lg shadow-indigo-900/50 z-10'
-                  : 'opacity-70 hover:opacity-100'
-              ]" />
-          </div>
-          <!-- Tick labels -->
-          <div class="absolute inset-x-4 bottom-2 h-4 text-[10px] text-gray-600 pointer-events-none">
-            <span v-for="(tk, i) in timelineLayout.ticks" :key="i"
-              class="absolute -translate-x-1/2 whitespace-nowrap"
-              :style="{ left: tk.x + '%' }">{{ tk.label }}</span>
-          </div>
-        </div>
-
-        <!-- Legend -->
-        <div class="flex items-center gap-4 text-[11px] text-gray-500 px-1">
-          <span class="flex items-center gap-1.5">
-            <span class="w-2.5 h-2.5 rounded-sm bg-red-500 animate-pulse" />
-            {{ t('incidents.ongoing') }}
-          </span>
-          <span class="flex items-center gap-1.5">
-            <span class="w-2.5 h-2.5 rounded-sm bg-emerald-500" />
-            {{ t('monitor_detail.resolved') }}
-          </span>
-          <span class="ml-auto">{{ incidents.length }} {{ t('monitor_detail.incidents').toLowerCase() }}</span>
-        </div>
-
-        <!-- Selected incident detail panel -->
-        <div v-if="selectedIncident" class="rounded-lg border border-gray-800 bg-gray-900/40 p-4">
-          <div class="flex items-center gap-3 flex-wrap">
-            <span class="w-2 h-2 rounded-full flex-shrink-0"
-              :class="selectedIncident.resolved_at ? 'bg-emerald-500' : 'bg-red-500 animate-pulse'" />
-            <div class="flex-1 min-w-0">
-              <p class="text-sm text-gray-200">
-                {{ fmtDateTime(selectedIncident.started_at) }}
-                <span v-if="selectedIncident.resolved_at" class="text-gray-500">
-                  → {{ fmtDateTime(selectedIncident.resolved_at) }}
-                  <span class="ml-1 text-gray-600">({{ Math.round(selectedIncident.duration_seconds / 60) }} min)</span>
-                </span>
-                <span v-else class="text-red-400 font-medium ml-1">{{ t('incidents.ongoing') }}</span>
-              </p>
-              <p class="text-xs text-gray-600 mt-0.5 flex items-center gap-2 flex-wrap">
-                <span class="capitalize">{{ selectedIncident.scope }}</span>
-                <span v-if="selectedIncident.trigger_kind && selectedIncident.trigger_kind !== 'legacy'"
-                  class="font-mono text-[10px] px-1.5 py-px rounded border border-indigo-500/30 bg-indigo-500/10 text-indigo-300">
-                  {{ selectedIncident.trigger_kind }}
-                </span>
-                <span v-if="selectedIncident.trigger_kind === 'quorum_slow' && healthState && healthState.p95_5m != null"
-                  class="text-amber-400">
-                  {{ t('monitor_detail.fleet_p95') }}: {{ healthState.p95_5m.toFixed(0) }} ms
-                </span>
-              </p>
-            </div>
-            <button v-if="selectedIncident.resolved_at"
-              @click="openPostmortem(selectedIncident)"
-              class="btn-ghost text-xs flex-shrink-0 flex items-center gap-1.5">
-              📋 {{ t('monitor_detail.postmortem') }}
-            </button>
-          </div>
-
-          <!-- Updates -->
-          <div class="mt-4 pt-3 border-t border-gray-800 space-y-2">
-            <div v-if="incidentUpdatesLoading" class="text-xs text-gray-500">Loading…</div>
-            <template v-else>
-              <div v-for="u in incidentUpdates" :key="u.id" class="flex gap-2 text-xs">
-                <span class="text-gray-600 font-mono flex-shrink-0">{{ fmtDateTime(u.created_at) }}</span>
-                <span :class="{
-                  'text-amber-400': u.status === 'investigating',
-                  'text-blue-400': u.status === 'identified',
-                  'text-purple-400': u.status === 'monitoring',
-                  'text-emerald-400': u.status === 'resolved',
-                }" class="font-semibold capitalize flex-shrink-0">{{ u.status }}</span>
-                <span class="text-gray-300 break-words">{{ u.message }}</span>
-                <span v-if="!u.is_public" class="text-gray-600 italic">(private)</span>
-                <button @click="deleteIncidentUpdate(selectedIncident.id, u.id)" class="text-red-500 hover:text-red-400 ml-auto flex-shrink-0">✕</button>
-              </div>
-              <div v-if="incidentUpdates.length === 0" class="text-gray-600 italic text-xs">No updates yet</div>
-            </template>
-
-            <div class="pt-2 flex gap-2 flex-wrap">
-              <select v-model="newUpdate.status" class="input text-xs flex-shrink-0 w-36">
-                <option value="investigating">Investigating</option>
-                <option value="identified">Identified</option>
-                <option value="monitoring">Monitoring</option>
-                <option value="resolved">Resolved</option>
-              </select>
-              <input v-model="newUpdate.message" class="input text-xs flex-1 min-w-[160px]"
-                placeholder="Status update message…"
-                @keydown.enter="postIncidentUpdate(selectedIncident.id)" />
-              <label class="flex items-center gap-1 text-xs text-gray-400 flex-shrink-0">
-                <input v-model="newUpdate.is_public" type="checkbox" class="mr-1" />
-                Public
-              </label>
-              <button @click="postIncidentUpdate(selectedIncident.id)" class="btn-primary text-xs flex-shrink-0">Post</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ═══ List mode (fallback) ═══ -->
-      <div v-else class="divide-y divide-gray-800">
-        <div v-for="inc in incidents" :key="inc.id" class="py-3 text-sm">
-          <div class="flex items-center gap-3">
-            <span class="w-2 h-2 rounded-full flex-shrink-0"
-              :class="inc.resolved_at ? 'bg-emerald-500' : 'bg-red-500 animate-pulse'" />
-            <div class="flex-1 min-w-0">
-              <p class="text-gray-300 text-xs">
-                {{ fmtDateTime(inc.started_at) }}
-                <span v-if="inc.resolved_at" class="text-gray-500">
-                  → {{ fmtDateTime(inc.resolved_at) }}
-                  <span class="ml-1 text-gray-600">({{ Math.round(inc.duration_seconds / 60) }} min)</span>
-                </span>
-                <span v-else class="text-red-400 font-medium ml-1">{{ t('incidents.ongoing') }}</span>
-              </p>
-              <p class="text-xs text-gray-600 mt-0.5 flex items-center gap-2 flex-wrap">
-                <span class="capitalize">{{ inc.scope }}</span>
-                <span v-if="inc.trigger_kind && inc.trigger_kind !== 'legacy'"
-                  class="font-mono text-[10px] px-1.5 py-px rounded border border-indigo-500/30 bg-indigo-500/10 text-indigo-300">
-                  {{ inc.trigger_kind }}
-                </span>
-              </p>
-            </div>
-            <button v-if="inc.resolved_at" @click="openPostmortem(inc)"
-              class="btn-ghost text-xs flex-shrink-0 flex items-center gap-1.5">
-              📋 {{ t('monitor_detail.postmortem') }}
-            </button>
-            <button @click="toggleIncidentUpdates(inc.id)"
-              class="btn-ghost text-xs flex-shrink-0 flex items-center gap-1">
-              📝 Updates
-            </button>
-          </div>
-
-          <div v-if="expandedIncident === inc.id" class="mt-3 ml-5 space-y-2">
-            <div v-if="incidentUpdatesLoading" class="text-xs text-gray-500">Loading…</div>
-            <div v-else>
-              <div v-for="u in incidentUpdates" :key="u.id" class="flex gap-2 text-xs">
-                <span class="text-gray-600 font-mono flex-shrink-0">{{ fmtDateTime(u.created_at) }}</span>
-                <span :class="{
-                  'text-amber-400': u.status === 'investigating',
-                  'text-blue-400': u.status === 'identified',
-                  'text-purple-400': u.status === 'monitoring',
-                  'text-emerald-400': u.status === 'resolved',
-                }" class="font-semibold capitalize flex-shrink-0">{{ u.status }}</span>
-                <span class="text-gray-300 break-words">{{ u.message }}</span>
-                <span v-if="!u.is_public" class="text-gray-600 italic">(private)</span>
-                <button @click="deleteIncidentUpdate(inc.id, u.id)" class="text-red-500 hover:text-red-400 ml-auto flex-shrink-0">✕</button>
-              </div>
-              <div v-if="incidentUpdates.length === 0" class="text-gray-600 italic">No updates yet</div>
-            </div>
-            <div class="mt-2 pt-2 border-t border-gray-800 space-y-2">
-              <div class="flex gap-2">
-                <select v-model="newUpdate.status" class="input text-xs flex-shrink-0 w-36">
-                  <option value="investigating">Investigating</option>
-                  <option value="identified">Identified</option>
-                  <option value="monitoring">Monitoring</option>
-                  <option value="resolved">Resolved</option>
-                </select>
-                <input v-model="newUpdate.message" class="input text-xs flex-1" placeholder="Status update message…" @keydown.enter="postIncidentUpdate(inc.id)" />
-                <label class="flex items-center gap-1 text-xs text-gray-400 flex-shrink-0">
-                  <input v-model="newUpdate.is_public" type="checkbox" class="mr-1" />
-                  Public
-                </label>
-                <button @click="postIncidentUpdate(inc.id)" class="btn-primary text-xs flex-shrink-0">Post</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Modal Post-mortem -->
-    <div v-if="postmortem.open"
-      class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
-      @click.self="postmortem.open = false">
-      <div class="bg-gray-900 border border-gray-700 rounded-xl w-full max-w-3xl max-h-[85vh] flex flex-col shadow-2xl">
-        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-800">
-          <h3 class="text-sm font-semibold text-white">{{ t('monitor_detail.postmortem') }}</h3>
-          <div class="flex items-center gap-2">
-            <button @click="downloadPostmortem"
-              class="btn-primary text-xs flex items-center gap-1.5">
-              ⬇️ {{ t('monitor_detail.download_postmortem') }}
-            </button>
-            <button @click="postmortem.open = false" class="text-gray-500 hover:text-white text-lg leading-none px-1">✕</button>
-          </div>
-        </div>
-        <div class="overflow-auto flex-1 p-5">
-          <div v-if="postmortem.loading" class="text-gray-400 text-sm text-center py-8">{{ t('common.loading') }}</div>
-          <pre v-else class="text-xs text-gray-300 font-mono whitespace-pre-wrap leading-relaxed">{{ postmortem.content }}</pre>
-        </div>
-      </div>
-    </div>
-
-    <!-- SLA Report -->
-    <div class="card mb-6">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-sm font-semibold text-gray-300">{{ t('monitor_detail.sla_report') }}</h2>
-      </div>
-      <div class="flex flex-wrap gap-3 items-end">
-        <div>
-          <label class="text-xs text-gray-500 block mb-1">{{ t('monitor_detail.sla_from') }}</label>
-          <input v-model="slaFrom" type="date" class="input text-xs" />
-        </div>
-        <div>
-          <label class="text-xs text-gray-500 block mb-1">{{ t('monitor_detail.sla_to') }}</label>
-          <input v-model="slaTo" type="date" class="input text-xs" />
-        </div>
-        <button @click="downloadSlaReport" :disabled="!slaFrom || slaLoading"
-          class="btn-primary text-xs h-9 flex items-center gap-2 disabled:opacity-50">
-          <span v-if="slaLoading" class="animate-spin">⏳</span>
-          <span v-else>📊</span>
-          {{ t('monitor_detail.sla_generate') }}
-        </button>
-      </div>
-      <div v-if="slaResult" class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div class="bg-gray-800/40 rounded-lg p-3 text-center">
-          <p class="text-xs text-gray-500">Uptime</p>
-          <p class="text-xl font-bold" :class="slaResult.uptime_percent >= 99 ? 'text-emerald-400' : 'text-red-400'">
-            {{ slaResult.uptime_percent?.toFixed(3) }}%
-          </p>
-        </div>
-        <div class="bg-gray-800/40 rounded-lg p-3 text-center">
-          <p class="text-xs text-gray-500">Incidents</p>
-          <p class="text-xl font-bold text-gray-300">{{ slaResult.incident_count }}</p>
-        </div>
-        <div class="bg-gray-800/40 rounded-lg p-3 text-center">
-          <p class="text-xs text-gray-500">Downtime total</p>
-          <p class="text-xl font-bold text-gray-300">
-            {{ slaResult.total_downtime_seconds ? Math.round(slaResult.total_downtime_seconds / 60) + 'm' : '0' }}
-          </p>
-        </div>
-        <div class="bg-gray-800/40 rounded-lg p-3 text-center">
-          <p class="text-xs text-gray-500">P95</p>
-          <p class="text-xl font-bold text-gray-300">
-            {{ slaResult.p95_response_time_ms ? Math.round(slaResult.p95_response_time_ms) + 'ms' : '—' }}
-          </p>
-        </div>
-      </div>
-    </div>
+    <!-- Incidents + Post-mortem + SLA Report -->
+    <MonitorIncidentsTab
+      :state="incidentsState"
+      :health-state="healthState"
+      :fmt-date-time="fmtDateTime"
+    />
 
     <!-- Chart window selector (shared by availability + RT charts) -->
     <div class="flex items-center gap-1 mb-3">
@@ -1724,10 +1444,9 @@ import { useRoute, useRouter } from 'vue-router'
 import { Shield, ShieldAlert, ShieldCheck, Copy, CalendarClock } from 'lucide-vue-next'
 import { useToast } from '../composables/useToast'
 import api from '../api/client'
-import { monitorsApi, triggerCheck, getSlaReport, listAnnotations, createAnnotation, deleteAnnotation, getSlo, listSloRules, getHealthState, createSloRule, updateSloRule, deleteSloRule } from '../api/monitors'
+import { monitorsApi, triggerCheck, listAnnotations, createAnnotation, deleteAnnotation, getSlo, listSloRules, getHealthState, createSloRule, updateSloRule, deleteSloRule } from '../api/monitors'
 import { probesApi } from '../api/probes'
 import { metricsApi } from '../api/metrics'
-import { incidentUpdatesApi } from '../api/incidentUpdates'
 import MonitorDependencies from '../components/monitors/MonitorDependencies.vue'
 import EditMonitorModal from '../components/monitors/EditMonitorModal.vue'
 import CreateMonitorModal from '../components/monitors/CreateMonitorModal.vue'
@@ -1743,7 +1462,9 @@ import { maintenanceApi } from '../api/maintenance'
 import { useTimezone } from '../composables/useTimezone'
 import { useMonitorRunbook } from '../composables/useMonitorRunbook'
 import { useMonitorDependencies } from '../composables/useMonitorDependencies'
+import { useMonitorIncidents } from '../composables/useMonitorIncidents'
 import MonitorRunbookTab from '../components/monitors/detail/MonitorRunbookTab.vue'
+import MonitorIncidentsTab from '../components/monitors/detail/MonitorIncidentsTab.vue'
 
 const { t, locale } = useI18n()
 const { error: toastError, success: toastSuccess } = useToast()
@@ -2004,226 +1725,36 @@ function formatRuleSummary(rule) {
   return rule.rule_type
 }
 
-// ── Incidents & Post-mortem ───────────────────────────────────────────────────
-const incidents = ref([])
-const incidentError = ref(null)
-const expandedIncident = ref(null)
-const incidentUpdates = ref([])
-const incidentUpdatesLoading = ref(false)
-const newUpdate = ref({ status: 'investigating', message: '', is_public: true })
-const viewMode = ref('timeline')
-const selectedIncidentId = ref(null)
-
-const selectedIncident = computed(
-  () => incidents.value.find(i => i.id === selectedIncidentId.value) || null
-)
-
-const timelineLayout = computed(() => {
-  if (!incidents.value.length) return null
-  const now = Date.now()
-  const starts = incidents.value.map(i => new Date(i.started_at).getTime())
-  const ends = incidents.value.map(i => (i.resolved_at ? new Date(i.resolved_at).getTime() : now))
-  const minT = Math.min(...starts)
-  const maxT = Math.max(...ends, now)
-  const rawSpan = Math.max(maxT - minT, 3600_000) // min 1h span
-  const pad = rawSpan * 0.03
-  const t0 = minT - pad
-  const t1 = maxT + pad
-  const total = t1 - t0
-  const items = incidents.value.map(inc => {
-    const s = new Date(inc.started_at).getTime()
-    const e = inc.resolved_at ? new Date(inc.resolved_at).getTime() : now
-    const x = ((s - t0) / total) * 100
-    const w = Math.max(((e - s) / total) * 100, 0.8)
-    return { id: inc.id, inc, x, w, ongoing: !inc.resolved_at }
-  })
-  const ticks = []
-  const spanDays = total / 86400_000
-  const steps = 4
-  for (let k = 0; k <= steps; k++) {
-    const t = t0 + (total * k) / steps
-    const d = new Date(t)
-    const label = spanDays > 2
-      ? d.toLocaleDateString(locale.value, { month: 'short', day: 'numeric' })
-      : d.toLocaleTimeString(locale.value, { hour: '2-digit', minute: '2-digit' })
-    ticks.push({ x: (k / steps) * 100, label })
-  }
-  return { items, ticks }
-})
-
-function tooltipFor(inc) {
-  const start = fmtDateTime(inc.started_at)
-  if (!inc.resolved_at) return `${t('incidents.ongoing')} — ${start}`
-  const end = fmtDateTime(inc.resolved_at)
-  const mins = Math.round(inc.duration_seconds / 60)
-  return `${start} → ${end} (${mins} min) — ${inc.scope}`
-}
-
-async function selectIncident(id) {
-  selectedIncidentId.value = id
-  incidentUpdatesLoading.value = true
-  try {
-    const { data } = await incidentUpdatesApi.list(id)
-    incidentUpdates.value = data
-  } finally {
-    incidentUpdatesLoading.value = false
-  }
-}
-
-async function toggleIncidentUpdates(incidentId) {
-  if (expandedIncident.value === incidentId) {
-    expandedIncident.value = null
-    return
-  }
-  expandedIncident.value = incidentId
-  incidentUpdatesLoading.value = true
-  try {
-    const { data } = await incidentUpdatesApi.list(incidentId)
-    incidentUpdates.value = data
-  } finally {
-    incidentUpdatesLoading.value = false
-  }
-}
-
-async function postIncidentUpdate(incidentId) {
-  if (!newUpdate.value.message.trim()) return
-  try {
-    await incidentUpdatesApi.create(incidentId, { ...newUpdate.value })
-    newUpdate.value.message = ''
-    const { data } = await incidentUpdatesApi.list(incidentId)
-    incidentUpdates.value = data
-  } catch {
-    // ignore
-  }
-}
-
-async function deleteIncidentUpdate(incidentId, updateId) {
-  try {
-    await incidentUpdatesApi.delete(incidentId, updateId)
-    incidentUpdates.value = incidentUpdates.value.filter(u => u.id !== updateId)
-  } catch {
-    // ignore
-  }
-}
-
-async function loadIncidents() {
-  incidentError.value = null
-  try {
-    const { data } = await monitorsApi.incidents(route.params.id, { limit: 20 })
-    incidents.value = data
-    if (data.length) {
-      const preferred = data.find(i => !i.resolved_at) || data[0]
-      if (!selectedIncidentId.value || !data.some(i => i.id === selectedIncidentId.value)) {
-        selectIncident(preferred.id)
-      }
-    } else {
-      selectedIncidentId.value = null
-    }
-  } catch {
-    incidents.value = []
-    incidentError.value = t('common.error')
-    setTimeout(() => { incidentError.value = null }, 5000)
-  }
-}
-
-function downloadIncidentsCsv() {
-  if (!incidents.value.length) return
-  const headers = ['id', 'started_at', 'resolved_at', 'duration_seconds', 'scope', 'affected_probe_ids', 'dependency_suppressed', 'group_id']
-  const rows = incidents.value.map(inc =>
-    headers.map(h => {
-      const v = inc[h]
-      if (v === null || v === undefined) return ''
-      if (Array.isArray(v)) return `"${v.join(';')}"`
-      return `"${String(v).replace(/"/g, '""')}"`
-    }).join(',')
-  )
-  const csv = [headers.join(','), ...rows].join('\n')
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `incidents-${route.params.id}.csv`
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
-const postmortem = ref({ open: false, loading: false, content: '', incidentId: null })
-
-async function openPostmortem(inc) {
-  postmortem.value = { open: true, loading: true, content: '', incidentId: inc.id }
-  try {
-    const { data } = await monitorsApi.getPostmortem(route.params.id, inc.id)
-    postmortem.value.content = data.content
-  } catch (e) {
-    postmortem.value.content = `Erreur lors de la génération du post-mortem : ${e.response?.data?.detail || e.message}`
-  } finally {
-    postmortem.value.loading = false
-  }
-}
-
-function downloadPostmortem() {
-  if (!postmortem.value.content) return
-  const blob = new Blob([postmortem.value.content], { type: 'text/markdown;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `postmortem-${monitor.value?.name || 'monitor'}-${postmortem.value.incidentId?.slice(0, 8)}.md`
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
-// ── SLO / Error Budget ────────────────────────────────────────────────────────
-const sloData     = ref(null)
-const sloEditing  = ref(false)
-const sloEditTarget = ref(null)
-const sloEditDays   = ref(30)
-
-async function loadSlo() {
-  if (!monitor.value || monitor.value.slo_target == null) return
-  try {
-    sloData.value = await getSlo(monitor.value.id)
-  } catch {
-    sloData.value = null
-  }
-}
-
-async function saveSlo() {
-  await monitorsApi.update(monitor.value.id, {
-    slo_target: sloEditTarget.value,
-    slo_window_days: sloEditDays.value,
-  })
-  monitor.value.slo_target = sloEditTarget.value
-  monitor.value.slo_window_days = sloEditDays.value
-  sloEditing.value = false
-  if (sloEditTarget.value != null) await loadSlo()
-}
-
-// ── SLA Report ────────────────────────────────────────────────────────────────
-const slaFrom    = ref('')
-const slaTo      = ref('')
-const slaLoading = ref(false)
-const slaResult  = ref(null)
-
-async function downloadSlaReport() {
-  if (!slaFrom.value) return
-  slaLoading.value = true
-  try {
-    const from = new Date(slaFrom.value).toISOString()
-    const to   = slaTo.value ? new Date(slaTo.value + 'T23:59:59').toISOString() : undefined
-    slaResult.value = await getSlaReport(monitor.value.id, from, to)
-    const blob = new Blob([JSON.stringify(slaResult.value, null, 2)], { type: 'application/json' })
-    const url  = URL.createObjectURL(blob)
-    const a    = document.createElement('a')
-    a.href     = url
-    a.download = `sla-${monitor.value.name}-${slaFrom.value}.json`
-    a.click()
-    URL.revokeObjectURL(url)
-  } catch (e) {
-    if (import.meta.env.DEV) console.error('SLA report error', e)
-  } finally {
-    slaLoading.value = false
-  }
-}
+// ── Incidents + Post-mortem + SLA Report ─────────────────────────────────────
+const monitorIdRef = computed(() => route.params.id)
+const incidentsState = useMonitorIncidents(monitor, monitorIdRef)
+const {
+  incidents,
+  incidentError,
+  expandedIncident,
+  incidentUpdates,
+  incidentUpdatesLoading,
+  newUpdate,
+  viewMode,
+  selectedIncidentId,
+  selectedIncident,
+  timelineLayout,
+  tooltipFor,
+  selectIncident,
+  toggleIncidentUpdates,
+  postIncidentUpdate,
+  deleteIncidentUpdate,
+  loadIncidents,
+  downloadIncidentsCsv,
+  postmortem,
+  openPostmortem,
+  downloadPostmortem,
+  slaFrom,
+  slaTo,
+  slaLoading,
+  slaResult,
+  downloadSlaReport,
+} = incidentsState
 
 // ── Annotations ───────────────────────────────────────────────────────────────
 const annotations   = ref([])

@@ -596,7 +596,6 @@ export default {
       opsgenie: 'Opsgenie',
       signal: 'Signal',
     },
-    edit_rule: 'Modifier la règle',
     rule_condition: 'Condition',
     rule_threshold: 'Seuil',
     rule_notify_via: 'Notifier via',

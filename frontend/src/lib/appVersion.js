@@ -10,5 +10,6 @@
 // Updating the version is therefore a one-line change to package.json —
 // no more hardcoded constants drifting out of sync.
 
-/* global __APP_VERSION__ */
+// `__APP_VERSION__` is declared as a global in eslint.config.js (Vite injects
+// it at build time via `define`).
 export const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev'

@@ -16,7 +16,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../stores/auth'
 import { useWebSocketStore } from '../stores/websocket'
@@ -25,7 +25,6 @@ import api from '../api/client'
 const { t } = useI18n()
 
 const router = useRouter()
-const route  = useRoute()
 const auth   = useAuthStore()
 const ws     = useWebSocketStore()
 

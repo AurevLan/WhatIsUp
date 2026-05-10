@@ -135,7 +135,7 @@ async function loadMore() {
     if (filterType.value) params.object_type = filterType.value
     const { data } = await api.get('/audit/', { params })
     logs.value.push(...data)
-  } catch (err) {
+  } catch {
     showError(t('common.error'))
   }
 }

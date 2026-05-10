@@ -263,7 +263,7 @@ async function saveTemplate() {
     }
     closeModal()
     await load()
-  } catch (e) {
+  } catch {
     toastError('Error saving template')
   } finally {
     saving.value = false

@@ -140,7 +140,7 @@ import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
-  Activity, Bell, BellOff, CalendarClock, ClipboardList, Clock, Copy, GitMerge,
+  Activity, Bell, BellOff, CalendarClock, ClipboardList, Clock, Copy,
   KeyRound, LayoutDashboard, Layers, LogOut, MapPin, Moon, Network, Search, Settings,
   ShieldCheck, Sun, WifiOff,
 } from 'lucide-vue-next'

@@ -1246,7 +1246,7 @@ async function loadAllProbes() {
   try {
     const { data } = await probesApi.list()
     allProbes.value = data
-  } catch (_) {
+  } catch {
     // ignore
   }
 }

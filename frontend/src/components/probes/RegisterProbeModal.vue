@@ -109,7 +109,7 @@ async function geocode() {
     geoResult.value = {
       display_name_short: data[0].display_name.split(',').slice(0, 2).join(',').trim(),
     }
-  } catch (e) {
+  } catch {
     geoError.value = t('probes.geocode_network_error')
   } finally {
     geocoding.value = false

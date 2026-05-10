@@ -136,7 +136,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Activity, Bell, Check, CheckCircle2, Globe, Server, Sparkles } from 'lucide-vue-next'
 import api from '../../api/client'
@@ -200,7 +200,7 @@ async function createMonitor() {
     monitorCreated.value = true
     monitorStore.fetchAll()
     nextStep()
-  } catch (e) {
+  } catch {
     // Silently continue on error — user can create monitors later
     nextStep()
   } finally {

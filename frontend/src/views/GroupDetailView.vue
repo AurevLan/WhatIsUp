@@ -241,7 +241,7 @@ async function load() {
     customization.announcement_banner = group.value.announcement_banner || ''
     reportConfig.report_schedule = group.value.report_schedule || null
     reportConfig.report_emails_raw = (group.value.report_emails || []).join(', ')
-  } catch (e) {
+  } catch {
     showError(t('group_detail.error_load'))
   }
   try {

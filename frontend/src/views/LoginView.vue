@@ -94,7 +94,7 @@ onMounted(async () => {
   try {
     const { data } = await axios.get(`${apiBaseUrl()}/auth/oidc/config`)
     oidcEnabled.value = data.enabled
-  } catch (e) {
+  } catch {
     // OIDC config not available — button stays hidden
   }
 })

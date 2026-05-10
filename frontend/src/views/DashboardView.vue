@@ -164,9 +164,9 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, TransitionGroup } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { AlertTriangle, ArrowRight, CheckCircle2, Monitor, Plus, TrendingUp, WifiOff, XCircle } from 'lucide-vue-next'
+import { AlertTriangle, ArrowRight, CheckCircle2, Monitor, TrendingUp, WifiOff, XCircle } from 'lucide-vue-next'
 import { useMonitorStore } from '../stores/monitors'
 import { useAuthStore } from '../stores/auth'
 import MonitorRow from '../components/monitors/MonitorRow.vue'

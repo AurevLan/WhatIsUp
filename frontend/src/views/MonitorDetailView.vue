@@ -1246,6 +1246,7 @@ import { useMonitorRunbook } from '../composables/useMonitorRunbook'
 import { useMonitorDependencies } from '../composables/useMonitorDependencies'
 import { useMonitorIncidents } from '../composables/useMonitorIncidents'
 import { useMonitorSlo } from '../composables/useMonitorSlo'
+import { useMonitorTabs } from '../composables/useMonitorTabs'
 import MonitorRunbookTab from '../components/monitors/detail/MonitorRunbookTab.vue'
 import MonitorIncidentsTab from '../components/monitors/detail/MonitorIncidentsTab.vue'
 import MonitorSloPanel from '../components/monitors/detail/MonitorSloPanel.vue'
@@ -1547,45 +1548,6 @@ async function handleTriggerCheck() {
   }, 3000)
 }
 
-// ── Tabs ─────────────────────────────────────────────────────────────────────
-const TAB_AVAILABILITY = 'availability'
-const TAB_SCENARIO = 'scenario'
-const TAB_MAP = 'map'
-const TAB_ALERTS = 'alerts'
-const TAB_METRICS = 'metrics'
-const TAB_RUNBOOK = 'runbook'
-
-const tabLabel = (tab) => ({
-  [TAB_AVAILABILITY]: t('monitor_detail.tab_availability'),
-  [TAB_SCENARIO]: t('monitor_detail.tab_scenario'),
-  [TAB_MAP]: t('monitor_detail.tab_map'),
-  [TAB_ALERTS]: t('monitor_detail.tab_alerts'),
-  [TAB_METRICS]: t('metrics.title'),
-  [TAB_RUNBOOK]: t('runbook.tab_label'),
-}[tab] ?? tab)
-
-const viewTabs = computed(() => {
-  const tabs = [TAB_AVAILABILITY]
-  if (monitor.value?.check_type === 'scenario') tabs.push(TAB_SCENARIO)
-  // Map only for types that use probes
-  if (!['heartbeat', 'composite', 'domain_expiry'].includes(monitor.value?.check_type)) {
-    tabs.push(TAB_MAP)
-  }
-  tabs.push(TAB_ALERTS)
-  // Metrics tab only when at least one metric has been pushed
-  if (customMetrics.value.length > 0) tabs.push(TAB_METRICS)
-  // Runbook tab — only when enabled on the monitor
-  if (monitor.value?.runbook_enabled) tabs.push(TAB_RUNBOOK)
-  return tabs
-})
-const activeTab = ref(TAB_AVAILABILITY)
-
-// Auto-switch to Scénario tab when monitor loads and is scenario type
-watch(monitor, (m) => {
-  if (m?.check_type === 'scenario' && activeTab.value === TAB_AVAILABILITY) {
-    activeTab.value = TAB_SCENARIO
-  }
-}, { once: true })
 
 // ── Scenario run selection ────────────────────────────────────────────────────
 const selectedRunId = ref(null)
@@ -1663,18 +1625,17 @@ async function initMonitorMap() {
   }
 }
 
-async function setTab(tab) {
-  activeTab.value = tab
-  if (tab === TAB_MAP) {
-    if (!probeStatuses.value.length) {
-      try {
-        const { data } = await monitorsApi.probeStatus(route.params.id)
-        probeStatuses.value = data
-      } catch {}
-    }
-    await nextTick()
-    if (!monitorLeafletMap) await initMonitorMap()
+// loadAndInitMap is the callback the tabs composable runs when the Map tab
+// is activated; lives here so it has direct access to monitorLeafletMap.
+async function loadAndInitMap() {
+  if (!probeStatuses.value.length) {
+    try {
+      const { data } = await monitorsApi.probeStatus(route.params.id)
+      probeStatuses.value = data
+    } catch {}
   }
+  await nextTick()
+  if (!monitorLeafletMap) await initMonitorMap()
 }
 
 const probeColors = ['#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#ef4444', '#06b6d4']
@@ -1896,6 +1857,20 @@ async function loadCustomMetrics() {
     customMetrics.value = []
   }
 }
+
+// ── Tabs ─────────────────────────────────────────────────────────────────────
+const {
+  TAB_AVAILABILITY,
+  TAB_SCENARIO,
+  TAB_MAP,
+  TAB_ALERTS,
+  TAB_METRICS,
+  TAB_RUNBOOK,
+  activeTab,
+  viewTabs,
+  tabLabel,
+  setTab,
+} = useMonitorTabs(monitor, customMetrics, { onMapActivated: loadAndInitMap })
 
 const customMetricNames = computed(() => {
   return [...new Set(customMetrics.value.map(m => m.metric_name))]

@@ -701,3 +701,285 @@ async def test_runbook_update_markdown_only(client: AsyncClient, user_token: str
     assert patch.status_code == 200
     assert patch.json()["runbook_enabled"] is True
     assert patch.json()["runbook_markdown"] == "v2 — updated"
+
+
+# ── DNS baseline (T1) ─────────────────────────────────────────────────────────
+
+
+async def _create_dns_monitor(client: AsyncClient, user_token: str) -> dict:
+    resp = await client.post(
+        "/api/v1/monitors/",
+        json={
+            "name": "dns-mon",
+            "check_type": "dns",
+            "url": "https://example.com",
+            "dns_record_type": "A",
+            "interval_seconds": 60,
+        },
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert resp.status_code == 201, resp.text
+    return resp.json()
+
+
+@pytest.mark.asyncio
+async def test_dns_baseline_accept_404_without_results(
+    client: AsyncClient, user_token: str
+) -> None:
+    """Accepting a baseline before any DNS check has run must 404."""
+    mon = await _create_dns_monitor(client, user_token)
+    resp = await client.post(
+        f"/api/v1/monitors/{mon['id']}/dns-baseline/accept",
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_dns_baseline_accept_400_on_non_dns_monitor(
+    client: AsyncClient, user_token: str
+) -> None:
+    """Non-DNS monitors cannot accept a DNS baseline."""
+    resp = await client.post(
+        "/api/v1/monitors/",
+        json={"name": "http-mon", "url": "https://example.com", "interval_seconds": 60},
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    mon = resp.json()
+    accept = await client.post(
+        f"/api/v1/monitors/{mon['id']}/dns-baseline/accept",
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert accept.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_dns_baseline_accept_persists_sorted_values(
+    client: AsyncClient,
+    db_session,
+    user_token: str,
+    regular_user,
+) -> None:
+    """Successful accept stores the latest DNS values sorted."""
+    from whatisup.models.monitor import Monitor
+    from whatisup.models.probe import Probe
+    from whatisup.models.result import CheckResult, CheckStatus
+
+    monitor = Monitor(
+        name="dns-mon-accept",
+        check_type="dns",
+        url="https://example.com",
+        dns_record_type="A",
+        owner_id=regular_user.id,
+    )
+    probe = Probe(name="p1", location_name="LA", api_key_hash="x")
+    db_session.add_all([monitor, probe])
+    await db_session.flush()
+    db_session.add(
+        CheckResult(
+            monitor_id=monitor.id,
+            probe_id=probe.id,
+            checked_at=datetime.now(UTC),
+            status=CheckStatus.up,
+            dns_resolved_values=["10.0.0.2", "10.0.0.1", "10.0.0.3"],
+        )
+    )
+    await db_session.flush()
+
+    resp = await client.post(
+        f"/api/v1/monitors/{monitor.id}/dns-baseline/accept",
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["baseline"] == ["10.0.0.1", "10.0.0.2", "10.0.0.3"]
+
+
+@pytest.mark.asyncio
+async def test_dns_baseline_reset_clears_all_three_buckets(
+    client: AsyncClient,
+    db_session,
+    user_token: str,
+    regular_user,
+) -> None:
+    """Default type=all clears global, internal and external baselines."""
+    from whatisup.models.monitor import Monitor
+
+    monitor = Monitor(
+        name="dns-mon-reset",
+        check_type="dns",
+        url="https://example.com",
+        dns_record_type="A",
+        owner_id=regular_user.id,
+        dns_baseline_ips=["1.1.1.1"],
+        dns_baseline_ips_internal=["2.2.2.2"],
+        dns_baseline_ips_external=["3.3.3.3"],
+    )
+    db_session.add(monitor)
+    await db_session.flush()
+
+    resp = await client.delete(
+        f"/api/v1/monitors/{monitor.id}/dns-baseline",
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert resp.status_code == 204
+
+    # Verify via API GET (refresh on the test session doesn't pick up the
+    # handler's mutation reliably across the get_db override).
+    get_resp = await client.get(
+        f"/api/v1/monitors/{monitor.id}",
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert get_resp.status_code == 200
+    body = get_resp.json()
+    assert body.get("dns_baseline_ips") in (None, [])
+    assert body.get("dns_baseline_ips_internal") in (None, [])
+    assert body.get("dns_baseline_ips_external") in (None, [])
+
+
+@pytest.mark.asyncio
+async def test_dns_baseline_reset_type_internal_only_clears_internal(
+    client: AsyncClient,
+    db_session,
+    user_token: str,
+    regular_user,
+) -> None:
+    from whatisup.models.monitor import Monitor
+
+    monitor = Monitor(
+        name="dns-mon-reset-int",
+        check_type="dns",
+        url="https://example.com",
+        dns_record_type="A",
+        owner_id=regular_user.id,
+        dns_baseline_ips=["1.1.1.1"],
+        dns_baseline_ips_internal=["2.2.2.2"],
+        dns_baseline_ips_external=["3.3.3.3"],
+    )
+    db_session.add(monitor)
+    await db_session.flush()
+
+    resp = await client.delete(
+        f"/api/v1/monitors/{monitor.id}/dns-baseline?type=internal",
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert resp.status_code == 204
+
+    get_resp = await client.get(
+        f"/api/v1/monitors/{monitor.id}",
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    body = get_resp.json()
+    assert body.get("dns_baseline_ips") == ["1.1.1.1"]
+    assert body.get("dns_baseline_ips_internal") in (None, [])
+    assert body.get("dns_baseline_ips_external") == ["3.3.3.3"]
+
+
+# ── Schema drift baseline (T2) ────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_schema_baseline_accept_404_without_fingerprint(
+    client: AsyncClient, user_token: str
+) -> None:
+    resp = await client.post(
+        "/api/v1/monitors/",
+        json={
+            "name": "schema-mon",
+            "url": "https://example.com",
+            "check_type": "json_path",
+            "schema_drift_enabled": True,
+            "interval_seconds": 60,
+        },
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    mon = resp.json()
+    accept = await client.post(
+        f"/api/v1/monitors/{mon['id']}/schema-baseline/accept",
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert accept.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_schema_baseline_accept_persists_fingerprint(
+    client: AsyncClient,
+    db_session,
+    user_token: str,
+    regular_user,
+) -> None:
+    from whatisup.models.monitor import Monitor
+    from whatisup.models.probe import Probe
+    from whatisup.models.result import CheckResult, CheckStatus
+
+    monitor = Monitor(
+        name="schema-mon-accept",
+        check_type="json_path",
+        url="https://example.com",
+        owner_id=regular_user.id,
+        schema_drift_enabled=True,
+    )
+    probe = Probe(name="p2", location_name="NY", api_key_hash="x")
+    db_session.add_all([monitor, probe])
+    await db_session.flush()
+    db_session.add(
+        CheckResult(
+            monitor_id=monitor.id,
+            probe_id=probe.id,
+            checked_at=datetime.now(UTC),
+            status=CheckStatus.up,
+            schema_fingerprint="sha256:abc123",
+        )
+    )
+    await db_session.flush()
+
+    resp = await client.post(
+        f"/api/v1/monitors/{monitor.id}/schema-baseline/accept",
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["baseline"] == "sha256:abc123"
+
+    get_resp = await client.get(
+        f"/api/v1/monitors/{monitor.id}",
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert get_resp.status_code == 200
+    body = get_resp.json()
+    assert body["schema_baseline"] == "sha256:abc123"
+    assert body["schema_baseline_updated_at"] is not None
+
+
+@pytest.mark.asyncio
+async def test_schema_baseline_reset_clears_fingerprint(
+    client: AsyncClient,
+    db_session,
+    user_token: str,
+    regular_user,
+) -> None:
+    from whatisup.models.monitor import Monitor
+
+    monitor = Monitor(
+        name="schema-mon-reset",
+        check_type="json_path",
+        url="https://example.com",
+        owner_id=regular_user.id,
+        schema_drift_enabled=True,
+        schema_baseline="sha256:old-fingerprint",
+        schema_baseline_updated_at=datetime.now(UTC),
+    )
+    db_session.add(monitor)
+    await db_session.flush()
+
+    resp = await client.delete(
+        f"/api/v1/monitors/{monitor.id}/schema-baseline",
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert resp.status_code == 204
+
+    get_resp = await client.get(
+        f"/api/v1/monitors/{monitor.id}",
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    body = get_resp.json()
+    assert body["schema_baseline"] is None
+    assert body["schema_baseline_updated_at"] is None

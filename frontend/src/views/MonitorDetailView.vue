@@ -807,232 +807,14 @@
       <apexchart type="line" height="250" :options="percentileOptions" :series="percentileSeries" />
     </div>
 
-    <!-- SLO / Error Budget (visible if slo_target is set OR if editing) -->
-    <div v-if="hasSlo && (monitor.slo_target != null || sloEditing)" class="card mb-6">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-sm font-semibold text-gray-300">{{ t('monitor_detail.slo_title') }}</h2>
-        <div class="flex items-center gap-3">
-          <span v-if="monitor.slo_target != null" class="text-xs font-mono" :class="{
-            'text-emerald-400': sloData?.status === 'healthy',
-            'text-amber-400': sloData?.status === 'at_risk',
-            'text-red-400': sloData?.status === 'critical' || sloData?.status === 'exhausted',
-            'text-gray-400': !sloData,
-          }">
-            {{ sloData ? sloData.status.toUpperCase() : '…' }}
-          </span>
-          <button @click="sloEditing = !sloEditing" class="btn-ghost text-xs">
-            ⚙ {{ t('monitor_detail.slo_configure') }}
-          </button>
-        </div>
-      </div>
-      <div v-if="monitor.slo_target != null && sloData" class="space-y-4">
-        <!-- Stats grid -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div class="bg-gray-800/40 rounded-lg p-3 text-center">
-            <p class="text-xs text-gray-500">{{ t('monitor_detail.slo_objective') }}</p>
-            <p class="text-xl font-bold text-blue-400">{{ monitor.slo_target }}%</p>
-            <p class="text-xs text-gray-600">{{ monitor.slo_window_days }}d</p>
-          </div>
-          <div class="bg-gray-800/40 rounded-lg p-3 text-center">
-            <p class="text-xs text-gray-500">{{ t('monitor_detail.slo_actual_uptime') }}</p>
-            <p class="text-xl font-bold" :class="sloData.uptime_pct >= monitor.slo_target ? 'text-emerald-400' : 'text-red-400'">
-              {{ sloData.uptime_pct?.toFixed(3) }}%
-            </p>
-          </div>
-          <div class="bg-gray-800/40 rounded-lg p-3 text-center">
-            <p class="text-xs text-gray-500">{{ t('monitor_detail.slo_budget_remaining') }}</p>
-            <p class="text-xl font-bold" :class="sloData.error_budget_remaining_minutes >= 0 ? 'text-emerald-400' : 'text-red-400'">
-              {{ sloData.error_budget_remaining_minutes >= 0 ? '+' : '' }}{{ sloData.error_budget_remaining_minutes.toFixed(1) }}min
-            </p>
-          </div>
-          <div class="bg-gray-800/40 rounded-lg p-3 text-center">
-            <p class="text-xs text-gray-500">{{ t('monitor_detail.slo_burn_rate') }}</p>
-            <p class="text-xl font-bold" :class="{
-              'text-emerald-400': sloData.burn_rate <= 0.5,
-              'text-amber-400': sloData.burn_rate > 0.5 && sloData.burn_rate <= 0.8,
-              'text-red-400': sloData.burn_rate > 0.8,
-            }">{{ (sloData.burn_rate * 100).toFixed(1) }}%</p>
-          </div>
-        </div>
-        <!-- Error budget progress bar -->
-        <div>
-          <div class="flex items-center justify-between mb-1.5 text-xs text-gray-500">
-            <span>Error budget used</span>
-            <span>{{ sloData.error_budget_used_minutes.toFixed(1) }}min / {{ sloData.error_budget_total_minutes.toFixed(1) }}min</span>
-          </div>
-          <div class="w-full h-2.5 bg-gray-700 rounded-full overflow-hidden">
-            <div
-              class="h-full rounded-full transition-all"
-              :class="{
-                'bg-emerald-500': sloData.burn_rate <= 0.5,
-                'bg-amber-500': sloData.burn_rate > 0.5 && sloData.burn_rate <= 0.8,
-                'bg-red-500': sloData.burn_rate > 0.8,
-              }"
-              :style="`width: ${Math.min(sloData.burn_rate * 100, 100)}%`"
-            ></div>
-          </div>
-        </div>
-      </div>
-      <p v-else-if="monitor.slo_target != null && !sloData" class="text-gray-500 text-sm text-center py-4">{{ t('common.loading') }}</p>
-      <!-- SLO edit form -->
-      <div v-if="sloEditing" class="mt-4 p-3 bg-gray-800/60 rounded-lg border border-gray-700 flex flex-wrap items-end gap-3">
-        <div>
-          <label class="text-xs text-gray-500 block mb-1">{{ t('monitor_detail.slo_target') }}</label>
-          <input v-model.number="sloEditTarget" type="number" min="0" max="100" step="0.1"
-            class="input w-32 text-sm" placeholder="99.9" />
-        </div>
-        <div>
-          <label class="text-xs text-gray-500 block mb-1">{{ t('monitor_detail.slo_window') }}</label>
-          <input v-model.number="sloEditDays" type="number" min="1" max="365"
-            class="input w-24 text-sm" placeholder="30" />
-        </div>
-        <button @click="saveSlo" class="btn-primary text-xs h-9 px-4">{{ t('monitor_detail.slo_save') }}</button>
-        <button @click="sloEditing = false" class="btn-ghost text-xs h-9 px-3">{{ t('common.cancel') }}</button>
-      </div>
-    </div>
-
-    <!-- V2 Global Health Engine — Quorum & SLO -->
-    <div v-if="monitor" class="card mb-6">
-      <div class="flex items-center justify-between mb-4 gap-3 flex-wrap">
-        <h2 class="text-sm font-semibold text-gray-300">{{ t('monitor_detail.health_engine_title') }}</h2>
-        <label class="flex items-center gap-2 cursor-pointer text-xs">
-          <span :class="monitor.health_engine_enabled ? 'text-emerald-400' : 'text-gray-500'">
-            {{ monitor.health_engine_enabled ? t('monitor_detail.health_engine_on') : t('monitor_detail.health_engine_off') }}
-          </span>
-          <input type="checkbox" :checked="monitor.health_engine_enabled" @change="toggleHealthEngine($event.target.checked)"
-            class="w-9 h-5 appearance-none bg-gray-700 rounded-full relative cursor-pointer transition-colors checked:bg-emerald-600
-                   before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:w-4 before:h-4
-                   before:bg-white before:rounded-full before:transition-transform checked:before:translate-x-4" />
-        </label>
-      </div>
-
-      <p v-if="!monitor.health_engine_enabled && !sloRules.length" class="text-xs text-gray-500 mb-4">
-        {{ t('monitor_detail.health_engine_disabled_hint') }}
-      </p>
-      <div v-if="divergentProbes.length"
-        class="mb-4 px-3 py-2 rounded-lg bg-amber-900/30 border border-amber-700/40 text-amber-200 text-xs flex items-start gap-2">
-        <span class="font-semibold flex-shrink-0">{{ t('monitor_detail.health_engine_divergent_label') }}:</span>
-        <span class="flex flex-wrap gap-x-3 gap-y-1">
-          <span v-for="d in divergentProbes" :key="d.probe_id" class="font-mono">
-            {{ probeName(d.probe_id) }}
-            <span class="text-amber-400/70">({{ Math.round(d.score * 100) }}%)</span>
-          </span>
-        </span>
-      </div>
-
-      <div v-if="healthState && healthState.exists" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-        <div class="bg-gray-800/40 rounded-lg p-3 text-center">
-          <p class="text-xs text-gray-500">{{ t('monitor_detail.health_engine_quorum') }}</p>
-          <p class="text-xl font-bold" :class="healthState.quorum_down_ratio > 0 ? 'text-red-400' : 'text-emerald-400'">
-            {{ Math.round((healthState.quorum_down_ratio || 0) * 100) }}%
-          </p>
-          <p class="text-xs text-gray-600">{{ healthState.current_scope || t('monitor_detail.health_engine_all_up') }}</p>
-        </div>
-        <div class="bg-gray-800/40 rounded-lg p-3 text-center">
-          <p class="text-xs text-gray-500">p50 / 5m</p>
-          <p class="text-xl font-bold text-blue-400">
-            {{ healthState.p50_5m != null ? healthState.p50_5m.toFixed(0) + ' ms' : '—' }}
-          </p>
-        </div>
-        <div class="bg-gray-800/40 rounded-lg p-3 text-center">
-          <p class="text-xs text-gray-500">p95 / 5m</p>
-          <p class="text-xl font-bold text-amber-400">
-            {{ healthState.p95_5m != null ? healthState.p95_5m.toFixed(0) + ' ms' : '—' }}
-          </p>
-        </div>
-        <div class="bg-gray-800/40 rounded-lg p-3 text-center">
-          <p class="text-xs text-gray-500">p99 / 5m</p>
-          <p class="text-xl font-bold text-red-400">
-            {{ healthState.p99_5m != null ? healthState.p99_5m.toFixed(0) + ' ms' : '—' }}
-          </p>
-        </div>
-      </div>
-
-      <div>
-        <div class="flex items-center justify-between mb-2">
-          <h3 class="text-xs font-semibold text-gray-400 uppercase">{{ t('monitor_detail.health_engine_rules') }}</h3>
-          <button @click="openSloEditor()" class="btn-ghost text-xs flex items-center gap-1">
-            <span>+</span> {{ t('monitor_detail.health_engine_add_rule') }}
-          </button>
-        </div>
-        <p v-if="!sloRules.length" class="text-gray-500 text-sm py-2">
-          {{ t('monitor_detail.health_engine_no_rules') }}
-        </p>
-        <ul v-else class="divide-y divide-gray-700/60">
-          <li v-for="rule in sloRules" :key="rule.id" class="py-2 flex items-center gap-3 text-sm">
-            <span class="font-mono text-xs px-2 py-0.5 rounded border" :class="rule.enabled
-              ? 'border-emerald-500/30 text-emerald-300 bg-emerald-500/10'
-              : 'border-gray-600 text-gray-500'">
-              {{ rule.rule_type }}
-            </span>
-            <span class="text-gray-300 flex-1 min-w-0">{{ formatRuleSummary(rule) }}</span>
-            <span v-if="rule.cooldown_seconds" class="text-xs text-gray-500">
-              cooldown {{ rule.cooldown_seconds }}s
-            </span>
-            <button @click="toggleSloRule(rule)" class="text-xs text-gray-500 hover:text-gray-300">
-              {{ rule.enabled ? t('monitor_detail.health_engine_pause') : t('monitor_detail.health_engine_resume') }}
-            </button>
-            <button @click="openSloEditor(rule)" class="text-xs text-gray-500 hover:text-indigo-300">
-              {{ t('common.edit') }}
-            </button>
-            <button @click="confirmDeleteSloRule(rule)" class="text-xs text-red-500 hover:text-red-400">
-              ✕
-            </button>
-          </li>
-        </ul>
-      </div>
-
-      <!-- Editor modal -->
-      <div v-if="sloEditor.open" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-           @click.self="sloEditor.open = false">
-        <div class="card w-full max-w-md">
-          <h3 class="text-sm font-semibold text-gray-300 mb-3">
-            {{ sloEditor.rule ? t('monitor_detail.health_engine_edit_rule') : t('monitor_detail.health_engine_new_rule') }}
-          </h3>
-          <div class="space-y-3 text-sm">
-            <label class="block">
-              <span class="text-xs text-gray-500 mb-1 block">{{ t('monitor_detail.health_engine_rule_type') }}</span>
-              <select v-model="sloEditor.form.rule_type" :disabled="!!sloEditor.rule" class="input w-full text-xs">
-                <option value="quorum_down">quorum_down</option>
-                <option value="quorum_slow">quorum_slow</option>
-              </select>
-            </label>
-            <label v-if="sloEditor.form.rule_type === 'quorum_down'" class="block">
-              <span class="text-xs text-gray-500 mb-1 block">{{ t('monitor_detail.health_engine_quorum_ratio') }} (0–1)</span>
-              <input v-model.number="sloEditor.form.quorum_ratio" type="number" min="0" max="1" step="0.05" class="input w-full text-xs" />
-            </label>
-            <label v-if="sloEditor.form.rule_type === 'quorum_slow'" class="block">
-              <span class="text-xs text-gray-500 mb-1 block">{{ t('monitor_detail.health_engine_p95_threshold') }} (ms)</span>
-              <input v-model.number="sloEditor.form.p95_threshold_ms" type="number" min="1" class="input w-full text-xs" />
-            </label>
-            <div class="grid grid-cols-2 gap-3">
-              <label class="block">
-                <span class="text-xs text-gray-500 mb-1 block">{{ t('monitor_detail.health_engine_window') }} (s)</span>
-                <input v-model.number="sloEditor.form.window_seconds" type="number" min="30" max="86400" class="input w-full text-xs" />
-              </label>
-              <label class="block">
-                <span class="text-xs text-gray-500 mb-1 block">{{ t('monitor_detail.health_engine_min_probes') }}</span>
-                <input v-model.number="sloEditor.form.min_probes" type="number" min="1" class="input w-full text-xs" />
-              </label>
-            </div>
-            <label class="block">
-              <span class="text-xs text-gray-500 mb-1 block">{{ t('monitor_detail.health_engine_cooldown') }} (s)</span>
-              <input v-model.number="sloEditor.form.cooldown_seconds" type="number" min="0" max="86400" class="input w-full text-xs" />
-            </label>
-            <label class="flex items-center gap-2 text-xs text-gray-400">
-              <input v-model="sloEditor.form.enabled" type="checkbox" /> {{ t('monitor_detail.health_engine_rule_enabled') }}
-            </label>
-            <p v-if="sloEditor.error" class="text-xs text-red-400">{{ sloEditor.error }}</p>
-          </div>
-          <div class="flex justify-end gap-2 mt-4">
-            <button @click="sloEditor.open = false" class="btn-ghost text-xs">{{ t('common.cancel') }}</button>
-            <button @click="saveSloRule" :disabled="sloEditor.saving" class="btn-primary text-xs">
-              {{ sloEditor.saving ? '…' : t('common.save') }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- SLO panel (legacy SLO + V2 Health Engine) -->
+    <MonitorSloPanel
+      v-if="monitor"
+      :monitor="monitor"
+      :state="sloState"
+      :has-slo="hasSlo"
+      :probe-name="probeName"
+    />
 
     <!-- Annotations -->
     <div class="card mb-6">
@@ -1444,7 +1226,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { Shield, ShieldAlert, ShieldCheck, Copy, CalendarClock } from 'lucide-vue-next'
 import { useToast } from '../composables/useToast'
 import api from '../api/client'
-import { monitorsApi, triggerCheck, listAnnotations, createAnnotation, deleteAnnotation, getSlo, listSloRules, getHealthState, createSloRule, updateSloRule, deleteSloRule } from '../api/monitors'
+import { monitorsApi, triggerCheck, listAnnotations, createAnnotation, deleteAnnotation } from '../api/monitors'
 import { probesApi } from '../api/probes'
 import { metricsApi } from '../api/metrics'
 import MonitorDependencies from '../components/monitors/MonitorDependencies.vue'
@@ -1463,8 +1245,10 @@ import { useTimezone } from '../composables/useTimezone'
 import { useMonitorRunbook } from '../composables/useMonitorRunbook'
 import { useMonitorDependencies } from '../composables/useMonitorDependencies'
 import { useMonitorIncidents } from '../composables/useMonitorIncidents'
+import { useMonitorSlo } from '../composables/useMonitorSlo'
 import MonitorRunbookTab from '../components/monitors/detail/MonitorRunbookTab.vue'
 import MonitorIncidentsTab from '../components/monitors/detail/MonitorIncidentsTab.vue'
+import MonitorSloPanel from '../components/monitors/detail/MonitorSloPanel.vue'
 
 const { t, locale } = useI18n()
 const { error: toastError, success: toastSuccess } = useToast()
@@ -1589,141 +1373,16 @@ async function loadAll() {
   loadHealthEngine(id)
 }
 
-// ── V2 Global Health Engine — toggle + SLO CRUD (M4) ─────────────────────
-const sloRules = ref([])
-const healthState = ref(null)
-const sloEditor = ref({ open: false, rule: null, form: blankSloForm(), saving: false, error: null })
-
-function blankSloForm() {
-  return {
-    rule_type: 'quorum_down',
-    enabled: true,
-    quorum_ratio: 0.6,
-    window_seconds: 300,
-    p95_threshold_ms: 1000,
-    min_probes: 2,
-    cooldown_seconds: 60,
-  }
-}
-
-async function loadHealthEngine(id) {
-  try {
-    sloRules.value = await listSloRules(id)
-  } catch {
-    sloRules.value = []
-  }
-  try {
-    healthState.value = await getHealthState(id)
-  } catch {
-    healthState.value = null
-  }
-}
-
-const divergentProbes = computed(() => {
-  const ph = healthState.value?.probe_health
-  if (!ph || typeof ph !== 'object') return []
-  return Object.entries(ph)
-    .map(([probe_id, v]) => ({ probe_id, score: Number(v?.divergence_score || 0) }))
-    .filter(d => d.score > 0.5)
-    .sort((a, b) => b.score - a.score)
-})
-
-async function toggleHealthEngine(enabled) {
-  try {
-    await monitorsApi.update(monitor.value.id, { health_engine_enabled: enabled })
-    monitor.value.health_engine_enabled = enabled
-    toastSuccess(enabled ? t('monitor_detail.health_engine_enabled_toast') : t('monitor_detail.health_engine_disabled_toast'))
-  } catch (err) {
-    toastError(err?.response?.data?.detail || 'Update failed')
-  }
-}
-
-function openSloEditor(rule = null) {
-  sloEditor.value.open = true
-  sloEditor.value.rule = rule
-  sloEditor.value.error = null
-  if (rule) {
-    sloEditor.value.form = {
-      rule_type: rule.rule_type,
-      enabled: rule.enabled,
-      quorum_ratio: rule.quorum_ratio ?? 0.6,
-      window_seconds: rule.window_seconds ?? 300,
-      p95_threshold_ms: rule.p95_threshold_ms ?? 1000,
-      min_probes: rule.min_probes ?? 2,
-      cooldown_seconds: rule.cooldown_seconds ?? 60,
-    }
-  } else {
-    sloEditor.value.form = blankSloForm()
-  }
-}
-
-async function saveSloRule() {
-  const f = sloEditor.value.form
-  const payload = {
-    enabled: f.enabled,
-    window_seconds: f.window_seconds,
-    min_probes: f.min_probes,
-    cooldown_seconds: f.cooldown_seconds,
-  }
-  if (f.rule_type === 'quorum_down') {
-    payload.quorum_ratio = f.quorum_ratio
-    payload.p95_threshold_ms = null
-  } else if (f.rule_type === 'quorum_slow') {
-    payload.p95_threshold_ms = f.p95_threshold_ms
-    payload.quorum_ratio = null
-  }
-  sloEditor.value.saving = true
-  sloEditor.value.error = null
-  try {
-    if (sloEditor.value.rule) {
-      await updateSloRule(monitor.value.id, sloEditor.value.rule.id, payload)
-    } else {
-      payload.rule_type = f.rule_type
-      await createSloRule(monitor.value.id, payload)
-    }
-    sloEditor.value.open = false
-    await loadHealthEngine(monitor.value.id)
-  } catch (err) {
-    sloEditor.value.error = err?.response?.data?.detail || 'Save failed'
-  } finally {
-    sloEditor.value.saving = false
-  }
-}
-
-async function toggleSloRule(rule) {
-  try {
-    await updateSloRule(monitor.value.id, rule.id, { enabled: !rule.enabled })
-    await loadHealthEngine(monitor.value.id)
-  } catch (err) {
-    toastError(err?.response?.data?.detail || 'Update failed')
-  }
-}
-
-async function confirmDeleteSloRule(rule) {
-  if (!confirm(t('monitor_detail.health_engine_confirm_delete'))) return
-  try {
-    await deleteSloRule(monitor.value.id, rule.id)
-    await loadHealthEngine(monitor.value.id)
-  } catch (err) {
-    toastError(err?.response?.data?.detail || 'Delete failed')
-  }
-}
-
-function formatRuleSummary(rule) {
-  if (rule.rule_type === 'quorum_down') {
-    const pct = Math.round((rule.quorum_ratio || 0) * 100)
-    const win = Math.round((rule.window_seconds || 0) / 60)
-    return `≥ ${pct}% probes down · ${win} min · min ${rule.min_probes} probes`
-  }
-  if (rule.rule_type === 'quorum_slow') {
-    const win = Math.round((rule.window_seconds || 0) / 60)
-    return `fleet p95 > ${rule.p95_threshold_ms} ms · ${win} min`
-  }
-  if (rule.rule_type === 'burn_rate') {
-    return `burn ≥ ${rule.burn_factor}× · target ${rule.slo_target}`
-  }
-  return rule.rule_type
-}
+// ── SLO panel (legacy SLO + V2 Health Engine) ────────────────────────────
+const sloState = useMonitorSlo(monitor)
+const {
+  sloRules,
+  healthState,
+  loadHealthEngine,
+  loadSlo,
+  sloEditTarget,
+  sloEditDays,
+} = sloState
 
 // ── Incidents + Post-mortem + SLA Report ─────────────────────────────────────
 const monitorIdRef = computed(() => route.params.id)

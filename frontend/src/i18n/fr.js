@@ -364,6 +364,7 @@ export default {
     slo_objective: 'Objectif',
     slo_actual_uptime: 'Dispo. réelle',
     slo_budget_remaining: 'Budget restant',
+    slo_budget_used: "Budget d'erreur consommé",
     slo_burn_rate: 'Taux de consommation',
     slo_status: {
       healthy: 'Sain',

@@ -374,6 +374,7 @@ export default {
     slo_objective: 'Objective',
     slo_actual_uptime: 'Actual uptime',
     slo_budget_remaining: 'Budget remaining',
+    slo_budget_used: 'Error budget used',
     slo_burn_rate: 'Burn rate',
     slo_status: {
       healthy: 'Healthy',

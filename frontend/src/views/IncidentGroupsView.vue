@@ -84,10 +84,10 @@
             <p class="text-gray-500 text-xs mb-1">{{ t('incidentGroups.incidents') }}</p>
             <div class="flex flex-wrap gap-1">
               <router-link
-                v-for="ref in group.incident_refs" :key="ref.id"
-                :to="`/monitors/${ref.monitor_id}`"
+                v-for="incRef in group.incident_refs" :key="incRef.id"
+                :to="`/monitors/${incRef.monitor_id}`"
                 class="px-2 py-0.5 bg-gray-800 text-blue-400 text-xs rounded font-mono hover:bg-gray-700"
-              >{{ String(ref.id).slice(0, 8) }}…</router-link>
+              >{{ String(incRef.id).slice(0, 8) }}…</router-link>
               <span v-if="group.incident_refs.length === 0" class="text-gray-600">—</span>
             </div>
           </div>

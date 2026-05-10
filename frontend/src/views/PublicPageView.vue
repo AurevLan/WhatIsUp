@@ -274,7 +274,6 @@
 
       </template>
     </div>
-    <!-- Inject custom CSS from status page settings -->
     <component v-if="page?.public_custom_css" :is="'style'" v-text="page.public_custom_css" />
   </div>
 </template>

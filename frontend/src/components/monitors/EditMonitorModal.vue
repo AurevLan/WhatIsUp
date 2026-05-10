@@ -742,7 +742,7 @@ function buildPayload() {
         jsonSchemaError.value = ''
       } catch (e) {
         jsonSchemaError.value = 'JSON Schema invalide : ' + e.message
-        throw new Error('JSON Schema invalide')
+        throw new Error('JSON Schema invalide', { cause: e })
       }
     }
     const validCustom = form.value.custom_headers_list.filter(h => h.key.trim() && h.value.trim())

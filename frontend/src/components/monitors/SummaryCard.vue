@@ -14,8 +14,8 @@
 import { computed } from 'vue'
 
 const props = defineProps({
-  label: String,
-  value: [Number, String],
+  label: { type: String, required: true },
+  value: { type: [Number, String], default: null },
   color: { type: String, default: 'blue' },
   icon: { type: Object, required: true },
 })

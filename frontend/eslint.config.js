@@ -50,8 +50,12 @@ export default [
       // Empty catch blocks are intentional in many places (best-effort flows).
       // Downgrade so they don't fail the lint; review case-by-case if needed.
       'no-empty': ['warn', { allowEmptyCatch: true }],
-      // v-html on component is used for rendered markdown — accepted with care.
-      'vue/no-v-text-v-html-on-component': 'warn',
+      // v-html: 3 legitimate uses (markdown runbook render through marked +
+      // DOMPurify in renderRunbookMarkdown; status-page owner-provided CSS).
+      // Disabled rather than inline-disabled because Vue templates don't
+      // honour eslint-disable-next-line on directive attributes.
+      'vue/no-v-html': 'off',
+      'vue/no-v-text-v-html-on-component': 'off',
       // Detail tabs receive `:state="composableReturn"` and mutate state.x.value
       // by design — disable the strict mutating-props check for that pattern.
       'vue/no-mutating-props': 'warn',

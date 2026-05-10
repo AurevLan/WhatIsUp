@@ -38,7 +38,7 @@
           class="input py-0.5 text-xs w-36"
         />
         <datalist id="all-tags-list">
-          <option v-for="t in allTags" :key="t.id" :value="t.name" />
+          <option v-for="tag in allTags" :key="tag.id" :value="tag.name" />
         </datalist>
       </div>
     </div>

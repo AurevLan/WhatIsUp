@@ -7,15 +7,15 @@
           <label class="block text-sm font-medium text-gray-300 mb-2">{{ t('create_monitor.check_type') }}</label>
           <div class="grid grid-cols-4 sm:grid-cols-6 gap-1">
             <button
-              v-for="t in checkTypes" :key="t.value" type="button"
-              @click="form.check_type = t.value"
+              v-for="ct in checkTypes" :key="ct.value" type="button"
+              @click="form.check_type = ct.value"
               class="py-2 px-1 rounded-lg border text-xs font-medium transition-colors text-center"
-              :class="form.check_type === t.value
+              :class="form.check_type === ct.value
                 ? 'bg-blue-600 border-blue-500 text-white'
                 : 'border-gray-700 text-gray-400 hover:border-gray-600 hover:text-gray-300'"
             >
-              <div class="text-base mb-0.5">{{ t.icon }}</div>
-              {{ t.label }}
+              <div class="text-base mb-0.5">{{ ct.icon }}</div>
+              {{ ct.label }}
             </button>
           </div>
           <p class="text-xs text-gray-500 mt-1.5">{{ currentType.description }}</p>
@@ -798,7 +798,7 @@ function buildPayload() {
         jsonSchemaError.value = ''
       } catch (e) {
         jsonSchemaError.value = 'JSON Schema invalide : ' + e.message
-        throw new Error('JSON Schema invalide')
+        throw new Error('JSON Schema invalide', { cause: e })
       }
     }
     const validCustom = form.value.custom_headers_list.filter(h => h.key.trim() && h.value.trim())

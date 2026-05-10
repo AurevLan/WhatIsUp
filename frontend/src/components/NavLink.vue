@@ -17,9 +17,9 @@
 import { useRouter } from 'vue-router'
 
 const props = defineProps({
-  to: String,
-  icon: [Object, Function],
-  label: String,
+  to: { type: String, required: true },
+  icon: { type: [Object, Function], default: null },
+  label: { type: String, required: true },
   exact: { type: Boolean, default: false },
   badge: { type: Number, default: 0 },
 })

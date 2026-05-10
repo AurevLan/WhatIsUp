@@ -17,7 +17,7 @@ app.use(i18n)
 // renders nothing when the tag is unknown, which is how availability and
 // response-time charts once disappeared).
 app.component(
-  'apexchart',
+  'Apexchart',
   defineAsyncComponent(() => import('vue3-apexcharts')),
 )
 

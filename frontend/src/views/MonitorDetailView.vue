@@ -916,10 +916,8 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { Shield, ShieldAlert, ShieldCheck, Copy, CalendarClock } from 'lucide-vue-next'
-import { useToast } from '../composables/useToast'
-import api from '../api/client'
-import { monitorsApi, triggerCheck } from '../api/monitors'
+import { Shield, ShieldAlert, ShieldCheck } from 'lucide-vue-next'
+import { monitorsApi } from '../api/monitors'
 import { probesApi } from '../api/probes'
 import MonitorDependencies from '../components/monitors/MonitorDependencies.vue'
 import EditMonitorModal from '../components/monitors/EditMonitorModal.vue'
@@ -955,7 +953,6 @@ import MonitorScenarioTab from '../components/monitors/detail/MonitorScenarioTab
 import MonitorRecentChecksTable from '../components/monitors/detail/MonitorRecentChecksTable.vue'
 
 const { t, locale } = useI18n()
-const { error: toastError, success: toastSuccess } = useToast()
 const { format: tzFormat } = useTimezone()
 // Template shortcut — respects the user's timezone preference (T1-13).
 // Drop-in replacement for `new Date(x).toLocaleString(locale)` inline calls.
@@ -1034,46 +1031,16 @@ async function loadAll() {
 }
 
 // ── SLO panel (legacy SLO + V2 Health Engine) ────────────────────────────
+// Sub-component reads via :state="sloState"; we only destructure what
+// MonitorDetailView itself touches directly.
 const sloState = useMonitorSlo(monitor)
-const {
-  sloRules,
-  healthState,
-  loadHealthEngine,
-  loadSlo,
-  sloEditTarget,
-  sloEditDays,
-} = sloState
+const { healthState, loadHealthEngine, loadSlo, sloEditTarget, sloEditDays } = sloState
 
 // ── Incidents + Post-mortem + SLA Report ─────────────────────────────────────
 const monitorIdRef = computed(() => route.params.id)
 const incidentsState = useMonitorIncidents(monitor, monitorIdRef)
-const {
-  incidents,
-  incidentError,
-  expandedIncident,
-  incidentUpdates,
-  incidentUpdatesLoading,
-  newUpdate,
-  viewMode,
-  selectedIncidentId,
-  selectedIncident,
-  timelineLayout,
-  tooltipFor,
-  selectIncident,
-  toggleIncidentUpdates,
-  postIncidentUpdate,
-  deleteIncidentUpdate,
-  loadIncidents,
-  downloadIncidentsCsv,
-  postmortem,
-  openPostmortem,
-  downloadPostmortem,
-  slaFrom,
-  slaTo,
-  slaLoading,
-  slaResult,
-  downloadSlaReport,
-} = incidentsState
+// `incidents` feeds useMonitorCharts annotations; loadIncidents fires on mount.
+const { incidents, loadIncidents } = incidentsState
 
 // ── Annotations ───────────────────────────────────────────────────────────────
 const {
@@ -1097,8 +1064,6 @@ const selectedRunId = ref(null)
 // ── Map (Carte tab) — Leaflet lazy-loaded on first activation ───────────────
 const {
   probeMapEl,
-  probeStatuses,
-  probesWithCoords,
   probesWithoutCoords,
   markerColor,
   statusLabel,
@@ -1117,10 +1082,6 @@ const latestSsl = computed(() =>
 
 const latestDomainExpiry = computed(() =>
   results.value.find(r => r.ssl_expires_at !== null && r.ssl_expires_at !== undefined) ?? null
-)
-
-const latestScenarioResult = computed(() =>
-  results.value.find(r => r.scenario_result != null)?.scenario_result ?? null
 )
 
 // ── Tendance temps de réponse ─────────────────────────────────────────────────
@@ -1247,7 +1208,6 @@ const {
 
 // ── Charts (RT line + Availability bar) ──────────────────────────────────────
 const {
-  rtThresholdMs,
   rtSeries,
   rtOptions,
   availSeries,
@@ -1305,8 +1265,6 @@ const ct = computed(() => monitor.value?.check_type)
 const isHttpLike = computed(() => ['http', 'keyword', 'json_path'].includes(ct.value))
 const isNetwork = computed(() => ['tcp', 'udp', 'smtp', 'ping'].includes(ct.value))
 const isDns = computed(() => ct.value === 'dns')
-const isHeartbeat = computed(() => ct.value === 'heartbeat')
-const isScenario = computed(() => ct.value === 'scenario')
 const isComposite = computed(() => ct.value === 'composite')
 const isDomainExpiry = computed(() => ct.value === 'domain_expiry')
 // Has response time data (chart + percentiles + stats cards)

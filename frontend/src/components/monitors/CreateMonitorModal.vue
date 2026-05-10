@@ -297,7 +297,7 @@
                 <input
                   v-model="form.body_regex"
                   class="input w-full font-mono text-sm"
-                  placeholder='.*"status":"ok".*'
+                  placeholder=".*&quot;status&quot;:&quot;ok&quot;.*"
                 />
                 <p class="text-xs text-gray-500 mt-1">{{ t('create_monitor.body_regex_hint') }}</p>
               </div>
@@ -344,7 +344,7 @@
                   v-model="form.json_schema_text"
                   class="input w-full font-mono text-xs"
                   rows="4"
-                  placeholder='{"type":"object","required":["status"],"properties":{"status":{"type":"string"}}}'
+                  placeholder="{&quot;type&quot;:&quot;object&quot;,&quot;required&quot;:[&quot;status&quot;],&quot;properties&quot;:{&quot;status&quot;:{&quot;type&quot;:&quot;string&quot;}}}"
                 ></textarea>
                 <p v-if="jsonSchemaError" class="text-xs text-red-400 mt-1">{{ jsonSchemaError }}</p>
                 <p class="text-xs text-gray-500 mt-1">{{ t('create_monitor.json_schema_hint') }}</p>

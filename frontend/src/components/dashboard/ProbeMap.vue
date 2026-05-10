@@ -8,10 +8,10 @@
         <span class="text-xs text-gray-600 font-mono">({{ filteredProbes.length }}/{{ probes.length }})</span>
       </div>
       <div class="flex items-center gap-3 text-xs text-gray-600">
-        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-400 inline-block"/>≥ 99 %</span>
-        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-400 inline-block"/>≥ 90 %</span>
-        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-red-500 inline-block"/>&lt; 90 %</span>
-        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-gray-600 inline-block"/>No data</span>
+        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-400 inline-block" />≥ 99 %</span>
+        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-400 inline-block" />≥ 90 %</span>
+        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-red-500 inline-block" />&lt; 90 %</span>
+        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-gray-600 inline-block" />No data</span>
       </div>
     </div>
 

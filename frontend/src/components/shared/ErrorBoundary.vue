@@ -49,7 +49,7 @@ const errorMessage = ref('')
 onErrorCaptured((err) => {
   hasError.value = true
   errorMessage.value = err?.stack || err?.message || String(err)
-  // eslint-disable-next-line no-console
+   
   console.error('[ErrorBoundary] caught:', err)
   return false
 })

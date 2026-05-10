@@ -115,7 +115,7 @@
               v-model="form.configJson"
               class="input w-full font-mono text-xs"
               rows="10"
-              placeholder='{"check_type": "http", "name": "{{SERVICE_NAME}}", "url": "{{URL}}", ...}'
+              placeholder="{&quot;check_type&quot;: &quot;http&quot;, &quot;name&quot;: &quot;{{SERVICE_NAME}}&quot;, &quot;url&quot;: &quot;{{URL}}&quot;, ...}"
             ></textarea>
             <p v-if="configError" class="text-xs text-red-400 mt-1">{{ configError }}</p>
           </div>

@@ -25,24 +25,24 @@
       <!-- Nav -->
       <div class="sidebar__nav">
         <div class="nav-section">{{ t('nav.overview') }}</div>
-        <NavLink to="/"         :icon="LayoutDashboard" :label="t('nav.dashboard')" :exact="true" />
-        <NavLink to="/monitors" :icon="Activity"        :label="t('nav.monitors')" :badge="downCount" />
-        <NavLink to="/groups"   :icon="Layers"          :label="t('nav.groups')" />
-        <NavLink to="/graph"    :icon="Network"         :label="t('nav.graph')" />
+        <NavLink to="/" :icon="LayoutDashboard" :label="t('nav.dashboard')" :exact="true" />
+        <NavLink to="/monitors" :icon="Activity" :label="t('nav.monitors')" :badge="downCount" />
+        <NavLink to="/groups" :icon="Layers" :label="t('nav.groups')" />
+        <NavLink to="/graph" :icon="Network" :label="t('nav.graph')" />
 
         <div class="nav-section">{{ t('nav.infrastructure') }}</div>
-        <NavLink to="/probes"          :icon="MapPin"        :label="t('nav.probes')" />
-        <NavLink to="/alerts"          :icon="Bell"          :label="t('nav.alerts')" />
-        <NavLink to="/maintenance"     :icon="CalendarClock" :label="t('nav.maintenance')" />
-        <NavLink to="/silences"        :icon="BellOff"       :label="t('nav.silences')" />
-        <NavLink to="/incidents"       :icon="Clock"         :label="t('nav.incidents')" :badge="openIncidentCount" />
-        <NavLink to="/templates"       :icon="Copy"          :label="t('nav.templates')" />
-        <NavLink to="/tls-fleet"       :icon="ShieldCheck"   :label="t('nav.tls_fleet')" />
+        <NavLink to="/probes" :icon="MapPin" :label="t('nav.probes')" />
+        <NavLink to="/alerts" :icon="Bell" :label="t('nav.alerts')" />
+        <NavLink to="/maintenance" :icon="CalendarClock" :label="t('nav.maintenance')" />
+        <NavLink to="/silences" :icon="BellOff" :label="t('nav.silences')" />
+        <NavLink to="/incidents" :icon="Clock" :label="t('nav.incidents')" :badge="openIncidentCount" />
+        <NavLink to="/templates" :icon="Copy" :label="t('nav.templates')" />
+        <NavLink to="/tls-fleet" :icon="ShieldCheck" :label="t('nav.tls_fleet')" />
 
         <div class="nav-section">{{ t('nav.account') }}</div>
-        <NavLink to="/api-keys" :icon="KeyRound"      :label="t('nav.apiKeys')" />
-        <NavLink to="/audit"    :icon="ClipboardList" :label="t('nav.audit')" />
-        <NavLink to="/settings" :icon="Settings"      :label="t('nav.settings')" />
+        <NavLink to="/api-keys" :icon="KeyRound" :label="t('nav.apiKeys')" />
+        <NavLink to="/audit" :icon="ClipboardList" :label="t('nav.audit')" />
+        <NavLink to="/settings" :icon="Settings" :label="t('nav.settings')" />
 
         <template v-if="auth.isSuperadmin">
           <div class="nav-section">Admin</div>

@@ -4,7 +4,7 @@
     <!-- Variables -->
     <div>
       <div class="flex items-center justify-between mb-2">
-        <label class="text-sm font-medium text-gray-300">Variables <span class="text-gray-500 font-normal">(usable with {{NAME}})</span></label>
+        <label class="text-sm font-medium text-gray-300">Variables <span class="text-gray-500 font-normal">(usable with {{ NAME }})</span></label>
         <button type="button" @click="addVariable" class="text-xs text-blue-400 hover:text-blue-300">+ Add variable</button>
       </div>
       <div v-if="localVars.length" class="space-y-2 mb-2">

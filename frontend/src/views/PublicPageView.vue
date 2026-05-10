@@ -117,8 +117,8 @@
                 class="p-1.5 rounded-lg text-gray-500 hover:text-indigo-400 hover:bg-gray-800 transition-colors"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2h-1.528A6 6 0 004 9.528V4z"/>
-                  <path fill-rule="evenodd" d="M8 10a4 4 0 00-3.446 6.032l-.5.866a.75.75 0 101.3.75l.5-.866A4 4 0 108 10z" clip-rule="evenodd"/>
+                  <path d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2h-1.528A6 6 0 004 9.528V4z" />
+                  <path fill-rule="evenodd" d="M8 10a4 4 0 00-3.446 6.032l-.5.866a.75.75 0 101.3.75l.5-.866A4 4 0 108 10z" clip-rule="evenodd" />
                 </svg>
               </button>
             </div>

@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.9.1](https://github.com/AurevLan/WhatIsUp/compare/v1.9.0...v1.9.1) (2026-05-10)
+
+
+### Fixed
+
+* **a11y:** add alt text on MonitorDetailView screenshot images ([d495edd](https://github.com/AurevLan/WhatIsUp/commit/d495edd54cf194db8b895d2cb0d37b1d03c9c3b6))
+
+
+### Changed
+
+* **frontend:** extract annotations/percentiles/custom-metrics composables ([4ca2118](https://github.com/AurevLan/WhatIsUp/commit/4ca211827d5c3c4812e7769f5bb1185cc178b2da))
+* **frontend:** extract MonitorIncidentsTab + useMonitorIncidents ([be64179](https://github.com/AurevLan/WhatIsUp/commit/be641797081615ec3fb55b612e3d9443e684e0bb))
+* **frontend:** extract MonitorRecentChecksTable sub-component ([b41e72e](https://github.com/AurevLan/WhatIsUp/commit/b41e72eb2aad2097f6543d4c536348c1d7a5c00b))
+* **frontend:** extract MonitorScenarioTab sub-component ([1823517](https://github.com/AurevLan/WhatIsUp/commit/18235175c542d3c354bac02f2752df9a18c3d3dc))
+* **frontend:** extract MonitorSloPanel + useMonitorSlo ([6f172b6](https://github.com/AurevLan/WhatIsUp/commit/6f172b6de2766518471a8354636209ffe4b97f97))
+* **frontend:** extract useMonitorAlerts (rules + auto-setup modal) ([4ebe888](https://github.com/AurevLan/WhatIsUp/commit/4ebe888e50d82513fa3824d4e4f6b562789529b9))
+* **frontend:** extract useMonitorCharts (rtSeries + availSeries) ([d4b4e4f](https://github.com/AurevLan/WhatIsUp/commit/d4b4e4fa4eac90357aa8fba59915969de8cba02b))
+* **frontend:** extract useMonitorDns ([682bd39](https://github.com/AurevLan/WhatIsUp/commit/682bd39bb494aaf5fe8aa538692d3d3759dd9522))
+* **frontend:** extract useMonitorMaintenance (quick-schedule modal) ([7c9d8a7](https://github.com/AurevLan/WhatIsUp/commit/7c9d8a7e7e226b32b720d19514d3badbed7f1155))
+* **frontend:** extract useMonitorMap (Leaflet) ([d41bd1b](https://github.com/AurevLan/WhatIsUp/commit/d41bd1beff1e8679f22cae03780a857307828502))
+* **frontend:** extract useMonitorPatch (single-field optimistic patches) ([df88a57](https://github.com/AurevLan/WhatIsUp/commit/df88a57c282ef56a822591af8052d3cdf0b3f03e))
+* **frontend:** extract useMonitorRunbook + useMonitorDependencies ([525f2cc](https://github.com/AurevLan/WhatIsUp/commit/525f2ccb47abca516785aef8df724f93f19c0e7a))
+* **frontend:** extract useMonitorTabs ([99c9c01](https://github.com/AurevLan/WhatIsUp/commit/99c9c0196839d8a3ae1a650b83ca8e6dce26024e))
+* **frontend:** extract useMonitorTesting (Test now polling) ([f1e1131](https://github.com/AurevLan/WhatIsUp/commit/f1e11316053173cfd398e4e559be465f63c05f47))
+* **incident:** extract incident_alerts + incident_slo bridge ([5a4575e](https://github.com/AurevLan/WhatIsUp/commit/5a4575edffc852a3c3ddaacc111480eb75734524))
+* **incident:** extract IncidentDecider + IncidentCorrelation services ([8f6f5d4](https://github.com/AurevLan/WhatIsUp/commit/8f6f5d43526ff651a549185a96d497a1b2353e3a))
+
+
+### Docs
+
+* **claude:** document Node 22 requirement for vitest ([942ceb8](https://github.com/AurevLan/WhatIsUp/commit/942ceb83f0be68058f2d33f15ba43bfe40acd47a))
+
 ## [1.9.0](https://github.com/AurevLan/WhatIsUp/compare/v1.8.0...v1.9.0) (2026-05-09)
 
 

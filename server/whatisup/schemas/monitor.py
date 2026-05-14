@@ -279,6 +279,7 @@ class MonitorOut(BaseModel):
     scenario_steps: list | None = None
     scenario_variables: list | None = None  # secret values are always masked — see validator below
     heartbeat_slug: str | None = None
+    heartbeat_token: str | None = None
     heartbeat_interval_seconds: int | None = None
     heartbeat_grace_seconds: int = 60
     last_heartbeat_at: datetime | None = None

@@ -8,6 +8,7 @@ from typing import Any
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel
 from sqlalchemy import and_, delete, func, select, true, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.api.deps import (
@@ -19,7 +20,7 @@ from whatisup.api.deps import (
 )
 from whatisup.core.database import dialect_name, get_db
 from whatisup.core.limiter import limiter
-from whatisup.core.security import encrypt_scenario_variables
+from whatisup.core.security import encrypt_scenario_variables, generate_heartbeat_token
 from whatisup.models.annotation import MonitorAnnotation
 from whatisup.models.monitor import CompositeMonitorMember, Monitor, MonitorGroup, monitor_tags
 from whatisup.models.probe import Probe
@@ -396,6 +397,8 @@ async def import_monitors(
                     if field == "url":
                         value = str(value)
                     setattr(monitor, field, value)
+                if monitor.heartbeat_slug and not monitor.heartbeat_token:
+                    monitor.heartbeat_token = generate_heartbeat_token()
                 updated += 1
             else:
                 # Create new
@@ -403,6 +406,8 @@ async def import_monitors(
                     owner_id=current_user.id,
                     **{k: (str(v) if k == "url" else v) for k, v in data.items()},
                 )
+                if monitor.heartbeat_slug:
+                    monitor.heartbeat_token = generate_heartbeat_token()
                 db.add(monitor)
                 existing_by_name[name] = monitor
                 imported += 1
@@ -474,6 +479,7 @@ async def create_monitor(
         if payload.scenario_variables
         else None,
         heartbeat_slug=payload.heartbeat_slug,
+        heartbeat_token=generate_heartbeat_token() if payload.heartbeat_slug else None,
         heartbeat_interval_seconds=payload.heartbeat_interval_seconds,
         heartbeat_grace_seconds=payload.heartbeat_grace_seconds,
         body_regex=payload.body_regex,
@@ -489,7 +495,16 @@ async def create_monitor(
         runbook_markdown=payload.runbook_markdown if payload.runbook_enabled else None,
     )
     db.add(monitor)
-    await db.flush()
+    try:
+        await db.flush()
+    except IntegrityError as e:
+        await db.rollback()
+        if payload.heartbeat_slug and "heartbeat_slug" in str(e.orig):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"heartbeat_slug '{payload.heartbeat_slug}' is already used",
+            ) from None
+        raise
 
     # Auto-create alert rules if channels were specified
     if payload.alert_channel_ids:
@@ -752,11 +767,25 @@ async def update_monitor(
             value = encrypt_scenario_variables(non_empty)
         setattr(monitor, field, value)
 
+    # Backfill heartbeat_token whenever a slug is set without a token
+    # (covers both legacy rows and converting an existing monitor to heartbeat).
+    if monitor.heartbeat_slug and not monitor.heartbeat_token:
+        monitor.heartbeat_token = generate_heartbeat_token()
+
     if tag_ids is not None:
         tags_result = await db.execute(select(Tag).where(Tag.id.in_(tag_ids)))
         monitor.tags = list(tags_result.scalars().all())
 
-    await db.flush()
+    try:
+        await db.flush()
+    except IntegrityError as e:
+        await db.rollback()
+        if monitor.heartbeat_slug and "heartbeat_slug" in str(e.orig):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"heartbeat_slug '{monitor.heartbeat_slug}' is already used",
+            ) from None
+        raise
 
     after = MonitorOut.model_validate(monitor).model_dump(mode="json")
     from whatisup.services.audit import log_action

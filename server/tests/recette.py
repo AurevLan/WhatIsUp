@@ -768,12 +768,15 @@ def test_ping() -> None:
     hb = check("POST /monitors/ (heartbeat type)", r, 201)
     if hb:
         IDS["hb_monitor_id"] = hb["id"]
+        token = hb.get("heartbeat_token")
+        if not token:
+            fail("heartbeat_token absent from MonitorOut")
 
-        r = client.post("/api/v1/ping/recette-hb-test")
-        check("POST /ping/{slug}", r, 200)
+        r = client.post(f"/api/v1/ping/{token}")
+        check("POST /ping/{token}", r, 200)
 
-        r = client.get("/api/v1/ping/recette-hb-test")
-        check("GET /ping/{slug} (status)", r, 200)
+        r = client.get(f"/api/v1/ping/{token}")
+        check("GET /ping/{token} (status)", r, 200)
 
         client.delete(f"/api/v1/monitors/{hb['id']}", headers=auth_headers())
 

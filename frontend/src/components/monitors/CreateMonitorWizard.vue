@@ -80,7 +80,7 @@
           <label class="block text-sm font-medium text-gray-300 mb-1">{{ t('create_monitor.heartbeat_slug') }} *</label>
           <input v-model="form.heartbeat_slug" class="input w-full" pattern="[a-z0-9\-]+" placeholder="cron-backup" />
           <p class="text-xs text-gray-500">
-            <code class="font-mono text-blue-400">POST /api/v1/ping/{{ form.heartbeat_slug || 'your-slug' }}</code>
+            {{ t('create_monitor.heartbeat_slug_hint') }}
           </p>
         </div>
 

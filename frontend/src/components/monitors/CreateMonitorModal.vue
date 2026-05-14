@@ -47,7 +47,7 @@
             <input v-model="form.heartbeat_slug" class="input w-full" placeholder="mon-cron-backup"
               pattern="[a-z0-9\-]+" required />
             <p class="text-xs text-gray-500 mt-1">
-              {{ t('create_monitor.heartbeat_slug_hint') }} <code class="font-mono text-blue-400">POST /api/v1/ping/{{ form.heartbeat_slug || 'your-slug' }}</code>
+              {{ t('create_monitor.heartbeat_slug_hint') }}
             </p>
           </div>
           <!-- Interval / Grace -->

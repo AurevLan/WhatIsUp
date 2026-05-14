@@ -1270,7 +1270,7 @@ export default {
     type_dns_desc: 'DNS resolution',
     type_heartbeat_desc: 'Inbound ping (cron, jobs)',
     heartbeat_slug: 'Identifier (slug)',
-    heartbeat_slug_hint: 'Ping URL:',
+    heartbeat_slug_hint: 'A unique ping URL with a secret token will be generated after creation.',
     heartbeat_interval: 'Expected interval (s)',
     heartbeat_grace: 'Grace period (s)',
     scenario_label: 'Browser scenario',

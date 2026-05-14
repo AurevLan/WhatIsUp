@@ -101,6 +101,16 @@ def generate_user_api_key() -> str:
     return f"wiu_u_{secrets.token_urlsafe(32)}"
 
 
+def generate_heartbeat_token() -> str:
+    """Generate the globally unique secret used in ``/api/v1/ping/{token}`` URLs.
+
+    The ``heartbeat_slug`` field is user-friendly and only unique per owner; the
+    token is what actually routes the public ping endpoint and must not be
+    guessable across tenants.
+    """
+    return secrets.token_urlsafe(32)
+
+
 def hash_api_key(api_key: str) -> str:
     """Hash a probe API key for storage."""
     return bcrypt.hashpw(api_key.encode(), bcrypt.gensalt(rounds=12)).decode()

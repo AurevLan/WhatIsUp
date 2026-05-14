@@ -1237,7 +1237,7 @@ export default {
     type_dns_desc: 'Résolution DNS',
     type_heartbeat_desc: 'Ping entrant (cron, jobs)',
     heartbeat_slug: 'Identifiant (slug)',
-    heartbeat_slug_hint: 'URL de ping :',
+    heartbeat_slug_hint: 'Une URL de ping unique avec un jeton secret sera générée après la création.',
     heartbeat_interval: 'Intervalle attendu (s)',
     heartbeat_grace: 'Délai de grâce (s)',
     scenario_label: 'Scénario de navigation',

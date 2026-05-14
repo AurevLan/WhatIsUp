@@ -35,7 +35,8 @@ async def generate_group_report(db, group: MonitorGroup) -> str:
 
     rows_html = ""
     for m in monitors:
-        uptime = await compute_uptime(db, m.id, days=period_days)
+        stats = await compute_uptime(db, m.id, period_hours=period_days * 24)
+        uptime = getattr(stats, "uptime_percent", stats)
         color = "#34d399" if uptime >= 99 else "#fbbf24" if uptime >= 95 else "#f87171"
         rows_html += (
             f"<tr>"

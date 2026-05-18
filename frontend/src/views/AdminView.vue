@@ -883,11 +883,12 @@ import { Pencil, Trash2, UserPlus, X, Plus, Users } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useToast } from '../composables/useToast'
 import { adminApi } from '../api/admin'
-import { probesApi } from '../api/probes'
 import { teamsApi } from '../api/teams'
+import { useProbesStore } from '../stores/probes'
 
 const { t } = useI18n()
 const { error: toastError } = useToast()
+const probesStore = useProbesStore()
 
 const tabs = computed(() => [
   { id: 'users', label: t('admin.tab_users') },
@@ -1244,8 +1245,8 @@ async function loadProbeGroups() {
 
 async function loadAllProbes() {
   try {
-    const { data } = await probesApi.list()
-    allProbes.value = data
+    // Through the shared store (force: admin must see post-mutation state).
+    allProbes.value = await probesStore.fetch({ force: true })
   } catch {
     // ignore
   }

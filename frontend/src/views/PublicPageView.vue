@@ -283,6 +283,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { publicApi } from '../api/public.js'
+import { getServerUrl } from '../lib/serverConfig.js'
 import { useToast } from '../composables/useToast'
 
 const { t } = useI18n()
@@ -402,7 +403,8 @@ function uptimeLast90(monitor) {
 
 function copyBadgeUrl(monitorName) {
   const slug = route.params.slug
-  const url = `${window.location.origin}/api/v1/public/badge/${slug}/${encodeURIComponent(monitorName)}`
+  const origin = getServerUrl() || window.location.origin
+  const url = `${origin}/api/v1/public/badge/${slug}/${encodeURIComponent(monitorName)}`
   navigator.clipboard.writeText(url).then(() => {
     toastSuccess('Badge URL copied!')
   })

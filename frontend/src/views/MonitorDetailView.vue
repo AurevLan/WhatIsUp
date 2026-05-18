@@ -916,6 +916,7 @@ import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { Shield, ShieldAlert, ShieldCheck } from 'lucide-vue-next'
 import { monitorsApi } from '../api/monitors'
+import { getServerUrl } from '../lib/serverConfig.js'
 import { useProbesStore } from '../stores/probes'
 import MonitorDependencies from '../components/monitors/MonitorDependencies.vue'
 import EditMonitorModal from '../components/monitors/EditMonitorModal.vue'
@@ -1225,7 +1226,9 @@ const {
 })
 
 // ── Custom metrics push ───────────────────────────────────────────────────────
-const apiBase = window.location.origin
+// On native (Capacitor) window.location.origin is capacitor://localhost — the
+// copy-paste curl snippet must use the configured server URL instead.
+const apiBase = getServerUrl() || window.location.origin
 const {
   metrics: customMetrics,
   showPushUrlModal,

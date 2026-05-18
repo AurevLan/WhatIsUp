@@ -101,10 +101,11 @@
 import { ref, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { incidentGroupsApi } from '../api/incidentGroups'
-import { probesApi } from '../api/probes'
+import { useProbesStore } from '../stores/probes'
 
 const { t } = useI18n()
 
+const probesStore = useProbesStore()
 const groups = ref([])
 const loading = ref(true)
 const statusFilter = ref('all')
@@ -137,8 +138,8 @@ watch(statusFilter, load)
 
 onMounted(async () => {
   try {
-    const { data } = await probesApi.list()
-    probeMap.value = Object.fromEntries(data.map((p) => [p.id, p]))
+    await probesStore.fetch()
+    probeMap.value = probesStore.probeMap
   } catch {}
   await load()
 })

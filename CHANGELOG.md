@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.10.0](https://github.com/AurevLan/WhatIsUp/compare/v1.9.1...v1.10.0) (2026-05-18)
+
+
+### Added
+
+* **monitors:** per-owner heartbeat slug + globally unique ping token (B3) ([054e954](https://github.com/AurevLan/WhatIsUp/commit/054e9543797e2b49d88398446e8574b5224e6e13))
+
+
+### Changed
+
+* **api:** type admin probe-group payloads with Pydantic schemas (B7) ([7d44432](https://github.com/AurevLan/WhatIsUp/commit/7d44432fbd417d29ed20bcff6c16397a99ff9acf))
+* **frontend:** cache probes via Pinia store, drop per-view fetch (F3) ([88b3e69](https://github.com/AurevLan/WhatIsUp/commit/88b3e694d272036b5d01b4a3884da306ec9581e9))
+* **frontend:** swap :state= prop for provide/inject in detail tabs ([4e4391e](https://github.com/AurevLan/WhatIsUp/commit/4e4391ec8f76b5e4175665b58a3282c342588f79))
+
 ## [1.9.1](https://github.com/AurevLan/WhatIsUp/compare/v1.9.0...v1.9.1) (2026-05-10)
 
 

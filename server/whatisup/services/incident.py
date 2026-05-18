@@ -168,6 +168,62 @@ async def _create_point_in_time_incident(
     await _fire_alerts(db, incident, monitor, result, "incident_opened", extra_ctx=extra_ctx)
 
 
+async def _maybe_promote_suppressed_incident(
+    db: AsyncSession,
+    incident: Incident,
+    monitor: Monitor,
+    result: CheckResult,
+    publish_event,
+) -> bool:
+    """Promote a still-open incident that never fired its opening alert.
+
+    BUG-P0: an incident created while suppressed — inside a maintenance window,
+    or behind a parent that has since recovered — keeps ``resolved_at IS NULL``.
+    When the outage outlives the suppression, the next check finds it as the
+    "already open" incident and only ever sends renotify, so the *opening*
+    alert is never delivered and the real outage stays silent.
+
+    The caller guarantees we are no longer in a maintenance window. If no
+    parent dependency suppresses the monitor anymore, flip the flag, run
+    correlation and fire the opening alert. Returns True when promoted.
+    """
+    if not incident.dependency_suppressed:
+        return False
+    if await _is_suppressed_by_dependency(db, monitor.id):
+        return False  # still legitimately suppressed by a down parent
+
+    incident.dependency_suppressed = False
+    await db.flush()
+    logger.info(
+        "incident_promoted_from_suppressed",
+        monitor_id=str(monitor.id),
+        incident_id=str(incident.id),
+    )
+    await publish_event(
+        {
+            "type": "incident_opened",
+            "monitor_id": str(monitor.id),
+            "incident_id": str(incident.id),
+            "scope": incident.scope.value,
+            "affected_probes": incident.affected_probe_ids,
+            "started_at": incident.started_at.isoformat(),
+            "dependency_suppressed": False,
+        }
+    )
+
+    await _correlate_common_cause(db, incident, incident.affected_probe_ids, publish_event)
+    if incident.group_id is None:
+        await _correlate_by_group(db, incident, monitor, publish_event)
+    if incident.group_id is None:
+        await _correlate_by_dependency(db, incident, monitor.id, publish_event)
+
+    extra_ctx = (
+        {"correlated_group_id": str(incident.group_id)} if incident.group_id is not None else None
+    )
+    await _fire_alerts(db, incident, monitor, result, "incident_opened", extra_ctx=extra_ctx)
+    return True
+
+
 async def process_check_result(
     db: AsyncSession,
     result: CheckResult,
@@ -508,6 +564,15 @@ async def process_check_result(
         ):
             open_incident.scope = scope
             open_incident.affected_probe_ids = affected_probe_ids
+
+        # BUG-P0: a suppressed incident (maintenance over, or parent recovered)
+        # whose outage is still ongoing must finally fire its opening alert
+        # instead of silently flowing into the renotify path.
+        if await _maybe_promote_suppressed_incident(
+            db, open_incident, monitor, result, publish_event
+        ):
+            await _post_decider_side_effects(db, result, monitor, publish_event)
+            return
 
         # H-11: fire renotify alerts — only load rules if any have renotify configured
         # to avoid a DB query on every check result when no rules use this feature

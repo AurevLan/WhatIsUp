@@ -34,6 +34,13 @@ def _stub_pywebpush(monkeypatch):
     return stub
 
 
+@pytest.fixture(autouse=True)
+def _stub_push_ssrf(monkeypatch):
+    """These tests exercise dispatch mechanics, not the SSRF resolver — stub
+    the DNS-resolving guard so allowlisted hosts don't trigger real lookups."""
+    monkeypatch.setattr("whatisup.services.web_push.validate_webhook_url", AsyncMock())
+
+
 @pytest.fixture
 def vapid_settings(monkeypatch):
     settings = SimpleNamespace(
@@ -74,7 +81,7 @@ async def test_send_push_dispatches_to_all_subscriptions(
         service_db.add(
             WebPushSubscription(
                 user_id=test_user.id,
-                endpoint=f"https://push.example/{i}",
+                endpoint=f"https://fcm.googleapis.com/fcm/send/{i}",
                 p256dh="p",
                 auth="a",
             )
@@ -102,7 +109,7 @@ async def test_send_push_removes_expired_subscriptions(
 
     sub = WebPushSubscription(
         user_id=test_user.id,
-        endpoint="https://push.example/expired",
+        endpoint="https://fcm.googleapis.com/fcm/send/expired",
         p256dh="p",
         auth="a",
     )
@@ -132,7 +139,7 @@ async def test_send_push_other_errors_logged_but_subscription_kept(
 
     sub = WebPushSubscription(
         user_id=test_user.id,
-        endpoint="https://push.example/transient",
+        endpoint="https://fcm.googleapis.com/fcm/send/transient",
         p256dh="p",
         auth="a",
     )

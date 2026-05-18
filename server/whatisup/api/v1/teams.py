@@ -257,7 +257,9 @@ async def add_member(
     db: AsyncSession = Depends(get_db),
 ):
     await _get_team_or_404(team_id, db)
-    await _get_membership_or_403(team_id, current_user, db, min_role=TeamRole.admin)
+    caller_membership = await _get_membership_or_403(
+        team_id, current_user, db, min_role=TeamRole.admin
+    )
 
     # Check user exists
     target_user = (
@@ -278,10 +280,19 @@ async def add_member(
     if existing is not None:
         raise HTTPException(status_code=409, detail="User is already a team member")
 
+    new_role = TeamRole(payload.role)
+
+    # SEC-M3: an admin must not grant a role higher than their own (mirrors the
+    # cap already enforced in update_member_role). Superadmin is exempt.
+    if not current_user.is_superadmin and _ROLE_HIERARCHY.get(new_role, 0) > _ROLE_HIERARCHY.get(
+        caller_membership.role, 0
+    ):
+        raise HTTPException(status_code=403, detail="Cannot assign a role higher than your own")
+
     membership = TeamMembership(
         user_id=payload.user_id,
         team_id=team_id,
-        role=TeamRole(payload.role),
+        role=new_role,
     )
     db.add(membership)
 

@@ -5,14 +5,47 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
+from urllib.parse import urlparse
 
 import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.core.config import get_settings
+from whatisup.services.channels._helpers import validate_webhook_url
 
 logger = structlog.get_logger(__name__)
+
+# Known Web Push provider host suffixes. The endpoint is later used as the
+# target of an outbound request, so it must point at a real push service.
+_ALLOWED_PUSH_HOST_SUFFIXES = (
+    ".push.services.mozilla.com",  # Firefox autopush
+    ".googleapis.com",  # Chromium — fcm.googleapis.com
+    ".push.apple.com",  # Safari Web Push
+    ".notify.windows.com",  # Edge / WNS
+)
+
+
+class InvalidPushEndpoint(ValueError):
+    """Raised when a Web Push endpoint is not an allowed push-service URL."""
+
+
+async def validate_push_endpoint(endpoint: str) -> None:
+    """SSRF guard for user-supplied Web Push endpoints (SEC-H1).
+
+    Without this an authenticated user could register
+    ``endpoint=http://169.254.169.254/...`` and have the server issue an
+    outbound request there via ``pywebpush``. We require https + a known push
+    provider host, then run the shared SSRF resolver as defence in depth.
+    """
+    parsed = urlparse(endpoint)
+    if parsed.scheme != "https":
+        raise InvalidPushEndpoint("Push endpoint must use https")
+    host = (parsed.hostname or "").lower()
+    if not host or not host.endswith(_ALLOWED_PUSH_HOST_SUFFIXES):
+        raise InvalidPushEndpoint("Push endpoint host is not an allowed push service")
+    # Defence in depth: reject DNS results pointing at private/loopback/metadata.
+    await validate_webhook_url(endpoint)
 
 
 def _send_one(
@@ -71,6 +104,13 @@ async def send_push_to_user(
     stale_ids: list[uuid.UUID] = []
 
     for sub in subs:
+        # Re-validate at dispatch: guards stored endpoints that predate the
+        # subscription-time check and narrows the DNS-rebinding window.
+        try:
+            await validate_push_endpoint(sub.endpoint)
+        except ValueError as exc:
+            logger.warning("web_push_endpoint_rejected", user_id=str(user_id), error=str(exc))
+            continue
         try:
             await asyncio.to_thread(
                 _send_one,

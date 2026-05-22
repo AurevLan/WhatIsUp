@@ -114,6 +114,15 @@ async def test_diagnostic_ingest_persists_valid_payload(
     monitor = Monitor(name="m", url="https://x.test", owner_id=test_user.id)
     db_session.add(monitor)
     await db_session.flush()
+    # SEC-M5: a probe may only push diagnostics for a monitor it serves.
+    db_session.add(
+        CheckResult(
+            monitor_id=monitor.id,
+            probe_id=diag_probe.id,
+            checked_at=datetime.now(UTC),
+            status=CheckStatus.down,
+        )
+    )
     incident = Incident(
         monitor_id=monitor.id,
         started_at=datetime.now(UTC),
@@ -189,6 +198,17 @@ async def test_multi_probe_parallel_ingest(
     monitor = Monitor(name="paramon", url="https://x.test", owner_id=test_user.id)
     db_session.add(monitor)
     await db_session.flush()
+
+    # SEC-M5: each probe must have served the monitor to push diagnostics.
+    for p in probes:
+        db_session.add(
+            CheckResult(
+                monitor_id=monitor.id,
+                probe_id=p.id,
+                checked_at=datetime.now(UTC),
+                status=CheckStatus.down,
+            )
+        )
 
     incident = Incident(
         monitor_id=monitor.id,

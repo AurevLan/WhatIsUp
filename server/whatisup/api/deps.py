@@ -281,6 +281,41 @@ async def check_resource_access(
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
 
+async def assert_can_assign_team(db: AsyncSession, user: User, team_id: uuid.UUID | None) -> None:
+    """Reject assigning a resource to a team the user is not an editor+ member of.
+
+    Without this check a user can attach their monitor/group to an arbitrary
+    ``team_id``, leaking it into another tenant's scope (status pages, team views).
+    ``None`` means "no team" and is always allowed.
+    """
+    if team_id is None or user.is_superadmin:
+        return
+    allowed = await get_user_team_ids(user, db, min_role=TeamRole.editor)
+    if team_id not in allowed:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not an editor of the target team",
+        )
+
+
+async def assert_can_assign_group(db: AsyncSession, user: User, group_id: uuid.UUID | None) -> None:
+    """Reject assigning a monitor to a group the user cannot access (editor+).
+
+    Prevents cross-tenant poisoning of a victim's public status page via an
+    attacker-chosen ``group_id``. ``None`` means "ungrouped" and is allowed.
+    """
+    if group_id is None or user.is_superadmin:
+        return
+    from whatisup.models.monitor import MonitorGroup
+
+    group = (
+        await db.execute(select(MonitorGroup).where(MonitorGroup.id == group_id))
+    ).scalar_one_or_none()
+    if group is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+    await check_resource_access(group, user, db, min_role=TeamRole.editor)
+
+
 def build_access_filter(model, user: User, team_ids: list[uuid.UUID]):
     """Build a SQLAlchemy WHERE clause for list endpoints.
 

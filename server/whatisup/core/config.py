@@ -88,6 +88,11 @@ class Settings(BaseSettings):
     vapid_public_key: str = ""  # base64url public key — sent to frontend
     vapid_contact_email: str = "admin@example.com"
 
+    # Observability — when set, /api/metrics requires `Authorization: Bearer <token>`.
+    # Left empty by default: deployments already gate /api/metrics at the reverse
+    # proxy (see SECURITY.md §8); set this for defence-in-depth.
+    metrics_auth_token: str = ""
+
     # Feature flags
     registration_open: bool = True  # False = invite-only after first user
 

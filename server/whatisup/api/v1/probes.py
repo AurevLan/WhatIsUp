@@ -305,6 +305,25 @@ async def push_diagnostics(
     if incident is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incident not found")
 
+    # SEC-M5: a probe may only attach diagnostics to incidents whose monitor it
+    # actually serves. Without this tie any authenticated probe could inject
+    # forged diagnostics into arbitrary incidents (cross-probe integrity).
+    serves_monitor = (
+        await db.execute(
+            select(CheckResult.id)
+            .where(
+                CheckResult.monitor_id == incident.monitor_id,
+                CheckResult.probe_id == probe.id,
+            )
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if serves_monitor is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Probe does not serve this incident's monitor",
+        )
+
     valid_kinds = set(DIAGNOSTIC_KINDS)
     inserted = 0
     for r in payload.results:

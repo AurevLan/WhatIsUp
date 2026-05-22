@@ -67,6 +67,14 @@ async def subscribe(
     if not settings.vapid_public_key or not settings.vapid_private_key:
         raise HTTPException(status_code=503, detail="Web Push not configured on this server.")
 
+    # SEC-H1: reject SSRF-able / non-push endpoints before persisting.
+    from whatisup.services.web_push import validate_push_endpoint
+
+    try:
+        await validate_push_endpoint(body.endpoint)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+
     # Upsert: if same endpoint already exists, update keys
     existing = (
         await db.execute(

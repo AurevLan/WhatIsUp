@@ -12,6 +12,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.api.deps import (
+    assert_can_assign_group,
+    assert_can_assign_team,
     build_access_filter,
     check_resource_access,
     get_current_user,
@@ -432,6 +434,10 @@ async def create_monitor(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Monitor creation not allowed for your account",
         )
+    # SEC-M1: a user must not attach a monitor to a group/team they cannot access.
+    await assert_can_assign_group(db, current_user, payload.group_id)
+    await assert_can_assign_team(db, current_user, payload.team_id)
+
     tags = []
     if payload.tag_ids:
         tags_result = await db.execute(select(Tag).where(Tag.id.in_(payload.tag_ids)))
@@ -756,6 +762,12 @@ async def update_monitor(
     # of whether runbook_markdown was also present in the payload.
     if update_data.get("runbook_enabled") is False:
         update_data["runbook_markdown"] = None
+
+    # SEC-M1: re-validate group/team reassignment against the caller's access.
+    if "group_id" in update_data:
+        await assert_can_assign_group(db, current_user, update_data["group_id"])
+    if "team_id" in update_data:
+        await assert_can_assign_team(db, current_user, update_data["team_id"])
 
     for field, value in update_data.items():
         if field == "url" and value is not None:

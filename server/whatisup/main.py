@@ -328,9 +328,30 @@ def create_app() -> FastAPI:
 
     # Prometheus metrics (optional dependency)
     try:
+        import secrets as _secrets
+
+        from fastapi import Header, HTTPException
         from prometheus_fastapi_instrumentator import Instrumentator
 
-        Instrumentator().instrument(app).expose(app, endpoint="/api/metrics")
+        def _require_metrics_access(authorization: str | None = Header(default=None)) -> None:
+            """Defence-in-depth gate on /api/metrics.
+
+            No-op unless ``METRICS_AUTH_TOKEN`` is configured (deployments already
+            restrict this endpoint at the reverse proxy — SECURITY.md §8). When
+            set, a constant-time bearer-token match is required.
+            """
+            token = get_settings().metrics_auth_token
+            if not token:
+                return
+            expected = f"Bearer {token}"
+            if not authorization or not _secrets.compare_digest(authorization, expected):
+                raise HTTPException(status_code=401, detail="Unauthorized")
+
+        Instrumentator().instrument(app).expose(
+            app,
+            endpoint="/api/metrics",
+            dependencies=[Depends(_require_metrics_access)],
+        )
     except ImportError:
         logger.warning("prometheus_fastapi_instrumentator not installed, /api/metrics unavailable")
 

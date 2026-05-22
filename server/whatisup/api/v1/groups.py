@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.api.deps import (
+    assert_can_assign_team,
     build_access_filter,
     check_resource_access,
     get_current_user,
@@ -71,6 +72,9 @@ async def create_group(
         if existing:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Slug already in use")
 
+    # SEC-M1: a user must not attach a group to a team they cannot access.
+    await assert_can_assign_team(db, current_user, payload.team_id)
+
     tags = []
     if payload.tag_ids:
         tags_result = await db.execute(select(Tag).where(Tag.id.in_(payload.tag_ids)))
@@ -110,6 +114,10 @@ async def update_group(
     group = await _get_group_or_404(group_id, current_user, db)
     update_data = payload.model_dump(exclude_unset=True)
     tag_ids = update_data.pop("tag_ids", None)
+
+    # SEC-M1: re-validate team reassignment against the caller's access.
+    if "team_id" in update_data:
+        await assert_can_assign_team(db, current_user, update_data["team_id"])
 
     for field, value in update_data.items():
         setattr(group, field, value)

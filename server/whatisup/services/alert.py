@@ -392,8 +392,6 @@ async def flush_pending_digests() -> None:
     Called every 30 s from the lifespan loop. Survives server restarts because
     the schedule is stored in a Redis sorted set (not in-memory call_later).
     """
-    from sqlalchemy import select
-
     from whatisup.core.database import get_session_factory
     from whatisup.core.redis import get_redis
     from whatisup.models.alert import AlertChannel as AC

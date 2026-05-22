@@ -45,10 +45,20 @@ def _truncate(s: str) -> str:
 
 
 def _extract_host(target: str) -> str:
-    """Pull a hostname out of either a URL or a bare host[:port] string."""
+    """Pull a hostname out of either a URL or a bare host[:port] string.
+
+    SEC-B3: collectors pass the host as a positional argv to traceroute/dig/
+    ping. There is no shell, but a host beginning with ``-`` would be parsed
+    as an option flag (e.g. ``ping -f``). Reject such hosts outright.
+    """
     if "://" in target:
-        return urlparse(target).hostname or target
-    return target.split(":", 1)[0]
+        host = urlparse(target).hostname or target
+    else:
+        host = target.split(":", 1)[0]
+    host = host.strip()
+    if not host or host.startswith("-"):
+        raise ValueError(f"unsafe diagnostic host: {host!r}")
+    return host
 
 
 def _extract_port(target: str, default: int = 443) -> int:
@@ -267,7 +277,11 @@ async def run_collection(
 
     ``check_type`` (http / tcp / dns) is used to skip kinds that don't apply
     (e.g. openssl/curl for a TCP-only monitor)."""
-    host = _extract_host(target)
+    try:
+        host = _extract_host(target)
+    except ValueError as exc:
+        logger.warning("diagnostic_host_rejected", target=target, error=str(exc))
+        return []
     port = _extract_port(target)
     enabled = set(kinds or ALL_KINDS)
 

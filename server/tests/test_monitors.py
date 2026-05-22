@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+import uuid
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from httpx import AsyncClient
@@ -983,3 +984,127 @@ async def test_schema_baseline_reset_clears_fingerprint(
     body = get_resp.json()
     assert body["schema_baseline"] is None
     assert body["schema_baseline_updated_at"] is None
+
+
+# ── Postmortem (T3) ───────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_postmortem_resolved_incident_renders_markdown(
+    client: AsyncClient,
+    db_session,
+    user_token: str,
+    regular_user,
+) -> None:
+    """Resolved incident → markdown with duration, timeline, metrics."""
+    from whatisup.models.incident import Incident, IncidentScope
+    from whatisup.models.monitor import Monitor
+    from whatisup.models.probe import Probe
+    from whatisup.models.result import CheckResult, CheckStatus
+
+    monitor = Monitor(name="pm-resolved", url="https://example.com", owner_id=regular_user.id)
+    probe = Probe(name="p-pm", location_name="EU", api_key_hash="x")
+    db_session.add_all([monitor, probe])
+    await db_session.flush()
+
+    started = datetime.now(UTC) - timedelta(minutes=30)
+    resolved = started + timedelta(minutes=10)
+    incident = Incident(
+        monitor_id=monitor.id,
+        started_at=started,
+        resolved_at=resolved,
+        duration_seconds=600,
+        scope=IncidentScope.global_,
+    )
+    db_session.add(incident)
+    db_session.add_all(
+        [
+            CheckResult(
+                monitor_id=monitor.id,
+                probe_id=probe.id,
+                checked_at=started + timedelta(minutes=1),
+                status=CheckStatus.down,
+                response_time_ms=200,
+            ),
+            CheckResult(
+                monitor_id=monitor.id,
+                probe_id=probe.id,
+                checked_at=started + timedelta(minutes=5),
+                status=CheckStatus.up,
+                response_time_ms=100,
+            ),
+        ]
+    )
+    await db_session.flush()
+
+    resp = await client.get(
+        f"/api/v1/monitors/{monitor.id}/incidents/{incident.id}/postmortem",
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert "generated_at" in body
+    content = body["content"]
+    assert "# Post-mortem: pm-resolved" in content
+    assert "10 min 0 s" in content
+    assert "10.0 minutes of downtime" in content
+    assert "Incident opened" in content
+    assert "Incident resolved" in content
+    assert "Checks performed: 2" in content
+    assert "Failure rate: 50.0%" in content
+    assert "Average response time: 150ms" in content
+
+
+@pytest.mark.asyncio
+async def test_postmortem_unknown_incident_returns_404(
+    client: AsyncClient,
+    user_token: str,
+) -> None:
+    """Postmortem for a non-existent incident on an owned monitor → 404."""
+    create = await client.post(
+        "/api/v1/monitors/",
+        json={"name": "pm-404", "url": "https://example.com"},
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    monitor_id = create.json()["id"]
+    resp = await client.get(
+        f"/api/v1/monitors/{monitor_id}/incidents/{uuid.uuid4()}/postmortem",
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_postmortem_in_progress_incident_marks_unresolved(
+    client: AsyncClient,
+    db_session,
+    user_token: str,
+    regular_user,
+) -> None:
+    """Unresolved incident → duration label `in progress`, no `resolved` line."""
+    from whatisup.models.incident import Incident, IncidentScope
+    from whatisup.models.monitor import Monitor
+
+    monitor = Monitor(name="pm-ongoing", url="https://example.com", owner_id=regular_user.id)
+    db_session.add(monitor)
+    await db_session.flush()
+
+    incident = Incident(
+        monitor_id=monitor.id,
+        started_at=datetime.now(UTC) - timedelta(minutes=15),
+        resolved_at=None,
+        scope=IncidentScope.global_,
+    )
+    db_session.add(incident)
+    await db_session.flush()
+
+    resp = await client.get(
+        f"/api/v1/monitors/{monitor.id}/incidents/{incident.id}/postmortem",
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert resp.status_code == 200
+    content = resp.json()["content"]
+    assert "in progress" in content
+    assert "_in progress_" in content
+    assert "Incident resolved" not in content
+    assert "_No annotations in this period._" in content

@@ -335,7 +335,13 @@ class Monitor(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     runbook_markdown: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Heartbeat / cron check type
-    heartbeat_slug: Mapped[str | None] = mapped_column(String(80), nullable=True, unique=True)
+    # Slug is user-friendly and only unique per-owner (see __table_args__).
+    # The public ping URL routes by ``heartbeat_token`` (globally unique, server-generated)
+    # so two tenants can reuse the same slug without colliding.
+    heartbeat_slug: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    heartbeat_token: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, unique=True, index=True
+    )
     heartbeat_interval_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     heartbeat_grace_seconds: Mapped[int] = mapped_column(
         Integer, nullable=False, server_default="60", default=60
@@ -403,7 +409,10 @@ class Monitor(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         cascade="all, delete-orphan",
     )
 
-    __table_args__ = (Index("ix_monitors_enabled_owner", "enabled", "owner_id"),)
+    __table_args__ = (
+        Index("ix_monitors_enabled_owner", "enabled", "owner_id"),
+        UniqueConstraint("owner_id", "heartbeat_slug", name="uq_monitors_owner_heartbeat_slug"),
+    )
 
     def __repr__(self) -> str:
         return f"<Monitor {self.name!r} url={self.url!r}>"

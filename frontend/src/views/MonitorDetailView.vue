@@ -916,7 +916,7 @@ import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { Shield, ShieldAlert, ShieldCheck } from 'lucide-vue-next'
 import { monitorsApi } from '../api/monitors'
-import { probesApi } from '../api/probes'
+import { useProbesStore } from '../stores/probes'
 import MonitorDependencies from '../components/monitors/MonitorDependencies.vue'
 import EditMonitorModal from '../components/monitors/EditMonitorModal.vue'
 import CreateMonitorModal from '../components/monitors/CreateMonitorModal.vue'
@@ -967,11 +967,12 @@ const fmtDateTime = (v) =>
 const route = useRoute()
 const router = useRouter()
 const paletteStore = useCommandPaletteStore()
+const probesStore = useProbesStore()
 const monitor   = ref(null)
 const results   = ref([])
 const uptime24  = ref(null)
 const uptime7d  = ref(null)
-const probeMap  = ref({})   // probeId → { name, location_name }
+const probeMap  = computed(() => probesStore.probeMap)
 const editingMonitor = ref(null)
 const showClone = ref(false)
 const clonePayload = ref(null)
@@ -1378,11 +1379,8 @@ onMounted(async () => {
   // Load all monitors for dependency picker
   loadAllMonitors()
 
-  // Fetch probe names (graceful fallback if not superadmin)
-  try {
-    const { data } = await probesApi.list()
-    probeMap.value = Object.fromEntries(data.map(p => [p.id, p]))
-  } catch {}
+  // Fetch probe names from shared store (cached across views, graceful fallback)
+  probesStore.fetch()
 })
 </script>
 

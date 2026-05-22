@@ -45,8 +45,11 @@
             <label class="block text-sm font-medium text-gray-300 mb-1">Identifiant (slug) *</label>
             <input v-model="form.heartbeat_slug" class="input w-full" placeholder="mon-cron-backup"
               pattern="[a-z0-9\-]+" required />
-            <p class="text-xs text-gray-500 mt-1">
-              URL de ping : <code class="font-mono text-blue-400">POST /api/v1/ping/{{ form.heartbeat_slug || 'votre-slug' }}</code>
+            <p v-if="form.heartbeat_token" class="text-xs text-gray-500 mt-1">
+              URL de ping : <code class="font-mono text-blue-400 break-all">POST /api/v1/ping/{{ form.heartbeat_token }}</code>
+            </p>
+            <p v-else class="text-xs text-gray-500 mt-1">
+              {{ t('create_monitor.heartbeat_slug_hint') }}
             </p>
           </div>
           <div class="grid grid-cols-2 gap-4">
@@ -588,6 +591,7 @@ const form = ref({
   scenario_steps: m.scenario_steps || [],
   scenario_variables: m.scenario_variables || [],
   heartbeat_slug: m.heartbeat_slug || '',
+  heartbeat_token: m.heartbeat_token || '',
   heartbeat_interval_seconds: m.heartbeat_interval_seconds ?? null,
   heartbeat_grace_seconds: m.heartbeat_grace_seconds ?? 300,
   body_regex: m.body_regex || '',

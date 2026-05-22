@@ -342,6 +342,7 @@
 - ✅ `_validate_webhook_url()` rejette RFC 1918 / loopback / link-local
 - ✅ Appliqué à : webhooks, OIDC discovery, scenario navigation, checkers HTTP/TCP/UDP/SMTP/DNS
 - ✅ Redirects re-validés à chaque hop
+- ✅ **SEC-B3** (v1.10.2) : `_extract_host()` (probe diagnostics) rejette tout host commençant par `-` — passé en argv positionnel à `traceroute`/`dig`/`ping`, il serait sinon interprété comme un flag (pas de shell, mais flag-injection). `run_collection` log + skip (`probe/whatisup_probe/diagnostics.py`)
 
 ### Anti-XSS / Clickjacking
 - ✅ Vue 3 auto-escape (zéro rendu HTML serveur)

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.10.1](https://github.com/AurevLan/WhatIsUp/compare/v1.10.0...v1.10.1) (2026-05-22)
+
+
+### Fixed
+
+* **deps/frontend:** bump brace-expansion 5.0.5→5.0.6 (GHSA-jxxr-4gwj-5jf2) ([#139](https://github.com/AurevLan/WhatIsUp/issues/139)) ([27cd2eb](https://github.com/AurevLan/WhatIsUp/commit/27cd2eb1a2733dff4f4ccb0feef33b38e16652d6))
+* **security:** close SSRF/isolation gaps + maintenance alert loss (audit Lot 1) ([#138](https://github.com/AurevLan/WhatIsUp/issues/138)) ([972431c](https://github.com/AurevLan/WhatIsUp/commit/972431cdee066d9d2529a9f0d290fb65d0c45151))
+* **ui:** waterfall timing fields + native URL fix + probe-store dedupe (audit Lot 3) ([#140](https://github.com/AurevLan/WhatIsUp/issues/140)) ([b52d2b4](https://github.com/AurevLan/WhatIsUp/commit/b52d2b4809951af05ae382cce2b2f4ed5bfe11ff))
+
 ## [1.10.0](https://github.com/AurevLan/WhatIsUp/compare/v1.9.1...v1.10.0) (2026-05-18)
 
 

@@ -24,6 +24,11 @@ class CheckResultOut(BaseModel):
     ssl_expires_at: datetime | None
     ssl_days_remaining: int | None
     error_message: str | None
+    # Waterfall timing breakdown (consumed by MonitorRecentChecksTable.vue).
+    # Stored on every HTTP check but previously dropped from the response.
+    dns_resolve_ms: int | None = None
+    ttfb_ms: int | None = None
+    download_ms: int | None = None
     scenario_result: dict | None = None
     dns_resolved_values: list[str] | None = None
     tls_audit: dict | None = None

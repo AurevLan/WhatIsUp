@@ -48,9 +48,7 @@ def test_check_result_out_exposes_timing_breakdown() -> None:
 
 def test_check_result_out_timing_defaults_to_none() -> None:
     # TCP/DNS checks have no HTTP waterfall — fields stay null, never absent.
-    out = CheckResultOut.model_validate(
-        _row(dns_resolve_ms=None, ttfb_ms=None, download_ms=None)
-    )
+    out = CheckResultOut.model_validate(_row(dns_resolve_ms=None, ttfb_ms=None, download_ms=None))
     dumped = out.model_dump()
     assert dumped["dns_resolve_ms"] is None
     assert dumped["ttfb_ms"] is None

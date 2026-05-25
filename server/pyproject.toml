@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "whatisup-server"
-version = "1.10.2"
+version = "1.10.3"
 description = "WhatIsUp — central monitoring server"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -15,7 +15,7 @@ dependencies = [
     # Web framework
     "fastapi>=0.125.0,<0.140",
     "starlette>=0.49.1",
-    "uvicorn[standard]>=0.32.0,<0.49",
+    "uvicorn[standard]>=0.32.0,<0.47",
 
     # Database
     "sqlalchemy[asyncio]>=2.0.36,<2.1",

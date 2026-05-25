@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.10.3](https://github.com/AurevLan/WhatIsUp/compare/v1.10.2...v1.10.3) (2026-05-25)
+
+
+### Docs
+
+* **features:** record SEC-B3 diagnostic host argv guard (v1.10.2) ([#145](https://github.com/AurevLan/WhatIsUp/issues/145)) ([39dcd22](https://github.com/AurevLan/WhatIsUp/commit/39dcd22d79805ecf80a47ffb4168061f8f476c7d))
+
 ## [1.10.2](https://github.com/AurevLan/WhatIsUp/compare/v1.10.1...v1.10.2) (2026-05-22)
 
 

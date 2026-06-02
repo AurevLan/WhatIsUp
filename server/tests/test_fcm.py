@@ -67,13 +67,15 @@ def test_load_service_account_invalid_json_returns_none(monkeypatch) -> None:
 
 def test_encrypt_payload_round_trip() -> None:
     key = Fernet.generate_key().decode()
-    payload = {"title": "Foo", "body": "Bar", "monitor_id": "abc"}
+    # Use sentinels long enough that a chance collision in the base64 ciphertext
+    # is astronomically unlikely (3-char substrings collide ~1 in 260k).
+    title_sentinel = "TITLE_SENTINEL_8f3a9c2d1e7b4506"
+    body_sentinel = "BODY_SENTINEL_d27e1a0f6c8b3954"
+    payload = {"title": title_sentinel, "body": body_sentinel, "monitor_id": "abc"}
     ciphertext = fcm._encrypt_payload(payload, key)
-    # Ciphertext is opaque and clearly larger than the plaintext
     assert isinstance(ciphertext, str)
-    assert "Foo" not in ciphertext
-    assert "Bar" not in ciphertext
-    # Round-trip via Fernet directly
+    assert title_sentinel not in ciphertext
+    assert body_sentinel not in ciphertext
     decrypted = json.loads(Fernet(key.encode()).decrypt(ciphertext.encode()))
     assert decrypted == payload
 

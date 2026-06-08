@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.10.4](https://github.com/AurevLan/WhatIsUp/compare/v1.10.3...v1.10.4) (2026-06-08)
+
+
+### Fixed
+
+* **deps:** roll up dependency and CI tooling bumps (v1.10.4) ([e774632](https://github.com/AurevLan/WhatIsUp/commit/e7746329d45930aad91e348ba999c41736c22679))
+
 ## [1.10.3](https://github.com/AurevLan/WhatIsUp/compare/v1.10.2...v1.10.3) (2026-05-25)
 
 

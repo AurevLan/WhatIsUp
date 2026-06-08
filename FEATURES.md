@@ -409,6 +409,7 @@
 ### Supply chain
 - ✅ Dependabot configuré (`.github/dependabot.yml`)
 - ✅ pip-audit + npm audit hebdomadaires
+- ✅ **pip-audit durci (v1.10.4, #168)** : `security-audit.yml` upgrade pip vers ≥26.1.2 avant l'audit pour patcher PYSEC-2026-196 (pip 26.1.1 de l'image runner) — fix réel plutôt que `--ignore-vuln`
 - ✅ CodeQL `security-extended`
 
 ---

@@ -30,7 +30,7 @@ dependencies = [
     "python-dotenv>=1.2.2,<2",
 
     # Structured logging
-    "structlog>=25.1.0,<26",
+    "structlog>=25.1.0,<27",
 
     # Browser scenario checks
     "playwright>=1.58.0,<2",

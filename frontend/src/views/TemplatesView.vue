@@ -2,10 +2,10 @@
   <div class="page-body">
     <div class="flex items-center justify-between mb-8">
       <div>
-        <h1 class="text-2xl font-bold text-white">Monitor Templates</h1>
-        <p class="text-gray-400 mt-1">Reusable blueprints to create monitors quickly</p>
+        <h1 class="text-2xl font-bold text-white">{{ t('templates.title') }}</h1>
+        <p class="text-gray-400 mt-1">{{ t('templates.subtitle') }}</p>
       </div>
-      <button @click="showCreate = true" class="btn-primary">+ New template</button>
+      <button @click="showCreate = true" class="btn-primary">+ {{ t('templates.new') }}</button>
     </div>
 
     <!-- Loading skeleton -->
@@ -37,8 +37,8 @@
           <div>
             <div class="flex items-center gap-2">
               <span class="text-white font-semibold">{{ tpl.name }}</span>
-              <span v-if="tpl.is_public" class="text-xs px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">Public</span>
-              <span v-if="tpl.owner_id !== currentUserId" class="text-xs px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400">Shared</span>
+              <span v-if="tpl.is_public" class="text-xs px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">{{ t('templates.public_badge') }}</span>
+              <span v-if="tpl.owner_id !== currentUserId" class="text-xs px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400">{{ t('templates.shared_badge') }}</span>
             </div>
             <p v-if="tpl.description" class="text-sm text-gray-400 mt-1">{{ tpl.description }}</p>
           </div>
@@ -47,18 +47,18 @@
               v-if="tpl.owner_id === currentUserId"
               @click="startEdit(tpl)"
               class="text-xs text-blue-400 hover:text-blue-300"
-            >Edit</button>
+            >{{ t('templates.edit') }}</button>
             <button
               v-if="tpl.owner_id === currentUserId"
               @click="deleteTemplate(tpl)"
               class="text-xs text-red-400 hover:text-red-300"
-            >Delete</button>
+            >{{ t('templates.delete') }}</button>
           </div>
         </div>
 
         <!-- Variables -->
         <div v-if="tpl.variables?.length" class="text-xs text-gray-500">
-          <span class="text-gray-400">Variables:</span>
+          <span class="text-gray-400">{{ t('templates.variables_label') }}:</span>
           <span v-for="v in tpl.variables" :key="v.name" class="ml-1 font-mono bg-gray-800 px-1 rounded" v-text="'{{' + v.name + '}}'"></span>
         </div>
 
@@ -71,7 +71,7 @@
           @click="openApply(tpl)"
           class="btn-primary text-sm mt-auto"
         >
-          Apply template
+          {{ t('templates.apply') }}
         </button>
       </div>
     </div>
@@ -79,37 +79,43 @@
     <!-- Create/Edit modal -->
     <div v-if="showCreate || editingTemplate" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" @click.self="closeModal">
       <div class="card w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <h2 class="text-lg font-semibold text-white mb-4">{{ editingTemplate ? 'Edit template' : 'New template' }}</h2>
+        <h2 class="text-lg font-semibold text-white mb-4">{{ editingTemplate ? t('templates.edit_title') : t('templates.new') }}</h2>
 
         <div class="space-y-4">
           <div>
-            <label class="block text-sm text-gray-400 mb-1">Name</label>
-            <input v-model="form.name" class="input w-full" placeholder="e.g. REST API monitor" />
+            <label class="block text-sm text-gray-400 mb-1">{{ t('templates.form_name') }}</label>
+            <input v-model="form.name" class="input w-full" :placeholder="t('templates.form_name_placeholder')" />
           </div>
           <div>
-            <label class="block text-sm text-gray-400 mb-1">Description (optional)</label>
+            <label class="block text-sm text-gray-400 mb-1">{{ t('templates.form_description') }}</label>
             <input v-model="form.description" class="input w-full" />
           </div>
           <div class="flex items-center gap-2">
             <input v-model="form.is_public" type="checkbox" id="tpl-public" />
-            <label for="tpl-public" class="text-sm text-gray-300">Make this template public (visible to all users)</label>
+            <label for="tpl-public" class="text-sm text-gray-300">{{ t('templates.form_public') }}</label>
           </div>
 
           <div>
-            <label class="block text-sm text-gray-400 mb-1">Variables</label>
+            <label class="block text-sm text-gray-400 mb-1">{{ t('templates.variables_label') }}</label>
             <div v-for="(v, i) in form.variables" :key="i" class="flex gap-2 mb-2">
-              <input v-model="v.name" class="input flex-1" placeholder="VAR_NAME" />
-              <input v-model="v.description" class="input flex-1" placeholder="Description" />
-              <input v-model="v.default" class="input w-32" placeholder="Default" />
+              <input v-model="v.name" class="input flex-1" :placeholder="t('templates.var_name')" />
+              <input v-model="v.description" class="input flex-1" :placeholder="t('templates.var_description')" />
+              <input v-model="v.default" class="input w-32" :placeholder="t('templates.var_default')" />
               <button @click="form.variables.splice(i, 1)" class="text-red-400 hover:text-red-300">✕</button>
             </div>
-            <button @click="form.variables.push({ name: '', description: '', default: '' })" class="text-xs text-blue-400 hover:text-blue-300">+ Add variable</button>
+            <button @click="form.variables.push({ name: '', description: '', default: '' })" class="text-xs text-blue-400 hover:text-blue-300">{{ t('templates.form_add_variable') }}</button>
           </div>
 
           <div>
             <label class="block text-sm text-gray-400 mb-1">
-              Monitor config (JSON)
-              <span class="text-gray-500 ml-1">— use <code class="font-mono bg-gray-800 px-1 rounded" v-text="'{{VAR}}'"></code> for substitution</span>
+              {{ t('templates.form_config') }}
+              <span class="text-gray-500 ml-1">—
+                <i18n-t keypath="templates.form_config_hint" tag="span">
+                  <template #placeholder>
+                    <code class="font-mono bg-gray-800 px-1 rounded" v-text="'{{VAR}}'"></code>
+                  </template>
+                </i18n-t>
+              </span>
             </label>
             <textarea
               v-model="form.configJson"
@@ -125,7 +131,7 @@
           <button @click="closeModal" class="btn-secondary">{{ t('common.cancel') }}</button>
           <button @click="saveTemplate" class="btn-primary" :disabled="saving">
             <Loader2 v-if="saving" class="w-4 h-4 mr-2 animate-spin inline" />
-            {{ editingTemplate ? 'Save' : 'Create' }}
+            {{ editingTemplate ? t('common.save') : t('templates.create') }}
           </button>
         </div>
       </div>
@@ -134,8 +140,8 @@
     <!-- Apply modal -->
     <div v-if="applyTemplate" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" @click.self="applyTemplate = null">
       <div class="card w-full max-w-md">
-        <h2 class="text-lg font-semibold text-white mb-1">Apply: {{ applyTemplate.name }}</h2>
-        <p class="text-sm text-gray-400 mb-4">Fill in the variables to create a monitor from this template.</p>
+        <h2 class="text-lg font-semibold text-white mb-1">{{ t('templates.apply_title', { name: applyTemplate.name }) }}</h2>
+        <p class="text-sm text-gray-400 mb-4">{{ t('templates.apply_subtitle') }}</p>
 
         <div class="space-y-3">
           <div v-for="v in applyTemplate.variables" :key="v.name">
@@ -151,12 +157,12 @@
           </div>
 
           <div v-if="!applyTemplate.variables?.length" class="text-sm text-gray-500">
-            No variables to fill. A monitor will be created immediately.
+            {{ t('templates.no_variables') }}
           </div>
 
           <div>
-            <label class="block text-sm text-gray-400 mb-1">Name override (optional)</label>
-            <input v-model="applyNameOverride" class="input w-full" placeholder="Custom monitor name" />
+            <label class="block text-sm text-gray-400 mb-1">{{ t('templates.name_override') }}</label>
+            <input v-model="applyNameOverride" class="input w-full" :placeholder="t('templates.name_override_placeholder')" />
           </div>
         </div>
 
@@ -164,7 +170,7 @@
           <button @click="applyTemplate = null" class="btn-secondary">{{ t('common.cancel') }}</button>
           <button @click="doApply" class="btn-primary" :disabled="applying">
             <Loader2 v-if="applying" class="w-4 h-4 mr-2 animate-spin inline" />
-            Create monitor
+            {{ t('templates.create_monitor') }}
           </button>
         </div>
       </div>
@@ -241,7 +247,7 @@ async function saveTemplate() {
   try {
     monitor_config = JSON.parse(form.value.configJson)
   } catch (e) {
-    configError.value = 'Invalid JSON: ' + e.message
+    configError.value = t('templates.invalid_json', { msg: e.message })
     return
   }
 
@@ -256,15 +262,15 @@ async function saveTemplate() {
     }
     if (editingTemplate.value) {
       await templatesApi.update(editingTemplate.value.id, payload)
-      success('Template updated')
+      success(t('templates.updated'))
     } else {
       await templatesApi.create(payload)
-      success('Template created')
+      success(t('templates.created'))
     }
     closeModal()
     await load()
   } catch {
-    toastError('Error saving template')
+    toastError(t('templates.error_saving'))
   } finally {
     saving.value = false
   }
@@ -272,16 +278,16 @@ async function saveTemplate() {
 
 async function deleteTemplate(tpl) {
   const ok = await confirm({
-    title: `Delete template "${tpl.name}"?`,
-    confirmLabel: 'Delete',
+    title: t('templates.delete_confirm', { name: tpl.name }),
+    confirmLabel: t('common.delete'),
   })
   if (!ok) return
   try {
     await templatesApi.delete(tpl.id)
-    templates.value = templates.value.filter(t => t.id !== tpl.id)
-    success('Template deleted')
+    templates.value = templates.value.filter((tp) => tp.id !== tpl.id)
+    success(t('templates.deleted'))
   } catch {
-    toastError('Error deleting template')
+    toastError(t('templates.error_deleting'))
   }
 }
 
@@ -303,10 +309,10 @@ async function doApply() {
       name_override: applyNameOverride.value || null,
     }
     const { data } = await templatesApi.apply(applyTemplate.value.id, payload)
-    success(`Monitor "${data.name}" created`)
+    success(t('templates.applied', { name: data.name }))
     applyTemplate.value = null
   } catch (e) {
-    toastError('Error applying template: ' + (e.response?.data?.detail || e.message))
+    toastError(t('templates.error_applying', { detail: e.response?.data?.detail || e.message }))
   } finally {
     applying.value = false
   }

@@ -202,15 +202,15 @@
             <th class="th cursor-pointer select-none hover:text-gray-300 transition-colors" @click="setSortKey('name')">
               <span class="inline-flex items-center gap-0.5">{{ t('common.name') }} <component v-if="isSorted('name')" :is="sortIcon('name')" :size="11" /></span>
             </th>
-            <th class="th hidden md:table-cell">Target</th>
-            <th class="th hidden lg:table-cell">Interval</th>
+            <th class="th hidden md:table-cell">{{ t('monitors.col_target') }}</th>
+            <th class="th hidden lg:table-cell">{{ t('monitors.col_interval') }}</th>
             <th class="th hidden sm:table-cell cursor-pointer select-none hover:text-gray-300 transition-colors" @click="setSortKey('uptime')">
               <span class="inline-flex items-center gap-0.5">{{ t('monitors.uptime_24h') }} <component v-if="isSorted('uptime')" :is="sortIcon('uptime')" :size="11" /></span>
             </th>
             <th class="th hidden lg:table-cell cursor-pointer select-none hover:text-gray-300 transition-colors" @click="setSortKey('rt')">
-              <span class="inline-flex items-center gap-0.5">Resp. <component v-if="isSorted('rt')" :is="sortIcon('rt')" :size="11" /></span>
+              <span class="inline-flex items-center gap-0.5">{{ t('monitors.col_response') }} <component v-if="isSorted('rt')" :is="sortIcon('rt')" :size="11" /></span>
             </th>
-            <th class="th hidden lg:table-cell">Trend</th>
+            <th class="th hidden lg:table-cell">{{ t('monitors.col_trend') }}</th>
             <th class="th pr-6 text-right">{{ t('common.actions') }}</th>
           </tr>
         </thead>

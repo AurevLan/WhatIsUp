@@ -159,7 +159,7 @@
         </button>
       </div>
       <p v-if="!channels.length" class="text-xs text-amber-400 mb-3">
-        ⚠ Créez d'abord au moins un canal pour pouvoir configurer des règles.
+        ⚠ {{ t('alerts.create_channel_first') }}
       </p>
 
       <div v-if="rules.length === 0 && channels.length" class="text-gray-500 text-sm text-center py-8">
@@ -174,7 +174,7 @@
                 <span class="text-sm font-medium text-white">{{ targetName(rule) }}</span>
                 <span class="text-xs px-2 py-0.5 rounded-full font-mono"
                   :class="rule.monitor_id ? 'bg-blue-900/40 text-blue-300' : 'bg-purple-900/40 text-purple-300'">
-                  {{ rule.monitor_id ? 'monitor' : 'groupe' }}
+                  {{ rule.monitor_id ? t('alerts.scope_monitor') : t('alerts.scope_group') }}
                 </span>
                 <span v-if="!rule.enabled" class="text-xs px-2 py-0.5 rounded-full bg-gray-800 text-gray-500">
                   {{ t('alerts.rule_disabled') }}
@@ -185,11 +185,11 @@
                   {{ conditionLabel(rule.condition) }}
                   <span v-if="rule.threshold_value != null">{{ conditionUnit(rule.condition, rule.threshold_value) }}</span>
                 </span>
-                <span v-if="rule.min_duration_seconds" class="text-xs text-gray-500">· après {{ rule.min_duration_seconds }}s</span>
-                <span v-if="rule.renotify_after_minutes" class="text-xs text-gray-500">· ré-alerte {{ rule.renotify_after_minutes }}min</span>
-                <span v-if="rule.digest_minutes" class="text-xs text-blue-500">· digest {{ rule.digest_minutes }}min</span>
+                <span v-if="rule.min_duration_seconds" class="text-xs text-gray-500">{{ t('alerts.rule_after_seconds', { n: rule.min_duration_seconds }) }}</span>
+                <span v-if="rule.renotify_after_minutes" class="text-xs text-gray-500">{{ t('alerts.rule_renotify_minutes', { n: rule.renotify_after_minutes }) }}</span>
+                <span v-if="rule.digest_minutes" class="text-xs text-blue-500">{{ t('alerts.rule_digest_minutes', { n: rule.digest_minutes }) }}</span>
                 <span v-if="rule.anomaly_zscore_threshold" class="text-xs text-purple-400">· z={{ rule.anomaly_zscore_threshold }}</span>
-                <span v-if="rule.schedule?.offhours_suppress" class="text-xs text-amber-400">· 🕐 plages horaires</span>
+                <span v-if="rule.schedule?.offhours_suppress" class="text-xs text-amber-400">{{ t('alerts.rule_business_hours') }}</span>
               </div>
               <div class="mt-2 flex items-center gap-1.5 flex-wrap">
                 <span v-for="ch in rule.channels" :key="ch.id"
@@ -256,25 +256,25 @@
         <form @submit.prevent="saveRule" class="space-y-4">
           <!-- Target type (only for create) -->
           <div v-if="!editingRule">
-            <label class="block text-sm font-medium text-gray-300 mb-2">Cible *</label>
+            <label class="block text-sm font-medium text-gray-300 mb-2">{{ t('alerts.target_label') }} *</label>
             <div class="grid grid-cols-2 gap-2 mb-2">
               <button type="button" @click="ruleForm.target_type = 'monitor'; ruleForm.target_id = ''"
                 class="py-2 px-3 rounded-lg border text-sm font-medium transition-colors"
                 :class="ruleForm.target_type === 'monitor'
                   ? 'bg-blue-600 border-blue-500 text-white'
                   : 'border-gray-700 text-gray-400 hover:border-gray-600'">
-                Monitor
+                {{ t('alerts.target_monitor') }}
               </button>
               <button type="button" @click="ruleForm.target_type = 'group'; ruleForm.target_id = ''"
                 class="py-2 px-3 rounded-lg border text-sm font-medium transition-colors"
                 :class="ruleForm.target_type === 'group'
                   ? 'bg-purple-600 border-purple-500 text-white'
                   : 'border-gray-700 text-gray-400 hover:border-gray-600'">
-                Groupe
+                {{ t('alerts.target_group') }}
               </button>
             </div>
             <select v-model="ruleForm.target_id" class="input w-full" required>
-              <option value="">-- Sélectionner --</option>
+              <option value="">{{ t('alerts.select_placeholder') }}</option>
               <template v-if="ruleForm.target_type === 'monitor'">
                 <option v-for="m in allMonitors" :key="m.id" :value="m.id">
                   {{ m.name }} ({{ m.check_type }})
@@ -287,63 +287,63 @@
           </div>
           <!-- Show current target for edit -->
           <div v-else>
-            <label class="block text-sm font-medium text-gray-300 mb-1">Cible</label>
+            <label class="block text-sm font-medium text-gray-300 mb-1">{{ t('alerts.target_label') }}</label>
             <p class="text-sm text-gray-400 px-3 py-2 bg-gray-800 rounded-lg">
               {{ targetName(editingRule) }}
-              <span class="text-gray-600 ml-2 text-xs">(non modifiable)</span>
+              <span class="text-gray-600 ml-2 text-xs">{{ t('alerts.target_locked') }}</span>
             </p>
           </div>
 
           <!-- Condition -->
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">Condition *</label>
+            <label class="block text-sm font-medium text-gray-300 mb-1">{{ t('alerts.condition_label') }} *</label>
             <select v-model="ruleForm.condition" class="input w-full" required>
-              <option value="any_down">Alerte si au moins une sonde détecte une panne</option>
-              <option value="all_down">Alerte si toutes les sondes détectent une panne (panne globale)</option>
-              <option value="ssl_expiry">Expiration du certificat SSL imminente</option>
-              <option value="response_time_above">Temps de réponse / résolution dépassé(e)</option>
-              <option value="response_time_above_baseline">Temps de réponse > N× la moyenne 7j</option>
-              <option value="anomaly_detection">Détection d'anomalie (z-score)</option>
-              <option value="schema_drift">Dérive du schéma API</option>
+              <option value="any_down">{{ t('alerts.cond_any_down') }}</option>
+              <option value="all_down">{{ t('alerts.cond_all_down') }}</option>
+              <option value="ssl_expiry">{{ t('alerts.cond_ssl_expiry') }}</option>
+              <option value="response_time_above">{{ t('alerts.cond_response_time_above') }}</option>
+              <option value="response_time_above_baseline">{{ t('alerts.cond_response_time_above_baseline') }}</option>
+              <option value="anomaly_detection">{{ t('alerts.cond_anomaly_detection') }}</option>
+              <option value="schema_drift">{{ t('alerts.cond_schema_drift') }}</option>
             </select>
           </div>
 
           <!-- Baseline factor -->
           <div v-if="ruleForm.condition === 'response_time_above_baseline'" class="bg-blue-900/20 border border-blue-800/50 rounded-lg p-3 space-y-2">
             <label class="block text-sm font-medium text-gray-300">
-              Facteur (N×)
-              <span class="text-gray-500 font-normal ml-1">— alerte si temps de réponse > N × moyenne 7j</span>
+              {{ t('alerts.baseline_factor_label') }}
+              <span class="text-gray-500 font-normal ml-1">{{ t('alerts.baseline_factor_hint') }}</span>
             </label>
-            <input v-model.number="ruleForm.baseline_factor" class="input w-full" type="number" min="1.1" max="20" step="0.1" placeholder="ex: 3" />
-            <p class="text-xs text-gray-500">Exemple : 3 → alerte si le temps de réponse dépasse 3× la moyenne habituelle sur les 7 derniers jours. Nécessite au moins 24h d'historique.</p>
+            <input v-model.number="ruleForm.baseline_factor" class="input w-full" type="number" min="1.1" max="20" step="0.1" :placeholder="t('alerts.baseline_placeholder')" />
+            <p class="text-xs text-gray-500">{{ t('alerts.baseline_factor_help') }}</p>
           </div>
 
           <!-- Anomaly z-score threshold -->
           <div v-if="ruleForm.condition === 'anomaly_detection'" class="bg-purple-900/20 border border-purple-800/50 rounded-lg p-3 space-y-2">
             <label class="block text-sm font-medium text-gray-300">
-              Seuil z-score
-              <span class="text-gray-500 font-normal ml-1">— sensibilité de la détection (1.0 = très sensible, 3.5 = standard)</span>
+              {{ t('alerts.zscore_label') }}
+              <span class="text-gray-500 font-normal ml-1">{{ t('alerts.zscore_hint') }}</span>
             </label>
             <input v-model.number="ruleForm.anomaly_zscore_threshold" class="input w-full" type="number" min="1.0" max="10.0" step="0.1" placeholder="3.5" />
-            <p class="text-xs text-gray-500">Déclenche une alerte si le temps de réponse s'écarte de plus de Z-sigma par rapport à la moyenne des 7 derniers jours.</p>
+            <p class="text-xs text-gray-500">{{ t('alerts.zscore_help') }}</p>
           </div>
 
           <!-- Schema drift info -->
           <div v-if="ruleForm.condition === 'schema_drift'" class="bg-amber-900/20 border border-amber-800/50 rounded-lg p-3">
-            <p class="text-xs text-amber-400">Déclenche une alerte quand la structure JSON de la réponse change par rapport au baseline. Activez d'abord la détection de dérive dans le moniteur.</p>
+            <p class="text-xs text-amber-400">{{ t('alerts.schema_drift_help') }}</p>
           </div>
 
           <!-- Threshold -->
           <div v-if="ruleForm.condition === 'response_time_above'">
-            <label class="block text-sm font-medium text-gray-300 mb-1">Seuil (ms) *</label>
-            <input v-model.number="ruleForm.threshold_value" class="input w-full" type="number" min="1" max="60000" placeholder="ex: 2000" required />
+            <label class="block text-sm font-medium text-gray-300 mb-1">{{ t('alerts.threshold_ms_label') }} *</label>
+            <input v-model.number="ruleForm.threshold_value" class="input w-full" type="number" min="1" max="60000" :placeholder="t('alerts.threshold_placeholder')" required />
           </div>
 
           <!-- Min duration -->
           <div>
             <label class="block text-sm font-medium text-gray-300 mb-1">
-              Durée minimale avant alerte (s)
-              <span class="text-gray-500 font-normal">— 0 = immédiat</span>
+              {{ t('alerts.min_duration_label') }}
+              <span class="text-gray-500 font-normal">{{ t('alerts.min_duration_hint') }}</span>
             </label>
             <input v-model.number="ruleForm.min_duration_seconds" class="input w-full" type="number" min="0" max="3600" />
           </div>
@@ -351,19 +351,19 @@
           <!-- Renotify -->
           <div>
             <label class="block text-sm font-medium text-gray-300 mb-1">
-              Ré-notification toutes les (min)
-              <span class="text-gray-500 font-normal">— vide = une seule alerte</span>
+              {{ t('alerts.renotify_label') }}
+              <span class="text-gray-500 font-normal">{{ t('alerts.renotify_hint') }}</span>
             </label>
-            <input v-model.number="ruleForm.renotify_after_minutes" class="input w-full" type="number" min="1" max="10080" placeholder="ex: 60" />
+            <input v-model.number="ruleForm.renotify_after_minutes" class="input w-full" type="number" min="1" max="10080" :placeholder="t('alerts.renotify_placeholder')" />
           </div>
 
           <!-- Digest -->
           <div>
             <label class="block text-sm font-medium text-gray-300 mb-1">
-              Digest — regrouper les alertes (min)
-              <span class="text-gray-500 font-normal">— 0 = désactivé</span>
+              {{ t('alerts.digest_label') }}
+              <span class="text-gray-500 font-normal">{{ t('alerts.digest_off_hint') }}</span>
             </label>
-            <input v-model.number="ruleForm.digest_minutes" class="input w-full" type="number" min="0" max="1440" placeholder="ex: 30" />
+            <input v-model.number="ruleForm.digest_minutes" class="input w-full" type="number" min="0" max="1440" :placeholder="t('alerts.digest_placeholder')" />
           </div>
 
           <!-- Business Hours Schedule -->
@@ -373,30 +373,30 @@
               @click="ruleForm.showSchedule = !ruleForm.showSchedule"
               class="w-full flex items-center justify-between px-3 py-2.5 text-sm text-gray-300 hover:bg-gray-800 transition-colors"
             >
-              <span class="font-medium">Plages horaires (optionnel)</span>
+              <span class="font-medium">{{ t('alerts.schedule_title') }}</span>
               <span class="text-gray-500 text-xs">{{ ruleForm.showSchedule ? '▲' : '▼' }}</span>
             </button>
             <div v-if="ruleForm.showSchedule" class="px-3 pb-3 space-y-3 border-t border-gray-700 pt-3">
-              <p class="text-xs text-gray-500">Supprime les alertes en dehors des heures de bureau configurées.</p>
+              <p class="text-xs text-gray-500">{{ t('alerts.schedule_help') }}</p>
 
               <div class="flex items-center gap-2">
                 <input type="checkbox" id="offhours-suppress" v-model="ruleForm.schedule.offhours_suppress" class="w-4 h-4" />
-                <label for="offhours-suppress" class="text-sm text-gray-300">Supprimer les alertes hors des heures configurées</label>
+                <label for="offhours-suppress" class="text-sm text-gray-300">{{ t('alerts.schedule_suppress_label') }}</label>
               </div>
 
               <div v-if="ruleForm.schedule.offhours_suppress" class="space-y-3">
                 <div>
-                  <label class="block text-xs text-gray-400 mb-1">Fuseau horaire</label>
+                  <label class="block text-xs text-gray-400 mb-1">{{ t('alerts.schedule_timezone') }}</label>
                   <select v-model="ruleForm.schedule.timezone" class="input w-full text-sm">
                     <option v-for="tz in commonTimezones" :key="tz" :value="tz">{{ tz }}</option>
                   </select>
                 </div>
 
                 <div>
-                  <label class="block text-xs text-gray-400 mb-1">Jours actifs</label>
+                  <label class="block text-xs text-gray-400 mb-1">{{ t('alerts.schedule_days') }}</label>
                   <div class="flex flex-wrap gap-1">
                     <button
-                      v-for="(day, idx) in ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']"
+                      v-for="(day, idx) in weekDays"
                       :key="idx"
                       type="button"
                       @click="toggleDay(idx)"
@@ -408,11 +408,11 @@
 
                 <div class="grid grid-cols-2 gap-2">
                   <div>
-                    <label class="block text-xs text-gray-400 mb-1">Heure de début</label>
+                    <label class="block text-xs text-gray-400 mb-1">{{ t('alerts.schedule_start') }}</label>
                     <input v-model="ruleForm.schedule.start" type="time" class="input w-full text-sm" />
                   </div>
                   <div>
-                    <label class="block text-xs text-gray-400 mb-1">Heure de fin</label>
+                    <label class="block text-xs text-gray-400 mb-1">{{ t('alerts.schedule_end') }}</label>
                     <input v-model="ruleForm.schedule.end" type="time" class="input w-full text-sm" />
                   </div>
                 </div>
@@ -422,7 +422,7 @@
 
           <!-- Channels -->
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-2">Canaux *</label>
+            <label class="block text-sm font-medium text-gray-300 mb-2">{{ t('alerts.channels_label') }} *</label>
             <div class="space-y-2">
               <label v-for="ch in channels" :key="ch.id" class="flex items-center gap-3 cursor-pointer">
                 <input type="checkbox" :value="ch.id" v-model="ruleForm.channel_ids" class="w-4 h-4" />
@@ -436,7 +436,7 @@
 
           <!-- Message preview -->
           <div v-if="ruleForm.condition && ruleForm.channel_ids.length" class="bg-gray-800/60 border border-gray-700 rounded-lg p-3">
-            <p class="text-xs text-gray-500 mb-1.5 font-medium uppercase tracking-wide">Aperçu du message</p>
+            <p class="text-xs text-gray-500 mb-1.5 font-medium uppercase tracking-wide">{{ t('alerts.preview_title') }}</p>
             <p class="text-xs text-gray-300 font-mono whitespace-pre-wrap">{{ messagePreview }}</p>
           </div>
 
@@ -486,6 +486,7 @@ import { useI18n } from 'vue-i18n'
 import api from '../api/client'
 import { monitorsApi, groupsApi } from '../api/monitors'
 import { useToast } from '../composables/useToast'
+import { useDateFormat } from '../composables/useDateFormat'
 import AddChannelModal from '../components/alerts/AddChannelModal.vue'
 import AlertTemplatesSection from '../components/alerts/AlertTemplatesSection.vue'
 import EmptyState from '../components/shared/EmptyState.vue'
@@ -497,6 +498,7 @@ const isSuperadmin = computed(() => authStore.isSuperadmin)
 
 const { t } = useI18n()
 const { success, error: toastError } = useToast()
+const { formatDate, formatRelative } = useDateFormat()
 
 const loading = ref(true)
 const channels = ref([])
@@ -540,9 +542,9 @@ async function applySuggestion(s) {
     })
     thresholdSuggestions.value = thresholdSuggestions.value.filter(x => x.monitor_id !== s.monitor_id)
     await loadData()
-    success(`Alert rule created for ${s.monitor_name} (>${s.suggested_threshold_ms}ms)`)
+    success(t('alerts.toast_rule_created_for', { name: s.monitor_name, ms: s.suggested_threshold_ms }))
   } catch (err) {
-    toastError(err.response?.data?.detail || 'Error creating rule')
+    toastError(err.response?.data?.detail || t('alerts.toast_error_creating_rule'))
   } finally {
     applyingSuggestion.value = null
   }
@@ -579,6 +581,10 @@ const commonTimezones = [
   'America/Sao_Paulo', 'Asia/Tokyo', 'Asia/Shanghai', 'Asia/Singapore',
   'Asia/Kolkata', 'Australia/Sydney', 'Pacific/Auckland', 'UTC',
 ]
+
+const weekDays = computed(() =>
+  ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((d) => t(`common.weekday_${d}`))
+)
 
 function toggleDay(idx) {
   const days = ruleForm.value.schedule.days || []
@@ -645,36 +651,18 @@ function targetName(rule) {
   return allGroups.value.find(g => g.id === rule.group_id)?.name || rule.group_id?.slice(0, 8) + '…'
 }
 
+const CONDITION_KEYS = [
+  'any_down', 'all_down', 'ssl_expiry', 'response_time_above',
+  'response_time_above_baseline', 'anomaly_detection', 'schema_drift',
+]
+
 function conditionLabel(cond) {
-  const map = {
-    any_down: 'Panne détectée (any)',
-    all_down: 'Panne globale (all)',
-    ssl_expiry: 'Expiration SSL',
-    response_time_above: 'Temps de réponse >',
-    response_time_above_baseline: 'Temps de réponse > N× moy. 7j',
-    anomaly_detection: 'Anomalie z-score',
-    schema_drift: 'Dérive schéma API',
-  }
-  return map[cond] || cond
+  return CONDITION_KEYS.includes(cond) ? t(`alerts.cond_short_${cond}`) : cond
 }
 
 function conditionUnit(cond, val) {
   if (cond === 'response_time_above') return ` ${val}ms`
   return ''
-}
-
-function formatDate(dt) {
-  return new Date(dt).toLocaleString('fr-FR')
-}
-
-function formatRelative(dt) {
-  const diff = Date.now() - new Date(dt).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'à l\'instant'
-  if (mins < 60) return `il y a ${mins}min`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `il y a ${hours}h`
-  return `il y a ${Math.floor(hours / 24)}j`
 }
 
 async function loadData() {
@@ -699,7 +687,7 @@ function confirmDeleteChannel(channel) {
     action: async () => {
       await api.delete(`/alerts/channels/${channel.id}`)
       await loadData()
-      success(`Canal "${channel.name}" supprimé`)
+      success(t('alerts.toast_channel_deleted', { name: channel.name }))
     },
   }
 }
@@ -710,7 +698,7 @@ function confirmDeleteRule(rule) {
     action: async () => {
       await api.delete(`/alerts/rules/${rule.id}`)
       await loadData()
-      success('Règle supprimée')
+      success(t('alerts.toast_rule_deleted'))
     },
   }
 }
@@ -724,7 +712,7 @@ async function testChannel(channel) {
   } catch (err) {
     testResults.value = {
       ...testResults.value,
-      [channel.id]: { success: false, detail: err.response?.data?.detail || 'Erreur réseau' },
+      [channel.id]: { success: false, detail: err.response?.data?.detail || t('common.network_error') },
     }
   } finally {
     testingChannel.value = null
@@ -734,7 +722,7 @@ async function testChannel(channel) {
 async function toggleRule(rule) {
   await api.patch(`/alerts/rules/${rule.id}`, { enabled: !rule.enabled })
   rule.enabled = !rule.enabled
-  success(rule.enabled ? 'Règle activée' : 'Règle désactivée')
+  success(rule.enabled ? t('alerts.toast_rule_enabled') : t('alerts.toast_rule_disabled'))
 }
 
 async function runSimulate(rule) {
@@ -746,7 +734,7 @@ async function runSimulate(rule) {
   } catch (err) {
     simulateResults.value = {
       ...simulateResults.value,
-      [rule.id]: { would_fire: false, reason: err.response?.data?.detail || 'Erreur', affected_monitors: [] },
+      [rule.id]: { would_fire: false, reason: err.response?.data?.detail || t('common.error'), affected_monitors: [] },
     }
   } finally {
     simulatingRule.value = null
@@ -830,9 +818,9 @@ async function saveRule() {
     }
     closeRuleModal()
     await loadData()
-    success(isEditing ? 'Règle mise à jour' : 'Règle créée')
+    success(isEditing ? t('alerts.toast_rule_updated') : t('alerts.toast_rule_created'))
   } catch (err) {
-    ruleError.value = err.response?.data?.detail || 'Erreur lors de la sauvegarde de la règle'
+    ruleError.value = err.response?.data?.detail || t('alerts.toast_error_saving_rule')
   } finally {
     ruleLoading.value = false
   }

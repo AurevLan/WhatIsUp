@@ -12,15 +12,30 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from whatisup.api.deps import get_current_user, get_db
+from whatisup.api.deps import check_resource_access, get_current_user, get_db
 from whatisup.core.limiter import limiter
 from whatisup.models.custom_metric import CustomMetric
 from whatisup.models.monitor import Monitor
+from whatisup.models.team import TeamRole
 from whatisup.models.user import User
 
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/metrics", tags=["metrics"])
+
+
+async def _get_accessible_monitor_or_404(
+    monitor_id: uuid.UUID,
+    current_user: User,
+    db: AsyncSession,
+    min_role: TeamRole = TeamRole.viewer,
+) -> Monitor:
+    """Resolve the monitor with owner OR team access (same pattern as monitors.py)."""
+    monitor = await db.scalar(select(Monitor).where(Monitor.id == monitor_id))
+    if not monitor:
+        raise HTTPException(status_code=404, detail="Moniteur introuvable")
+    await check_resource_access(monitor, current_user, db, min_role=min_role)
+    return monitor
 
 
 class MetricPush(BaseModel):
@@ -59,15 +74,8 @@ async def push_metric(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> CustomMetric:
-    """Push a custom metric for a monitor owned by the authenticated user."""
-    monitor = await db.scalar(
-        select(Monitor).where(
-            Monitor.id == monitor_id,
-            Monitor.owner_id == current_user.id,
-        )
-    )
-    if not monitor:
-        raise HTTPException(status_code=404, detail="Moniteur introuvable")
+    """Push a custom metric for a monitor the user owns or can edit via team."""
+    await _get_accessible_monitor_or_404(monitor_id, current_user, db, min_role=TeamRole.editor)
 
     metric = CustomMetric(
         monitor_id=monitor_id,
@@ -103,14 +111,7 @@ async def get_metrics_summary(
     until: datetime | None = None,
 ) -> list[MetricSummaryItem]:
     """Return aggregated stats (min, max, avg, last value) per metric name."""
-    monitor = await db.scalar(
-        select(Monitor).where(
-            Monitor.id == monitor_id,
-            Monitor.owner_id == current_user.id,
-        )
-    )
-    if not monitor:
-        raise HTTPException(status_code=404, detail="Moniteur introuvable")
+    await _get_accessible_monitor_or_404(monitor_id, current_user, db)
 
     if since is not None:
         cutoff = since.replace(tzinfo=UTC) if since.tzinfo is None else since
@@ -192,14 +193,7 @@ async def list_metrics(
     Accepts either ``since``/``until`` ISO 8601 datetime params or the legacy
     ``hours`` integer param for backwards compatibility.
     """
-    monitor = await db.scalar(
-        select(Monitor).where(
-            Monitor.id == monitor_id,
-            Monitor.owner_id == current_user.id,
-        )
-    )
-    if not monitor:
-        raise HTTPException(status_code=404, detail="Moniteur introuvable")
+    await _get_accessible_monitor_or_404(monitor_id, current_user, db)
 
     if since is not None:
         cutoff = since.replace(tzinfo=UTC) if since.tzinfo is None else since

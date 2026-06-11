@@ -35,12 +35,10 @@ async def list_windows(
     return list(result.scalars().all())
 
 
-@router.post("/", response_model=MaintenanceWindowOut, status_code=status.HTTP_201_CREATED)
-async def create_window(
-    payload: MaintenanceWindowCreate,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> MaintenanceWindow:
+async def _assert_target_access(
+    payload: MaintenanceWindowCreate, current_user: User, db: AsyncSession
+) -> None:
+    """Ensure the user owns the monitor/group the window is being attached to."""
     if payload.monitor_id is not None and not current_user.is_superadmin:
         monitor = (
             await db.execute(
@@ -64,6 +62,17 @@ async def create_window(
         ).scalar_one_or_none()
         if group is None:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
+
+@router.post("/", response_model=MaintenanceWindowOut, status_code=status.HTTP_201_CREATED)
+@limiter.limit("20/minute")
+async def create_window(
+    request: Request,
+    payload: MaintenanceWindowCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> MaintenanceWindow:
+    await _assert_target_access(payload, current_user, db)
 
     window = MaintenanceWindow(
         name=payload.name,
@@ -112,6 +121,8 @@ async def update_window(
     if window is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Window not found")
     await check_resource_access(window, current_user, db)
+    # Re-validate the (possibly reassigned) monitor/group target, same as create
+    await _assert_target_access(payload, current_user, db)
     for field, value in payload.model_dump().items():
         setattr(window, field, value)
     await db.flush()

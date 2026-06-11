@@ -1243,7 +1243,9 @@ async def list_annotations(
 
 
 @router.post("/{monitor_id}/annotations", status_code=status.HTTP_201_CREATED)
+@limiter.limit("30/minute")
 async def create_annotation(
+    request: Request,
     monitor_id: uuid.UUID,
     payload: AnnotationCreate,
     current_user: User = Depends(get_current_user),
@@ -1263,7 +1265,9 @@ async def create_annotation(
 
 
 @router.delete("/{monitor_id}/annotations/{annotation_id}", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("30/minute")
 async def delete_annotation(
+    request: Request,
     monitor_id: uuid.UUID,
     annotation_id: uuid.UUID,
     current_user: User = Depends(get_current_user),

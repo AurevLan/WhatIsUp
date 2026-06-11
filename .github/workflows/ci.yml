@@ -45,7 +45,7 @@ jobs:
       - name: Install server + dev dependencies
         run: pip install -e ".[dev]"
       - name: Run server tests
-        run: pytest tests/ -v --tb=short --cov=whatisup --cov-report=term-missing --cov-fail-under=65
+        run: pytest tests/ -v --tb=short --cov=whatisup --cov-report=term-missing --cov-fail-under=75
         env:
           SECRET_KEY: "ci-test-secret-32-chars-minimum-x"
           ENVIRONMENT: "test"
@@ -87,6 +87,12 @@ jobs:
           ENVIRONMENT: test
       - name: downgrade base
         run: alembic downgrade base
+        env:
+          DATABASE_URL: postgresql+asyncpg://whatisup:whatisup@localhost:5432/whatisup_test
+          SECRET_KEY: ci-test-secret-32-chars-minimum-x
+          ENVIRONMENT: test
+      - name: upgrade head again (full round-trip)
+        run: alembic upgrade head
         env:
           DATABASE_URL: postgresql+asyncpg://whatisup:whatisup@localhost:5432/whatisup_test
           SECRET_KEY: ci-test-secret-32-chars-minimum-x

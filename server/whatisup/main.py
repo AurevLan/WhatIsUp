@@ -17,6 +17,7 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from whatisup.core.config import get_settings
 from whatisup.core.database import get_db as get_db_dep
 from whatisup.core.limiter import limiter
+from whatisup.core.metrics import track_background_task
 from whatisup.core.middleware import MaxRequestSizeMiddleware, SecurityHeadersMiddleware
 from whatisup.core.redis import close_redis
 
@@ -38,7 +39,8 @@ async def _retention_job() -> None:
         wait_seconds = (next_run - now).total_seconds()
         await asyncio.sleep(wait_seconds)
         try:
-            await purge_old_results(settings.data_retention_days)
+            async with track_background_task("retention"):
+                await purge_old_results(settings.data_retention_days)
         except Exception as exc:
             logger.error("retention_job_failed", error_type=type(exc).__name__, error=str(exc))
 
@@ -62,7 +64,8 @@ async def lifespan(app: FastAPI):
 
         while True:
             try:
-                await check_heartbeats()
+                async with track_background_task("heartbeat_checker"):
+                    await check_heartbeats()
             except Exception as exc:
                 logger.error(
                     "heartbeat_checker_error",
@@ -79,7 +82,8 @@ async def lifespan(app: FastAPI):
 
         while True:
             try:
-                await check_renotify()
+                async with track_background_task("renotify_checker"):
+                    await check_renotify()
             except Exception as exc:
                 logger.error(
                     "renotify_checker_error",
@@ -104,7 +108,8 @@ async def lifespan(app: FastAPI):
 
         while True:
             try:
-                await flush_pending_digests()
+                async with track_background_task("digest_flusher"):
+                    await flush_pending_digests()
             except Exception as exc:
                 logger.error("digest_flusher_error", error=str(exc))
             await asyncio.sleep(30)
@@ -117,7 +122,8 @@ async def lifespan(app: FastAPI):
 
         while True:
             try:
-                await check_and_send_reports()
+                async with track_background_task("report_scheduler"):
+                    await check_and_send_reports()
             except Exception as exc:
                 logger.error("report_scheduler_error", error_type=type(exc).__name__)
             await asyncio.sleep(3600)
@@ -133,8 +139,9 @@ async def lifespan(app: FastAPI):
         await asyncio.sleep(60)
         while True:
             try:
-                async with get_session_factory()() as bg_db:
-                    await recompute_open_incidents_verdicts(bg_db)
+                async with track_background_task("network_verdict"):
+                    async with get_session_factory()() as bg_db:
+                        await recompute_open_incidents_verdicts(bg_db)
             except Exception as exc:
                 logger.error(
                     "network_verdict_loop_error",
@@ -154,8 +161,9 @@ async def lifespan(app: FastAPI):
         await asyncio.sleep(120)
         while True:
             try:
-                async with get_session_factory()() as bg_db:
-                    await refresh_stale_probes(bg_db)
+                async with track_background_task("asn_refresh"):
+                    async with get_session_factory()() as bg_db:
+                        await refresh_stale_probes(bg_db)
             except Exception as exc:
                 logger.error(
                     "asn_refresh_loop_error",

@@ -132,7 +132,7 @@
     <div v-if="activeTab === 'teams'">
       <div class="flex justify-between items-center mb-4">
         <span class="text-sm text-gray-500">{{ t('admin.team_count', { n: teams.length }) }}</span>
-        <button @click="openCreateTeamModal" class="btn-primary flex items-center gap-2">
+        <button @click="showCreateTeamModal = true" class="btn-primary flex items-center gap-2">
           <Plus class="w-4 h-4" /> {{ t('admin.create_team') }}
         </button>
       </div>
@@ -350,544 +350,60 @@
       </div>
     </div>
 
-    <!-- ===== MODAL CREATE GROUP ===== -->
-    <Teleport to="body">
-      <div v-if="showCreateGroupModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" @click.self="showCreateGroupModal = false">
-        <div class="card w-full max-w-md" @click.stop>
-          <div class="flex justify-between items-center mb-6">
-            <h2 class="text-lg font-semibold text-white">{{ t('admin.create_group_title') }}</h2>
-            <button @click="showCreateGroupModal = false" class="text-gray-500 hover:text-gray-300"><X class="w-5 h-5" /></button>
-          </div>
-          <form @submit.prevent="submitCreateGroup" class="space-y-4">
-            <div>
-              <label class="block text-sm text-gray-400 mb-1">{{ t('admin.label_group_name') }}</label>
-              <input v-model="groupForm.name" type="text" class="input w-full" required maxlength="255" />
-            </div>
-            <div>
-              <label class="block text-sm text-gray-400 mb-1">{{ t('admin.label_description') }}</label>
-              <input v-model="groupForm.description" type="text" class="input w-full" />
-            </div>
-            <div v-if="groupError" class="text-red-400 text-sm">{{ groupError }}</div>
-            <div class="flex justify-end gap-3 pt-2">
-              <button type="button" @click="showCreateGroupModal = false" class="btn-secondary">{{ t('common.cancel') }}</button>
-              <button type="submit" class="btn-primary" :disabled="submitting">{{ submitting ? t('admin.creating') : t('admin.create_btn') }}</button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </Teleport>
-
-    <!-- ===== MODAL EDIT GROUP ===== -->
-    <Teleport to="body">
-      <div v-if="showEditGroupModal && editingGroup" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" @click.self="showEditGroupModal = false">
-        <div class="card w-full max-w-md" @click.stop>
-          <div class="flex justify-between items-center mb-6">
-            <h2 class="text-lg font-semibold text-white">{{ t('admin.edit_group_title', { name: editingGroup.name }) }}</h2>
-            <button @click="showEditGroupModal = false" class="text-gray-500 hover:text-gray-300"><X class="w-5 h-5" /></button>
-          </div>
-          <form @submit.prevent="submitEditGroup" class="space-y-4">
-            <div>
-              <label class="block text-sm text-gray-400 mb-1">{{ t('common.name') }}</label>
-              <input v-model="groupForm.name" type="text" class="input w-full" maxlength="255" />
-            </div>
-            <div>
-              <label class="block text-sm text-gray-400 mb-1">{{ t('admin.label_description') }}</label>
-              <input v-model="groupForm.description" type="text" class="input w-full" />
-            </div>
-            <div v-if="groupError" class="text-red-400 text-sm">{{ groupError }}</div>
-            <div class="flex justify-end gap-3 pt-2">
-              <button type="button" @click="showEditGroupModal = false" class="btn-secondary">{{ t('common.cancel') }}</button>
-              <button type="submit" class="btn-primary" :disabled="submitting">{{ submitting ? t('admin.saving') : t('admin.save_btn') }}</button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </Teleport>
-
-    <!-- ===== MODAL CONFIRM DELETE GROUP ===== -->
-    <Teleport to="body">
-      <div v-if="showDeleteGroupModal && deletingGroup" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" @click.self="showDeleteGroupModal = false">
-        <div class="card w-full max-w-sm" @click.stop>
-          <h2 class="text-lg font-semibold text-white mb-3">{{ t('admin.confirm_delete_group') }}</h2>
-          <p class="text-gray-400 text-sm mb-6">
-            {{ t('admin.confirm_delete_group_msg', { name: deletingGroup.name }) }}
-          </p>
-          <div class="flex justify-end gap-3">
-            <button @click="showDeleteGroupModal = false" class="btn-secondary">{{ t('common.cancel') }}</button>
-            <button @click="executeDeleteGroup" class="btn-danger" :disabled="submitting">{{ submitting ? t('admin.deleting') : t('common.delete') }}</button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
-
-    <!-- ===== MODAL GROUP DETAIL (manage probes & users) ===== -->
-    <Teleport to="body">
-      <div v-if="showGroupDetailModal && detailGroup" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" @click.self="showGroupDetailModal = false">
-        <div class="card w-full max-w-2xl max-h-[80vh] overflow-y-auto" @click.stop>
-          <div class="flex justify-between items-center mb-6">
-            <h2 class="text-lg font-semibold text-white">{{ detailGroup.name }}</h2>
-            <button @click="showGroupDetailModal = false" class="text-gray-500 hover:text-gray-300"><X class="w-5 h-5" /></button>
-          </div>
-
-          <!-- Probes section -->
-          <div class="mb-6">
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="text-sm font-medium text-gray-300">{{ t('admin.section_probes') }}</h3>
-            </div>
-            <div v-if="detailGroup.probe_ids.length === 0" class="text-gray-600 text-sm">{{ t('admin.no_probes_in_group') }}</div>
-            <div v-else class="space-y-1 mb-3">
-              <div
-                v-for="probeId in detailGroup.probe_ids"
-                :key="probeId"
-                class="flex items-center justify-between py-1.5 px-3 rounded bg-gray-800/60 border border-gray-700/50"
-              >
-                <span class="text-gray-300 text-sm">{{ probeNameById(probeId) }}</span>
-                <button @click="removeProbeFromDetailGroup(probeId)" class="text-gray-600 hover:text-red-400 transition-colors" :disabled="submitting">
-                  <X class="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-            <!-- Add probes -->
-            <div class="flex gap-2 mt-2">
-              <select v-model="addProbeSelection" class="input flex-1 text-sm">
-                <option value="">{{ t('admin.add_probe_placeholder') }}</option>
-                <option
-                  v-for="probe in availableProbesForGroup"
-                  :key="probe.id"
-                  :value="probe.id"
-                >{{ probe.name }} ({{ probe.location_name }})</option>
-              </select>
-              <button @click="addProbeToDetailGroup" class="btn-primary text-sm" :disabled="!addProbeSelection || submitting">{{ t('admin.add_btn') }}</button>
-            </div>
-          </div>
-
-          <!-- Users section -->
-          <div>
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="text-sm font-medium text-gray-300">{{ t('admin.section_users') }}</h3>
-            </div>
-            <div v-if="detailGroup.user_ids.length === 0" class="text-gray-600 text-sm">{{ t('admin.no_users_in_group') }}</div>
-            <div v-else class="space-y-1 mb-3">
-              <div
-                v-for="userId in detailGroup.user_ids"
-                :key="userId"
-                class="flex items-center justify-between py-1.5 px-3 rounded bg-gray-800/60 border border-gray-700/50"
-              >
-                <span class="text-gray-300 text-sm">{{ userNameById(userId) }}</span>
-                <button @click="revokeUserFromDetailGroup(userId)" class="text-gray-600 hover:text-red-400 transition-colors" :disabled="submitting">
-                  <X class="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-            <!-- Add user -->
-            <div class="flex gap-2 mt-2">
-              <select v-model="addUserSelection" class="input flex-1 text-sm">
-                <option value="">{{ t('admin.add_user_placeholder') }}</option>
-                <option
-                  v-for="user in availableUsersForGroup"
-                  :key="user.id"
-                  :value="user.id"
-                >{{ user.username }}</option>
-              </select>
-              <button @click="grantUserToDetailGroup" class="btn-primary text-sm" :disabled="!addUserSelection || submitting">{{ t('admin.add_btn') }}</button>
-            </div>
-          </div>
-
-          <div v-if="detailError" class="mt-4 text-red-400 text-sm">{{ detailError }}</div>
-        </div>
-      </div>
-    </Teleport>
-
-    <!-- ===== MODAL CREATE USER ===== -->
-    <Teleport to="body">
-      <div v-if="showCreateModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" @click.self="showCreateModal = false">
-        <div class="card w-full max-w-md" @click.stop>
-          <div class="flex justify-between items-center mb-6">
-            <h2 class="text-lg font-semibold text-white">{{ t('admin.create_user_title') }}</h2>
-            <button @click="showCreateModal = false" class="text-gray-500 hover:text-gray-300">
-              <X class="w-5 h-5" />
-            </button>
-          </div>
-
-          <form @submit.prevent="submitCreate" class="space-y-4">
-            <div>
-              <label class="block text-sm text-gray-400 mb-1">{{ t('admin.label_email') }}</label>
-              <input v-model="createForm.email" type="email" class="input w-full" required />
-            </div>
-            <div>
-              <label class="block text-sm text-gray-400 mb-1">{{ t('admin.label_username') }}</label>
-              <input v-model="createForm.username" type="text" class="input w-full" :placeholder="t('admin.placeholder_username')" />
-            </div>
-            <div>
-              <label class="block text-sm text-gray-400 mb-1">{{ t('admin.label_full_name') }}</label>
-              <input v-model="createForm.full_name" type="text" class="input w-full" />
-            </div>
-            <div>
-              <label class="block text-sm text-gray-400 mb-1">{{ t('admin.label_password') }}</label>
-              <input v-model="createForm.password" type="password" class="input w-full" required minlength="8" />
-            </div>
-            <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-800/60 border border-gray-700/50">
-              <div>
-                <div class="text-sm text-gray-300 font-medium">{{ t('admin.perm_can_create_monitors') }}</div>
-                <div class="text-xs text-gray-500">{{ t('admin.perm_can_create_monitors_desc') }}</div>
-              </div>
-              <button
-                type="button"
-                @click="createForm.can_create_monitors = !createForm.can_create_monitors"
-                :class="createForm.can_create_monitors ? 'bg-blue-600' : 'bg-gray-700'"
-                class="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
-              >
-                <span
-                  :class="createForm.can_create_monitors ? 'translate-x-5' : 'translate-x-1'"
-                  class="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"
-                />
-              </button>
-            </div>
-
-            <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-800/60 border border-gray-700/50">
-              <div>
-                <div class="text-sm text-gray-300 font-medium">{{ t('admin.perm_is_admin') }}</div>
-                <div class="text-xs text-gray-500">{{ t('admin.perm_is_admin_desc') }}</div>
-              </div>
-              <button
-                type="button"
-                @click="createForm.is_superadmin = !createForm.is_superadmin"
-                :class="createForm.is_superadmin ? 'bg-purple-600' : 'bg-gray-700'"
-                class="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
-              >
-                <span
-                  :class="createForm.is_superadmin ? 'translate-x-5' : 'translate-x-1'"
-                  class="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"
-                />
-              </button>
-            </div>
-
-            <div v-if="createError" class="text-red-400 text-sm">{{ createError }}</div>
-
-            <div class="flex justify-end gap-3 pt-2">
-              <button type="button" @click="showCreateModal = false" class="btn-secondary">{{ t('common.cancel') }}</button>
-              <button type="submit" class="btn-primary" :disabled="submitting">
-                {{ submitting ? t('admin.creating') : t('admin.create_btn') }}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </Teleport>
-
-    <!-- ===== MODAL EDIT USER ===== -->
-    <Teleport to="body">
-      <div v-if="showEditModal && editingUser" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" @click.self="showEditModal = false">
-        <div class="card w-full max-w-md" @click.stop>
-          <div class="flex justify-between items-center mb-6">
-            <h2 class="text-lg font-semibold text-white">{{ t('admin.edit_user_title', { name: editingUser.username }) }}</h2>
-            <button @click="showEditModal = false" class="text-gray-500 hover:text-gray-300">
-              <X class="w-5 h-5" />
-            </button>
-          </div>
-
-          <form @submit.prevent="submitEdit" class="space-y-4">
-            <div>
-              <label class="block text-sm text-gray-400 mb-1">{{ t('admin.col_email') }}</label>
-              <input v-model="editForm.email" type="email" class="input w-full" />
-            </div>
-            <div>
-              <label class="block text-sm text-gray-400 mb-1">{{ t('admin.label_full_name') }}</label>
-              <input v-model="editForm.full_name" type="text" class="input w-full" />
-            </div>
-            <div>
-              <label class="block text-sm text-gray-400 mb-1">{{ t('admin.label_new_password') }}</label>
-              <input v-model="editForm.password" type="password" class="input w-full" minlength="8" />
-            </div>
-
-            <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-800/60 border border-gray-700/50">
-              <div>
-                <div class="text-sm text-gray-300 font-medium">{{ t('admin.toggle_active') }}</div>
-              </div>
-              <button
-                type="button"
-                @click="editForm.is_active = !editForm.is_active"
-                :class="editForm.is_active ? 'bg-green-600' : 'bg-gray-700'"
-                class="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
-              >
-                <span
-                  :class="editForm.is_active ? 'translate-x-5' : 'translate-x-1'"
-                  class="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"
-                />
-              </button>
-            </div>
-
-            <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-800/60 border border-gray-700/50">
-              <div>
-                <div class="text-sm text-gray-300 font-medium">{{ t('admin.perm_can_create_monitors') }}</div>
-              </div>
-              <button
-                type="button"
-                @click="editForm.can_create_monitors = !editForm.can_create_monitors"
-                :class="editForm.can_create_monitors ? 'bg-blue-600' : 'bg-gray-700'"
-                class="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
-              >
-                <span
-                  :class="editForm.can_create_monitors ? 'translate-x-5' : 'translate-x-1'"
-                  class="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"
-                />
-              </button>
-            </div>
-
-            <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-800/60 border border-gray-700/50">
-              <div>
-                <div class="text-sm text-gray-300 font-medium">{{ t('admin.perm_is_admin') }}</div>
-                <div class="text-xs text-gray-500">{{ t('admin.perm_is_admin_desc_short') }}</div>
-              </div>
-              <button
-                type="button"
-                @click="editForm.is_superadmin = !editForm.is_superadmin"
-                :class="editForm.is_superadmin ? 'bg-purple-600' : 'bg-gray-700'"
-                class="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
-              >
-                <span
-                  :class="editForm.is_superadmin ? 'translate-x-5' : 'translate-x-1'"
-                  class="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"
-                />
-              </button>
-            </div>
-
-            <div v-if="editError" class="text-red-400 text-sm">{{ editError }}</div>
-
-            <div class="flex justify-end gap-3 pt-2">
-              <button type="button" @click="showEditModal = false" class="btn-secondary">{{ t('common.cancel') }}</button>
-              <button type="submit" class="btn-primary" :disabled="submitting">
-                {{ submitting ? t('admin.saving') : t('admin.save_btn') }}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </Teleport>
-
-    <!-- ===== MODAL CONFIRM DELETE USER ===== -->
-    <Teleport to="body">
-      <div v-if="showDeleteModal && deletingUser" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" @click.self="showDeleteModal = false">
-        <div class="card w-full max-w-sm" @click.stop>
-          <h2 class="text-lg font-semibold text-white mb-3">{{ t('admin.confirm_delete_user') }}</h2>
-          <p class="text-gray-400 text-sm mb-6">
-            {{ t('admin.confirm_delete_msg', { name: deletingUser.username }) }}
-          </p>
-          <div class="flex justify-end gap-3">
-            <button @click="showDeleteModal = false" class="btn-secondary">{{ t('common.cancel') }}</button>
-            <button @click="executeDelete" class="btn-danger" :disabled="submitting">
-              {{ submitting ? t('admin.deleting') : t('common.delete') }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
-
-    <!-- ===== MODAL CREATE TEAM ===== -->
-    <Teleport to="body">
-      <div v-if="showCreateTeamModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" @click.self="showCreateTeamModal = false">
-        <div class="card w-full max-w-md" @click.stop>
-          <div class="flex justify-between items-center mb-6">
-            <h2 class="text-lg font-semibold text-white">{{ t('admin.create_team_title') }}</h2>
-            <button @click="showCreateTeamModal = false" class="text-gray-500 hover:text-gray-300"><X class="w-5 h-5" /></button>
-          </div>
-          <form @submit.prevent="submitCreateTeam" class="space-y-4">
-            <div>
-              <label class="block text-sm text-gray-400 mb-1">{{ t('admin.label_team_name') }}</label>
-              <input v-model="teamCreateForm.name" type="text" class="input w-full" required maxlength="200" />
-            </div>
-            <div>
-              <label class="block text-sm text-gray-400 mb-1">{{ t('admin.label_slug') }}</label>
-              <input v-model="teamCreateForm.slug" type="text" class="input w-full" :placeholder="t('admin.placeholder_slug')" pattern="^[a-z0-9][a-z0-9-]*$" />
-            </div>
-            <div v-if="teamError" class="text-red-400 text-sm">{{ teamError }}</div>
-            <div class="flex justify-end gap-3 pt-2">
-              <button type="button" @click="showCreateTeamModal = false" class="btn-secondary">{{ t('common.cancel') }}</button>
-              <button type="submit" class="btn-primary" :disabled="submitting">{{ submitting ? t('admin.creating') : t('admin.create_btn') }}</button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </Teleport>
-
-    <!-- ===== MODAL TEAM DETAIL ===== -->
-    <Teleport to="body">
-      <div v-if="showTeamDetailModal && selectedTeam" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" @click.self="showTeamDetailModal = false">
-        <div class="card w-full max-w-2xl max-h-[85vh] overflow-y-auto" @click.stop>
-
-          <!-- Header -->
-          <div class="flex justify-between items-center mb-6">
-            <div>
-              <h2 class="text-lg font-semibold text-white">{{ selectedTeam.name }}</h2>
-              <span class="text-xs text-gray-500 font-mono">{{ selectedTeam.slug }}</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <button @click="openEditTeamModal" class="p-1.5 text-gray-500 hover:text-blue-400 transition-colors rounded" :title="t('common.edit')">
-                <Pencil class="w-4 h-4" />
-              </button>
-              <button @click="confirmDeleteTeam" class="p-1.5 text-gray-500 hover:text-red-400 transition-colors rounded" :title="t('common.delete')">
-                <Trash2 class="w-4 h-4" />
-              </button>
-              <button @click="showTeamDetailModal = false" class="text-gray-500 hover:text-gray-300">
-                <X class="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-
-          <!-- Members section -->
-          <div class="mb-4 flex items-center justify-between">
-            <h3 class="text-sm font-medium text-gray-400">{{ t('admin.members_count', { n: teamMembers.length }) }}</h3>
-            <button @click="showTeamAddMember = !showTeamAddMember" class="btn-primary text-xs flex items-center gap-1 px-3 py-1.5">
-              <UserPlus class="w-3.5 h-3.5" /> {{ t('admin.add_member') }}
-            </button>
-          </div>
-
-          <!-- Add member inline form -->
-          <div v-if="showTeamAddMember" class="mb-4 p-3 rounded-lg bg-gray-800/60 border border-gray-700/50 space-y-3">
-            <div>
-              <label class="block text-xs text-gray-400 mb-1">{{ t('admin.label_user') }}</label>
-              <select v-model="teamAddMemberForm.user_id" class="input w-full text-sm">
-                <option value="">{{ t('admin.select_user') }}</option>
-                <option
-                  v-for="u in availableUsersForTeam"
-                  :key="u.id"
-                  :value="u.id"
-                >{{ u.username }} ({{ u.email }})</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-xs text-gray-400 mb-1">{{ t('admin.label_role') }}</label>
-              <select v-model="teamAddMemberForm.role" class="input w-full text-sm">
-                <option value="viewer">Viewer</option>
-                <option value="editor">Editor</option>
-                <option value="admin">Admin</option>
-                <option value="owner">Owner</option>
-              </select>
-            </div>
-            <div v-if="teamMemberError" class="text-red-400 text-xs">{{ teamMemberError }}</div>
-            <div class="flex justify-end gap-2">
-              <button @click="showTeamAddMember = false" class="btn-secondary text-xs px-3 py-1">{{ t('common.cancel') }}</button>
-              <button @click="submitTeamAddMember" class="btn-primary text-xs px-3 py-1" :disabled="!teamAddMemberForm.user_id || submitting">{{ t('admin.add_btn') }}</button>
-            </div>
-          </div>
-
-          <!-- Members table -->
-          <div class="card overflow-hidden !p-0">
-            <table class="w-full text-sm">
-              <thead>
-                <tr class="border-b border-gray-800">
-                  <th class="text-left px-4 py-2.5 text-gray-400 font-medium">{{ t('admin.col_user') }}</th>
-                  <th class="text-left px-4 py-2.5 text-gray-400 font-medium">{{ t('admin.label_role') }}</th>
-                  <th class="text-right px-4 py-2.5 text-gray-400 font-medium">{{ t('admin.col_actions') }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-if="loadingTeamMembers">
-                  <td colspan="3" class="text-center py-6 text-gray-600">{{ t('admin.loading') }}</td>
-                </tr>
-                <tr v-else-if="teamMembers.length === 0">
-                  <td colspan="3" class="text-center py-6 text-gray-600">{{ t('admin.no_members') }}</td>
-                </tr>
-                <tr
-                  v-else
-                  v-for="m in teamMembers"
-                  :key="m.user_id"
-                  class="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors"
-                >
-                  <td class="px-4 py-2.5">
-                    <div class="flex items-center gap-2">
-                      <div class="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
-                        {{ m.username[0]?.toUpperCase() }}
-                      </div>
-                      <div>
-                        <div class="text-white font-medium text-sm">{{ m.username }}</div>
-                        <div class="text-gray-500 text-xs">{{ m.email }}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td class="px-4 py-2.5">
-                    <select
-                      :value="m.role"
-                      @change="changeTeamMemberRole(m, $event.target.value)"
-                      class="input text-xs px-2 py-1 w-24"
-                    >
-                      <option value="viewer">Viewer</option>
-                      <option value="editor">Editor</option>
-                      <option value="admin">Admin</option>
-                      <option value="owner">Owner</option>
-                    </select>
-                  </td>
-                  <td class="px-4 py-2.5 text-right">
-                    <button
-                      @click="confirmRemoveTeamMember(m)"
-                      class="p-1 text-gray-500 hover:text-red-400 transition-colors rounded"
-                      :title="t('admin.remove_member_prefix')"
-                    >
-                      <Trash2 class="w-3.5 h-3.5" />
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-        </div>
-      </div>
-    </Teleport>
-
-    <!-- ===== MODAL EDIT TEAM ===== -->
-    <Teleport to="body">
-      <div v-if="showEditTeamModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" @click.self="showEditTeamModal = false">
-        <div class="card w-full max-w-md" @click.stop>
-          <div class="flex justify-between items-center mb-6">
-            <h2 class="text-lg font-semibold text-white">{{ t('admin.edit_team_title') }}</h2>
-            <button @click="showEditTeamModal = false" class="text-gray-500 hover:text-gray-300"><X class="w-5 h-5" /></button>
-          </div>
-          <form @submit.prevent="submitEditTeam" class="space-y-4">
-            <div>
-              <label class="block text-sm text-gray-400 mb-1">{{ t('common.name') }}</label>
-              <input v-model="teamEditForm.name" type="text" class="input w-full" required maxlength="200" />
-            </div>
-            <div v-if="teamError" class="text-red-400 text-sm">{{ teamError }}</div>
-            <div class="flex justify-end gap-3 pt-2">
-              <button type="button" @click="showEditTeamModal = false" class="btn-secondary">{{ t('common.cancel') }}</button>
-              <button type="submit" class="btn-primary" :disabled="submitting">{{ submitting ? t('admin.saving') : t('admin.save_btn') }}</button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </Teleport>
-
-    <!-- ===== MODAL CONFIRM DELETE TEAM / REMOVE MEMBER ===== -->
-    <Teleport to="body">
-      <div v-if="showTeamDeleteModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" @click.self="showTeamDeleteModal = false">
-        <div class="card w-full max-w-sm" @click.stop>
-          <h2 class="text-lg font-semibold text-white mb-3">{{ t('admin.confirm_team_action') }}</h2>
-          <p class="text-gray-400 text-sm mb-6">{{ teamDeletePrefix }} <strong class="text-white">{{ teamDeleteTarget }}</strong> {{ teamDeleteSuffix }}</p>
-          <div class="flex justify-end gap-3">
-            <button @click="showTeamDeleteModal = false" class="btn-secondary">{{ t('common.cancel') }}</button>
-            <button @click="executeTeamDelete" class="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors" :disabled="submitting">
-              {{ t('common.confirm') }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+    <!-- ===== MODALS (composants admin/) ===== -->
+    <GroupFormModal v-model="showGroupFormModal" :group="editingGroup" @saved="loadProbeGroups" />
+    <AdminConfirmModal
+      v-model="showDeleteGroupModal"
+      :title="t('admin.confirm_delete_group')"
+      :message="deletingGroup ? t('admin.confirm_delete_group_msg', { name: deletingGroup.name }) : ''"
+      :busy="submitting"
+      @confirm="executeDeleteGroup"
+    />
+    <GroupDetailModal
+      v-model="showGroupDetailModal"
+      :group="detailGroup"
+      :probes="allProbes"
+      :users="users"
+      @changed="loadProbeGroups"
+    />
+    <UserCreateModal v-model="showCreateModal" @saved="loadUsers" />
+    <UserEditModal v-model="showEditModal" :user="editingUser" @saved="loadUsers" />
+    <AdminConfirmModal
+      v-model="showDeleteModal"
+      :title="t('admin.confirm_delete_user')"
+      :message="deletingUser ? t('admin.confirm_delete_msg', { name: deletingUser.username }) : ''"
+      :busy="submitting"
+      @confirm="executeDelete"
+    />
+    <TeamCreateModal v-model="showCreateTeamModal" @saved="loadTeams" />
+    <TeamDetailModal
+      v-model="showTeamDetailModal"
+      :team="selectedTeam"
+      :users="users"
+      @changed="loadTeams"
+      @renamed="onTeamRenamed"
+      @deleted="onTeamDeleted"
+    />
 
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, watch, computed } from 'vue'
-import { Pencil, Trash2, UserPlus, X, Plus, Users } from 'lucide-vue-next'
+import { Pencil, Trash2, UserPlus, Plus, Users } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
-import { useToast } from '../composables/useToast'
 import { adminApi } from '../api/admin'
 import { teamsApi } from '../api/teams'
 import { useProbesStore } from '../stores/probes'
+import AdminConfirmModal from '../components/admin/AdminConfirmModal.vue'
+import UserCreateModal from '../components/admin/UserCreateModal.vue'
+import UserEditModal from '../components/admin/UserEditModal.vue'
+import TeamCreateModal from '../components/admin/TeamCreateModal.vue'
+import TeamDetailModal from '../components/admin/TeamDetailModal.vue'
+import GroupFormModal from '../components/admin/GroupFormModal.vue'
+import GroupDetailModal from '../components/admin/GroupDetailModal.vue'
 
 const { t } = useI18n()
-const { error: toastError } = useToast()
 const probesStore = useProbesStore()
 
 const tabs = computed(() => [
@@ -898,6 +414,8 @@ const tabs = computed(() => [
   { id: 'oidc', label: t('admin.tab_oidc') },
 ])
 const activeTab = ref('users')
+
+const submitting = ref(false)
 
 // ─── Users ──────────────────────────────────────────────────────────────────
 const users = ref([])
@@ -943,84 +461,18 @@ watch(activeTab, (tab) => {
 
 onMounted(() => loadUsers())
 
-// ─── Create user ────────────────────────────────────────────────────────────
+// ─── Create / edit user (modals) ────────────────────────────────────────────
 const showCreateModal = ref(false)
-const submitting = ref(false)
-const createError = ref('')
-const createForm = ref({
-  email: '',
-  username: '',
-  full_name: '',
-  password: '',
-  can_create_monitors: false,
-  is_superadmin: false,
-})
+const showEditModal = ref(false)
+const editingUser = ref(null)
 
 function openCreateModal() {
-  createForm.value = { email: '', username: '', full_name: '', password: '', can_create_monitors: false, is_superadmin: false }
-  createError.value = ''
   showCreateModal.value = true
 }
 
-async function submitCreate() {
-  submitting.value = true
-  createError.value = ''
-  try {
-    const payload = { ...createForm.value }
-    if (!payload.username) delete payload.username
-    if (!payload.full_name) delete payload.full_name
-    await adminApi.createUser(payload)
-    showCreateModal.value = false
-    await loadUsers()
-  } catch (e) {
-    createError.value = e.response?.data?.detail || t('admin.error_create')
-  } finally {
-    submitting.value = false
-  }
-}
-
-// ─── Edit user ──────────────────────────────────────────────────────────────
-const showEditModal = ref(false)
-const editingUser = ref(null)
-const editError = ref('')
-const editForm = ref({
-  email: '',
-  full_name: '',
-  password: '',
-  is_active: true,
-  can_create_monitors: false,
-  is_superadmin: false,
-})
-
 function openEditModal(user) {
   editingUser.value = user
-  editForm.value = {
-    email: user.email,
-    full_name: user.full_name || '',
-    password: '',
-    is_active: user.is_active,
-    can_create_monitors: user.can_create_monitors,
-    is_superadmin: user.is_superadmin,
-  }
-  editError.value = ''
   showEditModal.value = true
-}
-
-async function submitEdit() {
-  submitting.value = true
-  editError.value = ''
-  try {
-    const payload = { ...editForm.value }
-    if (!payload.password) delete payload.password
-    if (!payload.full_name) delete payload.full_name
-    await adminApi.updateUser(editingUser.value.id, payload)
-    showEditModal.value = false
-    await loadUsers()
-  } catch (e) {
-    editError.value = e.response?.data?.detail || t('admin.error_edit')
-  } finally {
-    submitting.value = false
-  }
 }
 
 // ─── Delete user ────────────────────────────────────────────────────────────
@@ -1046,24 +498,9 @@ async function executeDelete() {
 // ─── Teams ──────────────────────────────────────────────────────────────────
 const teams = ref([])
 const loadingTeams = ref(false)
-const teamMembers = ref([])
-const loadingTeamMembers = ref(false)
 const selectedTeam = ref(null)
 const showTeamDetailModal = ref(false)
 const showCreateTeamModal = ref(false)
-const showEditTeamModal = ref(false)
-const showTeamDeleteModal = ref(false)
-const showTeamAddMember = ref(false)
-const teamError = ref('')
-const teamMemberError = ref('')
-const teamDeletePrefix = ref('')
-const teamDeleteTarget = ref('')
-const teamDeleteSuffix = ref('')
-let pendingTeamDeleteAction = null
-
-const teamCreateForm = ref({ name: '', slug: '' })
-const teamEditForm = ref({ name: '' })
-const teamAddMemberForm = ref({ user_id: '', role: 'editor' })
 
 // Build a map: userId -> [{team_id, team_name, role}]
 const userTeamMap = computed(() => {
@@ -1076,11 +513,6 @@ const userTeamMap = computed(() => {
     }
   }
   return map
-})
-
-const availableUsersForTeam = computed(() => {
-  const memberIds = new Set(teamMembers.value.map(m => m.user_id))
-  return users.value.filter(u => !memberIds.has(u.id))
 })
 
 async function loadTeams() {
@@ -1102,129 +534,19 @@ async function loadTeams() {
   }
 }
 
-function openCreateTeamModal() {
-  teamCreateForm.value = { name: '', slug: '' }
-  teamError.value = ''
-  showCreateTeamModal.value = true
-}
-
-async function submitCreateTeam() {
-  submitting.value = true
-  teamError.value = ''
-  try {
-    const payload = { ...teamCreateForm.value }
-    if (!payload.slug) delete payload.slug
-    await teamsApi.create(payload)
-    showCreateTeamModal.value = false
-    await loadTeams()
-  } catch (e) {
-    teamError.value = e.response?.data?.detail || t('common.error')
-  } finally {
-    submitting.value = false
-  }
-}
-
-async function openTeamDetail(team) {
+function openTeamDetail(team) {
   selectedTeam.value = team
   showTeamDetailModal.value = true
-  showTeamAddMember.value = false
-  teamMemberError.value = ''
-  await loadTeamMembers(team.id)
 }
 
-async function loadTeamMembers(teamId) {
-  loadingTeamMembers.value = true
-  try {
-    const { data } = await teamsApi.listMembers(teamId)
-    teamMembers.value = data
-  } catch { teamMembers.value = [] } finally {
-    loadingTeamMembers.value = false
-  }
+function onTeamRenamed(name) {
+  if (selectedTeam.value) selectedTeam.value.name = name
 }
 
-async function submitTeamAddMember() {
-  submitting.value = true
-  teamMemberError.value = ''
-  try {
-    await teamsApi.addMember(selectedTeam.value.id, teamAddMemberForm.value)
-    teamAddMemberForm.value = { user_id: '', role: 'editor' }
-    showTeamAddMember.value = false
-    await loadTeamMembers(selectedTeam.value.id)
-    await loadTeams()
-  } catch (e) {
-    teamMemberError.value = e.response?.data?.detail || t('common.error')
-  } finally {
-    submitting.value = false
-  }
-}
-
-async function changeTeamMemberRole(member, newRole) {
-  try {
-    await teamsApi.updateMember(selectedTeam.value.id, member.user_id, { role: newRole })
-    await loadTeamMembers(selectedTeam.value.id)
-    await loadTeams()
-  } catch (e) {
-    toastError(e.response?.data?.detail || t('teams.error_update_role'))
-    await loadTeamMembers(selectedTeam.value.id)
-  }
-}
-
-function confirmRemoveTeamMember(member) {
-  teamDeletePrefix.value = t('admin.remove_member_prefix')
-  teamDeleteTarget.value = member.username
-  teamDeleteSuffix.value = t('admin.remove_member_suffix')
-  pendingTeamDeleteAction = async () => {
-    await teamsApi.removeMember(selectedTeam.value.id, member.user_id)
-    await loadTeamMembers(selectedTeam.value.id)
-    await loadTeams()
-  }
-  showTeamDeleteModal.value = true
-}
-
-function confirmDeleteTeam() {
-  teamDeletePrefix.value = t('admin.delete_team_prefix')
-  teamDeleteTarget.value = selectedTeam.value.name
-  teamDeleteSuffix.value = t('admin.delete_team_suffix')
-  pendingTeamDeleteAction = async () => {
-    await teamsApi.delete(selectedTeam.value.id)
-    showTeamDetailModal.value = false
-    selectedTeam.value = null
-    await loadTeams()
-  }
-  showTeamDeleteModal.value = true
-}
-
-async function executeTeamDelete() {
-  submitting.value = true
-  try {
-    await pendingTeamDeleteAction()
-    showTeamDeleteModal.value = false
-  } catch (e) {
-    toastError(e.response?.data?.detail || t('common.error'))
-  } finally {
-    submitting.value = false
-  }
-}
-
-function openEditTeamModal() {
-  teamEditForm.value = { name: selectedTeam.value.name }
-  teamError.value = ''
-  showEditTeamModal.value = true
-}
-
-async function submitEditTeam() {
-  submitting.value = true
-  teamError.value = ''
-  try {
-    await teamsApi.update(selectedTeam.value.id, teamEditForm.value)
-    showEditTeamModal.value = false
-    selectedTeam.value.name = teamEditForm.value.name
-    await loadTeams()
-  } catch (e) {
-    teamError.value = e.response?.data?.detail || t('common.error')
-  } finally {
-    submitting.value = false
-  }
+function onTeamDeleted() {
+  showTeamDetailModal.value = false
+  selectedTeam.value = null
+  loadTeams()
 }
 
 // ─── Probe Groups ───────────────────────────────────────────────────────────
@@ -1252,69 +574,18 @@ async function loadAllProbes() {
   }
 }
 
-function probeNameById(probeId) {
-  const p = allProbes.value.find(p => p.id === probeId)
-  return p ? `${p.name} (${p.location_name})` : probeId
-}
-
-function userNameById(userId) {
-  const u = users.value.find(u => u.id === userId)
-  return u ? u.username : userId
-}
-
-// Create group
-const showCreateGroupModal = ref(false)
-const groupForm = ref({ name: '', description: '' })
-const groupError = ref('')
+// Create / edit group (GroupFormModal : group=null → création)
+const showGroupFormModal = ref(false)
+const editingGroup = ref(null)
 
 function openCreateGroupModal() {
-  groupForm.value = { name: '', description: '' }
-  groupError.value = ''
-  showCreateGroupModal.value = true
+  editingGroup.value = null
+  showGroupFormModal.value = true
 }
-
-async function submitCreateGroup() {
-  submitting.value = true
-  groupError.value = ''
-  try {
-    const payload = { name: groupForm.value.name }
-    if (groupForm.value.description) payload.description = groupForm.value.description
-    await adminApi.createProbeGroup(payload)
-    showCreateGroupModal.value = false
-    await loadProbeGroups()
-  } catch (e) {
-    groupError.value = e.response?.data?.detail || t('admin.error_create')
-  } finally {
-    submitting.value = false
-  }
-}
-
-// Edit group
-const showEditGroupModal = ref(false)
-const editingGroup = ref(null)
 
 function openEditGroupModal(group) {
   editingGroup.value = group
-  groupForm.value = { name: group.name, description: group.description || '' }
-  groupError.value = ''
-  showEditGroupModal.value = true
-}
-
-async function submitEditGroup() {
-  submitting.value = true
-  groupError.value = ''
-  try {
-    const payload = {}
-    if (groupForm.value.name) payload.name = groupForm.value.name
-    if (groupForm.value.description !== undefined) payload.description = groupForm.value.description || null
-    await adminApi.updateProbeGroup(editingGroup.value.id, payload)
-    showEditGroupModal.value = false
-    await loadProbeGroups()
-  } catch (e) {
-    groupError.value = e.response?.data?.detail || t('admin.error_edit')
-  } finally {
-    submitting.value = false
-  }
+  showGroupFormModal.value = true
 }
 
 // Delete group
@@ -1340,86 +611,10 @@ async function executeDeleteGroup() {
 // Group detail modal
 const showGroupDetailModal = ref(false)
 const detailGroup = ref(null)
-const detailError = ref('')
-const addProbeSelection = ref('')
-const addUserSelection = ref('')
-
-const availableProbesForGroup = computed(() => {
-  if (!detailGroup.value) return allProbes.value
-  return allProbes.value.filter(p => !detailGroup.value.probe_ids.includes(p.id))
-})
-
-const availableUsersForGroup = computed(() => {
-  if (!detailGroup.value) return users.value
-  return users.value.filter(u => !detailGroup.value.user_ids.includes(u.id))
-})
 
 function openGroupDetailModal(group) {
-  detailGroup.value = { ...group, probe_ids: [...group.probe_ids], user_ids: [...group.user_ids] }
-  addProbeSelection.value = ''
-  addUserSelection.value = ''
-  detailError.value = ''
+  detailGroup.value = group
   showGroupDetailModal.value = true
-}
-
-async function addProbeToDetailGroup() {
-  if (!addProbeSelection.value) return
-  submitting.value = true
-  detailError.value = ''
-  try {
-    const { data } = await adminApi.addProbesToGroup(detailGroup.value.id, [addProbeSelection.value])
-    detailGroup.value = { ...data, probe_ids: data.probe_ids, user_ids: data.user_ids }
-    addProbeSelection.value = ''
-    await loadProbeGroups()
-  } catch (e) {
-    detailError.value = e.response?.data?.detail || t('common.error')
-  } finally {
-    submitting.value = false
-  }
-}
-
-async function removeProbeFromDetailGroup(probeId) {
-  submitting.value = true
-  detailError.value = ''
-  try {
-    await adminApi.removeProbeFromGroup(detailGroup.value.id, probeId)
-    detailGroup.value.probe_ids = detailGroup.value.probe_ids.filter(id => id !== probeId)
-    await loadProbeGroups()
-  } catch (e) {
-    detailError.value = e.response?.data?.detail || t('common.error')
-  } finally {
-    submitting.value = false
-  }
-}
-
-async function grantUserToDetailGroup() {
-  if (!addUserSelection.value) return
-  submitting.value = true
-  detailError.value = ''
-  try {
-    const { data } = await adminApi.grantGroupAccess(detailGroup.value.id, [addUserSelection.value])
-    detailGroup.value = { ...data, probe_ids: data.probe_ids, user_ids: data.user_ids }
-    addUserSelection.value = ''
-    await loadProbeGroups()
-  } catch (e) {
-    detailError.value = e.response?.data?.detail || t('common.error')
-  } finally {
-    submitting.value = false
-  }
-}
-
-async function revokeUserFromDetailGroup(userId) {
-  submitting.value = true
-  detailError.value = ''
-  try {
-    await adminApi.revokeGroupAccess(detailGroup.value.id, userId)
-    detailGroup.value.user_ids = detailGroup.value.user_ids.filter(id => id !== userId)
-    await loadProbeGroups()
-  } catch (e) {
-    detailError.value = e.response?.data?.detail || t('common.error')
-  } finally {
-    submitting.value = false
-  }
 }
 
 // ─── OIDC Settings ──────────────────────────────────────────────────────────

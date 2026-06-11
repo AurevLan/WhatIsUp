@@ -217,6 +217,7 @@ import { useAuthStore } from '../stores/auth'
 import { probesApi } from '../api/probes'
 import { useToast } from '../composables/useToast'
 import { useConfirm } from '../composables/useConfirm'
+import { useDateFormat } from '../composables/useDateFormat'
 import RegisterProbeModal from '../components/probes/RegisterProbeModal.vue'
 import EditProbeModal from '../components/probes/EditProbeModal.vue'
 import EmptyState from '../components/shared/EmptyState.vue'
@@ -226,6 +227,7 @@ const { t } = useI18n()
 const auth = useAuthStore()
 const { success, error: toastError } = useToast()
 const { confirm } = useConfirm()
+const { formatDate } = useDateFormat()
 const loadingProbes = ref(true)
 const probes = ref([])
 const showRegister = ref(false)
@@ -269,10 +271,6 @@ function isOnline(probe) {
 function probeStatusClass(probe) {
   if (!probe.is_active) return 'bg-gray-500'
   return isOnline(probe) ? 'bg-emerald-400' : 'bg-red-500'
-}
-
-function formatDate(dt) {
-  return new Date(dt).toLocaleString()
 }
 
 function healthBarColor(pct) {

@@ -177,10 +177,12 @@ import { CheckCircle, Copy, KeyRound, Loader2, Plus, Trash2 } from 'lucide-vue-n
 import { apiKeysApi } from '../api/apiKeys.js'
 import { useToast } from '../composables/useToast'
 import { useConfirm } from '../composables/useConfirm'
+import { useDateFormat } from '../composables/useDateFormat'
 
 const { t } = useI18n()
 const { success } = useToast()
 const { confirm } = useConfirm()
+const { formatDate: fmtDate } = useDateFormat()
 
 const keys = ref([])
 const loading = ref(false)
@@ -233,9 +235,7 @@ async function copyKey() {
   }
 }
 
-function formatDate(iso) {
-  return new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' })
-}
+const formatDate = (iso) => fmtDate(iso, { dateStyle: 'medium' })
 
 onMounted(load)
 </script>

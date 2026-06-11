@@ -126,25 +126,25 @@
         <UptimeViewSplit :stats="uptime7d" />
       </div>
       <div v-if="isDns" class="card text-center">
-        <p class="text-xs text-gray-500">Changes detected</p>
+        <p class="text-xs text-gray-500">{{ t('monitor_detail.changes_detected') }}</p>
         <p class="text-2xl font-bold mt-1" :class="dnsChangelog.length > 0 ? 'text-amber-400' : 'text-emerald-400'">
           {{ dnsChangelog.length }}
         </p>
       </div>
       <div v-else-if="hasResponseTime" class="card text-center">
-        <p class="text-xs text-gray-500">{{ isNetwork ? 'Avg. latency' : 'Avg. response' }}</p>
+        <p class="text-xs text-gray-500">{{ isNetwork ? t('monitor_detail.avg_latency') : t('monitor_detail.avg_response') }}</p>
         <p class="text-2xl font-bold mt-1 text-gray-300">
           {{ uptime24?.avg_response_time_ms ? Math.round(uptime24.avg_response_time_ms) + 'ms' : '—' }}
         </p>
       </div>
       <div v-if="isDns" class="card text-center">
-        <p class="text-xs text-gray-500">Last change</p>
+        <p class="text-xs text-gray-500">{{ t('monitor_detail.last_change') }}</p>
         <p class="text-sm font-bold mt-1 text-gray-300">
           {{ dnsChangelog[0] ? formatDateShort(dnsChangelog[0].checked_at) : '—' }}
         </p>
       </div>
       <div v-else-if="hasResponseTime" class="card text-center">
-        <p class="text-xs text-gray-500">p95 response</p>
+        <p class="text-xs text-gray-500">{{ t('monitor_detail.p95_response') }}</p>
         <p class="text-2xl font-bold mt-1 text-gray-300">
           {{ uptime24?.p95_response_time_ms ? Math.round(uptime24.p95_response_time_ms) + 'ms' : '—' }}
         </p>
@@ -154,7 +154,7 @@
         <p class="text-2xl font-bold mt-1" :class="responseTrend.up ? 'text-red-400' : 'text-emerald-400'">
           {{ responseTrend.up ? '↑' : '↓' }} {{ responseTrend.pct }}%
         </p>
-        <p class="text-xs text-gray-600 mt-0.5">vs prev. 6h</p>
+        <p class="text-xs text-gray-600 mt-0.5">{{ t('monitor_detail.vs_prev_6h') }}</p>
       </div>
     </div>
 
@@ -174,10 +174,10 @@
             >{{ v }}</span>
           </div>
         </template>
-        <span v-else class="text-xs text-gray-500 italic">No resolution data yet</span>
+        <span v-else class="text-xs text-gray-500 italic">{{ t('monitor_detail.no_resolution_data') }}</span>
       </div>
       <div v-if="monitor.dns_expected_value" class="shrink-0 text-xs font-mono px-2 py-1 rounded bg-blue-900/30 text-blue-300 border border-blue-800/50">
-        expected: {{ monitor.dns_expected_value }}
+        {{ t('monitor_detail.expected_value', { value: monitor.dns_expected_value }) }}
       </div>
     </div>
 
@@ -193,7 +193,7 @@
     <!-- DNS: value changelog -->
     <div v-if="isDns" class="card mb-6">
       <div class="flex items-center justify-between mb-4">
-        <h2 class="text-sm font-semibold text-gray-300">Value change history</h2>
+        <h2 class="text-sm font-semibold text-gray-300">{{ t('monitor_detail.dns_change_history') }}</h2>
         <span class="text-xs text-gray-500 font-mono bg-gray-800 px-2 py-1 rounded">
           {{ monitor.dns_record_type || 'A' }} · {{ formatTarget(monitor) }}
         </span>
@@ -760,7 +760,7 @@
 
       <!-- Sondes sans coordonnées -->
       <div v-if="probesWithoutCoords.length" class="mt-6">
-        <h3 class="text-sm font-semibold text-gray-400 mb-3">Unlocated probes</h3>
+        <h3 class="text-sm font-semibold text-gray-400 mb-3">{{ t('monitor_detail.unlocated_probes') }}</h3>
         <div class="space-y-2">
           <div v-for="p in probesWithoutCoords" :key="p.probe_id"
             class="flex items-center gap-3 text-sm text-gray-300">
@@ -800,13 +800,14 @@
     <!-- DNS drift alert suggestion modal -->
     <div v-if="dnsAlertModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
       <div class="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-sm p-6">
-        <h3 class="text-base font-semibold text-white mb-1">Créer une règle d'alerte ?</h3>
+        <h3 class="text-base font-semibold text-white mb-1">{{ t('monitor_detail.dns_alert_title') }}</h3>
         <p class="text-sm text-gray-400 mb-4">
-          Le DNS Drift est activé mais aucune règle d'alerte <code class="text-emerald-400">any_down</code> n'existe pour ce moniteur.
-          Sans règle, les dérives DNS seront détectées mais aucune notification ne sera envoyée.
+          <i18n-t keypath="monitor_detail.dns_alert_desc" tag="span">
+            <template #code><code class="text-emerald-400">any_down</code></template>
+          </i18n-t>
         </p>
         <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-300 mb-1">Canal de notification</label>
+          <label class="block text-sm font-medium text-gray-300 mb-1">{{ t('monitor_detail.dns_alert_channel') }}</label>
           <select v-model="dnsAlertChannelId" class="input w-full">
             <option v-for="ch in dnsAlertChannels" :key="ch.id" :value="ch.id">
               {{ ch.name }} ({{ ch.type }})
@@ -814,10 +815,10 @@
           </select>
         </div>
         <button @click="createDnsAlertRule" :disabled="dnsAlertCreating || !dnsAlertChannelId" class="w-full btn-primary disabled:opacity-50 mb-3">
-          {{ dnsAlertCreating ? 'Création…' : 'Créer la règle d\'alerte' }}
+          {{ dnsAlertCreating ? t('monitor_detail.dns_alert_creating') : t('monitor_detail.dns_alert_create') }}
         </button>
         <button @click="toggleDnsSetting('dns_drift_alert'); dnsAlertModal = false" class="w-full text-xs text-gray-500 hover:text-gray-300">
-          Désactiver le DNS Drift
+          {{ t('monitor_detail.dns_alert_disable') }}
         </button>
       </div>
     </div>
@@ -930,6 +931,7 @@ import BaseModal from '../components/BaseModal.vue'
 import SkeletonBox from '../components/shared/SkeletonBox.vue'
 import { useCommandPaletteStore } from '../stores/commandPalette'
 import { useTimezone } from '../composables/useTimezone'
+import { useDateFormat } from '../composables/useDateFormat'
 import { useMonitorRunbook } from '../composables/useMonitorRunbook'
 import { useMonitorDependencies } from '../composables/useMonitorDependencies'
 import { useMonitorIncidents } from '../composables/useMonitorIncidents'
@@ -954,6 +956,7 @@ import MonitorRecentChecksTable from '../components/monitors/detail/MonitorRecen
 
 const { t, locale } = useI18n()
 const { format: tzFormat } = useTimezone()
+const { formatDate: fmtDate, formatDateShort } = useDateFormat()
 // Template shortcut — respects the user's timezone preference (T1-13).
 // Drop-in replacement for `new Date(x).toLocaleString(locale)` inline calls.
 const fmtDateTime = (v) =>
@@ -1295,16 +1298,11 @@ function formatTarget(m) {
   return raw
 }
 
-function formatDate(dt) {
-  return tzFormat(dt, {
+const formatDate = (dt) =>
+  fmtDate(dt, {
     hour: '2-digit', minute: '2-digit', second: '2-digit',
     day: '2-digit', month: '2-digit',
-  }, locale.value)
-}
-
-function formatDateShort(dt) {
-  return new Date(dt).toLocaleDateString(locale.value, { day: '2-digit', month: '2-digit', year: 'numeric' })
-}
+  })
 
 // ── Single-field patches: schema drift, tags, network scope ─────────────────
 const {

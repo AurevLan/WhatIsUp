@@ -204,9 +204,9 @@ import { useFilterPreset } from '../composables/useFilterPreset'
 import BulkActionBar from '../components/shared/BulkActionBar.vue'
 import IncidentPlaybackMap from '../components/dashboard/IncidentPlaybackMap.vue'
 import IncidentDiagnosticPanel from '../components/incidents/IncidentDiagnosticPanel.vue'
-import { useTimezone } from '../composables/useTimezone'
+import { useDateFormat } from '../composables/useDateFormat'
 
-const { t, locale } = useI18n()
+const { t } = useI18n()
 const { success } = useToast()
 
 const loading = ref(false)
@@ -360,14 +360,10 @@ async function load() {
 watch([statusFilter, daysFilter], load)
 onMounted(load)
 
-const { format: tzFormat } = useTimezone()
+const { formatDate: fmtDate } = useDateFormat()
 
-function formatDate(iso) {
-  if (!iso) return '—'
-  return tzFormat(iso, {
-    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
-  }, locale.value)
-}
+const formatDate = (iso) =>
+  fmtDate(iso, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 
 function formatDuration(inc) {
   if (!inc.is_resolved) return '—'

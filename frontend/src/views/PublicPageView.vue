@@ -127,10 +127,10 @@
           <!-- Métriques supplémentaires -->
           <div class="mt-3 pt-3 border-t border-gray-800/60 flex items-center gap-4 text-xs text-gray-500">
             <template v-if="m.check_type === 'dns'">
-              <span v-if="m.last_checked_at">Checked {{ timeAgo(m.last_checked_at) }}</span>
+              <span v-if="m.last_checked_at">{{ t('public.checked_ago', { ago: timeAgo(m.last_checked_at) }) }}</span>
             </template>
             <template v-else>
-              <span v-if="m.avg_response_time_ms">Avg. response {{ Math.round(m.avg_response_time_ms) }}ms</span>
+              <span v-if="m.avg_response_time_ms">{{ t('public.avg_response_ms', { ms: Math.round(m.avg_response_time_ms) }) }}</span>
             </template>
           </div>
 
@@ -173,15 +173,15 @@
                   ? 'bg-emerald-900/40 text-emerald-400 border-emerald-700/50'
                   : 'bg-red-900/40 text-red-400 border-red-700/50 animate-pulse'"
                 class="text-xs font-semibold px-2 py-0.5 rounded border shrink-0 mt-0.5">
-                {{ inc.is_resolved ? 'Resolved' : 'Ongoing' }}
+                {{ inc.is_resolved ? t('public.resolved') : t('public.ongoing') }}
               </span>
 
               <div class="flex-1 min-w-0">
                 <p class="text-white font-medium text-sm">{{ inc.monitor_name }}</p>
                 <p class="text-gray-500 text-xs mt-0.5">
-                  Started: {{ formatDatetime(inc.started_at) }}
+                  {{ t('public.started') }}: {{ formatDatetime(inc.started_at) }}
                   <template v-if="inc.resolved_at">
-                    · Ended: {{ formatDatetime(inc.resolved_at) }}
+                    · {{ t('public.ended') }}: {{ formatDatetime(inc.resolved_at) }}
                   </template>
                 </p>
               </div>
@@ -189,7 +189,7 @@
               <!-- Durée -->
               <div v-if="inc.duration_minutes != null" class="text-right shrink-0">
                 <span class="text-sm font-semibold text-gray-300">{{ formatDuration(inc.duration_minutes) }}</span>
-                <p class="text-xs text-gray-600">duration</p>
+                <p class="text-xs text-gray-600">{{ t('public.duration') }}</p>
               </div>
 
               <!-- Expand updates -->
@@ -197,14 +197,14 @@
                 @click="togglePublicUpdates(inc.id)"
                 class="text-xs text-blue-400 hover:text-blue-300 shrink-0"
               >
-                {{ expandedPublicIncident === inc.id ? '▲ Hide' : '▼ Updates' }}
+                {{ expandedPublicIncident === inc.id ? t('public.hide_updates') : t('public.show_updates') }}
               </button>
             </div>
 
             <!-- Incident updates timeline -->
             <div v-if="expandedPublicIncident === inc.id && publicUpdates[inc.id]" class="mt-3 ml-2 border-l-2 border-gray-700 pl-4 space-y-2">
-              <div v-if="publicUpdatesLoading[inc.id]" class="text-xs text-gray-500">Loading…</div>
-              <div v-else-if="!publicUpdates[inc.id]?.length" class="text-xs text-gray-600 italic">No updates posted yet.</div>
+              <div v-if="publicUpdatesLoading[inc.id]" class="text-xs text-gray-500">{{ t('common.loading') }}</div>
+              <div v-else-if="!publicUpdates[inc.id]?.length" class="text-xs text-gray-600 italic">{{ t('public.no_updates_posted') }}</div>
               <div v-for="u in publicUpdates[inc.id]" :key="u.id" class="relative">
                 <span class="absolute -left-[21px] top-1 w-3 h-3 rounded-full border-2 border-gray-700"
                   :class="{
@@ -240,7 +240,7 @@
       <!-- Abonnement email -->
       <section class="mb-10 bg-gray-900 border border-gray-800 rounded-xl p-6">
         <h2 class="text-lg font-semibold text-gray-300 mb-1">{{ t('public.subscribe') }}</h2>
-        <p class="text-gray-500 text-sm mb-4">Receive email notifications for incidents and restorations.</p>
+        <p class="text-gray-500 text-sm mb-4">{{ t('public.subscribe_desc') }}</p>
 
         <form @submit.prevent="subscribe" class="flex gap-3 flex-wrap">
           <input
@@ -255,7 +255,7 @@
             type="submit"
             :disabled="subLoading"
             class="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors disabled:opacity-50">
-            {{ subLoading ? 'Loading…' : t('public.subscribe_btn') }}
+            {{ subLoading ? t('common.loading') : t('public.subscribe_btn') }}
           </button>
         </form>
 
@@ -269,7 +269,7 @@
       <!-- Footer -->
       <div class="text-center text-xs text-gray-600">
         Powered by <span class="text-gray-500">WhatIsUp</span> ·
-        Last updated: {{ lastUpdated }}
+        {{ t('public.last_updated') }}: {{ lastUpdated }}
       </div>
 
       </template>
@@ -285,16 +285,19 @@ import { useI18n } from 'vue-i18n'
 import { publicApi } from '../api/public.js'
 import { getServerUrl } from '../lib/serverConfig.js'
 import { useToast } from '../composables/useToast'
+import { useDateFormat } from '../composables/useDateFormat'
 
 const { t } = useI18n()
 const { success: toastSuccess } = useToast()
+const { formatDate, intlLocale } = useDateFormat()
 
 const route = useRoute()
 const page = ref(null)
 const monitors = ref([])
 const incidents30d = ref([])
 const loading = ref(true)
-const lastUpdated = ref(new Date().toLocaleTimeString('fr-FR'))
+const nowTime = () => new Date().toLocaleTimeString(intlLocale.value)
+const lastUpdated = ref(nowTime())
 
 const loadError = ref(false)
 const bannerDismissed = ref(false)
@@ -363,17 +366,16 @@ function formatTcpTarget(m) {
 
 function timeAgo(iso) {
   const diff = Math.floor((Date.now() - new Date(iso)) / 1000)
-  if (diff < 60) return `${diff}s ago`
-  if (diff < 3600) return `${Math.floor(diff / 60)}min ago`
-  return `${Math.floor(diff / 3600)}h ago`
+  if (diff < 60) return t('common.relative_seconds_ago', { n: diff })
+  if (diff < 3600) return t('common.relative_minutes_ago', { n: Math.floor(diff / 60) })
+  return t('common.relative_hours_ago', { n: Math.floor(diff / 3600) })
 }
 
-function formatDatetime(iso) {
-  return new Date(iso).toLocaleString('fr-FR', {
+const formatDatetime = (iso) =>
+  formatDate(iso, {
     day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   })
-}
 
 function formatDuration(minutes) {
   if (minutes < 60) return `${minutes}min`
@@ -383,14 +385,10 @@ function formatDuration(minutes) {
 }
 
 function dayTooltip(day) {
-  const statusLabel = {
-    up: 'Operational',
-    degraded: 'Degraded',
-    down: 'Outage',
-    no_data: 'No data',
-  }
+  const known = ['up', 'degraded', 'down', 'no_data']
+  const label = known.includes(day.status) ? t(`public.day_status_${day.status}`) : day.status
   const uptime = day.uptime_pct != null ? ` — ${day.uptime_pct.toFixed(1)}%` : ''
-  return `${day.date} · ${statusLabel[day.status] ?? day.status}${uptime}`
+  return `${day.date} · ${label}${uptime}`
 }
 
 function uptimeLast90(monitor) {
@@ -406,14 +404,14 @@ function copyBadgeUrl(monitorName) {
   const origin = getServerUrl() || window.location.origin
   const url = `${origin}/api/v1/public/badge/${slug}/${encodeURIComponent(monitorName)}`
   navigator.clipboard.writeText(url).then(() => {
-    toastSuccess('Badge URL copied!')
+    toastSuccess(t('public.badge_copied'))
   })
 }
 
 const ninetyDaysAgo = computed(() => {
   const d = new Date()
   d.setDate(d.getDate() - 89)
-  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
+  return d.toLocaleDateString(intlLocale.value, { day: '2-digit', month: '2-digit' })
 })
 
 // ────────────────────────────────────────────────
@@ -456,7 +454,7 @@ onMounted(async () => {
     loadError.value = true
   } finally {
     loading.value = false
-    lastUpdated.value = new Date().toLocaleTimeString('fr-FR')
+    lastUpdated.value = nowTime()
   }
 
   // Mise à jour temps réel via WebSocket (public endpoint)
@@ -471,7 +469,7 @@ onMounted(async () => {
           mon.current_status = data.status
           mon.last_checked_at = data.checked_at ?? mon.last_checked_at
         }
-        lastUpdated.value = new Date().toLocaleTimeString('fr-FR')
+        lastUpdated.value = nowTime()
       }
     } catch {
       // ignore parse errors

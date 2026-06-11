@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.11.0](https://github.com/AurevLan/WhatIsUp/compare/v1.10.4...v1.11.0) (2026-06-11)
+
+
+### Added
+
+* **observability:** custom Prometheus application metrics ([10511e0](https://github.com/AurevLan/WhatIsUp/commit/10511e0badacdd6b3f939af77c0a47e6ad2e8610))
+
+
+### Fixed
+
+* **ci:** keep server coverage gate at 65 (CI measurement) ([c4127dd](https://github.com/AurevLan/WhatIsUp/commit/c4127dd2cfd2d6aa55395bfccd80bca4b420cc07))
+* **frontend:** i18n sweep, shared date formatting, dev-only logs ([792d9b9](https://github.com/AurevLan/WhatIsUp/commit/792d9b9f6c20306be447c93ee8bc9957cd454d66))
+* **migrations:** drop ENUM types in initial downgrade ([093ab31](https://github.com/AurevLan/WhatIsUp/commit/093ab314bde8bf196c8750d1968b1d68e69e7e2e))
+* **probe:** harden reporter and checks resilience ([c1939e4](https://github.com/AurevLan/WhatIsUp/commit/c1939e4df1e1785153d12e50414e1b537cc3ba68))
+* **security:** close rate-limit and ownership gaps ([847bfa7](https://github.com/AurevLan/WhatIsUp/commit/847bfa7d47680baf5fac3500ad84c7b95b5e13e8))
+
+
+### Performance
+
+* **server:** batch public status page queries ([270cf0f](https://github.com/AurevLan/WhatIsUp/commit/270cf0f9c3ae25408cea7d69dea538d569b0dcf7))
+
+
+### Changed
+
+* **frontend:** split AdminView into admin components ([a405854](https://github.com/AurevLan/WhatIsUp/commit/a405854ee37bf82161c270960c53419c62e702a4))
+* **frontend:** split MonitorDetailView and MonitorsView ([ae9608e](https://github.com/AurevLan/WhatIsUp/commit/ae9608e9cde3e60144bd21c5d32e769a2161311f))
+
+
+### Docs
+
+* **features:** record v1.10.4 pip-audit hardening ([#168](https://github.com/AurevLan/WhatIsUp/issues/168)) ([c2edad7](https://github.com/AurevLan/WhatIsUp/commit/c2edad7ab09626f5106377c4d63bd067501075fb))
+
 ## [1.10.4](https://github.com/AurevLan/WhatIsUp/compare/v1.10.3...v1.10.4) (2026-06-08)
 
 

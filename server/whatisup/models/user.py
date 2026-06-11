@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from whatisup.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -44,6 +44,15 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # frontend falls back to the browser's resolved TZ. All timestamps remain
     # stored in UTC in the DB; this only controls display formatting.
     timezone: Mapped[str | None] = mapped_column(String(64), nullable=True, default=None)
+
+    # 2FA TOTP — secret stored Fernet-encrypted at rest; a pending secret
+    # (totp_enabled=False) becomes active only after the first valid code.
+    totp_secret: Mapped[str | None] = mapped_column(Text, nullable=True)
+    totp_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False, server_default="false"
+    )
+    # Single-use recovery codes (bcrypt hashes); consumed entries are removed.
+    totp_recovery_codes: Mapped[list | None] = mapped_column(JSON, nullable=True)
 
     # Relationships
     tag_permissions: Mapped[list[UserTagPermission]] = relationship(

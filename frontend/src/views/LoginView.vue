@@ -17,7 +17,8 @@
 
       <!-- Card -->
       <div class="login__card">
-        <form @submit.prevent="handleLogin">
+        <!-- Step 1 — credentials -->
+        <form v-if="!auth.mfaPending" @submit.prevent="handleLogin">
 
           <div class="login__field">
             <label class="login__label">{{ t('auth.email') }}</label>
@@ -42,8 +43,53 @@
           </button>
         </form>
 
+        <!-- Step 2 — 2FA verification code -->
+        <form v-else @submit.prevent="handleVerify">
+          <div class="login__mfa-head">
+            <ShieldCheck :size="20" class="login__mfa-icon" />
+            <h2 class="login__mfa-title">{{ t('auth.mfa_title') }}</h2>
+            <p class="login__mfa-sub">
+              {{ useRecovery ? t('auth.mfa_recovery_hint') : t('auth.mfa_hint') }}
+            </p>
+          </div>
+
+          <div class="login__field">
+            <label class="login__label">{{ t('auth.mfa_code') }}</label>
+            <input
+              v-model="code"
+              type="text"
+              :placeholder="useRecovery ? 'XXXX-XXXX' : '123456'"
+              :inputmode="useRecovery ? 'text' : 'numeric'"
+              autocomplete="one-time-code"
+              autofocus
+              required
+              class="input login__mfa-input"
+            />
+          </div>
+
+          <div v-if="error" class="login__error">
+            <AlertCircle :size="15" class="flex-shrink-0 mt-px" />
+            {{ error }}
+          </div>
+
+          <button type="submit" :disabled="loading" class="login__submit" :class="{ 'opacity-60': loading }">
+            <span v-if="loading" class="login__spinner" />
+            <ShieldCheck v-else :size="15" />
+            {{ loading ? t('auth.mfa_verifying') : t('auth.mfa_verify') }}
+          </button>
+
+          <div class="login__mfa-links">
+            <button type="button" class="login__link" @click="toggleRecovery">
+              {{ useRecovery ? t('auth.mfa_use_totp') : t('auth.mfa_use_recovery') }}
+            </button>
+            <button type="button" class="login__link" @click="cancelMfa">
+              {{ t('auth.mfa_back') }}
+            </button>
+          </div>
+        </form>
+
         <!-- OIDC SSO button -->
-        <div v-if="oidcEnabled" class="login__sso">
+        <div v-if="!auth.mfaPending && oidcEnabled" class="login__sso">
           <div class="login__divider">
             <div class="login__divider-line" />
             <span class="login__divider-text">ou</span>
@@ -63,7 +109,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { Activity, AlertCircle, LogIn, Moon, Shield, Sun } from 'lucide-vue-next'
+import { Activity, AlertCircle, LogIn, Moon, Shield, ShieldCheck, Sun } from 'lucide-vue-next'
 import { useAuthStore } from '../stores/auth'
 import { useWebSocketStore } from '../stores/websocket'
 import axios from 'axios'
@@ -77,6 +123,8 @@ const ws     = useWebSocketStore()
 
 const email    = ref('')
 const password = ref('')
+const code     = ref('')
+const useRecovery = ref(false)
 const error    = ref('')
 const loading  = ref(false)
 const oidcEnabled = ref(false)
@@ -99,25 +147,58 @@ onMounted(async () => {
   }
 })
 
+function finishLogin() {
+  ws.connect()
+  const redirect = route.query.redirect
+  let safe = false
+  if (typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//')) {
+    try {
+      safe = new URL(redirect, window.location.origin).origin === window.location.origin
+    } catch { safe = false }
+  }
+  router.push(safe ? redirect : '/')
+}
+
 async function handleLogin() {
   loading.value = true
   error.value = ''
   try {
     await auth.login(email.value, password.value)
-    ws.connect()
-    const redirect = route.query.redirect
-    let safe = false
-    if (typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//')) {
-      try {
-        safe = new URL(redirect, window.location.origin).origin === window.location.origin
-      } catch { safe = false }
-    }
-    router.push(safe ? redirect : '/')
+    // 2FA enabled → store now exposes mfaPending; the template swaps to the
+    // verification-code screen and we wait for handleVerify().
+    if (auth.mfaPending) return
+    finishLogin()
   } catch (err) {
     error.value = err.response?.data?.detail || t('auth.invalid_credentials')
   } finally {
     loading.value = false
   }
+}
+
+async function handleVerify() {
+  loading.value = true
+  error.value = ''
+  try {
+    await auth.verifyTotp(code.value.trim())
+    finishLogin()
+  } catch (err) {
+    error.value = err.response?.data?.detail || t('auth.mfa_invalid')
+  } finally {
+    loading.value = false
+  }
+}
+
+function toggleRecovery() {
+  useRecovery.value = !useRecovery.value
+  code.value = ''
+  error.value = ''
+}
+
+function cancelMfa() {
+  auth.cancelMfa()
+  code.value = ''
+  error.value = ''
+  useRecovery.value = false
 }
 </script>
 
@@ -232,4 +313,32 @@ async function handleLogin() {
   transition: border-color .15s, color .15s;
 }
 .login__sso-btn:hover { border-color: var(--border-hover); color: var(--text-1); }
+
+.login__mfa-head { text-align: center; margin-bottom: 1.25rem; }
+.login__mfa-icon { color: var(--brand, #3b82f6); margin: 0 auto 0.5rem; display: block; }
+.login__mfa-title { font-size: 1rem; font-weight: 600; color: var(--text-1); margin: 0 0 0.375rem; }
+.login__mfa-sub { font-size: 0.8125rem; color: var(--text-3); margin: 0; }
+.login__mfa-input {
+  text-align: center;
+  letter-spacing: 0.25em;
+  font-family: ui-monospace, monospace;
+  font-size: 1.125rem;
+}
+.login__mfa-links {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+.login__link {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: 0.8125rem;
+  color: var(--text-3);
+  transition: color .15s;
+}
+.login__link:hover { color: var(--text-1); }
+.login__link:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: 4px; }
 </style>

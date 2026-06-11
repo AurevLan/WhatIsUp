@@ -148,6 +148,42 @@ describe('auth store', () => {
     expect(auth.user).toBe(null)
   })
 
+  it('login with mfa_required sets mfaPending without storing tokens', async () => {
+    apiPost.mockResolvedValueOnce({ data: { mfa_required: true, mfa_token: 'mfa-xyz' } })
+
+    const auth = useAuthStore()
+    await auth.login('a@b.c', 'pwd')
+
+    expect(auth.mfaPending).toBe(true)
+    expect(auth.mfaToken).toBe('mfa-xyz')
+    expect(auth.isAuthenticated).toBe(false)
+    expect(localStorage.getItem('access_token')).toBe(null)
+    expect(localStorage.getItem('refresh_token')).toBe(null)
+    // /auth/me must NOT be fetched while the challenge is pending
+    expect(apiGet).not.toHaveBeenCalled()
+  })
+
+  it('verifyTotp exchanges the code for tokens and clears mfa state', async () => {
+    // First the login challenge…
+    apiPost.mockResolvedValueOnce({ data: { mfa_required: true, mfa_token: 'mfa-xyz' } })
+    const auth = useAuthStore()
+    await auth.login('a@b.c', 'pwd')
+
+    // …then the TOTP verification returns real tokens + profile.
+    apiPost.mockResolvedValueOnce({ data: { access_token: 'a-token', refresh_token: 'r-token' } })
+    apiGet.mockResolvedValueOnce({ data: { id: 'u1', email: 'a@b.c', totp_enabled: true } })
+
+    await auth.verifyTotp('123456')
+
+    expect(apiPost).toHaveBeenLastCalledWith('/auth/totp/verify', { mfa_token: 'mfa-xyz', code: '123456' })
+    expect(localStorage.getItem('access_token')).toBe('a-token')
+    expect(localStorage.getItem('refresh_token')).toBe('r-token')
+    expect(auth.isAuthenticated).toBe(true)
+    expect(auth.user.email).toBe('a@b.c')
+    expect(auth.mfaPending).toBe(false)
+    expect(auth.mfaToken).toBe(null)
+  })
+
   it('init is a no-op when no tokens are stored at all', async () => {
     const auth = useAuthStore()
     await auth.init()

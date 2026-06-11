@@ -58,9 +58,14 @@
         :key="node.id"
         class="dep-graph__node"
         :transform="`translate(${node.x},${node.y})`"
+        role="button"
+        tabindex="0"
+        :aria-label="node.name"
         @mousedown.stop="startDrag($event, node)"
         @touchstart.prevent.stop="startDragTouch($event, node)"
         @click="onNodeClick(node)"
+        @keydown.enter.prevent="onNodeClick(node)"
+        @keydown.space.prevent="onNodeClick(node)"
         @mouseenter="showTooltip($event, node)"
         @mouseleave="hideTooltip"
         style="cursor: pointer"
@@ -463,6 +468,13 @@ onUnmounted(() => {
 .dep-graph__node {
   user-select: none;
   -webkit-user-select: none;
+}
+.dep-graph__node:focus {
+  outline: none;
+}
+.dep-graph__node:focus-visible .dep-graph__circle {
+  stroke: #60a5fa;
+  stroke-width: 3;
 }
 
 .dep-graph__circle {

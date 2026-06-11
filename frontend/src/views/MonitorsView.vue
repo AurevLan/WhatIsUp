@@ -64,12 +64,14 @@
         <div class="flex gap-0.5 bg-gray-800/60 p-0.5 rounded-lg border border-gray-700/80">
           <button @click="setViewMode('list')"
             :class="viewMode === 'list' ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-300'"
-            class="px-2.5 py-1.5 rounded-md transition-colors" :title="t('monitors.view_list')">
+            class="px-2.5 py-1.5 rounded-md transition-colors" :title="t('monitors.view_list')"
+            :aria-label="t('monitors.view_list')">
             <List class="w-4 h-4" />
           </button>
           <button @click="setViewMode('board')"
             :class="viewMode === 'board' ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-300'"
-            class="px-2.5 py-1.5 rounded-md transition-colors" :title="t('monitors.view_board')">
+            class="px-2.5 py-1.5 rounded-md transition-colors" :title="t('monitors.view_board')"
+            :aria-label="t('monitors.view_board')">
             <LayoutGrid class="w-4 h-4" />
           </button>
         </div>
@@ -288,12 +290,12 @@
               <div class="flex items-center justify-end gap-1.5">
                 <router-link :to="`/monitors/${monitor.id}`"
                   class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-400 hover:text-blue-400 hover:bg-blue-500/10 transition-colors"
-                  :title="t('common.view')">
+                  :title="t('common.view')" :aria-label="t('common.view')">
                   <Eye class="w-3.5 h-3.5" />
                 </router-link>
                 <button @click.stop="editingMonitor = monitor"
                   class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
-                  :title="t('common.edit')">
+                  :title="t('common.edit')" :aria-label="t('common.edit')">
                   <PencilLine class="w-3.5 h-3.5" />
                 </button>
                 <button @click.stop="toggleEnabled(monitor)"
@@ -301,13 +303,14 @@
                   :class="monitor.enabled
                     ? 'text-gray-400 hover:text-orange-400 hover:bg-orange-500/10'
                     : 'text-emerald-600 hover:text-emerald-400 hover:bg-emerald-500/10'"
-                  :title="monitor.enabled ? t('monitors.bulk_pause') : t('monitors.bulk_enable')">
+                  :title="monitor.enabled ? t('monitors.bulk_pause') : t('monitors.bulk_enable')"
+                  :aria-label="monitor.enabled ? t('monitors.bulk_pause') : t('monitors.bulk_enable')">
                   <Pause v-if="monitor.enabled" class="w-3.5 h-3.5" />
                   <Play v-else class="w-3.5 h-3.5" />
                 </button>
                 <button @click.stop="handleDelete(monitor)"
                   class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                  :title="t('common.delete')">
+                  :title="t('common.delete')" :aria-label="t('common.delete')">
                   <Trash2 class="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -319,7 +322,7 @@
 
       <!-- Pagination (list mode) -->
       <div v-if="totalPages > 1" class="flex items-center justify-center gap-1 mt-3 px-4 pb-3">
-        <button @click="currentPage--" :disabled="currentPage === 1" class="btn-ghost text-xs disabled:opacity-30 px-1.5">←</button>
+        <button @click="currentPage--" :disabled="currentPage === 1" class="btn-ghost text-xs disabled:opacity-30 px-1.5" :aria-label="t('common.prev_page')">←</button>
         <template v-for="p in pageNumbers" :key="p">
           <span v-if="p === '...'" class="text-xs px-1" style="color:var(--text-3)">...</span>
           <button v-else @click="currentPage = p"
@@ -329,7 +332,7 @@
             {{ p }}
           </button>
         </template>
-        <button @click="currentPage++" :disabled="currentPage === totalPages" class="btn-ghost text-xs disabled:opacity-30 px-1.5">→</button>
+        <button @click="currentPage++" :disabled="currentPage === totalPages" class="btn-ghost text-xs disabled:opacity-30 px-1.5" :aria-label="t('common.next_page')">→</button>
       </div>
     </div>
 
@@ -403,7 +406,7 @@
             @click.prevent @mousedown.prevent>
             <button @click.prevent="editingMonitor = monitor"
               class="p-1.5 rounded-md text-gray-500 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
-              :title="t('common.edit')">
+              :title="t('common.edit')" :aria-label="t('common.edit')">
               <PencilLine class="w-3.5 h-3.5" />
             </button>
             <button @click.prevent="toggleEnabled(monitor)"
@@ -411,13 +414,14 @@
               :class="monitor.enabled
                 ? 'text-gray-500 hover:text-orange-400 hover:bg-orange-500/10'
                 : 'text-emerald-600 hover:text-emerald-400 hover:bg-emerald-500/10'"
-              :title="monitor.enabled ? t('monitors.bulk_pause') : t('monitors.bulk_enable')">
+              :title="monitor.enabled ? t('monitors.bulk_pause') : t('monitors.bulk_enable')"
+              :aria-label="monitor.enabled ? t('monitors.bulk_pause') : t('monitors.bulk_enable')">
               <Pause v-if="monitor.enabled" class="w-3.5 h-3.5" />
               <Play v-else class="w-3.5 h-3.5" />
             </button>
             <button @click.prevent="handleDelete(monitor)"
               class="p-1.5 rounded-md text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-              :title="t('common.delete')">
+              :title="t('common.delete')" :aria-label="t('common.delete')">
               <Trash2 class="w-3.5 h-3.5" />
             </button>
           </div>
@@ -440,7 +444,7 @@
 
       <!-- Pagination (board mode) -->
       <div v-if="totalPages > 1" class="flex items-center justify-center gap-1 mt-3">
-        <button @click="currentPage--" :disabled="currentPage === 1" class="btn-ghost text-xs disabled:opacity-30 px-1.5">←</button>
+        <button @click="currentPage--" :disabled="currentPage === 1" class="btn-ghost text-xs disabled:opacity-30 px-1.5" :aria-label="t('common.prev_page')">←</button>
         <template v-for="p in pageNumbers" :key="p">
           <span v-if="p === '...'" class="text-xs px-1" style="color:var(--text-3)">...</span>
           <button v-else @click="currentPage = p"
@@ -450,12 +454,12 @@
             {{ p }}
           </button>
         </template>
-        <button @click="currentPage++" :disabled="currentPage === totalPages" class="btn-ghost text-xs disabled:opacity-30 px-1.5">→</button>
+        <button @click="currentPage++" :disabled="currentPage === totalPages" class="btn-ghost text-xs disabled:opacity-30 px-1.5" :aria-label="t('common.next_page')">→</button>
       </div>
     </div>
 
     <!-- Mobile FAB -->
-    <button class="fab" @click="showCreate = true" :title="t('monitors.add')">
+    <button class="fab" @click="showCreate = true" :title="t('monitors.add')" :aria-label="t('monitors.add')">
       <Plus class="w-6 h-6" />
     </button>
 
@@ -463,11 +467,12 @@
       v-if="showCreate && !forceLegacyCreate"
       @close="showCreate = false"
       @created="onCreated"
-      @switch-advanced="forceLegacyCreate = true"
+      @switch-advanced="(type) => { advancedInitialType = type ?? null; forceLegacyCreate = true }"
     />
     <CreateMonitorModal
       v-if="showCreate && forceLegacyCreate"
-      @close="() => { showCreate = false; forceLegacyCreate = false }"
+      :initial-type="advancedInitialType"
+      @close="() => { showCreate = false; forceLegacyCreate = false; advancedInitialType = null }"
       @created="onCreated"
     />
     <EditMonitorModal v-if="editingMonitor" :monitor="editingMonitor" @close="editingMonitor = null" @updated="onUpdated" />
@@ -506,6 +511,7 @@ const errorCount = computed(() => monitors.value.filter(m => ['error', 'timeout'
 
 const showCreate        = ref(false)
 const forceLegacyCreate = ref(false)
+const advancedInitialType = ref(null)
 const editingMonitor = ref(null)
 const searchInput   = ref(null)
 

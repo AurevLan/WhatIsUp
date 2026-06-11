@@ -25,14 +25,20 @@
           </label>
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <button
-              v-for="ct in supportedTypes" :key="ct.value" type="button"
-              @click="form.check_type = ct.value"
+              v-for="ct in allTypes" :key="ct.value" type="button"
+              @click="selectType(ct)"
               class="wizard__type-card"
-              :class="{ 'wizard__type-card--selected': form.check_type === ct.value }"
+              :class="{
+                'wizard__type-card--selected': form.check_type === ct.value,
+                'wizard__type-card--advanced': ct.advanced,
+              }"
             >
               <div class="text-2xl mb-1">{{ ct.icon }}</div>
               <div class="text-sm font-semibold">{{ ct.label }}</div>
               <div class="text-xs text-gray-500 mt-1">{{ ct.description }}</div>
+              <div v-if="ct.advanced" class="wizard__type-card-advanced-hint">
+                ↗ {{ t('wizard.opens_advanced') }}
+              </div>
             </button>
           </div>
           <p v-if="!form.check_type" class="text-xs text-gray-500 mt-2">
@@ -181,6 +187,31 @@ const supportedTypes = computed(() => [
   { value: 'dns',       icon: '🌍', label: 'DNS',       description: t('create_monitor.type_dns_desc'),       namePlaceholder: 'example.com DNS' },
   { value: 'heartbeat', icon: '💓', label: 'Heartbeat', description: t('create_monitor.type_heartbeat_desc'), namePlaceholder: 'Nightly backup' },
 ])
+
+// Types handled by the advanced form only — clicking one hands over to CreateMonitorModal.
+const advancedTypes = computed(() => [
+  { value: 'keyword',       icon: '🔍', label: 'Keyword',   description: t('create_monitor.type_keyword_desc') },
+  { value: 'json_path',     icon: '{ }', label: 'JSON',     description: t('create_monitor.type_json_path_desc') },
+  { value: 'ping',          icon: '🏓', label: 'Ping',      description: t('create_monitor.type_ping_desc') },
+  { value: 'udp',           icon: '📦', label: 'UDP',       description: t('create_monitor.type_udp_desc') },
+  { value: 'smtp',          icon: '✉️', label: 'SMTP',      description: t('create_monitor.type_smtp_desc') },
+  { value: 'domain_expiry', icon: '🔑', label: 'Domain',    description: t('create_monitor.type_domain_expiry_desc') },
+  { value: 'scenario',      icon: '🎭', label: 'Scenario',  description: t('create_monitor.type_scenario_desc') },
+  { value: 'composite',     icon: '🔗', label: 'Composite', description: t('create_monitor.type_composite_desc') },
+])
+
+const allTypes = computed(() => [
+  ...supportedTypes.value.map((ct) => ({ ...ct, advanced: false })),
+  ...advancedTypes.value.map((ct) => ({ ...ct, advanced: true })),
+])
+
+function selectType(ct) {
+  if (ct.advanced) {
+    emit('switch-advanced', ct.value)
+    return
+  }
+  form.value.check_type = ct.value
+}
 
 const currentType = computed(() =>
   supportedTypes.value.find((t) => t.value === form.value.check_type) ?? null,
@@ -331,6 +362,14 @@ async function submit() {
   border-color: rgba(96, 165, 250, 0.7);
   background: rgba(59, 130, 246, 0.10);
   color: var(--text-1);
+}
+.wizard__type-card--advanced {
+  border-style: dashed;
+}
+.wizard__type-card-advanced-hint {
+  margin-top: 0.35rem;
+  font-size: 0.65rem;
+  color: rgba(96, 165, 250, 0.85);
 }
 
 @media (max-width: 640px) {

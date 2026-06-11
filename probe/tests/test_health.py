@@ -94,6 +94,11 @@ async def test_reporter_heartbeat_sends_health_in_body() -> None:
     body = json.loads(route.calls[0].request.content)
     assert body["health"]["cpu_percent"] == 33.0
     assert body["health"]["monitors_active"] == 3
+    # Agent version always included — server uses it to flag outdated probes
+    assert body["version"]
+    from whatisup_probe.reporter import PROBE_VERSION
+
+    assert body["version"] == PROBE_VERSION
 
 
 @pytest.mark.asyncio

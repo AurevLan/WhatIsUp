@@ -69,6 +69,20 @@
                   class="text-xs px-2 py-0.5 rounded-full border">
                   {{ probe.network_type === 'internal' ? '🏢 ' + t('probes.network_internal_badge') : '🌐 ' + t('probes.network_external_badge') }}
                 </span>
+                <span v-if="probe.version && !isOutdated(probe)"
+                  class="text-xs px-2 py-0.5 rounded-full border bg-gray-800 text-gray-400 border-gray-700">
+                  v{{ probe.version }}
+                </span>
+                <span v-else-if="probe.version && isOutdated(probe)"
+                  class="text-xs px-2 py-0.5 rounded-full border bg-amber-500/15 text-amber-400 border-amber-500/30"
+                  :title="t('probes.version_outdated_tooltip', { probe: probe.version, server: serverVersion })">
+                  ⚠️ v{{ probe.version }} — {{ t('probes.version_outdated') }}
+                </span>
+                <span v-else-if="probe.last_seen_at"
+                  class="text-xs px-2 py-0.5 rounded-full border bg-amber-500/15 text-amber-400 border-amber-500/30"
+                  :title="t('probes.version_unknown_tooltip')">
+                  ⚠️ {{ t('probes.version_unknown') }}
+                </span>
               </div>
               <p class="text-sm text-gray-400 mt-1">{{ probe.location_name }}</p>
             </div>
@@ -215,6 +229,7 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../stores/auth'
 import { probesApi } from '../api/probes'
+import { apiBaseUrl } from '../lib/serverConfig'
 import { useToast } from '../composables/useToast'
 import { useConfirm } from '../composables/useConfirm'
 import { useDateFormat } from '../composables/useDateFormat'
@@ -435,8 +450,26 @@ watch(activeTab, async (tab) => {
 })
 
 let refreshTimer = null
+// Server version — used to flag probes running an outdated agent build
+const serverVersion = ref(null)
+async function loadServerVersion() {
+  try {
+    const healthUrl = apiBaseUrl().replace(/\/api\/v1\/?$/, '') + '/api/health'
+    const res = await fetch(healthUrl)
+    const data = await res.json()
+    serverVersion.value = data?.version || null
+  } catch {
+    serverVersion.value = null
+  }
+}
+
+function isOutdated(probe) {
+  return Boolean(serverVersion.value && probe.version && probe.version !== serverVersion.value)
+}
+
 onMounted(() => {
   loadProbes()
+  loadServerVersion()
   refreshTimer = setInterval(loadProbes, 60_000)
 })
 onUnmounted(() => clearInterval(refreshTimer))

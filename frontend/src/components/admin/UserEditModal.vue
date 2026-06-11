@@ -1,0 +1,151 @@
+<template>
+  <Teleport to="body">
+    <div v-if="modelValue && user" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" @click.self="close">
+      <div class="card w-full max-w-md" @click.stop>
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-lg font-semibold text-white">{{ t('admin.edit_user_title', { name: user.username }) }}</h2>
+          <button @click="close" class="text-gray-500 hover:text-gray-300">
+            <X class="w-5 h-5" />
+          </button>
+        </div>
+
+        <form @submit.prevent="submitEdit" class="space-y-4">
+          <div>
+            <label class="block text-sm text-gray-400 mb-1">{{ t('admin.col_email') }}</label>
+            <input v-model="editForm.email" type="email" class="input w-full" />
+          </div>
+          <div>
+            <label class="block text-sm text-gray-400 mb-1">{{ t('admin.label_full_name') }}</label>
+            <input v-model="editForm.full_name" type="text" class="input w-full" />
+          </div>
+          <div>
+            <label class="block text-sm text-gray-400 mb-1">{{ t('admin.label_new_password') }}</label>
+            <input v-model="editForm.password" type="password" class="input w-full" minlength="8" />
+          </div>
+
+          <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-800/60 border border-gray-700/50">
+            <div>
+              <div class="text-sm text-gray-300 font-medium">{{ t('admin.toggle_active') }}</div>
+            </div>
+            <button
+              type="button"
+              @click="editForm.is_active = !editForm.is_active"
+              :class="editForm.is_active ? 'bg-green-600' : 'bg-gray-700'"
+              class="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
+            >
+              <span
+                :class="editForm.is_active ? 'translate-x-5' : 'translate-x-1'"
+                class="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"
+              />
+            </button>
+          </div>
+
+          <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-800/60 border border-gray-700/50">
+            <div>
+              <div class="text-sm text-gray-300 font-medium">{{ t('admin.perm_can_create_monitors') }}</div>
+            </div>
+            <button
+              type="button"
+              @click="editForm.can_create_monitors = !editForm.can_create_monitors"
+              :class="editForm.can_create_monitors ? 'bg-blue-600' : 'bg-gray-700'"
+              class="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
+            >
+              <span
+                :class="editForm.can_create_monitors ? 'translate-x-5' : 'translate-x-1'"
+                class="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"
+              />
+            </button>
+          </div>
+
+          <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-800/60 border border-gray-700/50">
+            <div>
+              <div class="text-sm text-gray-300 font-medium">{{ t('admin.perm_is_admin') }}</div>
+              <div class="text-xs text-gray-500">{{ t('admin.perm_is_admin_desc_short') }}</div>
+            </div>
+            <button
+              type="button"
+              @click="editForm.is_superadmin = !editForm.is_superadmin"
+              :class="editForm.is_superadmin ? 'bg-purple-600' : 'bg-gray-700'"
+              class="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
+            >
+              <span
+                :class="editForm.is_superadmin ? 'translate-x-5' : 'translate-x-1'"
+                class="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"
+              />
+            </button>
+          </div>
+
+          <div v-if="editError" class="text-red-400 text-sm">{{ editError }}</div>
+
+          <div class="flex justify-end gap-3 pt-2">
+            <button type="button" @click="close" class="btn-secondary">{{ t('common.cancel') }}</button>
+            <button type="submit" class="btn-primary" :disabled="submitting">
+              {{ submitting ? t('admin.saving') : t('admin.save_btn') }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </Teleport>
+</template>
+
+<script setup>
+import { ref, watch } from 'vue'
+import { X } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
+import { adminApi } from '../../api/admin'
+
+const props = defineProps({
+  modelValue: { type: Boolean, default: false },
+  user: { type: Object, default: null },
+})
+const emit = defineEmits(['update:modelValue', 'saved'])
+
+const { t } = useI18n()
+
+const submitting = ref(false)
+const editError = ref('')
+const editForm = ref({
+  email: '',
+  full_name: '',
+  password: '',
+  is_active: true,
+  can_create_monitors: false,
+  is_superadmin: false,
+})
+
+watch(() => props.modelValue, (open) => {
+  if (open && props.user) {
+    editForm.value = {
+      email: props.user.email,
+      full_name: props.user.full_name || '',
+      password: '',
+      is_active: props.user.is_active,
+      can_create_monitors: props.user.can_create_monitors,
+      is_superadmin: props.user.is_superadmin,
+    }
+    editError.value = ''
+  }
+})
+
+function close() {
+  emit('update:modelValue', false)
+}
+
+async function submitEdit() {
+  submitting.value = true
+  editError.value = ''
+  try {
+    const payload = { ...editForm.value }
+    if (!payload.password) delete payload.password
+    if (!payload.full_name) delete payload.full_name
+    await adminApi.updateUser(props.user.id, payload)
+    emit('update:modelValue', false)
+    emit('saved')
+  } catch (e) {
+    editError.value = e.response?.data?.detail || t('admin.error_edit')
+  } finally {
+    submitting.value = false
+  }
+}
+</script>

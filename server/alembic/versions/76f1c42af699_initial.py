@@ -312,4 +312,17 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_probes_is_active"), table_name="probes")
     op.drop_index(op.f("ix_probes_id"), table_name="probes")
     op.drop_table("probes")
+    # Drop the Postgres ENUM types created by this migration — drop_table does
+    # not remove them, which breaks a downgrade→upgrade round-trip
+    # ("type already exists"). No-op on SQLite.
+    if op.get_bind().dialect.name == "postgresql":
+        for enum_name in (
+            "alert_channel_type",
+            "alert_condition",
+            "alert_event_status",
+            "check_status",
+            "incident_scope",
+            "permission_level",
+        ):
+            op.execute(f"DROP TYPE IF EXISTS {enum_name}")
     # ### end Alembic commands ###

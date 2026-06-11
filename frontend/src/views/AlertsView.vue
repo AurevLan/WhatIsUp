@@ -60,7 +60,7 @@
               >
                 {{ testingChannel === channel.id ? t('alerts.test_channel_running') : t('alerts.test_channel') }}
               </button>
-              <button @click="confirmDeleteChannel(channel)" class="text-gray-600 hover:text-red-400 transition-colors flex-shrink-0">✕</button>
+              <button @click="confirmDeleteChannel(channel)" class="text-gray-600 hover:text-red-400 transition-colors flex-shrink-0" :aria-label="t('common.delete')">✕</button>
             </div>
             <!-- Test result inline -->
             <div v-if="testResults[channel.id]" class="mt-2 text-xs px-3 py-1.5 rounded-lg"
@@ -145,7 +145,7 @@
             :disabled="applyingSuggestion === s.monitor_id"
             class="btn-primary text-xs whitespace-nowrap disabled:opacity-50"
           >{{ t('alerts.apply_suggestion') }}</button>
-          <button @click="dismissSuggestion(s)" class="text-gray-600 hover:text-gray-400 text-xs">✕</button>
+          <button @click="dismissSuggestion(s)" class="text-gray-600 hover:text-gray-400 text-xs" :aria-label="t('common.dismiss')">✕</button>
         </div>
       </div>
     </div>
@@ -208,6 +208,7 @@
               <!-- Enable/disable toggle -->
               <button @click="toggleRule(rule)"
                 :title="rule.enabled ? t('alerts.rule_enabled') : t('alerts.rule_disabled')"
+                :aria-label="rule.enabled ? t('alerts.rule_enabled') : t('alerts.rule_disabled')"
                 class="text-xs px-2 py-1 rounded-lg border transition-colors"
                 :class="rule.enabled
                   ? 'border-emerald-700 text-emerald-500 hover:border-red-600 hover:text-red-400'
@@ -220,7 +221,7 @@
                 {{ t('common.edit') }}
               </button>
               <!-- Delete -->
-              <button @click="confirmDeleteRule(rule)" class="text-gray-600 hover:text-red-400 transition-colors">✕</button>
+              <button @click="confirmDeleteRule(rule)" class="text-gray-600 hover:text-red-400 transition-colors" :aria-label="t('common.delete')">✕</button>
             </div>
           </div>
 
@@ -250,7 +251,7 @@
           <h2 class="text-lg font-semibold text-white">
             {{ editingRule ? t('alerts.edit_rule') : t('alerts.add_rule') }}
           </h2>
-          <button @click="closeRuleModal" class="text-gray-400 hover:text-white">✕</button>
+          <button @click="closeRuleModal" class="text-gray-400 hover:text-white" :aria-label="t('common.close')">✕</button>
         </div>
 
         <form @submit.prevent="saveRule" class="space-y-4">

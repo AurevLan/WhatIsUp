@@ -453,6 +453,7 @@ const { t } = useI18n()
 
 const props = defineProps({
   initialData: { type: Object, default: null },
+  initialType: { type: String, default: null },
 })
 
 const emit = defineEmits(['close', 'created'])
@@ -631,6 +632,10 @@ const form = ref({
 
 // Pre-fill form when cloning (initialData prop)
 onMounted(() => {
+  // Pre-select a check type (handoff from the wizard) — initialData still wins below.
+  if (props.initialType) {
+    form.value.check_type = props.initialType
+  }
   if (props.initialData) {
     const data = { ...props.initialData }
     // Convert expected_headers object to list format used by the form

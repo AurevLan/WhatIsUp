@@ -43,12 +43,13 @@ async def test_create_tag_is_idempotent(client: AsyncClient, user_token: str) ->
 
 
 @pytest.mark.asyncio
-async def test_delete_tag(client: AsyncClient, user_token: str) -> None:
+async def test_delete_tag(client: AsyncClient, user_token: str, admin_token: str) -> None:
     create = await client.post(
         "/api/v1/tags/", json={"name": "to_delete"}, headers=_auth(user_token)
     )
     tag_id = create.json()["id"]
-    resp = await client.delete(f"/api/v1/tags/{tag_id}", headers=_auth(user_token))
+    # Tag mutation is superadmin-only (global shared pool)
+    resp = await client.delete(f"/api/v1/tags/{tag_id}", headers=_auth(admin_token))
     assert resp.status_code == 204
 
 

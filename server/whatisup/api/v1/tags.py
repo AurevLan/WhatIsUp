@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from whatisup.api.deps import get_current_user
+from whatisup.api.deps import get_current_user, require_superadmin
 from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
 from whatisup.models.tag import Tag
@@ -20,7 +20,9 @@ router = APIRouter(prefix="/tags", tags=["tags"])
 
 
 @router.get("/", response_model=list[TagOut])
+@limiter.limit("120/minute")
 async def list_tags(
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[Tag]:
@@ -62,7 +64,9 @@ async def update_tag(
     tag_id: uuid.UUID,
     payload: TagUpdate,
     request: Request,
-    current_user: User = Depends(get_current_user),
+    # Tags are a global shared pool: mutation is superadmin-only to prevent
+    # a user from renaming/recoloring tags used by other users' monitors.
+    current_user: User = Depends(require_superadmin),
     db: AsyncSession = Depends(get_db),
 ) -> Tag:
     tag = (await db.execute(select(Tag).where(Tag.id == tag_id))).scalar_one_or_none()
@@ -83,7 +87,7 @@ async def update_tag(
 async def delete_tag(
     tag_id: uuid.UUID,
     request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_superadmin),
     db: AsyncSession = Depends(get_db),
 ) -> None:
     tag = (await db.execute(select(Tag).where(Tag.id == tag_id))).scalar_one_or_none()

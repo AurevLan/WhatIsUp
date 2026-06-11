@@ -160,8 +160,8 @@ async def test_devices_requires_auth(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_tags_full_crud(client: AsyncClient, user_token: str) -> None:
-    # Create
+async def test_tags_full_crud(client: AsyncClient, user_token: str, admin_token: str) -> None:
+    # Create (any user)
     create = await client.post(
         "/api/v1/tags/",
         json={"name": "tag-crud", "color": "#00ff00"},
@@ -170,38 +170,38 @@ async def test_tags_full_crud(client: AsyncClient, user_token: str) -> None:
     assert create.status_code == 201
     tag_id = create.json()["id"]
 
-    # List
+    # List (any user)
     lst = await client.get("/api/v1/tags/", headers=_auth(user_token))
     assert lst.status_code == 200
     assert any(t["id"] == tag_id for t in lst.json())
 
-    # Update
+    # Update — superadmin-only (tags are a global shared pool)
     upd = await client.patch(
         f"/api/v1/tags/{tag_id}",
         json={"name": "tag-renamed"},
-        headers=_auth(user_token),
+        headers=_auth(admin_token),
     )
     assert upd.status_code == 200
     assert upd.json()["name"] == "tag-renamed"
 
-    # Delete
-    delete = await client.delete(f"/api/v1/tags/{tag_id}", headers=_auth(user_token))
+    # Delete — superadmin-only
+    delete = await client.delete(f"/api/v1/tags/{tag_id}", headers=_auth(admin_token))
     assert delete.status_code == 204
 
 
 @pytest.mark.asyncio
-async def test_tags_update_unknown_404(client: AsyncClient, user_token: str) -> None:
+async def test_tags_update_unknown_404(client: AsyncClient, admin_token: str) -> None:
     resp = await client.patch(
         f"/api/v1/tags/{uuid.uuid4()}",
         json={"name": "x"},
-        headers=_auth(user_token),
+        headers=_auth(admin_token),
     )
     assert resp.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_tags_delete_unknown_404(client: AsyncClient, user_token: str) -> None:
-    resp = await client.delete(f"/api/v1/tags/{uuid.uuid4()}", headers=_auth(user_token))
+async def test_tags_delete_unknown_404(client: AsyncClient, admin_token: str) -> None:
+    resp = await client.delete(f"/api/v1/tags/{uuid.uuid4()}", headers=_auth(admin_token))
     assert resp.status_code == 404
 
 

@@ -22,6 +22,78 @@
         </div>
       </div>
 
+      <!-- Security — Two-factor authentication + active sessions -->
+      <div class="card">
+        <h2 class="text-lg font-semibold text-white mb-1">{{ t('settings.security.title') }}</h2>
+        <p class="text-sm text-gray-500 mb-4">{{ t('settings.security.desc') }}</p>
+
+        <!-- 2FA status row -->
+        <div class="flex items-center gap-2 mb-4">
+          <span class="w-2 h-2 rounded-full flex-shrink-0"
+            :class="auth.user?.totp_enabled ? 'bg-emerald-400' : 'bg-gray-600'" />
+          <span class="text-sm" :class="auth.user?.totp_enabled ? 'text-emerald-400' : 'text-gray-500'">
+            {{ auth.user?.totp_enabled ? t('settings.security.totp_on') : t('settings.security.totp_off') }}
+          </span>
+        </div>
+
+        <div v-if="totp.error" class="mb-3 text-sm text-red-400">{{ totp.error }}</div>
+
+        <div class="flex gap-2 flex-wrap">
+          <button v-if="!auth.user?.totp_enabled"
+            @click="startTotpSetup"
+            :disabled="totp.loading"
+            class="btn-primary text-sm">
+            {{ totp.loading ? t('common.loading') : t('settings.security.totp_enable') }}
+          </button>
+          <button v-else
+            @click="openDisable"
+            class="btn-ghost text-sm text-red-400">
+            {{ t('settings.security.totp_disable') }}
+          </button>
+        </div>
+
+        <!-- Active sessions sub-section -->
+        <div class="mt-6 pt-5 border-t border-gray-800">
+          <h3 class="text-sm font-semibold text-white mb-1">{{ t('settings.security.sessions_title') }}</h3>
+          <p class="text-xs text-gray-500 mb-3">{{ t('settings.security.sessions_desc') }}</p>
+
+          <div v-if="sessions.loading" class="text-sm text-gray-500">{{ t('common.loading') }}</div>
+          <div v-else-if="sessions.error" class="text-sm text-red-400">{{ sessions.error }}</div>
+          <div v-else-if="sessions.list.length === 0" class="text-sm text-gray-500">
+            {{ t('settings.security.sessions_empty') }}
+          </div>
+          <ul v-else class="space-y-2">
+            <li v-for="s in sessions.list" :key="s.id"
+              class="flex items-center justify-between gap-3 bg-gray-900/50 border border-gray-800 rounded-lg px-3 py-2">
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <Monitor :size="14" class="text-gray-400 flex-shrink-0" />
+                  <span class="text-sm text-gray-200 truncate">{{ s.ua || t('settings.security.session_unknown_ua') }}</span>
+                  <span v-if="s.current"
+                    class="text-[10px] uppercase tracking-wide bg-emerald-500/15 text-emerald-400 px-1.5 py-0.5 rounded">
+                    {{ t('settings.security.session_current') }}
+                  </span>
+                </div>
+                <div class="text-xs text-gray-500 mt-0.5">
+                  {{ s.ip || '—' }} · {{ fmtDate(s.created_at) }}
+                </div>
+              </div>
+              <button v-if="!s.current"
+                @click="revokeSession(s.id)"
+                class="btn-ghost text-xs text-red-400 flex-shrink-0">
+                {{ t('settings.security.session_revoke') }}
+              </button>
+            </li>
+          </ul>
+
+          <button v-if="sessions.list.length > 1"
+            @click="revokeAllSessions"
+            class="btn-secondary text-sm mt-3">
+            {{ t('settings.security.sessions_revoke_all') }}
+          </button>
+        </div>
+      </div>
+
       <!-- Preferences (T1-13) -->
       <div class="card">
         <h2 class="text-lg font-semibold text-white mb-1">{{ t('settings.preferences_title') }}</h2>
@@ -209,15 +281,115 @@
         </div>
       </div>
     </div>
+
+    <!-- TOTP setup modal (QR + first code) -->
+    <div v-if="totp.setupOpen"
+      class="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
+      @click.self="closeTotpSetup">
+      <div class="card w-full max-w-md mx-4">
+        <h2 class="text-lg font-semibold text-white mb-2">{{ t('settings.security.setup_title') }}</h2>
+        <p class="text-sm text-gray-400 mb-4">{{ t('settings.security.setup_desc') }}</p>
+
+        <div v-if="totp.qrDataUrl" class="flex justify-center mb-3">
+          <img :src="totp.qrDataUrl" alt="TOTP QR code"
+            class="rounded-lg bg-white p-2" width="192" height="192" />
+        </div>
+        <div v-else-if="totp.otpauthUrl" class="mb-3 text-sm text-amber-300">
+          {{ t('settings.security.setup_qr_fallback') }}
+          <a :href="totp.otpauthUrl" class="text-blue-400 break-all underline">{{ totp.otpauthUrl }}</a>
+        </div>
+
+        <p class="text-xs text-gray-500 mb-1">{{ t('settings.security.setup_manual') }}</p>
+        <code class="block w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-green-300 font-mono break-all mb-4">
+          {{ totp.secret }}
+        </code>
+
+        <label class="block text-sm text-gray-400 mb-1">{{ t('settings.security.setup_code_label') }}</label>
+        <input v-model="totp.code" class="input w-full" placeholder="123456"
+          inputmode="numeric" autocomplete="one-time-code"
+          @keydown.enter="confirmEnable" />
+
+        <div v-if="totp.enableError" class="mt-2 text-sm text-red-400">{{ totp.enableError }}</div>
+
+        <div class="flex justify-end gap-3 mt-6">
+          <button class="btn-secondary" @click="closeTotpSetup">{{ t('common.cancel') }}</button>
+          <button class="btn-primary" :disabled="!totp.code.trim() || totp.enabling" @click="confirmEnable">
+            <Loader2 v-if="totp.enabling" class="w-4 h-4 mr-2 animate-spin" />
+            {{ t('settings.security.setup_confirm') }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recovery codes reveal modal (shown once) -->
+    <div v-if="recoveryCodes.length"
+      class="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+      <div class="card w-full max-w-md mx-4">
+        <div class="flex items-center gap-3 mb-3">
+          <CheckCircle class="w-6 h-6 text-green-400 flex-shrink-0" />
+          <h2 class="text-lg font-semibold text-white">{{ t('settings.security.recovery_title') }}</h2>
+        </div>
+        <p class="text-sm text-amber-300 mb-3">{{ t('settings.security.recovery_warning') }}</p>
+
+        <div class="relative">
+          <ul class="grid grid-cols-2 gap-2 bg-gray-900 border border-gray-700 rounded-lg p-3 pr-12">
+            <li v-for="c in recoveryCodes" :key="c" class="text-sm text-green-300 font-mono">{{ c }}</li>
+          </ul>
+          <button class="absolute right-2 top-2 text-gray-400 hover:text-white transition-colors"
+            :title="t('common.copy')" @click="copyRecoveryCodes">
+            <Copy class="w-4 h-4" />
+          </button>
+        </div>
+
+        <div class="flex justify-end mt-6">
+          <button class="btn-primary" @click="recoveryCodes = []">{{ t('settings.security.recovery_saved') }}</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Disable 2FA modal (password + code) -->
+    <div v-if="disable.open"
+      class="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
+      @click.self="disable.open = false">
+      <div class="card w-full max-w-md mx-4">
+        <h2 class="text-lg font-semibold text-white mb-2">{{ t('settings.security.disable_title') }}</h2>
+        <p class="text-sm text-gray-400 mb-4">{{ t('settings.security.disable_desc') }}</p>
+
+        <label class="block text-sm text-gray-400 mb-1">{{ t('auth.password') }}</label>
+        <input v-model="disable.password" type="password" class="input w-full mb-3"
+          autocomplete="current-password" />
+
+        <label class="block text-sm text-gray-400 mb-1">{{ t('settings.security.setup_code_label') }}</label>
+        <input v-model="disable.code" class="input w-full" placeholder="123456"
+          inputmode="text" autocomplete="one-time-code" @keydown.enter="confirmDisable" />
+
+        <div v-if="disable.error" class="mt-2 text-sm text-red-400">{{ disable.error }}</div>
+
+        <div class="flex justify-end gap-3 mt-6">
+          <button class="btn-secondary" @click="disable.open = false">{{ t('common.cancel') }}</button>
+          <button class="btn-primary text-red-100 !bg-red-600 hover:!bg-red-700"
+            :disabled="!disable.password || !disable.code.trim() || disable.loading" @click="confirmDisable">
+            <Loader2 v-if="disable.loading" class="w-4 h-4 mr-2 animate-spin" />
+            {{ t('settings.security.disable_confirm') }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import QRCode from 'qrcode'
+import { CheckCircle, Copy, Loader2, Monitor } from 'lucide-vue-next'
 import { useAuthStore } from '../stores/auth'
 import { useWebPushStore } from '../stores/webPush'
 import { useTimezone } from '../composables/useTimezone'
+import { useToast } from '../composables/useToast'
+import { useConfirm } from '../composables/useConfirm'
+import { useDateFormat } from '../composables/useDateFormat'
+import { authApi } from '../api/auth'
 import api from '../api/client'
 import {
   isPushAvailable,
@@ -234,9 +406,160 @@ import {
 import { APP_VERSION } from '../lib/appVersion'
 
 const { t, locale } = useI18n()
+const { success, error: toastError } = useToast()
+const { confirm } = useConfirm()
+const { formatDate: fmtDate } = useDateFormat()
 const auth = useAuthStore()
 const push = useWebPushStore()
 const extensionLoading = ref(false)
+
+// ── Two-factor authentication ────────────────────────────────────────────────
+const totp = reactive({
+  loading: false,      // setup() in-flight
+  error: '',           // status-row error
+  setupOpen: false,
+  secret: '',
+  otpauthUrl: '',
+  qrDataUrl: '',
+  code: '',
+  enabling: false,     // enable() in-flight
+  enableError: '',
+})
+const recoveryCodes = ref([])
+const disable = reactive({ open: false, password: '', code: '', loading: false, error: '' })
+
+async function startTotpSetup() {
+  totp.loading = true
+  totp.error = ''
+  try {
+    const { data } = await authApi.totpSetup()
+    totp.secret = data.secret
+    totp.otpauthUrl = data.otpauth_url
+    totp.code = ''
+    totp.enableError = ''
+    totp.qrDataUrl = ''
+    try {
+      totp.qrDataUrl = await QRCode.toDataURL(data.otpauth_url, { width: 192, margin: 1 })
+    } catch {
+      // QR generation failed — modal falls back to the otpauth link + secret.
+    }
+    totp.setupOpen = true
+  } catch (e) {
+    totp.error = e.response?.data?.detail || t('settings.security.error_generic')
+  } finally {
+    totp.loading = false
+  }
+}
+
+function closeTotpSetup() {
+  totp.setupOpen = false
+  totp.secret = ''
+  totp.otpauthUrl = ''
+  totp.qrDataUrl = ''
+  totp.code = ''
+  totp.enableError = ''
+}
+
+async function confirmEnable() {
+  if (!totp.code.trim()) return
+  totp.enabling = true
+  totp.enableError = ''
+  try {
+    const { data } = await authApi.totpEnable(totp.code.trim())
+    if (auth.user) auth.user.totp_enabled = true
+    closeTotpSetup()
+    recoveryCodes.value = data.recovery_codes || []
+    success(t('settings.security.totp_enabled_toast'))
+  } catch (e) {
+    totp.enableError = e.response?.data?.detail || t('settings.security.invalid_code')
+  } finally {
+    totp.enabling = false
+  }
+}
+
+async function copyRecoveryCodes() {
+  try {
+    await navigator.clipboard.writeText(recoveryCodes.value.join('\n'))
+    success(t('common.copied'))
+  } catch {
+    toastError(t('settings.security.copy_failed'))
+  }
+}
+
+function openDisable() {
+  disable.open = true
+  disable.password = ''
+  disable.code = ''
+  disable.error = ''
+}
+
+async function confirmDisable() {
+  if (!disable.password || !disable.code.trim()) return
+  disable.loading = true
+  disable.error = ''
+  try {
+    await authApi.totpDisable(disable.password, disable.code.trim())
+    if (auth.user) auth.user.totp_enabled = false
+    disable.open = false
+    success(t('settings.security.totp_disabled_toast'))
+  } catch (e) {
+    disable.error = e.response?.data?.detail || t('settings.security.invalid_code')
+  } finally {
+    disable.loading = false
+  }
+}
+
+// ── Active sessions ──────────────────────────────────────────────────────────
+const sessions = reactive({ list: [], loading: false, error: '' })
+
+async function loadSessions() {
+  const refresh = localStorage.getItem('refresh_token')
+  if (!refresh) return
+  sessions.loading = true
+  sessions.error = ''
+  try {
+    const { data } = await authApi.sessionsList(refresh)
+    sessions.list = data || []
+  } catch (e) {
+    sessions.error = e.response?.data?.detail || t('settings.security.sessions_error')
+  } finally {
+    sessions.loading = false
+  }
+}
+
+async function revokeSession(id) {
+  const ok = await confirm({
+    title: t('settings.security.session_revoke'),
+    message: t('settings.security.session_revoke_confirm'),
+    confirmLabel: t('settings.security.session_revoke'),
+  })
+  if (!ok) return
+  try {
+    await authApi.sessionRevoke(id)
+    sessions.list = sessions.list.filter((s) => s.id !== id)
+    success(t('settings.security.session_revoked_toast'))
+  } catch (e) {
+    toastError(e.response?.data?.detail || t('settings.security.error_generic'))
+  }
+}
+
+async function revokeAllSessions() {
+  const ok = await confirm({
+    title: t('settings.security.sessions_revoke_all'),
+    message: t('settings.security.sessions_revoke_all_confirm'),
+    confirmLabel: t('settings.security.sessions_revoke_all'),
+  })
+  if (!ok) return
+  const refresh = localStorage.getItem('refresh_token')
+  if (!refresh) return
+  try {
+    await authApi.sessionsRevokeAll(refresh)
+    await loadSessions()
+    success(t('settings.security.sessions_revoked_all_toast'))
+  } catch (e) {
+    toastError(e.response?.data?.detail || t('settings.security.error_generic'))
+  }
+}
 
 // ── Timezone preference (T1-13) ───────────────────────────────────────────────
 const { timezone: activeTz, format: tzFormat } = useTimezone()
@@ -351,6 +674,7 @@ async function disableMobilePush() {
 onMounted(async () => {
   push.init()
   biometric.isAvailable = await isBiometricAvailable()
+  loadSessions()
 })
 
 async function downloadExtension() {

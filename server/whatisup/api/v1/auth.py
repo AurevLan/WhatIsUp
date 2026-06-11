@@ -22,12 +22,19 @@ from whatisup.core.limiter import limiter
 from whatisup.core.redis import get_redis
 from whatisup.core.security import (
     create_access_token,
+    create_mfa_token,
     create_refresh_token,
     decode_token,
     verify_password_async,
 )
 from whatisup.models.user import User
-from whatisup.schemas.user import TokenRefreshRequest, TokenResponse, UserOut, UserSelfUpdate
+from whatisup.schemas.user import (
+    LoginResponse,
+    TokenRefreshRequest,
+    TokenResponse,
+    UserOut,
+    UserSelfUpdate,
+)
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -42,13 +49,47 @@ async def register() -> None:
     )
 
 
-@router.post("/login", response_model=TokenResponse)
+async def store_refresh_session(
+    user_id: uuid.UUID,
+    refresh_token: str,
+    request: Request | None,
+    inherit_meta: dict | None = None,
+) -> None:
+    """Store the refresh token in Redis with session metadata (UA/IP/created).
+
+    The key set IS the user's active session list — metadata makes it
+    presentable in the "active sessions" UI. On token rotation, pass the
+    previous session's metadata via ``inherit_meta`` so the continuing session
+    keeps its original start date, user-agent and IP.
+    """
+    import json
+    from datetime import UTC, datetime
+
+    redis = get_redis()
+    _rh = hashlib.sha256(refresh_token.encode()).hexdigest()[:32]
+    if inherit_meta:
+        meta = inherit_meta
+    else:
+        meta = {
+            "created_at": datetime.now(UTC).isoformat(),
+            "ua": (request.headers.get("user-agent", "") if request else "")[:200],
+            "ip": (request.client.host if request and request.client else None),
+        }
+    settings = get_settings()
+    await redis.setex(
+        f"whatisup:refresh:{user_id}:{_rh}",
+        settings.refresh_token_expire_days * 86400,
+        json.dumps(meta),
+    )
+
+
+@router.post("/login", response_model=LoginResponse)
 @limiter.limit("10/minute")
 async def login(
     request: Request,
     form: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db),
-) -> TokenResponse:
+) -> LoginResponse:
     user = (await db.execute(select(User).where(User.email == form.username))).scalar_one_or_none()
 
     if user is None or not user.is_active or not user.hashed_password:
@@ -67,19 +108,20 @@ async def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    # 2FA: password alone is not enough — issue a short-lived MFA challenge
+    if user.totp_enabled:
+        logger.info("login_mfa_challenge", user_id=str(user.id))
+        return LoginResponse(mfa_required=True, mfa_token=create_mfa_token(str(user.id)))
+
     access = create_access_token(str(user.id))
     refresh = create_refresh_token(str(user.id))
-
-    # Store refresh token in Redis (TTL = 7 days)
-    redis = get_redis()
-    _rh = hashlib.sha256(refresh.encode()).hexdigest()[:32]
-    await redis.setex(f"whatisup:refresh:{user.id}:{_rh}", 7 * 86400, "1")
+    await store_refresh_session(user.id, refresh, request)
 
     logger.info("login_success", user_id=str(user.id))
     from whatisup.services.audit import log_action
 
     await log_action(db, "user.login", "user", user.id, user.username, None)
-    return TokenResponse(access_token=access, refresh_token=refresh)
+    return LoginResponse(access_token=access, refresh_token=refresh)
 
 
 @router.post("/refresh", response_model=TokenResponse)
@@ -110,12 +152,20 @@ async def refresh(
     if user is None or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
-    # Rotate refresh token
+    # Rotate refresh token — the continuing session keeps its original metadata
+    import json as _json
+
+    raw_meta = await redis.get(key)
+    inherited = None
+    try:
+        if raw_meta and raw_meta not in ("1", b"1"):
+            inherited = _json.loads(raw_meta)
+    except (ValueError, TypeError):
+        pass  # legacy value from pre-session-metadata tokens
     await redis.delete(key)
     new_access = create_access_token(str(user.id))
     new_refresh = create_refresh_token(str(user.id))
-    _nrh = hashlib.sha256(new_refresh.encode()).hexdigest()[:32]
-    await redis.setex(f"whatisup:refresh:{user.id}:{_nrh}", 7 * 86400, "1")
+    await store_refresh_session(user.id, new_refresh, request, inherit_meta=inherited)
 
     return TokenResponse(access_token=new_access, refresh_token=new_refresh)
 

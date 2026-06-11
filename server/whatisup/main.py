@@ -293,18 +293,22 @@ def create_app() -> FastAPI:
         ping,
         probes,
         public,
+        sessions,
         silences,
         status,
         tags,
         teams,
         templates,
         tls_fleet,
+        totp,
         web_push,
         ws,
     )
 
     app.include_router(admin.router, prefix="/api/v1")
     app.include_router(auth.router, prefix="/api/v1")
+    app.include_router(totp.router, prefix="/api/v1")
+    app.include_router(sessions.router, prefix="/api/v1")
     app.include_router(api_keys.router, prefix="/api/v1")
     app.include_router(monitors.router, prefix="/api/v1")
     app.include_router(groups.router, prefix="/api/v1")

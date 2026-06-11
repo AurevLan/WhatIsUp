@@ -83,6 +83,7 @@ class UserOut(BaseModel):
     can_create_monitors: bool
     onboarding_completed: bool = False
     timezone: str | None = None
+    totp_enabled: bool = False
 
     model_config = {"from_attributes": True}
 
@@ -102,6 +103,7 @@ class UserOut(BaseModel):
                 "can_create_monitors": obj.can_create_monitors,
                 "onboarding_completed": obj.onboarding_completed_at is not None,
                 "timezone": obj.timezone,
+                "totp_enabled": getattr(obj, "totp_enabled", False),
             }
         return data
 
@@ -114,6 +116,17 @@ class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
+
+
+class LoginResponse(BaseModel):
+    """Login result — either the token pair, or an MFA challenge to complete
+    via POST /auth/totp/verify when the account has 2FA enabled."""
+
+    access_token: str | None = None
+    refresh_token: str | None = None
+    token_type: str = "bearer"
+    mfa_required: bool = False
+    mfa_token: str | None = None
 
 
 class TokenRefreshRequest(BaseModel):

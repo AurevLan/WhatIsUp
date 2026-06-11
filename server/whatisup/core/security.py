@@ -60,8 +60,57 @@ def create_refresh_token(subject: str) -> str:
         "iat": now,
         "exp": now + timedelta(days=settings.refresh_token_expire_days),
         "type": "refresh",
+        # Unique per issue — two logins in the same second must yield distinct
+        # tokens (and thus distinct Redis session keys).
+        "jti": secrets.token_urlsafe(16),
     }
     return jwt.encode(payload, settings.secret_key, algorithm=settings.jwt_algorithm)
+
+
+def create_mfa_token(subject: str) -> str:
+    """Short-lived challenge token issued after password check when TOTP is on.
+
+    Exchanged (with a valid TOTP/recovery code) for the real token pair.
+    Deliberately NOT an access token: it grants nothing but /auth/totp/verify.
+    """
+    settings = get_settings()
+    now = datetime.now(UTC)
+    payload = {
+        "sub": subject,
+        "iss": "whatisup",
+        "iat": now,
+        "exp": now + timedelta(minutes=5),
+        "type": "mfa",
+    }
+    return jwt.encode(payload, settings.secret_key, algorithm=settings.jwt_algorithm)
+
+
+def encrypt_secret_str(value: str) -> str:
+    """Fernet-encrypt a standalone secret string (e.g. TOTP secret).
+
+    Returns the value unchanged if FERNET_KEY is not configured (dev only —
+    production refuses to start without a Fernet key).
+    """
+    fernet = _get_fernet()
+    if fernet is None:
+        return value
+    return fernet.encrypt(value.encode()).decode()
+
+
+def decrypt_secret_str(value: str) -> str:
+    """Decrypt a string encrypted with :func:`encrypt_secret_str`.
+
+    Falls back to the raw value for legacy plaintext entries.
+    """
+    from cryptography.fernet import InvalidToken
+
+    fernet = _get_fernet()
+    if fernet is None:
+        return value
+    try:
+        return fernet.decrypt(value.encode()).decode()
+    except InvalidToken:
+        return value
 
 
 def decode_token(token: str, token_type: str = "access") -> dict:

@@ -13,6 +13,8 @@ from urllib.parse import urlparse
 import httpx
 import structlog
 
+from whatisup_probe.config import get_settings
+
 from ._shared import (
     _cached_getaddrinfo,
     compute_schema_fingerprint,
@@ -138,7 +140,22 @@ class HTTPChecker(BaseChecker):
                         headers=custom_headers,
                     ) as response:
                         ttfb_ms = int((time.perf_counter() - t0) * 1000)
-                        body_bytes = await response.aread()
+                        # Bounded read: a monitored endpoint returning a huge
+                        # payload must not OOM the probe.
+                        max_body = get_settings().http_max_body_bytes
+                        chunks: list[bytes] = []
+                        body_total = 0
+                        body_truncated = False
+                        async for chunk in response.aiter_bytes():
+                            body_total += len(chunk)
+                            if body_total > max_body:
+                                keep = max_body - (body_total - len(chunk))
+                                if keep > 0:
+                                    chunks.append(chunk[:keep])
+                                body_truncated = True
+                                break
+                            chunks.append(chunk)
+                        body_bytes = b"".join(chunks)
                         download_ms = int((time.perf_counter() - t0) * 1000) - ttfb_ms
                         # Snapshot response attrs while the stream is still open —
                         # some httpx internals may reset after __aexit__.
@@ -171,6 +188,21 @@ class HTTPChecker(BaseChecker):
                 body_text = body_bytes.decode("utf-8", errors="replace")
             except Exception:
                 body_text = ""
+
+            # Content checks on a truncated body would give false negatives
+            # (keyword "missing" only because it was past the size cap).
+            if body_truncated and (keyword or expected_json_path or body_regex or json_schema):
+                return CheckResult(
+                    monitor_id=monitor_id,
+                    checked_at=checked_at,
+                    status="error",
+                    http_status=http_status,
+                    response_time_ms=round((time.perf_counter() - t0) * 1000, 1),
+                    error_message=(
+                        f"Response body exceeded {get_settings().http_max_body_bytes} bytes; "
+                        "content checks skipped"
+                    ),
+                )
 
             is_up = http_status in expected_status_codes
             status = "up" if is_up else "down"

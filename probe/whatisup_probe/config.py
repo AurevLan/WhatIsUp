@@ -39,6 +39,18 @@ class ProbeSettings(BaseSettings):
     # Max concurrent Playwright/Chromium instances (subset of max_concurrent_checks)
     max_concurrent_scenarios: int = 2
 
+    # Disk spill buffer for results when the central API is unreachable
+    # (default path: <tempdir>/whatisup_probe_spill.jsonl)
+    result_spill_path: str | None = None
+    result_spill_max_entries: int = 5000
+
+    # Liveness file touched at every sync cycle — used by the Docker HEALTHCHECK
+    liveness_file: str = "/tmp/whatisup_probe_alive"
+
+    # Max HTTP response body size read into memory (bytes) — protects the
+    # probe from OOM on a monitored endpoint returning a huge payload
+    http_max_body_bytes: int = 10 * 1024 * 1024
+
     # Logging
     log_level: str = "INFO"
 

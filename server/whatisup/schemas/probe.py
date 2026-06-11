@@ -93,6 +93,7 @@ class ProbeHealthPayload(BaseModel):
     load_avg_1m: float | None = Field(default=None, ge=0)
     monitors_active: int | None = Field(default=None, ge=0)
     checks_running: int | None = Field(default=None, ge=0)
+    throttled_scenarios: int | None = Field(default=None, ge=0)
 
 
 class ProbeHeartbeatRequest(BaseModel):

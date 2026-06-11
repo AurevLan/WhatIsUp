@@ -119,6 +119,10 @@ class MonitorCreate(BaseModel):
     # SLO / Error Budget
     slo_target: float | None = Field(None, ge=0.0, le=100.0)
     slo_window_days: int = Field(30, ge=1, le=365)
+    # Schema drift detection (API fingerprint computed by the probe)
+    schema_drift_enabled: bool = False
+    # V2 Global Health Engine — opt-in toggle
+    health_engine_enabled: bool = False
     # Probe scope
     network_scope: str = Field(default="all", pattern=r"^(all|internal|external)$")
     # Flapping detection — per-monitor overrides

@@ -499,6 +499,8 @@ async def create_monitor(
         composite_aggregation=payload.composite_aggregation,
         runbook_enabled=payload.runbook_enabled,
         runbook_markdown=payload.runbook_markdown if payload.runbook_enabled else None,
+        schema_drift_enabled=payload.schema_drift_enabled,
+        health_engine_enabled=payload.health_engine_enabled,
     )
     db.add(monitor)
     try:

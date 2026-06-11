@@ -17,7 +17,12 @@ from whatisup.models.incident_update import IncidentUpdate
 from whatisup.models.monitor import Monitor, MonitorGroup
 from whatisup.models.result import CheckResult
 from whatisup.models.status_subscription import StatusSubscription
-from whatisup.services.stats import compute_daily_history, compute_uptime, latest_results_subq
+from whatisup.services.stats import (
+    compute_daily_history_bulk,
+    compute_uptime,
+    compute_uptime_bulk,
+    latest_results_subq,
+)
 
 router = APIRouter(prefix="/public", tags=["public"])
 
@@ -132,7 +137,10 @@ async def get_public_page(request: Request, slug: str, db: AsyncSession = Depend
 
 
 @router.get("/pages/{slug}/monitors")
-async def get_public_monitors(slug: str, db: AsyncSession = Depends(get_db)) -> list[dict]:
+@limiter.limit("60/minute")
+async def get_public_monitors(
+    request: Request, slug: str, db: AsyncSession = Depends(get_db)
+) -> list[dict]:
     group = await _get_group_by_slug(slug, db)
 
     monitors = (
@@ -173,13 +181,18 @@ async def get_public_monitors(slug: str, db: AsyncSession = Depends(get_db)) -> 
     )
     latest_by_monitor = {r.monitor_id: r for r in latest_rows}
 
+    # Batch uptime + daily history: one SQL round-trip each for the whole
+    # group instead of 2 queries per monitor (public endpoint, unauthenticated)
+    uptime_bulk = await compute_uptime_bulk(db, monitor_ids, period_hours=24)
+    history_bulk = await compute_daily_history_bulk(db, monitor_ids, days=90)
+
     results = []
     for m in monitors:
-        uptime = await compute_uptime(db, m.id, period_hours=24)
+        uptime = uptime_bulk.get(str(m.id), {})
         latest = latest_by_monitor.get(m.id)
 
         # Daily history — 90 days
-        raw_history = await compute_daily_history(db, m.id, days=90)
+        raw_history = history_bulk.get(str(m.id), [])
         history_by_date = {entry["date"]: entry for entry in raw_history}
 
         history_90d = []
@@ -224,8 +237,8 @@ async def get_public_monitors(slug: str, db: AsyncSession = Depends(get_db)) -> 
                 "check_type": m.check_type,
                 "tcp_port": m.tcp_port,
                 "dns_record_type": m.dns_record_type,
-                "uptime_24h": uptime.uptime_percent,
-                "avg_response_time_ms": uptime.avg_response_time_ms,
+                "uptime_24h": uptime.get("uptime_percent", 100.0),
+                "avg_response_time_ms": uptime.get("avg_response_time_ms"),
                 "current_status": latest.status.value if latest else None,
                 "current_value": latest.final_url if latest else None,
                 "last_checked_at": latest.checked_at.isoformat() if latest else None,
@@ -270,6 +283,9 @@ async def get_public_status(
                     Incident.started_at >= cutoff_30d,
                 )
                 .order_by(Incident.started_at.desc())
+                # Bound the public payload — a flapping group can accumulate
+                # hundreds of incidents over 30 days
+                .limit(100)
             )
         )
         .scalars()

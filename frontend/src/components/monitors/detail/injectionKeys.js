@@ -6,3 +6,10 @@
 
 export const IncidentsStateKey = Symbol('IncidentsState')
 export const SloStateKey = Symbol('SloState')
+export const DnsStateKey = Symbol('DnsState')
+export const AnnotationsStateKey = Symbol('AnnotationsState')
+export const CustomMetricsStateKey = Symbol('CustomMetricsState')
+export const AlertSetupStateKey = Symbol('AlertSetupState')
+export const PatchStateKey = Symbol('PatchState')
+export const DependenciesStateKey = Symbol('DependenciesState')
+export const MaintenanceStateKey = Symbol('MaintenanceState')

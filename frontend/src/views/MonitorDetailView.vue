@@ -22,53 +22,8 @@
       </div>
     </div>
 
-    <!-- No alert rules banner -->
-    <div
-      v-if="monitor && alertRulesLoaded && alertRules.length === 0"
-      class="mb-4 flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-amber-800/40 bg-amber-900/20"
-    >
-      <div class="flex items-center gap-2">
-        <span class="text-amber-400 text-lg">⚠</span>
-        <span class="text-sm text-amber-300">{{ t('monitors.alert_setup.no_rules_banner') }}</span>
-      </div>
-      <button
-        @click="showAutoAlertModal = true"
-        class="btn-primary text-xs whitespace-nowrap"
-      >{{ t('monitors.alert_setup.setup_now') }}</button>
-    </div>
-
-    <!-- Auto-alert setup modal -->
-    <div v-if="showAutoAlertModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div class="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md p-6">
-        <h2 class="text-lg font-semibold text-white mb-4">{{ t('monitors.alert_setup.modal_title') }}</h2>
-        <div v-if="autoAlertChannels.length === 0" class="text-sm text-gray-400 mb-4">
-          {{ t('monitors.alert_setup.no_channels') }}
-        </div>
-        <div v-else class="space-y-2 mb-4">
-          <label
-            v-for="ch in autoAlertChannels" :key="ch.id"
-            class="flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors"
-            :class="autoAlertSelectedChannels.includes(ch.id)
-              ? 'border-blue-600/60 bg-blue-950/30'
-              : 'border-gray-800 hover:border-gray-700'"
-          >
-            <input type="checkbox" :value="ch.id" v-model="autoAlertSelectedChannels"
-              class="rounded bg-gray-800 border-gray-600 text-blue-500" />
-            <span class="text-sm text-gray-300">{{ ch.name }}</span>
-            <span class="text-xs text-gray-600 ml-auto">{{ ch.type }}</span>
-          </label>
-        </div>
-        <div class="flex gap-3">
-          <button @click="showAutoAlertModal = false" class="flex-1 px-4 py-2 border border-gray-700 text-gray-300 rounded-lg hover:bg-gray-800">
-            {{ t('common.cancel') }}
-          </button>
-          <button @click="createAutoAlertRules" :disabled="autoAlertSelectedChannels.length === 0 || autoAlertCreating"
-            class="flex-1 btn-primary disabled:opacity-50">
-            {{ autoAlertCreating ? t('common.loading') : t('monitors.alert_setup.create_rules') }}
-          </button>
-        </div>
-      </div>
-    </div>
+    <!-- No alert rules banner + auto-alert setup modal -->
+    <MonitorAlertSetupBanner />
 
     <!-- View tabs -->
     <div class="flex gap-1 mb-6 border-b border-gray-800">
@@ -110,76 +65,19 @@
     <div v-if="activeTab === TAB_AVAILABILITY">
 
     <!-- Stats cards -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-      <div class="card text-center">
-        <p class="text-xs text-gray-500">{{ t('monitor_detail.uptime_24h') }}</p>
-        <p class="text-2xl font-bold mt-1" :class="uptime24?.uptime_percent >= 99 ? 'text-emerald-400' : 'text-red-400'">
-          {{ uptime24?.uptime_percent?.toFixed(3) ?? '—' }}%
-        </p>
-        <UptimeViewSplit :stats="uptime24" />
-      </div>
-      <div class="card text-center">
-        <p class="text-xs text-gray-500">{{ t('monitor_detail.uptime_7d') }}</p>
-        <p class="text-2xl font-bold mt-1 text-blue-400">
-          {{ uptime7d?.uptime_percent?.toFixed(3) ?? '—' }}%
-        </p>
-        <UptimeViewSplit :stats="uptime7d" />
-      </div>
-      <div v-if="isDns" class="card text-center">
-        <p class="text-xs text-gray-500">{{ t('monitor_detail.changes_detected') }}</p>
-        <p class="text-2xl font-bold mt-1" :class="dnsChangelog.length > 0 ? 'text-amber-400' : 'text-emerald-400'">
-          {{ dnsChangelog.length }}
-        </p>
-      </div>
-      <div v-else-if="hasResponseTime" class="card text-center">
-        <p class="text-xs text-gray-500">{{ isNetwork ? t('monitor_detail.avg_latency') : t('monitor_detail.avg_response') }}</p>
-        <p class="text-2xl font-bold mt-1 text-gray-300">
-          {{ uptime24?.avg_response_time_ms ? Math.round(uptime24.avg_response_time_ms) + 'ms' : '—' }}
-        </p>
-      </div>
-      <div v-if="isDns" class="card text-center">
-        <p class="text-xs text-gray-500">{{ t('monitor_detail.last_change') }}</p>
-        <p class="text-sm font-bold mt-1 text-gray-300">
-          {{ dnsChangelog[0] ? formatDateShort(dnsChangelog[0].checked_at) : '—' }}
-        </p>
-      </div>
-      <div v-else-if="hasResponseTime" class="card text-center">
-        <p class="text-xs text-gray-500">{{ t('monitor_detail.p95_response') }}</p>
-        <p class="text-2xl font-bold mt-1 text-gray-300">
-          {{ uptime24?.p95_response_time_ms ? Math.round(uptime24.p95_response_time_ms) + 'ms' : '—' }}
-        </p>
-      </div>
-      <div v-if="responseTrend && hasResponseTime" class="card text-center">
-        <p class="text-xs text-gray-500">{{ t('monitor_detail.response_time_trend') }}</p>
-        <p class="text-2xl font-bold mt-1" :class="responseTrend.up ? 'text-red-400' : 'text-emerald-400'">
-          {{ responseTrend.up ? '↑' : '↓' }} {{ responseTrend.pct }}%
-        </p>
-        <p class="text-xs text-gray-600 mt-0.5">{{ t('monitor_detail.vs_prev_6h') }}</p>
-      </div>
-    </div>
+    <MonitorStatsCards
+      :uptime24="uptime24"
+      :uptime7d="uptime7d"
+      :is-dns="isDns"
+      :is-network="isNetwork"
+      :has-response-time="hasResponseTime"
+      :dns-changelog="dnsChangelog"
+      :response-trend="responseTrend"
+      :format-date-short="formatDateShort"
+    />
 
     <!-- DNS: current resolved value banner -->
-    <div v-if="isDns" class="card mb-6 flex flex-wrap items-center gap-4">
-      <div class="flex items-center gap-2 shrink-0">
-        <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">{{ monitor.dns_record_type || 'A' }}</span>
-        <span class="text-xs text-gray-600">·</span>
-        <span class="text-xs font-mono text-gray-400">{{ formatTarget(monitor) }}</span>
-      </div>
-      <div class="flex-1 min-w-0">
-        <template v-if="currentDnsValues">
-          <div class="flex flex-wrap gap-1.5">
-            <span
-              v-for="v in currentDnsValues" :key="v"
-              class="font-mono text-xs px-2 py-0.5 rounded bg-emerald-900/40 text-emerald-300 border border-emerald-800/60"
-            >{{ v }}</span>
-          </div>
-        </template>
-        <span v-else class="text-xs text-gray-500 italic">{{ t('monitor_detail.no_resolution_data') }}</span>
-      </div>
-      <div v-if="monitor.dns_expected_value" class="shrink-0 text-xs font-mono px-2 py-1 rounded bg-blue-900/30 text-blue-300 border border-blue-800/50">
-        {{ t('monitor_detail.expected_value', { value: monitor.dns_expected_value }) }}
-      </div>
-    </div>
+    <MonitorDnsValueBanner v-if="isDns" :monitor="monitor" :format-target="formatTarget" />
 
     <!-- Annual uptime heatmap -->
     <div class="card mb-6">
@@ -190,311 +88,27 @@
       <UptimeHeatmap :monitor-id="String(monitor.id)" />
     </div>
 
-    <!-- DNS: value changelog -->
-    <div v-if="isDns" class="card mb-6">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-sm font-semibold text-gray-300">{{ t('monitor_detail.dns_change_history') }}</h2>
-        <span class="text-xs text-gray-500 font-mono bg-gray-800 px-2 py-1 rounded">
-          {{ monitor.dns_record_type || 'A' }} · {{ formatTarget(monitor) }}
-        </span>
-      </div>
-      <div v-if="dnsChangelog.length" class="space-y-2">
-        <div v-for="(entry, i) in dnsChangelog" :key="i"
-          class="flex items-start gap-3 py-2 px-3 rounded-lg"
-          :class="entry.old_value === null ? 'bg-blue-950/30' : 'bg-amber-950/30'"
-        >
-          <!-- Icon -->
-          <span class="text-base mt-0.5 shrink-0">{{ entry.old_value === null ? '🔵' : '🔄' }}</span>
+    <!-- DNS: value changelog + drift card + alert suggestion modal -->
+    <MonitorDnsPanel
+      v-if="isDns"
+      :monitor="monitor"
+      :format-target="formatTarget"
+      :format-date="formatDate"
+      :probe-color="probeColor"
+      :probe-name="probeName"
+    />
 
-          <!-- Date + probe -->
-          <div class="shrink-0 w-36">
-            <p class="text-xs text-gray-400">{{ formatDate(entry.checked_at) }}</p>
-            <p class="text-xs font-medium mt-0.5" :style="`color:${probeColor(entry.probe_id)}`">
-              {{ probeName(entry.probe_id) }}
-            </p>
-          </div>
-
-          <!-- Change arrow -->
-          <div class="flex-1 font-mono text-sm">
-            <div v-if="entry.old_value !== null" class="flex items-center gap-2 flex-wrap">
-              <span class="text-red-400 line-through text-xs">{{ entry.old_value || '(empty)' }}</span>
-              <span class="text-gray-600">→</span>
-              <span :class="entry.new_value ? 'text-emerald-400' : 'text-gray-500'">
-                {{ entry.new_value || '(resolution failed)' }}
-              </span>
-            </div>
-            <div v-else>
-              <span class="text-blue-400">First value: {{ entry.new_value || '—' }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-      <p v-else class="text-gray-500 text-sm text-center py-4">No changes detected in the loaded period</p>
-    </div>
-
-    <!-- DNS drift card (always visible for DNS monitors) -->
-    <div v-if="isDns" class="card mb-6">
-      <h2 class="text-sm font-semibold text-gray-300 mb-4">{{ t('monitors.dns_drift.label') }}</h2>
-
-      <!-- Toggles -->
-      <div class="space-y-3 mb-4">
-        <label class="flex items-center justify-between cursor-pointer gap-4">
-          <div>
-            <p class="text-sm text-gray-300">{{ t('monitors.dns_drift.label') }}</p>
-            <p class="text-xs text-gray-500">{{ t('monitors.dns_drift.desc') }}</p>
-          </div>
-          <button type="button" @click="toggleDnsSetting('dns_drift_alert')"
-            :class="monitor.dns_drift_alert ? 'bg-emerald-600' : 'bg-gray-700'"
-            class="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full transition-colors focus:outline-none">
-            <span :class="monitor.dns_drift_alert ? 'translate-x-4' : 'translate-x-0.5'"
-              class="inline-block h-4 w-4 mt-0.5 transform rounded-full bg-white transition-transform" />
-          </button>
-        </label>
-        <label v-if="monitor.dns_drift_alert" class="flex items-center justify-between cursor-pointer gap-4">
-          <div>
-            <p class="text-sm text-gray-300">{{ t('monitors.dns_drift.split_horizon') }}</p>
-            <p class="text-xs text-gray-500">{{ t('monitors.dns_drift.split_horizon_desc') }}</p>
-          </div>
-          <button type="button" @click="toggleDnsSetting('dns_split_enabled')"
-            :class="monitor.dns_split_enabled ? 'bg-emerald-600' : 'bg-gray-700'"
-            class="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full transition-colors focus:outline-none">
-            <span :class="monitor.dns_split_enabled ? 'translate-x-4' : 'translate-x-0.5'"
-              class="inline-block h-4 w-4 mt-0.5 transform rounded-full bg-white transition-transform" />
-          </button>
-        </label>
-      </div>
-
-      <!-- Baseline section (only when drift alert enabled) -->
-      <template v-if="monitor.dns_drift_alert">
-        <hr class="border-gray-700 mb-4" />
-
-        <!-- Mode normal : baseline unique -->
-        <template v-if="!monitor.dns_split_enabled">
-          <div class="flex items-start justify-between gap-4">
-            <div class="flex-1">
-              <p class="text-xs text-gray-500 mb-1">{{ t('monitors.dns_drift.baseline_current') }}</p>
-              <div v-if="monitor.dns_baseline_ips && monitor.dns_baseline_ips.length" class="flex flex-wrap gap-1">
-                <span v-for="ip in monitor.dns_baseline_ips" :key="ip"
-                  class="font-mono text-xs bg-gray-800 text-emerald-400 px-2 py-0.5 rounded">{{ ip }}</span>
-              </div>
-              <p v-else class="text-xs text-gray-400 italic">{{ t('monitors.dns_drift.baseline_none') }}</p>
-            </div>
-            <div class="flex gap-2 flex-shrink-0">
-              <button @click="acceptDnsBaseline" :disabled="dnsBaselineLoading"
-                class="btn-primary text-xs disabled:opacity-50">
-                {{ t('monitors.dns_drift.accept_baseline') }}
-              </button>
-              <button @click="resetDnsBaseline('all')" :disabled="dnsBaselineLoading || !monitor.dns_baseline_ips"
-                class="btn-ghost text-xs text-red-400 hover:text-red-300 disabled:opacity-50">
-                {{ t('monitors.dns_drift.reset_baseline') }}
-              </button>
-            </div>
-          </div>
-        </template>
-
-        <!-- Mode split : deux baselines -->
-        <template v-else>
-          <!-- Baseline interne -->
-          <div class="mb-4">
-            <p class="text-xs text-gray-500 mb-1">Baseline — sondes internes</p>
-            <div v-if="monitor.dns_baseline_ips_internal?.length" class="flex flex-wrap gap-1 mb-1">
-              <span v-for="ip in monitor.dns_baseline_ips_internal" :key="ip"
-                class="text-xs font-mono px-2 py-0.5 rounded bg-blue-900/40 text-blue-300">{{ ip }}</span>
-            </div>
-            <p v-else class="text-xs text-gray-400 italic mb-1">Pas encore apprise — en attente d'un check depuis une sonde interne</p>
-            <button @click="resetDnsBaseline('internal')" :disabled="dnsBaselineLoading || !monitor.dns_baseline_ips_internal"
-              class="text-xs text-gray-500 hover:text-red-400 disabled:opacity-30">
-              {{ t('monitors.dns_drift.reset_baseline') }}
-            </button>
-          </div>
-          <!-- Baseline externe -->
-          <div>
-            <p class="text-xs text-gray-500 mb-1">Baseline — sondes externes</p>
-            <div v-if="monitor.dns_baseline_ips_external?.length" class="flex flex-wrap gap-1 mb-1">
-              <span v-for="ip in monitor.dns_baseline_ips_external" :key="ip"
-                class="text-xs font-mono px-2 py-0.5 rounded bg-emerald-900/40 text-emerald-300">{{ ip }}</span>
-            </div>
-            <p v-else class="text-xs text-gray-400 italic mb-1">Pas encore apprise — en attente d'un check depuis une sonde externe</p>
-            <button @click="resetDnsBaseline('external')" :disabled="dnsBaselineLoading || !monitor.dns_baseline_ips_external"
-              class="text-xs text-gray-500 hover:text-red-400 disabled:opacity-30">
-              {{ t('monitors.dns_drift.reset_baseline') }}
-            </button>
-          </div>
-        </template>
-
-        <div v-if="dnsBaselineMsg" class="mt-2 text-xs text-emerald-400">{{ dnsBaselineMsg }}</div>
-      </template>
-    </div>
-
-    <!-- Network scope card (not for heartbeat / composite) -->
-    <div v-if="hasNetworkScope" class="card mb-6">
-      <h2 class="text-sm font-semibold text-gray-300 mb-3">{{ t('monitors.network_scope.label') }}</h2>
-      <div class="grid grid-cols-3 gap-2">
-        <button
-          v-for="s in networkScopeOptions" :key="s.value" type="button"
-          @click="setNetworkScope(s.value)"
-          class="py-2 px-2 rounded-lg border text-xs font-medium transition-colors text-center"
-          :class="monitor.network_scope === s.value
-            ? 'bg-blue-600 border-blue-500 text-white'
-            : 'border-gray-700 text-gray-400 hover:border-gray-600 hover:text-gray-300'"
-        >
-          <div class="text-base mb-0.5">{{ s.icon }}</div>
-          {{ s.label }}
-        </button>
-      </div>
-      <p class="text-xs text-gray-500 mt-2">{{ networkScopeOptions.find(s => s.value === monitor.network_scope)?.desc }}</p>
-    </div>
-
-    <!-- Schema drift card -->
-    <div v-if="isHttpLike && monitor.schema_drift_enabled" class="card mb-6">
-      <div class="flex items-center justify-between mb-3">
-        <h2 class="text-sm font-semibold text-gray-300">API Schema Drift Detection</h2>
-        <label class="flex items-center gap-2 cursor-pointer">
-          <span class="text-xs text-gray-400">Enabled</span>
-          <input
-            type="checkbox"
-            :checked="monitor.schema_drift_enabled"
-            @change="toggleSchemaDrift($event.target.checked)"
-          />
-        </label>
-      </div>
-
-      <template v-if="monitor.schema_drift_enabled">
-        <div class="flex items-start justify-between gap-4">
-          <div class="flex-1">
-            <p class="text-xs text-gray-500 mb-1">Current baseline fingerprint</p>
-            <div v-if="monitor.schema_baseline">
-              <code class="font-mono text-xs text-emerald-400 bg-gray-800 px-2 py-1 rounded block">{{ monitor.schema_baseline }}</code>
-              <p v-if="monitor.schema_baseline_updated_at" class="text-xs text-gray-600 mt-1">
-                Updated {{ fmtDateTime(monitor.schema_baseline_updated_at) }}
-              </p>
-            </div>
-            <p v-else class="text-xs text-gray-500 italic">No baseline set — next successful check will auto-set it</p>
-          </div>
-          <div class="flex gap-2 flex-shrink-0">
-            <button @click="acceptSchemaBaseline" class="btn-primary text-xs">Accept latest</button>
-            <button @click="resetSchemaBaseline" :disabled="!monitor.schema_baseline" class="btn-ghost text-xs text-red-400 hover:text-red-300 disabled:opacity-50">Reset</button>
-          </div>
-        </div>
-      </template>
-      <template v-else>
-        <p class="text-xs text-gray-500">Enable to automatically detect JSON response structure changes.</p>
-      </template>
-    </div>
-
-    <!-- Composite members card -->
-    <div v-if="isComposite" class="card mb-6">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-sm font-semibold text-gray-300">{{ t('monitors.composite.members') }}</h2>
-      </div>
-      <div v-if="compositeMembers.length" class="space-y-2 mb-4">
-        <div v-for="m in compositeMembers" :key="m.id"
-          class="flex items-center gap-3 px-3 py-2 rounded-lg bg-gray-800/50">
-          <span class="flex-1 text-sm text-gray-300 font-mono">{{ memberName(m.monitor_id) }}</span>
-          <span v-if="m.role" class="text-xs text-blue-400 bg-blue-950/50 px-2 py-0.5 rounded">{{ m.role }}</span>
-          <span class="text-xs text-gray-500">×{{ m.weight }}</span>
-          <button @click="removeCompositeMember(m.id)"
-            class="text-red-500 hover:text-red-400 text-xs ml-2">✕</button>
-        </div>
-      </div>
-      <p v-else class="text-gray-500 text-sm mb-4">{{ t('monitors.composite.no_members') }}</p>
-      <div class="flex gap-2 items-end flex-wrap">
-        <div class="flex-1 min-w-40">
-          <label class="text-xs text-gray-500 block mb-1">{{ t('monitors.composite.add_member') }}</label>
-          <select v-model="newMember.monitor_id" class="input w-full text-sm">
-            <option value="">— select a monitor —</option>
-            <option v-for="m in availableMonitors" :key="m.id" :value="m.id">{{ m.name }}</option>
-          </select>
-        </div>
-        <div class="w-32">
-          <label class="text-xs text-gray-500 block mb-1">{{ t('monitors.composite.role_placeholder') }}</label>
-          <input v-model="newMember.role" class="input w-full text-sm" placeholder="internal" />
-        </div>
-        <div class="w-20">
-          <label class="text-xs text-gray-500 block mb-1">{{ t('monitors.composite.weight') }}</label>
-          <input v-model.number="newMember.weight" type="number" min="1" max="100" class="input w-full text-sm" />
-        </div>
-        <button @click="addCompositeMember" :disabled="!newMember.monitor_id" class="btn-primary text-sm h-9 disabled:opacity-50">+</button>
-      </div>
-    </div>
-
-    <!-- Custom request headers (HTTP-like checks) -->
-    <div v-if="isHttpLike && monitor.custom_headers && Object.keys(monitor.custom_headers).length" class="card mb-6">
-      <h2 class="text-sm font-semibold text-gray-300 mb-2">{{ t('monitors.customHeaders.title') }}</h2>
-      <div class="flex flex-wrap gap-2">
-        <span v-for="(val, key) in monitor.custom_headers" :key="key"
-              class="text-xs font-mono px-2 py-1 rounded bg-gray-800 text-gray-300 border border-gray-700">
-          <span class="text-emerald-400">{{ key }}</span>: {{ val }}
-        </span>
-      </div>
-    </div>
-
-    <!-- SSL card (HTTP checks only) -->
-    <div v-if="isHttpLike && monitor.ssl_check_enabled && latestSsl" class="card mb-6">
-      <div class="flex items-center gap-3 mb-3">
-        <ShieldCheck v-if="latestSsl.ssl_valid" class="w-5 h-5 text-emerald-400" />
-        <ShieldAlert v-else class="w-5 h-5 text-red-400" />
-        <h2 class="text-sm font-semibold text-gray-300">Certificat SSL</h2>
-      </div>
-      <div class="grid grid-cols-3 gap-4 text-center">
-        <div>
-          <p class="text-xs text-gray-500 mb-1">{{ t('common.status') }}</p>
-          <span class="text-sm font-semibold px-2 py-0.5 rounded-full"
-            :class="latestSsl.ssl_valid ? 'bg-emerald-900/50 text-emerald-400' : 'bg-red-900/50 text-red-400'">
-            {{ latestSsl.ssl_valid ? 'Valid' : 'Invalid' }}
-          </span>
-        </div>
-        <div>
-          <p class="text-xs text-gray-500 mb-1">Expires on</p>
-          <p class="text-sm font-mono text-gray-300">
-            {{ latestSsl.ssl_expires_at ? formatDateShort(latestSsl.ssl_expires_at) : '—' }}
-          </p>
-        </div>
-        <div>
-          <p class="text-xs text-gray-500 mb-1">Days remaining</p>
-          <p class="text-sm font-bold"
-            :class="latestSsl.ssl_days_remaining > monitor.ssl_expiry_warn_days ? 'text-emerald-400'
-                  : latestSsl.ssl_days_remaining > 7 ? 'text-amber-400' : 'text-red-400'">
-            {{ latestSsl.ssl_days_remaining ?? '—' }}
-          </p>
-        </div>
-      </div>
-    </div>
-    <div v-else-if="isHttpLike && monitor.ssl_check_enabled && !latestSsl" class="card mb-6">
-      <div class="flex items-center gap-2 text-gray-500 text-sm">
-        <Shield class="w-4 h-4" />
-        SSL check enabled — waiting for first result
-      </div>
-    </div>
-
-    <!-- Domain expiry card -->
-    <div v-if="isDomainExpiry" class="card mb-6">
-      <div class="flex items-center gap-3 mb-3">
-        <ShieldCheck v-if="latestDomainExpiry && latestDomainExpiry.ssl_days_remaining > 0" class="w-5 h-5 text-emerald-400" />
-        <ShieldAlert v-else class="w-5 h-5 text-red-400" />
-        <h2 class="text-sm font-semibold text-gray-300">Domain expiry</h2>
-      </div>
-      <div v-if="latestDomainExpiry" class="grid grid-cols-2 gap-4 text-center">
-        <div>
-          <p class="text-xs text-gray-500 mb-1">Expires on</p>
-          <p class="text-sm font-mono text-gray-300">
-            {{ latestDomainExpiry.ssl_expires_at ? formatDateShort(latestDomainExpiry.ssl_expires_at) : '—' }}
-          </p>
-        </div>
-        <div>
-          <p class="text-xs text-gray-500 mb-1">Days remaining</p>
-          <p class="text-sm font-bold"
-            :class="latestDomainExpiry.ssl_days_remaining > 30 ? 'text-emerald-400'
-                  : latestDomainExpiry.ssl_days_remaining > 7 ? 'text-amber-400' : 'text-red-400'">
-            {{ latestDomainExpiry.ssl_days_remaining ?? '—' }}
-          </p>
-        </div>
-      </div>
-      <div v-else class="flex items-center gap-2 text-gray-500 text-sm">
-        <Shield class="w-4 h-4" />
-        Waiting for first check result
-      </div>
-    </div>
+    <!-- Network scope / schema drift / composite / headers / SSL / domain expiry -->
+    <MonitorConfigCards
+      :monitor="monitor"
+      :results="results"
+      :is-http-like="isHttpLike"
+      :is-composite="isComposite"
+      :is-domain-expiry="isDomainExpiry"
+      :has-network-scope="hasNetworkScope"
+      :fmt-date-time="fmtDateTime"
+      :format-date-short="formatDateShort"
+    />
 
     <!-- Incidents + Post-mortem + SLA Report -->
     <MonitorIncidentsTab
@@ -572,102 +186,17 @@
     />
 
     <!-- Annotations -->
-    <div class="card mb-6">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-sm font-semibold text-gray-300">{{ t('monitor_detail.annotations') }}</h2>
-        <button @click="showAnnForm = !showAnnForm"
-          class="btn-ghost text-xs flex items-center gap-1">
-          <span>+</span> {{ t('monitor_detail.add_annotation') }}
-        </button>
-      </div>
-
-      <div v-if="showAnnForm" class="flex flex-wrap gap-3 mb-4 p-3 bg-gray-800/40 rounded-lg border border-gray-700">
-        <input v-model="newAnnotation.annotated_at" type="datetime-local"
-          class="input text-xs flex-shrink-0" />
-        <input v-model="newAnnotation.content" class="input text-xs flex-1 min-w-48"
-          :placeholder="t('monitor_detail.annotation_content')" @keydown.enter="addAnnotation" />
-        <button @click="addAnnotation" class="btn-primary text-xs px-3 h-9">{{ t('monitor_detail.add_annotation') }}</button>
-        <button @click="showAnnForm = false" class="btn-ghost text-xs px-3 h-9">{{ t('common.cancel') }}</button>
-      </div>
-
-      <div v-if="annotations.length" class="space-y-1.5">
-        <div v-for="a in annotations" :key="a.id"
-          class="flex items-center gap-3 py-2 px-3 rounded-lg bg-gray-800/30 group">
-          <span class="w-0.5 h-5 bg-indigo-500 rounded-full flex-shrink-0" />
-          <div class="flex-1 min-w-0">
-            <p class="text-sm text-gray-200">{{ a.content }}</p>
-            <p class="text-xs text-gray-500 mt-0.5">
-              {{ fmtDateTime(a.annotated_at) }}
-              <span v-if="a.created_by" class="ml-2 text-gray-600">· {{ a.created_by }}</span>
-            </p>
-          </div>
-          <button @click="removeAnnotation(a.id)"
-            class="opacity-0 group-hover:opacity-100 text-xs text-red-500 hover:text-red-400 transition-opacity px-1">
-            ✕
-          </button>
-        </div>
-      </div>
-      <p v-else class="text-gray-600 text-sm text-center py-4">
-        No annotations — mark your deployments and interventions here
-      </p>
-    </div>
+    <MonitorAnnotationsPanel :fmt-date-time="fmtDateTime" />
 
     <!-- DNS: resolution history table -->
-    <div v-if="isDns" class="card mb-6">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-sm font-semibold text-gray-300">All resolutions</h2>
-        <span v-if="monitor.dns_expected_value" class="text-xs text-gray-500 font-mono bg-gray-800 px-2 py-1 rounded">
-          expected value: {{ monitor.dns_expected_value }}
-        </span>
-      </div>
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="text-xs text-gray-500 border-b border-gray-800">
-            <th class="pb-2 text-left w-4"></th>
-            <th class="pb-2 text-left">Time</th>
-            <th class="pb-2 text-left">Probe</th>
-            <th class="pb-2 text-left">{{ t('common.status') }}</th>
-            <th class="pb-2 text-left">Returned value</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-800">
-          <tr v-for="(r, idx) in results.slice(0, 100)" :key="r.id"
-            :class="isDnsValueChange(idx) ? 'bg-amber-950/20' : ''"
-          >
-            <!-- Change indicator -->
-            <td class="py-2 pr-1">
-              <span v-if="isDnsValueChange(idx)" class="text-amber-400 text-xs" title="Valeur différente du check précédent">⚡</span>
-            </td>
-            <td class="py-2 text-gray-400 text-xs whitespace-nowrap">{{ formatDate(r.checked_at) }}</td>
-            <td class="py-2 text-xs">
-              <span class="font-medium" :style="`color:${probeColor(r.probe_id)}`">
-                {{ probeName(r.probe_id) }}
-              </span>
-            </td>
-            <td class="py-2">
-              <span class="text-xs font-medium px-2 py-0.5 rounded-full"
-                :class="{
-                  'bg-emerald-900/50 text-emerald-400': r.status === 'up',
-                  'bg-red-900/50 text-red-400': r.status === 'down',
-                  'bg-amber-900/50 text-amber-400': r.status === 'timeout',
-                  'bg-orange-900/50 text-orange-400': r.status === 'error',
-                }">
-                {{ r.status }}
-              </span>
-            </td>
-            <td class="py-2 text-xs font-mono max-w-xs"
-              :title="dnsValueStr(r) || r.error_message || ''">
-              <span v-if="dnsValueStr(r)"
-                :class="isDnsValueChange(idx) ? 'text-amber-300 font-semibold' : 'text-emerald-400'">
-                {{ dnsValueStr(r) }}
-              </span>
-              <span v-else-if="r.error_message" class="text-red-300 truncate block max-w-xs">{{ r.error_message }}</span>
-              <span v-else class="text-gray-600">—</span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <MonitorDnsResolutionsTable
+      v-if="isDns"
+      :monitor="monitor"
+      :results="results"
+      :format-date="formatDate"
+      :probe-color="probeColor"
+      :probe-name="probeName"
+    />
 
     <!-- Recent checks table (HTTP / TCP / Keyword / JSON — not scenario, not dns) -->
     <MonitorRecentChecksTable
@@ -681,70 +210,10 @@
       :probe-name="probeName"
     />
 
-    <!-- Métriques custom push -->
-    <div class="card mb-6">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-sm font-semibold text-gray-300">{{ t('monitor_detail.custom_metrics') }}</h2>
-        <button
-          @click="showPushUrlModal = true"
-          class="btn-secondary text-xs"
-        >
-          {{ t('monitor_detail.push_url') }}
-        </button>
-      </div>
-
-      <!-- Charts by metric_name -->
-      <div v-if="customMetricNames.length" class="space-y-6">
-        <div v-for="mName in customMetricNames" :key="mName">
-          <p class="text-xs font-mono text-gray-400 mb-2">{{ mName }}
-            <span v-if="customMetricUnit(mName)" class="text-gray-600 ml-1">({{ customMetricUnit(mName) }})</span>
-          </p>
-          <apexchart
-            type="line"
-            height="160"
-            :options="customMetricOptions(mName)"
-            :series="customMetricSeries(mName)"
-          />
-        </div>
-      </div>
-      <p v-else class="text-gray-500 text-sm text-center py-6">
-        No metrics pushed yet — use the push URL to send business metrics.
-      </p>
-    </div>
+    <!-- Métriques custom push (card + modal URL de push) -->
+    <MonitorCustomMetricsPanel :monitor="monitor" :api-base="apiBase" />
 
     </div><!-- end Disponibilité tab -->
-
-    <!-- Modal URL de push -->
-    <div v-if="showPushUrlModal"
-      class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
-      @click.self="showPushUrlModal = false"
-    >
-      <div class="bg-gray-900 border border-gray-700 rounded-xl w-full max-w-xl shadow-2xl">
-        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-800">
-          <h3 class="text-sm font-semibold text-white">URL de push — Métriques custom</h3>
-          <button @click="showPushUrlModal = false" class="text-gray-500 hover:text-white text-lg leading-none px-1">✕</button>
-        </div>
-        <div class="p-5 space-y-4">
-          <div>
-            <p class="text-xs text-gray-500 mb-1">Endpoint</p>
-            <code class="block text-xs font-mono bg-gray-800 text-blue-300 px-3 py-2 rounded break-all">
-              POST {{ apiBase }}/api/v1/metrics/{{ monitor?.id }}
-            </code>
-          </div>
-          <div>
-            <p class="text-xs text-gray-500 mb-1">Exemple curl</p>
-            <pre class="text-xs font-mono bg-gray-800 text-gray-300 px-3 py-2 rounded overflow-x-auto whitespace-pre">curl -X POST \
-  {{ apiBase }}/api/v1/metrics/{{ monitor?.id }} \
-  -H "Authorization: Bearer &lt;votre_token_jwt&gt;" \
-  -H "Content-Type: application/json" \
-  -d '{"metric_name":"orders_per_minute","value":42,"unit":"req/min"}'</pre>
-          </div>
-          <div class="text-xs text-gray-500">
-            <p>Champs disponibles : <code class="text-gray-300">metric_name</code> (requis), <code class="text-gray-300">value</code> (requis), <code class="text-gray-300">unit</code> (optionnel), <code class="text-gray-300">pushed_at</code> (ISO 8601, optionnel).</p>
-          </div>
-        </div>
-      </div>
-    </div>
 
     <!-- ── Dépendances (section commune, tous onglets) ──────────────────────── -->
     <div class="mt-8 card">
@@ -797,32 +266,6 @@
       @save="saveRunbook"
     />
 
-    <!-- DNS drift alert suggestion modal -->
-    <div v-if="dnsAlertModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div class="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-sm p-6">
-        <h3 class="text-base font-semibold text-white mb-1">{{ t('monitor_detail.dns_alert_title') }}</h3>
-        <p class="text-sm text-gray-400 mb-4">
-          <i18n-t keypath="monitor_detail.dns_alert_desc" tag="span">
-            <template #code><code class="text-emerald-400">any_down</code></template>
-          </i18n-t>
-        </p>
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-300 mb-1">{{ t('monitor_detail.dns_alert_channel') }}</label>
-          <select v-model="dnsAlertChannelId" class="input w-full">
-            <option v-for="ch in dnsAlertChannels" :key="ch.id" :value="ch.id">
-              {{ ch.name }} ({{ ch.type }})
-            </option>
-          </select>
-        </div>
-        <button @click="createDnsAlertRule" :disabled="dnsAlertCreating || !dnsAlertChannelId" class="w-full btn-primary disabled:opacity-50 mb-3">
-          {{ dnsAlertCreating ? t('monitor_detail.dns_alert_creating') : t('monitor_detail.dns_alert_create') }}
-        </button>
-        <button @click="toggleDnsSetting('dns_drift_alert'); dnsAlertModal = false" class="w-full text-xs text-gray-500 hover:text-gray-300">
-          {{ t('monitor_detail.dns_alert_disable') }}
-        </button>
-      </div>
-    </div>
-
     <!-- Screenshot lightbox (global — accessible depuis n'importe quel onglet) -->
     <div v-if="screenshotModal.open"
       class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
@@ -840,50 +283,7 @@
     <CreateMonitorModal v-if="showClone" :initial-data="clonePayload" @close="showClone = false" @created="onCloneCreated" />
 
     <!-- Quick schedule maintenance modal -->
-    <BaseModal v-model="showMaintenanceModal" :title="t('maintenance.schedule_maintenance')" size="lg">
-      <div class="space-y-4">
-        <div>
-          <label class="text-sm text-gray-400">{{ t('common.name') }} <span class="text-red-400">*</span></label>
-          <input v-model="maintForm.name" class="input w-full mt-1" :placeholder="t('maintenance.name_placeholder')" />
-        </div>
-        <div>
-          <label class="text-sm text-gray-400">
-            {{ t('maintenance.description_label') }}
-            <span class="text-gray-600">({{ t('common.optional') }})</span>
-          </label>
-          <textarea v-model="maintForm.description" class="input w-full mt-1 resize-none" rows="2"
-            :placeholder="t('maintenance.description_placeholder')" />
-        </div>
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="text-sm text-gray-400">{{ t('maintenance.starts') }} <span class="text-red-400">*</span></label>
-            <input v-model="maintForm.starts_at" type="datetime-local" class="input w-full mt-1" />
-          </div>
-          <div>
-            <label class="text-sm text-gray-400">{{ t('maintenance.ends') }} <span class="text-red-400">*</span></label>
-            <input v-model="maintForm.ends_at" type="datetime-local" class="input w-full mt-1" />
-          </div>
-        </div>
-        <div class="flex items-center gap-3 py-1">
-          <button type="button" @click="maintForm.suppress_alerts = !maintForm.suppress_alerts"
-            class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200"
-            :class="maintForm.suppress_alerts ? 'bg-blue-600' : 'bg-gray-700'">
-            <span class="inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform duration-200"
-              :class="maintForm.suppress_alerts ? 'translate-x-4' : 'translate-x-0'" />
-          </button>
-          <span class="text-sm text-gray-300 cursor-pointer select-none"
-            @click="maintForm.suppress_alerts = !maintForm.suppress_alerts">
-            {{ t('maintenance.suppress_alerts_label') }}
-          </span>
-        </div>
-      </div>
-      <template #footer>
-        <button @click="showMaintenanceModal = false" class="btn-secondary flex-1">{{ t('common.cancel') }}</button>
-        <button @click="createMaintWindow" :disabled="maintSaving" class="btn-primary flex-1 disabled:opacity-50">
-          {{ maintSaving ? t('common.loading') : t('common.add') }}
-        </button>
-      </template>
-    </BaseModal>
+    <MonitorMaintenanceModal />
   </div>
   <div v-else class="page-body" role="status" aria-busy="true" :aria-label="t('common.loading')">
     <!-- Skeleton header -->
@@ -915,7 +315,6 @@
 import { ref, computed, onMounted, provide, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { Shield, ShieldAlert, ShieldCheck } from 'lucide-vue-next'
 import { monitorsApi } from '../api/monitors'
 import { getServerUrl } from '../lib/serverConfig.js'
 import { useProbesStore } from '../stores/probes'
@@ -923,11 +322,9 @@ import MonitorDependencies from '../components/monitors/MonitorDependencies.vue'
 import EditMonitorModal from '../components/monitors/EditMonitorModal.vue'
 import CreateMonitorModal from '../components/monitors/CreateMonitorModal.vue'
 import UptimeHeatmap from '../components/monitors/UptimeHeatmap.vue'
-import UptimeViewSplit from '../components/monitors/UptimeViewSplit.vue'
 import AlertMatrix from '../components/monitors/AlertMatrix.vue'
 import TagChips from '../components/monitors/TagChips.vue'
 import MetricsDashboard from '../components/monitors/MetricsDashboard.vue'
-import BaseModal from '../components/BaseModal.vue'
 import SkeletonBox from '../components/shared/SkeletonBox.vue'
 import { useCommandPaletteStore } from '../stores/commandPalette'
 import { useTimezone } from '../composables/useTimezone'
@@ -951,8 +348,27 @@ import MonitorRunbookTab from '../components/monitors/detail/MonitorRunbookTab.v
 import MonitorIncidentsTab from '../components/monitors/detail/MonitorIncidentsTab.vue'
 import MonitorSloPanel from '../components/monitors/detail/MonitorSloPanel.vue'
 import MonitorScenarioTab from '../components/monitors/detail/MonitorScenarioTab.vue'
-import { IncidentsStateKey, SloStateKey } from '../components/monitors/detail/injectionKeys'
+import {
+  IncidentsStateKey,
+  SloStateKey,
+  DnsStateKey,
+  AnnotationsStateKey,
+  CustomMetricsStateKey,
+  AlertSetupStateKey,
+  PatchStateKey,
+  DependenciesStateKey,
+  MaintenanceStateKey,
+} from '../components/monitors/detail/injectionKeys'
 import MonitorRecentChecksTable from '../components/monitors/detail/MonitorRecentChecksTable.vue'
+import MonitorAlertSetupBanner from '../components/monitors/detail/MonitorAlertSetupBanner.vue'
+import MonitorDnsValueBanner from '../components/monitors/detail/MonitorDnsValueBanner.vue'
+import MonitorStatsCards from '../components/monitors/detail/MonitorStatsCards.vue'
+import MonitorDnsPanel from '../components/monitors/detail/MonitorDnsPanel.vue'
+import MonitorDnsResolutionsTable from '../components/monitors/detail/MonitorDnsResolutionsTable.vue'
+import MonitorConfigCards from '../components/monitors/detail/MonitorConfigCards.vue'
+import MonitorAnnotationsPanel from '../components/monitors/detail/MonitorAnnotationsPanel.vue'
+import MonitorCustomMetricsPanel from '../components/monitors/detail/MonitorCustomMetricsPanel.vue'
+import MonitorMaintenanceModal from '../components/monitors/detail/MonitorMaintenanceModal.vue'
 
 const { t, locale } = useI18n()
 const { format: tzFormat } = useTimezone()
@@ -982,13 +398,10 @@ const showClone = ref(false)
 const clonePayload = ref(null)
 
 // ── Maintenance quick-schedule ─────────────────────────────────────────────
-const {
-  showModal: showMaintenanceModal,
-  saving: maintSaving,
-  form: maintForm,
-  openSchedule: openScheduleMaintenance,
-  createWindow: createMaintWindow,
-} = useMonitorMaintenance(monitor)
+// Sub-component (MonitorMaintenanceModal) reads via inject(MaintenanceStateKey).
+const maintenanceState = useMonitorMaintenance(monitor)
+provide(MaintenanceStateKey, maintenanceState)
+const { openSchedule: openScheduleMaintenance } = maintenanceState
 
 function duplicateMonitor() {
   if (!monitor.value) return
@@ -1049,14 +462,11 @@ provide(IncidentsStateKey, incidentsState)
 const { incidents, loadIncidents } = incidentsState
 
 // ── Annotations ───────────────────────────────────────────────────────────────
-const {
-  annotations,
-  showForm: showAnnForm,
-  newAnnotation,
-  load: loadAnnotations,
-  add: addAnnotation,
-  remove: removeAnnotation,
-} = useMonitorAnnotations(monitorIdRef)
+// Sub-component (MonitorAnnotationsPanel) reads via inject(AnnotationsStateKey);
+// `annotations` feeds useMonitorCharts, loadAnnotations fires on mount.
+const annotationsState = useMonitorAnnotations(monitorIdRef)
+provide(AnnotationsStateKey, annotationsState)
+const { annotations, load: loadAnnotations } = annotationsState
 
 // Percentiles P50/P95/P99 — instantiated below, after chartWindow is declared.
 
@@ -1082,14 +492,6 @@ const probeColors = PROBE_COLORS
 const statusMap  = { up: 'bg-emerald-400', down: 'bg-red-500', timeout: 'bg-amber-400', error: 'bg-orange-500' }
 const statusClass = computed(() => statusMap[monitor.value?._lastStatus ?? monitor.value?.last_status] || 'bg-gray-600')
 
-const latestSsl = computed(() =>
-  results.value.find(r => r.ssl_valid !== null && r.ssl_valid !== undefined) ?? null
-)
-
-const latestDomainExpiry = computed(() =>
-  results.value.find(r => r.ssl_expires_at !== null && r.ssl_expires_at !== undefined) ?? null
-)
-
 // ── Tendance temps de réponse ─────────────────────────────────────────────────
 const responseTrend = computed(() => {
   if (!results.value.length) return null
@@ -1112,21 +514,12 @@ const responseTrend = computed(() => {
 })
 
 // ── DNS (changelog, baseline, drift toggles, alert-suggestion modal) ─────────
-const {
-  changelog: dnsChangelog,
-  isValueChange: isDnsValueChange,
-  currentValues: currentDnsValues,
-  baselineLoading: dnsBaselineLoading,
-  baselineMsg: dnsBaselineMsg,
-  acceptBaseline: acceptDnsBaseline,
-  resetBaseline: resetDnsBaseline,
-  alertModal: dnsAlertModal,
-  alertChannels: dnsAlertChannels,
-  alertChannelId: dnsAlertChannelId,
-  alertCreating: dnsAlertCreating,
-  toggleSetting: toggleDnsSetting,
-  createAlertRule: createDnsAlertRule,
-} = useMonitorDns(monitor, results)
+// Sub-components (MonitorDnsValueBanner, MonitorDnsPanel,
+// MonitorDnsResolutionsTable) read via inject(DnsStateKey);
+// the view only needs changelog for the stats cards.
+const dnsState = useMonitorDns(monitor, results)
+provide(DnsStateKey, dnsState)
+const { changelog: dnsChangelog } = dnsState
 
 // Auto-select the most recent run when results load
 watch(results, (res) => {
@@ -1201,16 +594,11 @@ const {
 watch(chartWindow, () => { loadResults(); loadPercentiles() })
 
 // ── Alert rules + auto-alert "no rules" banner setup ────────────────────────
-const {
-  rules: alertRules,
-  rulesLoaded: alertRulesLoaded,
-  loadRules: loadAlertRules,
-  showAutoModal: showAutoAlertModal,
-  autoChannels: autoAlertChannels,
-  autoSelectedChannels: autoAlertSelectedChannels,
-  autoCreating: autoAlertCreating,
-  createAutoRules: createAutoAlertRules,
-} = useMonitorAlerts(monitor)
+// Sub-component (MonitorAlertSetupBanner) reads via inject(AlertSetupStateKey);
+// `alertRules` feeds useMonitorCharts threshold annotations.
+const alertSetupState = useMonitorAlerts(monitor)
+provide(AlertSetupStateKey, alertSetupState)
+const { rules: alertRules, loadRules: loadAlertRules } = alertSetupState
 
 // ── Charts (RT line + Availability bar) ──────────────────────────────────────
 const {
@@ -1232,15 +620,11 @@ const {
 // On native (Capacitor) window.location.origin is capacitor://localhost — the
 // copy-paste curl snippet must use the configured server URL instead.
 const apiBase = getServerUrl() || window.location.origin
-const {
-  metrics: customMetrics,
-  showPushUrlModal,
-  names: customMetricNames,
-  unit: customMetricUnit,
-  series: customMetricSeries,
-  options: customMetricOptions,
-  load: loadCustomMetrics,
-} = useMonitorCustomMetrics(monitor)
+// Sub-component (MonitorCustomMetricsPanel) reads via inject(CustomMetricsStateKey);
+// `customMetrics` feeds useMonitorTabs (Métriques tab visibility).
+const customMetricsState = useMonitorCustomMetrics(monitor)
+provide(CustomMetricsStateKey, customMetricsState)
+const { metrics: customMetrics, load: loadCustomMetrics } = customMetricsState
 
 // ── Percentiles P50/P95/P99 ──────────────────────────────────────────────────
 const {
@@ -1305,14 +689,11 @@ const formatDate = (dt) =>
   })
 
 // ── Single-field patches: schema drift, tags, network scope ─────────────────
-const {
-  toggleSchemaDrift,
-  acceptSchemaBaseline,
-  resetSchemaBaseline,
-  patchTags: onTagsChange,
-  networkScopeOptions,
-  setNetworkScope,
-} = useMonitorPatch(monitor)
+// Sub-component (MonitorConfigCards) reads via inject(PatchStateKey);
+// the view only needs patchTags for the header TagChips.
+const patchState = useMonitorPatch(monitor)
+provide(PatchStateKey, patchState)
+const { patchTags: onTagsChange } = patchState
 
 // ── Runbook ──────────────────────────────────────────────────────────────────
 const {
@@ -1327,17 +708,11 @@ const {
 } = useMonitorRunbook(monitor)
 
 // ── Dependencies & composite members ─────────────────────────────────────────
-const {
-  allMonitors,
-  compositeMembers,
-  newMember,
-  availableMonitors,
-  memberName,
-  loadAllMonitors,
-  loadCompositeMembers,
-  addCompositeMember,
-  removeCompositeMember,
-} = useMonitorDependencies(monitor)
+// Sub-component (MonitorConfigCards) reads via inject(DependenciesStateKey);
+// the view only needs allMonitors (dependency picker) + the mount loaders.
+const dependenciesState = useMonitorDependencies(monitor)
+provide(DependenciesStateKey, dependenciesState)
+const { allMonitors, loadAllMonitors, loadCompositeMembers } = dependenciesState
 
 // (Cleanup handled by useMonitorTesting + useMonitorMap via onScopeDispose.)
 

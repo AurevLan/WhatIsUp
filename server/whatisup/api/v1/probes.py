@@ -192,6 +192,8 @@ async def heartbeat(
 ) -> ProbeHeartbeatResponse:
     """Probe heartbeat — updates last_seen, stores health metrics, returns monitor list."""
     probe.last_seen_at = datetime.now(UTC)
+    if payload.version and probe.version != payload.version:
+        probe.version = payload.version
 
     # V2-02-01 / V2-02-07 — opportunistic ASN enrichment.
     # Resolves the ASN of (a) the IP the server sees on the heartbeat

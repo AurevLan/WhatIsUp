@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import random
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as pkg_version
 
 import httpx
 import structlog
@@ -13,6 +15,11 @@ from whatisup_probe.config import get_settings
 from whatisup_probe.spill import DiskSpill
 
 logger = structlog.get_logger(__name__)
+
+try:
+    PROBE_VERSION = pkg_version("whatisup-probe")
+except PackageNotFoundError:  # editable/dev checkout without install
+    PROBE_VERSION = "0.0.0-dev"
 
 _FLUSH_INTERVAL = 5  # seconds between periodic flushes
 _FLUSH_BATCH_SIZE = 10  # max concurrent POSTs per chunk
@@ -26,7 +33,7 @@ class Reporter:
         headers = {
             "X-Probe-Api-Key": self._settings.probe_api_key,
             "Content-Type": "application/json",
-            "User-Agent": f"WhatIsUp-Probe/0.1 ({self._settings.probe_name})",
+            "User-Agent": f"WhatIsUp-Probe/{PROBE_VERSION} ({self._settings.probe_name})",
         }
         self._client = httpx.AsyncClient(
             timeout=10,
@@ -157,7 +164,7 @@ class Reporter:
 
         url = f"{self._settings.central_api_url}/api/v1/probes/heartbeat"
         self_reported_ip = await resolve_public_ip()
-        body: dict = {"health": health}
+        body: dict = {"health": health, "version": PROBE_VERSION}
         if self_reported_ip:
             body["self_reported_ip"] = self_reported_ip
         try:

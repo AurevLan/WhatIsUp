@@ -46,6 +46,8 @@ class ProbeOut(BaseModel):
     # V2-02-07 — outbound IP intelligence (probe's own view of its egress).
     self_reported_ip: str | None = None
     self_reported_asn: int | None = None
+    # Agent version self-reported at heartbeat (None = pre-1.12 probe)
+    version: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -103,6 +105,8 @@ class ProbeHeartbeatRequest(BaseModel):
     # V2-02-07 — outbound IP the probe resolved itself (via api.ipify.org).
     # Optional: omitted when resolution failed (offline, blocked egress, etc.).
     self_reported_ip: str | None = Field(default=None, max_length=45)
+    # Agent version (package version) — lets the server flag outdated probes
+    version: str | None = Field(default=None, max_length=32)
 
 
 class PendingDiagnostic(BaseModel):

@@ -55,6 +55,10 @@ class Probe(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     self_reported_ip: Mapped[str | None] = mapped_column(String(45), nullable=True)
     self_reported_asn: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
+    # Agent version self-reported at each heartbeat — lets the UI flag probes
+    # running an outdated build (stale probes silently skew check verdicts).
+    version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
     check_results: Mapped[list[CheckResult]] = relationship("CheckResult", back_populates="probe")
 
     def __repr__(self) -> str:

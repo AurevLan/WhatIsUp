@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _pkg_version
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -10,6 +12,14 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 logger = logging.getLogger(__name__)
 
 _DEFAULT_SECRET = "CHANGE_ME_IN_PRODUCTION"
+
+
+def _default_app_version() -> str:
+    """Real release version from package metadata (release-please bumps it)."""
+    try:
+        return _pkg_version("whatisup-server")
+    except PackageNotFoundError:  # editable/dev checkout without install
+        return "0.0.0-dev"
 
 
 class Settings(BaseSettings):
@@ -22,7 +32,7 @@ class Settings(BaseSettings):
 
     # Application
     app_name: str = "WhatIsUp"
-    app_version: str = "1.0.0"
+    app_version: str = _default_app_version()
     debug: bool = False
     environment: str = "production"
     # V2 Global Health Engine — emergency rollback. When True, the per-probe

@@ -10,12 +10,14 @@ import structlog
 
 from whatisup_probe.checkers import CheckResult
 from whatisup_probe.config import get_settings
+from whatisup_probe.spill import DiskSpill
 
 logger = structlog.get_logger(__name__)
 
 _FLUSH_INTERVAL = 5  # seconds between periodic flushes
 _FLUSH_BATCH_SIZE = 10  # max concurrent POSTs per chunk
-_QUEUE_MAX_SIZE = 500  # drop results if queue is full
+_QUEUE_MAX_SIZE = 500  # spill to disk if queue is full
+_SPILL_RETRY_EVERY = 6  # retry spilled results every N flushes (~30 s)
 
 
 class Reporter:
@@ -34,6 +36,11 @@ class Reporter:
         )
         self._queue: asyncio.Queue[dict] = asyncio.Queue(maxsize=_QUEUE_MAX_SIZE)
         self._flush_task: asyncio.Task | None = None
+        self._spill = DiskSpill(
+            path=self._settings.result_spill_path,
+            max_entries=self._settings.result_spill_max_entries,
+        )
+        self._flush_count = 0
 
     async def start(self) -> None:
         """Start the background flush loop."""
@@ -55,12 +62,18 @@ class Reporter:
         try:
             self._queue.put_nowait(result.to_dict())
         except asyncio.QueueFull:
-            logger.warning("result_queue_full_dropping", monitor_id=result.monitor_id)
+            # Queue overflow (central API likely down) — persist to disk
+            # instead of dropping; re-sent once the API is reachable again.
+            logger.warning("result_queue_full_spilling", monitor_id=result.monitor_id)
+            self._spill.append(result.to_dict())
 
     async def _flush_loop(self) -> None:
         """Flush queued results every *_FLUSH_INTERVAL* seconds."""
         while True:
-            await self._flush_batch()
+            try:
+                await self._flush_batch()
+            except Exception as exc:  # noqa: BLE001 — a dead flush loop means silent data loss
+                logger.error("flush_loop_unexpected_error", error=str(exc))
             await asyncio.sleep(_FLUSH_INTERVAL)
 
     async def _flush_batch(self) -> None:
@@ -71,6 +84,15 @@ class Reporter:
                 batch.append(self._queue.get_nowait())
             except asyncio.QueueEmpty:
                 break
+
+        # Periodically retry results spilled to disk during an API outage
+        self._flush_count += 1
+        if self._flush_count % _SPILL_RETRY_EVERY == 0:
+            spilled = self._spill.pop_batch(_FLUSH_BATCH_SIZE * 2)
+            if spilled:
+                logger.info("spill_resend_attempt", count=len(spilled))
+                batch.extend(spilled)
+
         if not batch:
             return
 
@@ -78,12 +100,21 @@ class Reporter:
         for i in range(0, len(batch), _FLUSH_BATCH_SIZE):
             chunk = batch[i : i + _FLUSH_BATCH_SIZE]
             tasks = [self._post_one(url, payload) for payload in chunk]
-            await asyncio.gather(*tasks, return_exceptions=True)
+            outcomes = await asyncio.gather(*tasks, return_exceptions=True)
+            for payload, outcome in zip(chunk, outcomes, strict=True):
+                # None = transient failure (network/5xx after retries) → keep on disk.
+                # False = permanent 4xx reject → drop. Exception = unexpected → keep.
+                if outcome is None or isinstance(outcome, Exception):
+                    self._spill.append(payload)
 
         logger.debug("flush_batch_sent", count=len(batch))
 
-    async def _post_one(self, url: str, payload: dict) -> bool:
-        """Send a single result with retry (up to 3 attempts)."""
+    async def _post_one(self, url: str, payload: dict) -> bool | None:
+        """Send a single result with retry (up to 3 attempts).
+
+        Returns True if delivered, False on permanent 4xx rejection, and
+        None on transient failure (caller spills the payload to disk).
+        """
         for attempt in range(3):
             try:
                 resp = await self._client.post(url, json=payload)
@@ -109,8 +140,8 @@ class Reporter:
                 )
             if attempt < 2:
                 await asyncio.sleep(random.uniform(0.5, attempt + 1.5))
-        logger.error("push_result_dropped", monitor_id=payload.get("monitor_id"))
-        return False
+        logger.warning("push_result_spilled", monitor_id=payload.get("monitor_id"))
+        return None
 
     async def heartbeat(self, health: dict) -> dict | None:
         """Send heartbeat with system health metrics and retrieve probe directives.

@@ -31,6 +31,7 @@ class ProbeScheduler:
         # independently of max_concurrent_checks to avoid OOM on low-resource machines.
         self._scenario_semaphore = asyncio.Semaphore(self._settings.max_concurrent_scenarios)
         self._monitors: dict[str, dict[str, Any]] = {}  # monitor_id -> config
+        self._throttled_scenarios = 0  # cumulative count, reported via heartbeat health
         self._browser_pool = PlaywrightPool()
         psutil.cpu_percent(interval=None)  # first call always returns 0.0; discard it
 
@@ -80,6 +81,7 @@ class ProbeScheduler:
             "load_avg_1m": load_avg_1m,
             "monitors_active": len(self._monitors),
             "checks_running": max(0, checks_running),
+            "throttled_scenarios": self._throttled_scenarios,
         }
 
     async def _run_check(self, monitor: dict[str, Any]) -> None:
@@ -89,12 +91,18 @@ class ProbeScheduler:
         if is_scenario:
             health = self._collect_health()
             if health["ram_percent"] > 85:
+                # Skip this cycle (will retry next interval). Deliberately NOT
+                # reported as a check error: the server treats `error` as down
+                # and would open a false incident. The skip stays visible via
+                # the `throttled_scenarios` heartbeat counter.
+                self._throttled_scenarios += 1
                 logger.warning(
                     "throttled_scenario_high_ram",
                     ram=health["ram_percent"],
                     monitor=monitor.get("name", str(monitor["id"])),
+                    throttled_total=self._throttled_scenarios,
                 )
-                return  # Skip this cycle; will retry next interval
+                return
 
         # Hard outer timeout: monitor timeout + overhead to absorb async scheduling lag.
         # Scenarios get +15 s for context creation; other checks only need +5 s.
@@ -160,8 +168,22 @@ class ProbeScheduler:
             )
             await self._reporter.push_result(result)
 
+    def _touch_liveness(self) -> None:
+        """Touch the liveness file read by the Docker HEALTHCHECK.
+
+        Touched on every sync cycle regardless of heartbeat success: the
+        healthcheck reflects "the probe process/scheduler is alive", not
+        "the central API is reachable".
+        """
+        try:
+            with open(self._settings.liveness_file, "w", encoding="utf-8") as f:
+                f.write(str(len(self._monitors)))
+        except OSError as exc:
+            logger.warning("liveness_touch_failed", error=str(exc))
+
     async def sync_monitors(self) -> None:
         """Fetch monitor list from central and synchronize scheduled jobs."""
+        self._touch_liveness()
         response = await self._reporter.heartbeat(self._collect_health())
         if response is None:
             logger.warning("heartbeat_failed_skipping_sync")

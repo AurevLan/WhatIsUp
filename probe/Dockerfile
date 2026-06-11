@@ -41,5 +41,10 @@ USER probe
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
+# The scheduler touches /tmp/whatisup_probe_alive at every sync cycle
+# (heartbeat_interval, default 30 s). Stale for >180 s → unhealthy.
+HEALTHCHECK --interval=60s --timeout=5s --start-period=30s --retries=3 \
+    CMD python -c "import os,sys,time; p=os.environ.get('LIVENESS_FILE','/tmp/whatisup_probe_alive'); sys.exit(0 if os.path.exists(p) and time.time()-os.path.getmtime(p)<180 else 1)"
+
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["whatisup-probe"]

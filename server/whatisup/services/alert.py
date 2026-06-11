@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import time
 import uuid
 import zoneinfo
 from datetime import UTC, datetime, timedelta
@@ -18,6 +19,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.core.config import get_settings
+from whatisup.core.metrics import observe_alert_dispatch
 from whatisup.core.security import decrypt_channel_config
 from whatisup.models.alert import AlertChannel, AlertChannelType, AlertEvent, AlertEventStatus
 from whatisup.models.incident import Incident
@@ -743,6 +745,7 @@ async def dispatch_alert(
     # Decrypt secrets at dispatch time (config stored encrypted at rest)
     decrypted_config = decrypt_channel_config(channel.config)
 
+    dispatch_start = time.perf_counter()
     try:
         from whatisup.services.channels import CHANNEL_REGISTRY
 
@@ -768,6 +771,11 @@ async def dispatch_alert(
         )
         status = AlertEventStatus.failed
         response_body = type(exc).__name__
+    observe_alert_dispatch(
+        channel.type.value,
+        time.perf_counter() - dispatch_start,
+        success=status == AlertEventStatus.sent,
+    )
 
     event = AlertEvent(
         incident_id=incident.id,

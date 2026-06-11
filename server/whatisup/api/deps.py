@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.core.database import get_db
+from whatisup.core.metrics import observe_auth_cache
 from whatisup.core.security import decode_token, verify_api_key
 from whatisup.models.api_key import UserApiKey
 from whatisup.models.probe import Probe
@@ -44,8 +45,10 @@ async def _auth_via_user_api_key(raw_key: str, db: AsyncSession) -> User:
             await db.execute(select(User).where(User.id == uuid.UUID(cached_id), User.is_active))
         ).scalar_one_or_none()
         if user is not None:
+            observe_auth_cache("user_api_key", hit=True)
             return user
         await redis.delete(cache_key)
+    observe_auth_cache("user_api_key", hit=False)
 
     # Slow path — find the matching key row
     now = datetime.now(UTC)
@@ -178,9 +181,11 @@ async def get_current_probe(
             await db.execute(select(Probe).where(Probe.id == cached_id, Probe.is_active))
         ).scalar_one_or_none()
         if probe is not None:
+            observe_auth_cache("probe_api_key", hit=True)
             return probe
         # Cache stale (probe deactivated/deleted) — fall through to slow path
         await redis.delete(cache_key)
+    observe_auth_cache("probe_api_key", hit=False)
 
     # Slow path: full bcrypt scan
     probes = (await db.execute(select(Probe).where(Probe.is_active))).scalars().all()

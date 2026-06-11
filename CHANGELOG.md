@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.11.1](https://github.com/AurevLan/WhatIsUp/compare/v1.11.0...v1.11.1) (2026-06-11)
+
+
+### Fixed
+
+* **monitors:** wire orphaned config fields end-to-end to the probe ([18e963b](https://github.com/AurevLan/WhatIsUp/commit/18e963b8de32cf6d3485281ca5269fb763a12aa5))
+
 ## [1.11.0](https://github.com/AurevLan/WhatIsUp/compare/v1.10.4...v1.11.0) (2026-06-11)
 
 

@@ -132,6 +132,7 @@ class ProbeScheduler:
                             udp_port=monitor.get("udp_port"),
                             dns_record_type=monitor.get("dns_record_type"),
                             dns_expected_value=monitor.get("dns_expected_value"),
+                            dns_nameservers=monitor.get("dns_nameservers"),
                             keyword=monitor.get("keyword"),
                             keyword_negate=monitor.get("keyword_negate", False),
                             expected_json_path=monitor.get("expected_json_path"),

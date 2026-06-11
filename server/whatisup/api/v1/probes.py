@@ -270,6 +270,12 @@ async def heartbeat(
             udp_port=m.udp_port,
             domain_expiry_warn_days=m.domain_expiry_warn_days,
             custom_headers=m.custom_headers,
+            # Advanced HTTP assertions — without these the probe falls back to
+            # the schema defaults (None/False) and the UI toggles are inert
+            body_regex=m.body_regex,
+            expected_headers=m.expected_headers,
+            json_schema=m.json_schema,
+            schema_drift_enabled=m.schema_drift_enabled,
         )
         for m in monitors
     ]

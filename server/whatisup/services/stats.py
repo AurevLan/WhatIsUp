@@ -270,11 +270,12 @@ async def compute_uptime_bulk(
 
     out: dict[str, dict[str, Any]] = {}
     for mid, monitor_rows in by_monitor.items():
-        internal_pct, external_pct, _total, _up, _avg, _p95 = _aggregate_consensus(monitor_rows)
+        internal_pct, external_pct, _total, _up, avg_rt, _p95 = _aggregate_consensus(monitor_rows)
         out[str(mid)] = {
             "uptime_percent": round(_global_uptime(internal_pct, external_pct), 2),
             "internal_uptime_percent": internal_pct,
             "external_uptime_percent": external_pct,
+            "avg_response_time_ms": round(avg_rt, 1) if avg_rt is not None else None,
         }
     return out
 
@@ -316,6 +317,48 @@ async def compute_daily_history(
             }
         )
     return out
+
+
+async def compute_daily_history_bulk(
+    db: AsyncSession,
+    monitor_ids: Sequence[uuid.UUID],
+    days: int = 90,
+) -> dict[str, list[dict]]:
+    """Bulk daily consensus history for many monitors in a single SQL round-trip.
+
+    Returns ``{str(monitor_id): [day entries]}`` with the same entry shape as
+    ``compute_daily_history``. Used by the public status page to avoid one
+    90-day scan per monitor.
+    """
+    if not monitor_ids:
+        return {}
+    cutoff = datetime.now(UTC) - timedelta(days=days)
+    rows = await _fetch_check_rows(db, monitor_ids, cutoff)
+
+    by_monitor_day: dict[
+        tuple[uuid.UUID, datetime],
+        list[tuple[datetime, CheckStatus, float | None, NetworkType | None]],
+    ] = defaultdict(list)
+    for mid, checked_at, status, rt, ntype in rows:
+        day = checked_at.replace(hour=0, minute=0, second=0, microsecond=0)
+        by_monitor_day[(mid, day)].append((checked_at, status, rt, ntype))
+
+    out: dict[str, list[dict]] = defaultdict(list)
+    for mid, day in sorted(by_monitor_day):
+        day_rows = by_monitor_day[(mid, day)]
+        internal_pct, external_pct, total, up, avg_rt, _p95 = _aggregate_consensus(day_rows)
+        out[str(mid)].append(
+            {
+                "date": day.date().isoformat(),
+                "total": total,
+                "up_count": up,
+                "uptime_percent": round(_global_uptime(internal_pct, external_pct), 2),
+                "internal_uptime_percent": internal_pct,
+                "external_uptime_percent": external_pct,
+                "avg_response_time_ms": round(avg_rt, 1) if avg_rt is not None else None,
+            }
+        )
+    return dict(out)
 
 
 async def compute_percentile_timeseries(

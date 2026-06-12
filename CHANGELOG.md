@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.12.0](https://github.com/AurevLan/WhatIsUp/compare/v1.11.1...v1.12.0) (2026-06-12)
+
+
+### Added
+
+* **auth:** TOTP 2FA + active session management ([fe07d89](https://github.com/AurevLan/WhatIsUp/commit/fe07d8989d144720bcef7feada999f50aa4c2ae6))
+* **frontend:** all check types in wizard + baseline accessibility ([b421f1d](https://github.com/AurevLan/WhatIsUp/commit/b421f1dc96bd91b4f361f528298bf6b81dcf90b1))
+* **probes:** fleet version tracking with outdated badge ([63730ff](https://github.com/AurevLan/WhatIsUp/commit/63730ffc3078ba03a773942d569dabaac8f3d9eb))
+
+
+### Fixed
+
+* **ws:** plug Redis pubsub connection leak and pin redis-py &lt;8 ([3147c5e](https://github.com/AurevLan/WhatIsUp/commit/3147c5e2ad2daedcc2eb352a6a6077d861f6f942))
+
 ## [1.11.1](https://github.com/AurevLan/WhatIsUp/compare/v1.11.0...v1.11.1) (2026-06-11)
 
 

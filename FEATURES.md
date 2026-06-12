@@ -1,7 +1,7 @@
 # WhatIsUp — Inventaire des Fonctionnalités
 
 > **Source de vérité** des features livrées. À amender à chaque release.
-> Référence : **v1.8.0** (2026-05-03) + Health Engine V2 (M0-M5, livré 2026-05-06, en prod sur 17/17 monitors).
+> Référence : **v1.12.0** (2026-06-12) — inclut Health Engine V2 (M0-M5, en prod sur 17/17 monitors depuis 2026-05-06) et 2FA TOTP + sessions actives.
 > Pour la chronologie détaillée, voir `CHANGELOG.md`. Chantiers en cours / planifiés : `plan_roadmap_v2.md`, `plan_audit_followup.md`, `plan_v2_global_health.md`.
 
 **Légende** : ✅ livré · 🔬 livré + tests automatisés · 🚧 partiel (voir notes).
@@ -38,6 +38,15 @@
 - ✅ Refresh token Redis avec hash SHA-256 + TTL + rotation à chaque `/auth/refresh`
 - ✅ `/auth/logout` révoque le refresh côté Redis
 - ✅ Bearer header obligatoire — pas de token en query/URL
+- 🔬 **Sessions actives** (v1.12) — les refresh tokens portent des métadonnées (`created_at` / `ua` / `ip`) et constituent la liste de sessions ; `POST /auth/sessions/list`, `DELETE /auth/sessions/{id}`, `POST /auth/sessions/revoke-all` + UI Settings (badge « cet appareil », révocation par ligne, « déconnecter les autres »). La rotation hérite des métadonnées de la session d'origine ; claim `jti` sur les refresh tokens (deux logins dans la même seconde = deux sessions distinctes) (`api/v1/sessions.py`)
+
+### 2FA TOTP (v1.12)
+- 🔬 Enrôlement : `POST /auth/totp/setup` (QR + secret) → `POST /auth/totp/enable` (1er code valide active) → **8 codes de récupération** à usage unique affichés une seule fois (`api/v1/totp.py`)
+- 🔬 Login : si 2FA actif, `/auth/login` renvoie un défi MFA (`mfa_token` court, claim `type=mfa`, n'ouvre que `/verify`) ; `POST /auth/totp/verify` l'échange contre la paire access/refresh avec un code TOTP **ou** un code de récupération
+- 🔬 Désactivation `POST /auth/totp/disable` = mot de passe **et** code
+- 🔬 Stockage : secret TOTP chiffré Fernet, codes de récupération bcrypt, garde anti-rejeu Redis (un code TOTP n'est utilisable qu'une fois dans sa fenêtre)
+- 🔬 UI : section Settings (activer/désactiver, QR via `qrcode`, modale codes de récupération) + écran second facteur dans `LoginView` avec bascule code de récupération
+- 🔬 Dépendances : `pyotp` (serveur), `qrcode` (frontend) ; nécessite `FERNET_KEY`
 
 ### OIDC / SSO
 - ✅ OIDC authorization code + PKCE complet (`api/v1/auth.py`)
@@ -323,6 +332,8 @@
 - ✅ JWT HS256, claims `sub`/`exp`/`iss`/`type` validés
 - ✅ Access 15 min, refresh 7 j révocable Redis
 - ✅ Token rotation à chaque refresh
+- ✅ 2FA TOTP opt-in : secret Fernet, recovery codes bcrypt à usage unique, anti-rejeu Redis, `mfa_token` dédié (`type=mfa`) inutilisable comme access token
+- ✅ Sessions actives listables et révocables par l'utilisateur (par session ou globalement)
 - ✅ WebSocket auth message uniquement (jamais URL)
 - ✅ Per-IP connection limit avant auth WS
 - ✅ Public slug WS validé pré-accept
@@ -360,6 +371,9 @@
 | `/auth/register` | 5/min |
 | `/auth/refresh` | 30/min |
 | `/auth/me` PATCH | 30/min |
+| `/auth/totp/*` (setup/enable/verify/disable) | 10/min |
+| `/auth/sessions/list` + DELETE | 30/min |
+| `/auth/sessions/revoke-all` | 10/min |
 | `/probes/heartbeat` | 30/min |
 | `/probes/results` | 60/min |
 | `/monitors` POST | 10/min |
@@ -402,9 +416,9 @@
 | `release-please.yml` | push main | **(nouveau)** Auto-versioning + CHANGELOG + tag SemVer (conventional commits) |
 
 ### Tests
-- ✅ **Backend** : ~208 tests pytest (auth, monitors, probes, alerts, incidents, SLO, OIDC, maintenance, config, bulk, snooze, silences)
-- ✅ **Frontend** : ~161 tests vitest (composants, composables, stores, fuzzy, skeleton, empty states, hotkeys, push)
-- ✅ **Probe** : tests HTTP/TCP/DNS/SMTP/scenario + SSRF host validation + config
+- ✅ **Backend** : 677 tests pytest (auth, 2FA TOTP, sessions, monitors, probes, alerts, incidents, SLO, OIDC, maintenance, config, bulk, snooze, silences, ws)
+- ✅ **Frontend** : 265 tests vitest (composants, composables, stores, fuzzy, skeleton, empty states, hotkeys, push)
+- ✅ **Probe** : 143 tests (HTTP/TCP/DNS/SMTP/scenario + SSRF host validation + config + contrats heartbeat/perform_check)
 
 ### Supply chain
 - ✅ Dependabot configuré (`.github/dependabot.yml`)
@@ -543,7 +557,7 @@
 
 | Pilier | Items livrés | Fichiers clés |
 |---|---|---|
-| Auth | 8 axes | `auth.py`, `user.py`, `security.py`, `teams.py`, `tag.py`, `api_key.py` |
+| Auth | 10 axes (+2FA TOTP +sessions actives) | `auth.py`, `totp.py`, `sessions.py`, `user.py`, `security.py`, `teams.py`, `tag.py`, `api_key.py` |
 | Check types | 11 types | `probe/whatisup_probe/checkers/*.py` |
 | Probes | 9 axes (+ASN +outbound IP) | `probe.py`, `probes.py`, `probe_group.py`, `probe_enrichment.py`, `ProbeMap.vue` |
 | Incidents | 10 axes (+playback +diagnostic engine) | `incident.py`, `correlation.py`, `anomaly.py`, `diagnostics.py`, `incident_diagnostic.py` |
@@ -567,7 +581,7 @@
 - ~28 modèles SQLAlchemy (+`monitor_health`, `silence`, `incident_diagnostic`, `alert_matrix_template`)
 - ~26 services métier (+`health`, `slo`, `network_verdict`, `probe_enrichment`, `diagnostics`, `alert_matrix_preview`, `alert_matrix_templates`)
 - ~24 vues frontend (+`SilencesView`, `TlsFleetView`)
-- ~45 endpoints API v1 (+`silences`, `bgp`, `tls_fleet`, SLO rules, health state, diagnostics)
+- ~47 endpoints API v1 (+`silences`, `bgp`, `tls_fleet`, SLO rules, health state, diagnostics, `totp`, `sessions`)
 - ~11 checkers probe + module `diagnostics.py` + `public_ip.py`
 - 11 canaux d'alerte (8 historiques + Discord/Mattermost/Teams)
 
@@ -582,4 +596,4 @@
 > 4. Si la PR introduit un nouveau type de check ou canal → reporter dans §2 ou §5.
 > 5. Si la PR touche le Health Engine ou les V2-02 → reporter dans §16 ou §17.
 
-*Dernière revue exhaustive : 2026-05-10 — basée sur v1.8.0 + Health Engine V2 (M0-M5, en prod sur 17/17 monitors depuis 2026-05-06).*
+*Dernière revue exhaustive : 2026-05-10 (v1.8.0 + Health Engine V2). Dernier amendement : 2026-06-12 (v1.12.0 — 2FA TOTP + sessions actives).*

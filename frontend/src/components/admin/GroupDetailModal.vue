@@ -18,7 +18,7 @@
               class="flex items-center justify-between py-1.5 px-3 rounded bg-gray-800/60 border border-gray-700/50"
             >
               <span class="text-gray-300 text-sm">{{ probeNameById(probeId) }}</span>
-              <button @click="removeProbeFromDetailGroup(probeId)" class="text-gray-600 hover:text-red-400 transition-colors" :disabled="submitting">
+              <button @click="removeProbeFromDetailGroup(probeId)" class="text-gray-600 hover:text-red-400 transition-colors" :disabled="submitting" :aria-label="t('a11y.remove')">
                 <X class="w-4 h-4" />
               </button>
             </div>
@@ -50,7 +50,7 @@
               class="flex items-center justify-between py-1.5 px-3 rounded bg-gray-800/60 border border-gray-700/50"
             >
               <span class="text-gray-300 text-sm">{{ userNameById(userId) }}</span>
-              <button @click="revokeUserFromDetailGroup(userId)" class="text-gray-600 hover:text-red-400 transition-colors" :disabled="submitting">
+              <button @click="revokeUserFromDetailGroup(userId)" class="text-gray-600 hover:text-red-400 transition-colors" :disabled="submitting" :aria-label="t('a11y.remove')">
                 <X class="w-4 h-4" />
               </button>
             </div>

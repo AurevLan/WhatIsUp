@@ -57,9 +57,9 @@
       <!-- Calendar view -->
       <div v-else-if="calendarView" class="card mb-6">
         <div class="flex items-center justify-between mb-4">
-          <button @click="prevMonth" class="btn-ghost p-1"><ChevronLeft :size="16" /></button>
+          <button @click="prevMonth" class="btn-ghost p-1" :aria-label="t('a11y.prev_month')"><ChevronLeft :size="16" /></button>
           <span class="font-semibold text-gray-200">{{ calendarTitle }}</span>
-          <button @click="nextMonth" class="btn-ghost p-1"><ChevronRight :size="16" /></button>
+          <button @click="nextMonth" class="btn-ghost p-1" :aria-label="t('a11y.next_month')"><ChevronRight :size="16" /></button>
         </div>
 
         <!-- Day-of-week headers -->
@@ -114,9 +114,9 @@
       <div v-else class="space-y-3">
         <!-- Active -->
         <template v-if="activeWindows.length">
-          <p class="text-xs font-semibold text-amber-400/80 uppercase tracking-wider mb-1 px-1">
+          <h2 class="text-xs font-semibold text-amber-400/80 uppercase tracking-wider mb-1 px-1">
             {{ t('maintenance.status_active') }}
-          </p>
+          </h2>
           <div
             v-for="(w, idx) in activeWindows" :key="w.id"
             class="card stagger-item border-l-2 border-amber-500/50"
@@ -128,9 +128,9 @@
 
         <!-- Scheduled -->
         <template v-if="scheduledWindows.length">
-          <p class="text-xs font-semibold text-blue-400/80 uppercase tracking-wider mt-4 mb-1 px-1">
+          <h2 class="text-xs font-semibold text-blue-400/80 uppercase tracking-wider mt-4 mb-1 px-1">
             {{ t('maintenance.status_scheduled') }}
-          </p>
+          </h2>
           <div
             v-for="(w, idx) in scheduledWindows" :key="w.id"
             class="card stagger-item"
@@ -142,9 +142,9 @@
 
         <!-- Completed -->
         <template v-if="completedWindows.length">
-          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mt-4 mb-1 px-1">
+          <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mt-4 mb-1 px-1">
             {{ t('maintenance.status_completed') }}
-          </p>
+          </h2>
           <div
             v-for="(w, idx) in completedWindows" :key="w.id"
             class="card stagger-item opacity-60"
@@ -255,6 +255,7 @@
           <button
             type="button"
             @click="form.suppress_alerts = !form.suppress_alerts"
+            :aria-label="t('maintenance.suppress_alerts_label')"
             class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200"
             :class="form.suppress_alerts ? 'bg-blue-600' : 'bg-gray-700'"
           >

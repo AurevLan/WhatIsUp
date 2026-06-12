@@ -13,6 +13,7 @@
         type="button"
         @click="remove(tag)"
         class="text-xs opacity-60 hover:opacity-100"
+        :aria-label="t('tags.remove')"
         :title="t('tags.remove')"
       >✕</button>
     </span>

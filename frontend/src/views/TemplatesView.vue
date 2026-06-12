@@ -100,7 +100,7 @@
               <input v-model="v.name" class="input flex-1" :placeholder="t('templates.var_name')" />
               <input v-model="v.description" class="input flex-1" :placeholder="t('templates.var_description')" />
               <input v-model="v.default" class="input w-32" :placeholder="t('templates.var_default')" />
-              <button @click="form.variables.splice(i, 1)" class="text-red-400 hover:text-red-300">✕</button>
+              <button @click="form.variables.splice(i, 1)" class="text-red-400 hover:text-red-300" :aria-label="t('a11y.remove')">✕</button>
             </div>
             <button @click="form.variables.push({ name: '', description: '', default: '' })" class="text-xs text-blue-400 hover:text-blue-300">{{ t('templates.form_add_variable') }}</button>
           </div>
@@ -121,8 +121,10 @@
               class="input w-full font-mono text-xs"
               rows="10"
               placeholder="{&quot;check_type&quot;: &quot;http&quot;, &quot;name&quot;: &quot;{{SERVICE_NAME}}&quot;, &quot;url&quot;: &quot;{{URL}}&quot;, ...}"
+              :aria-invalid="!!configError"
+              :aria-describedby="configError ? 'template-config-error' : undefined"
             ></textarea>
-            <p v-if="configError" class="text-xs text-red-400 mt-1">{{ configError }}</p>
+            <p v-if="configError" id="template-config-error" class="text-xs text-red-400 mt-1">{{ configError }}</p>
           </div>
         </div>
 

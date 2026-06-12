@@ -109,6 +109,7 @@
                     @click="openEditModal(user)"
                     class="p-1.5 text-gray-500 hover:text-blue-400 transition-colors rounded"
                     :title="t('common.edit')"
+                    :aria-label="t('common.edit')"
                   >
                     <Pencil class="w-4 h-4" />
                   </button>
@@ -117,6 +118,7 @@
                     @click="confirmDelete(user)"
                     class="p-1.5 text-gray-500 hover:text-red-400 transition-colors rounded"
                     :title="t('common.delete')"
+                    :aria-label="t('common.delete')"
                   >
                     <Trash2 class="w-4 h-4" />
                   </button>
@@ -151,7 +153,7 @@
           @click="openTeamDetail(team)"
         >
           <div class="flex items-center justify-between mb-3">
-            <h3 class="text-white font-semibold text-lg">{{ team.name }}</h3>
+            <h2 class="text-white font-semibold text-lg">{{ team.name }}</h2>
             <span class="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded font-mono">{{ team.slug }}</span>
           </div>
           <div class="flex items-center gap-2 text-sm text-gray-400">
@@ -240,10 +242,10 @@
               <div v-if="group.description" class="text-gray-500 text-xs mt-0.5">{{ group.description }}</div>
             </div>
             <div class="flex gap-1 flex-shrink-0">
-              <button @click="openEditGroupModal(group)" class="p-1.5 text-gray-500 hover:text-blue-400 transition-colors rounded" :title="t('common.edit')">
+              <button @click="openEditGroupModal(group)" class="p-1.5 text-gray-500 hover:text-blue-400 transition-colors rounded" :title="t('common.edit')" :aria-label="t('common.edit')">
                 <Pencil class="w-4 h-4" />
               </button>
-              <button @click="confirmDeleteGroup(group)" class="p-1.5 text-gray-500 hover:text-red-400 transition-colors rounded" :title="t('common.delete')">
+              <button @click="confirmDeleteGroup(group)" class="p-1.5 text-gray-500 hover:text-red-400 transition-colors rounded" :title="t('common.delete')" :aria-label="t('common.delete')">
                 <Trash2 class="w-4 h-4" />
               </button>
             </div>
@@ -277,6 +279,7 @@
             <button
               type="button"
               @click="oidcForm.oidc_enabled = !oidcForm.oidc_enabled"
+              :aria-label="t('admin.oidc_enable_label')"
               :class="oidcForm.oidc_enabled ? 'bg-blue-600' : 'bg-gray-700'"
               class="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
             >
@@ -328,6 +331,7 @@
             <button
               type="button"
               @click="oidcForm.oidc_auto_provision = !oidcForm.oidc_auto_provision"
+              :aria-label="t('admin.oidc_auto_provision_label')"
               :class="oidcForm.oidc_auto_provision ? 'bg-blue-600' : 'bg-gray-700'"
               class="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
             >

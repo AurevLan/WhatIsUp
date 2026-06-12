@@ -6,7 +6,8 @@
       role="region"
       :aria-label="$t('bulk.bar_aria')"
     >
-      <span class="bulk-bar__count">{{ $t('bulk.n_selected', { n: count }) }}</span>
+      <!-- A11Y-4: announce selection count changes politely -->
+      <span class="bulk-bar__count" aria-live="polite">{{ $t('bulk.n_selected', { n: count }) }}</span>
       <slot />
       <button
         type="button"

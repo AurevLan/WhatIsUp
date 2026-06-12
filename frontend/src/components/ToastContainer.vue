@@ -1,10 +1,13 @@
 <template>
   <Teleport to="body">
-    <div role="status" aria-live="polite" style="position:fixed;bottom:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none;">
+    <div style="position:fixed;bottom:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none;">
       <TransitionGroup name="toast">
+        <!-- A11Y-4: errors are assertive (role=alert), info/success/warning polite (role=status).
+             Role sits on each toast so insertion into the DOM is what gets announced. -->
         <div
           v-for="toast in toasts"
           :key="toast.id"
+          :role="toast.type === 'error' ? 'alert' : 'status'"
           style="pointer-events:auto;display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:12px;min-width:260px;max-width:380px;font-size:13px;font-weight:500;line-height:1.4;box-shadow:0 8px 24px rgba(0,0,0,.5);cursor:pointer;backdrop-filter:blur(8px);"
           :style="toastStyle(toast.type)"
           @click="remove(toast.id)"

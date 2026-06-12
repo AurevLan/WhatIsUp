@@ -25,6 +25,7 @@
             <button
               type="button"
               @click="editForm.is_active = !editForm.is_active"
+              :aria-label="t('admin.toggle_active')"
               :class="editForm.is_active ? 'bg-green-600' : 'bg-gray-700'"
               class="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
             >
@@ -42,6 +43,7 @@
             <button
               type="button"
               @click="editForm.can_create_monitors = !editForm.can_create_monitors"
+              :aria-label="t('admin.perm_can_create_monitors')"
               :class="editForm.can_create_monitors ? 'bg-blue-600' : 'bg-gray-700'"
               class="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
             >
@@ -60,6 +62,7 @@
             <button
               type="button"
               @click="editForm.is_superadmin = !editForm.is_superadmin"
+              :aria-label="t('admin.perm_is_admin')"
               :class="editForm.is_superadmin ? 'bg-purple-600' : 'bg-gray-700'"
               class="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
             >

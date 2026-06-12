@@ -1,6 +1,9 @@
 export default {
   a11y: {
     skip_to_content: 'Skip to content',
+    remove: 'Remove',
+    prev_month: 'Previous month',
+    next_month: 'Next month',
   },
   // Navigation
   nav: {

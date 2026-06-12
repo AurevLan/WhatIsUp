@@ -53,6 +53,7 @@
           <p class="text-xs text-gray-500">{{ t('monitors.dns_drift.desc') }}</p>
         </div>
         <button type="button" @click="state.toggleSetting('dns_drift_alert')"
+          :aria-label="t('monitors.dns_drift.label')"
           :class="monitor.dns_drift_alert ? 'bg-emerald-600' : 'bg-gray-700'"
           class="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full transition-colors focus:outline-none">
           <span :class="monitor.dns_drift_alert ? 'translate-x-4' : 'translate-x-0.5'"
@@ -65,6 +66,7 @@
           <p class="text-xs text-gray-500">{{ t('monitors.dns_drift.split_horizon_desc') }}</p>
         </div>
         <button type="button" @click="state.toggleSetting('dns_split_enabled')"
+          :aria-label="t('monitors.dns_drift.split_horizon')"
           :class="monitor.dns_split_enabled ? 'bg-emerald-600' : 'bg-gray-700'"
           class="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full transition-colors focus:outline-none">
           <span :class="monitor.dns_split_enabled ? 'translate-x-4' : 'translate-x-0.5'"

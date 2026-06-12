@@ -80,6 +80,7 @@
             v-if="!k.is_revoked"
             class="text-red-400 hover:text-red-300 transition-colors"
             :title="t('apiKeys.revoke')"
+            :aria-label="t('apiKeys.revoke')"
             @click="confirmRevoke(k)"
           >
             <Trash2 class="w-4 h-4" />
@@ -141,6 +142,7 @@
         <button
           class="absolute right-2 top-2 text-gray-400 hover:text-white transition-colors"
           :title="t('common.copy')"
+          :aria-label="t('common.copy')"
           @click="copyKey"
         >
           <Copy class="w-4 h-4" />

@@ -21,11 +21,13 @@
               autocomplete="url"
               inputmode="url"
               class="input"
+              :aria-invalid="!!error"
+              :aria-describedby="error ? 'setup-url-error' : undefined"
             />
             <p class="login__hint">{{ t('setup.url_hint') }}</p>
           </div>
 
-          <div v-if="error" class="login__error">
+          <div v-if="error" id="setup-url-error" class="login__error">
             <AlertCircle :size="15" class="flex-shrink-0 mt-px" />
             {{ error }}
           </div>

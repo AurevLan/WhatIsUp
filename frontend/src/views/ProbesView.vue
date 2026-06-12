@@ -58,7 +58,7 @@
               <div class="flex items-center gap-2 flex-wrap">
                 <span class="w-2 h-2 rounded-full"
                   :class="probeStatusClass(probe)"></span>
-                <h3 class="font-semibold text-white">{{ probe.name }}</h3>
+                <h2 class="font-semibold text-white">{{ probe.name }}</h2>
                 <span v-if="!probe.is_active"
                   class="text-xs px-1.5 py-0.5 rounded bg-gray-700 text-gray-400">
                   {{ t('probes.inactive') }}
@@ -183,7 +183,7 @@
 
       <!-- Probes sans coordonnées -->
       <div v-if="probesWithoutCoords.length" class="mt-6">
-        <h3 class="text-sm font-semibold text-gray-400 mb-3">{{ t('probes.no_coordinates') }}</h3>
+        <h2 class="text-sm font-semibold text-gray-400 mb-3">{{ t('probes.no_coordinates') }}</h2>
         <div class="space-y-2">
           <div v-for="p in probesWithoutCoords" :key="p.id"
             class="flex items-center gap-3 text-sm text-gray-300">

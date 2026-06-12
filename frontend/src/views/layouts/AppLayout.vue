@@ -80,12 +80,16 @@
         </button>
 
         <!-- WS reconnecting banner -->
-        <Transition name="badge-fade">
-          <div v-if="ws.showReconnecting" class="topbar__ws-badge">
-            <WifiOff :size="11" />
-            {{ t('ws.reconnecting') }}
-          </div>
-        </Transition>
+        <!-- A11Y-4: aria-live lives on this always-rendered wrapper (never on the
+             v-if node itself) so the badge appearing/disappearing is announced. -->
+        <div aria-live="polite" class="topbar__ws-live">
+          <Transition name="badge-fade">
+            <div v-if="ws.showReconnecting" class="topbar__ws-badge">
+              <WifiOff :size="11" />
+              {{ t('ws.reconnecting') }}
+            </div>
+          </Transition>
+        </div>
 
         <!-- Search trigger (opens CommandPalette) -->
         <button class="topbar__search" @click="showPalette = true">
@@ -99,9 +103,12 @@
 
         <div class="topbar__right">
           <!-- Global status indicator -->
-          <div v-if="!monitorStore.loading && monitorStore.monitors.length > 0" class="topbar__status" :class="downCount > 0 ? 'topbar__status--down' : 'topbar__status--up'">
-            <span class="topbar__status-dot" />
-            {{ downCount > 0 ? t('dashboard.n_down', { n: downCount }) : t('dashboard.all_operational') }}
+          <!-- A11Y-4: stable polite wrapper — up/down transitions are announced -->
+          <div aria-live="polite">
+            <div v-if="!monitorStore.loading && monitorStore.monitors.length > 0" class="topbar__status" :class="downCount > 0 ? 'topbar__status--down' : 'topbar__status--up'">
+              <span class="topbar__status-dot" aria-hidden="true" />
+              {{ downCount > 0 ? t('dashboard.n_down', { n: downCount }) : t('dashboard.all_operational') }}
+            </div>
           </div>
 
           <!-- Language toggle -->
@@ -476,6 +483,11 @@ async function handleLogout() {
 .hamburger-line--open-1 { transform: translateY(5.5px) rotate(45deg); }
 .hamburger-line--open-2 { opacity: 0; transform: scaleX(0); }
 .hamburger-line--open-3 { transform: translateY(-5.5px) rotate(-45deg); }
+
+.topbar__ws-live {
+  display: flex;
+  align-items: center;
+}
 
 .topbar__ws-badge {
   display: flex;

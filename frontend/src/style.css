@@ -10,7 +10,9 @@
   --border-hover:  #2d4057;
   --text-1:        #e4ecf4;
   --text-2:        #8899aa;
-  --text-3:        #4d6070;
+  /* A11Y-5: was #4d6070 (2.45:1 on --bg-surface-2) — fails WCAG AA.
+     #7a8b9c = 4.56:1 on --bg-surface-2, 5.05:1 on --bg-surface, 5.42:1 on --bg-base. */
+  --text-3:        #7a8b9c;
   --accent:        #4f9cf9;
   --accent-glow:   rgba(79,156,249,.18);
   --accent-border: rgba(79,156,249,.35);
@@ -39,7 +41,9 @@
   --border-hover:  #b8c4d0;
   --text-1:        #1a2332;
   --text-2:        #4a5568;
-  --text-3:        #8294a8;
+  /* A11Y-5: was #8294a8 (2.77:1 on --bg-surface-2) — fails WCAG AA.
+     #5b7084 = 4.57:1 on --bg-surface-2, 5.13:1 on --bg-surface, 4.87:1 on --bg-base. */
+  --text-3:        #5b7084;
   --accent:        #2f7be5;
   --accent-glow:   rgba(47,123,229,.12);
   --accent-border: rgba(47,123,229,.30);

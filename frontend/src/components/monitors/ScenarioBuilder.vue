@@ -23,7 +23,7 @@
             title="Mark as secret (hidden)">
             {{ v.secret ? '🔒' : '👁' }}
           </button>
-          <button type="button" @click="removeVar(i)" class="text-gray-600 hover:text-red-400 flex-shrink-0">✕</button>
+          <button type="button" @click="removeVar(i)" class="text-gray-600 hover:text-red-400 flex-shrink-0" aria-label="Remove variable">✕</button>
         </div>
       </div>
     </div>
@@ -101,11 +101,11 @@
               <span class="text-xs text-gray-600 cursor-grab select-none">⠿</span>
               <input v-model="step.label" class="bg-transparent border-none outline-none text-sm font-semibold text-gray-300 flex-1 min-w-0"
                 placeholder="Section title…" @input="emitSteps" />
-              <button type="button" @click="moveStep(i, -1)" :disabled="i === 0"
+              <button type="button" @click="moveStep(i, -1)" :disabled="i === 0" aria-label="Move step up"
                 class="text-gray-600 hover:text-gray-300 disabled:opacity-20 flex-shrink-0 text-xs">▲</button>
-              <button type="button" @click="moveStep(i, 1)" :disabled="i === localSteps.length - 1"
+              <button type="button" @click="moveStep(i, 1)" :disabled="i === localSteps.length - 1" aria-label="Move step down"
                 class="text-gray-600 hover:text-gray-300 disabled:opacity-20 flex-shrink-0 text-xs">▼</button>
-              <button type="button" @click="removeStep(i)" class="text-gray-600 hover:text-red-400 flex-shrink-0 text-sm">✕</button>
+              <button type="button" @click="removeStep(i)" class="text-gray-600 hover:text-red-400 flex-shrink-0 text-sm" aria-label="Remove step">✕</button>
             </div>
           </template>
 
@@ -149,11 +149,11 @@
                 @input="step._labelEdited = true; emitSteps()" />
 
               <!-- Move up/down (accessibility) -->
-              <button type="button" @click="moveStep(i, -1)" :disabled="i === 0"
+              <button type="button" @click="moveStep(i, -1)" :disabled="i === 0" aria-label="Move step up"
                 class="text-gray-600 hover:text-gray-300 disabled:opacity-20 flex-shrink-0 text-xs">▲</button>
-              <button type="button" @click="moveStep(i, 1)" :disabled="i === localSteps.length - 1"
+              <button type="button" @click="moveStep(i, 1)" :disabled="i === localSteps.length - 1" aria-label="Move step down"
                 class="text-gray-600 hover:text-gray-300 disabled:opacity-20 flex-shrink-0 text-xs">▼</button>
-              <button type="button" @click="removeStep(i)" class="text-gray-600 hover:text-red-400 flex-shrink-0 text-sm">✕</button>
+              <button type="button" @click="removeStep(i)" class="text-gray-600 hover:text-red-400 flex-shrink-0 text-sm" aria-label="Remove step">✕</button>
             </div>
 
             <!-- Step params -->

@@ -263,7 +263,7 @@
                 <div v-for="(h, idx) in form.custom_headers_list" :key="idx" class="flex gap-2 items-center">
                   <input v-model="h.key" class="input flex-1 font-mono text-xs" :placeholder="t('monitors.customHeaders.namePlaceholder')" maxlength="100" />
                   <input v-model="h.value" class="input flex-1 font-mono text-xs" :placeholder="t('monitors.customHeaders.valuePlaceholder')" maxlength="500" />
-                  <button type="button" @click="removeCustomHeader(idx)" class="text-red-400 hover:text-red-300 text-xs px-1 shrink-0">✕</button>
+                  <button type="button" @click="removeCustomHeader(idx)" class="text-red-400 hover:text-red-300 text-xs px-1 shrink-0" :aria-label="t('a11y.remove')">✕</button>
                 </div>
               </div>
               <p v-else class="text-xs text-gray-600">{{ t('monitors.customHeaders.empty') }}</p>
@@ -312,7 +312,7 @@
                   <div v-for="(h, idx) in form.expected_headers_list" :key="idx" class="flex gap-2 items-center">
                     <input v-model="h.key" class="input flex-1 font-mono text-xs" placeholder="content-type" />
                     <input v-model="h.value" class="input flex-1 font-mono text-xs" placeholder="application/json ou /pattern/" />
-                    <button type="button" @click="removeExpectedHeader(idx)" class="text-red-400 hover:text-red-300 text-xs px-1 shrink-0">✕</button>
+                    <button type="button" @click="removeExpectedHeader(idx)" class="text-red-400 hover:text-red-300 text-xs px-1 shrink-0" :aria-label="t('a11y.remove')">✕</button>
                   </div>
                 </div>
                 <p v-else class="text-xs text-gray-600">Aucun en-tête — cliquez sur "+ Ajouter".</p>

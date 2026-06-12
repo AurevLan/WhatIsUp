@@ -26,6 +26,7 @@
       </div>
       <div class="flex items-center gap-3 py-1">
         <button type="button" @click="state.form.value.suppress_alerts = !state.form.value.suppress_alerts"
+          :aria-label="t('maintenance.suppress_alerts_label')"
           class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200"
           :class="state.form.value.suppress_alerts ? 'bg-blue-600' : 'bg-gray-700'">
           <span class="inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform duration-200"

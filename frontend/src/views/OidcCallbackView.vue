@@ -2,7 +2,7 @@
   <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#030712;">
     <div style="text-align:center;color:#94a3b8;font-size:14px;">
       <div v-if="error" style="color:#f87171;">
-        <p style="font-size:18px;font-weight:600;margin-bottom:8px;">{{ t('oidc.login_failed') }}</p>
+        <h1 style="font-size:18px;font-weight:600;margin-bottom:8px;">{{ t('oidc.login_failed') }}</h1>
         <p>{{ errorMessage }}</p>
         <a href="/login" style="display:inline-block;margin-top:16px;color:#3b82f6;">{{ t('oidc.back_to_login') }}</a>
       </div>

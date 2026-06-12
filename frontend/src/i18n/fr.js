@@ -1,6 +1,9 @@
 export default {
   a11y: {
     skip_to_content: 'Aller au contenu',
+    remove: 'Retirer',
+    prev_month: 'Mois précédent',
+    next_month: 'Mois suivant',
   },
   nav: {
     admin: 'Administration',

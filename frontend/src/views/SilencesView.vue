@@ -35,7 +35,7 @@
             <span v-if="s.reason" class="silence-row__reason">— {{ s.reason }}</span>
           </p>
         </div>
-        <button @click="onDelete(s)" class="btn-ghost text-xs" :title="t('common.delete')">
+        <button @click="onDelete(s)" class="btn-ghost text-xs" :title="t('common.delete')" :aria-label="t('common.delete')">
           <Trash2 :size="14" />
         </button>
       </div>

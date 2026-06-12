@@ -114,6 +114,7 @@
               <button
                 @click.stop="copyBadgeUrl(m.name)"
                 :title="t('public.copy_badge_url') || 'Copy badge URL'"
+                :aria-label="t('public.copy_badge_url') || 'Copy badge URL'"
                 class="p-1.5 rounded-lg text-gray-500 hover:text-indigo-400 hover:bg-gray-800 transition-colors"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">

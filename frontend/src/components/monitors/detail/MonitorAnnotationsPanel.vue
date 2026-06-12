@@ -30,7 +30,8 @@
           </p>
         </div>
         <button @click="state.remove(a.id)"
-          class="opacity-0 group-hover:opacity-100 text-xs text-red-500 hover:text-red-400 transition-opacity px-1">
+          class="opacity-0 group-hover:opacity-100 text-xs text-red-500 hover:text-red-400 transition-opacity px-1"
+          :aria-label="t('common.delete')">
           ✕
         </button>
       </div>

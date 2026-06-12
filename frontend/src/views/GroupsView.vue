@@ -39,10 +39,10 @@
         :style="{ animationDelay: idx * 40 + 'ms' }">
         <div class="flex items-start justify-between">
           <div>
-            <h3 class="font-semibold" style="color:var(--text-1)">{{ group.name }}</h3>
+            <h2 class="font-semibold" style="color:var(--text-1)">{{ group.name }}</h2>
             <p class="text-sm mt-1" style="color:var(--text-3)">{{ group.description || t('groups.no_description') }}</p>
           </div>
-          <button @click="deleteGroup(group)" class="btn-ghost px-2 py-1 text-xs" style="color:var(--text-3)">
+          <button @click="deleteGroup(group)" class="btn-ghost px-2 py-1 text-xs" style="color:var(--text-3)" :aria-label="t('common.delete')">
             <Trash2 :size="14" />
           </button>
         </div>

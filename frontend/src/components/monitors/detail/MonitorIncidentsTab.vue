@@ -165,6 +165,7 @@
               </span>
               <button
                 class="text-red-500 hover:text-red-400 ml-auto flex-shrink-0"
+                :aria-label="t('common.delete')"
                 @click="state.deleteIncidentUpdate(state.selectedIncident.value.id, u.id)"
               >✕</button>
             </div>
@@ -269,6 +270,7 @@
               </span>
               <button
                 class="text-red-500 hover:text-red-400 ml-auto flex-shrink-0"
+                :aria-label="t('common.delete')"
                 @click="state.deleteIncidentUpdate(inc.id, u.id)"
               >✕</button>
             </div>

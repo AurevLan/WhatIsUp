@@ -53,6 +53,7 @@
                 @click="edit(tpl)"
                 class="text-gray-500 hover:text-blue-400"
                 :title="t('common.edit')"
+                :aria-label="t('common.edit')"
               >
                 <Pencil :size="14" />
               </button>
@@ -62,6 +63,7 @@
                 @click="remove(tpl)"
                 class="text-gray-500 hover:text-red-400"
                 :title="t('common.delete')"
+                :aria-label="t('common.delete')"
               >
                 <Trash2 :size="14" />
               </button>

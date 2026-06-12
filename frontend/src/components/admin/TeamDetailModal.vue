@@ -13,10 +13,10 @@
           <span class="text-xs text-gray-500 font-mono">{{ team.slug }}</span>
         </div>
         <div class="flex items-center gap-2">
-          <button @click="openEditTeamModal" class="p-1.5 text-gray-500 hover:text-blue-400 transition-colors rounded" :title="t('common.edit')">
+          <button @click="openEditTeamModal" class="p-1.5 text-gray-500 hover:text-blue-400 transition-colors rounded" :title="t('common.edit')" :aria-label="t('common.edit')">
             <Pencil class="w-4 h-4" />
           </button>
-          <button @click="confirmDeleteTeam" class="p-1.5 text-gray-500 hover:text-red-400 transition-colors rounded" :title="t('common.delete')">
+          <button @click="confirmDeleteTeam" class="p-1.5 text-gray-500 hover:text-red-400 transition-colors rounded" :title="t('common.delete')" :aria-label="t('common.delete')">
             <Trash2 class="w-4 h-4" />
           </button>
         </div>
@@ -111,6 +111,7 @@
                     @click="confirmRemoveTeamMember(m)"
                     class="p-1 text-gray-500 hover:text-red-400 transition-colors rounded"
                     :title="t('admin.remove_member_prefix')"
+                    :aria-label="t('admin.remove_member_prefix')"
                   >
                     <Trash2 class="w-3.5 h-3.5" />
                   </button>

@@ -62,7 +62,7 @@
 
     <!-- Diff panel -->
     <div v-if="selected?.diff" class="mt-4 card">
-      <h3 class="text-sm font-semibold text-gray-300 mb-3">{{ t('audit.changes') }}</h3>
+      <h2 class="text-sm font-semibold text-gray-300 mb-3">{{ t('audit.changes') }}</h2>
       <div class="grid grid-cols-2 gap-4">
         <div>
           <div class="text-xs text-gray-500 mb-1">{{ t('audit.before') }}</div>

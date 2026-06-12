@@ -47,6 +47,7 @@
               @click="$emit('remove')"
               class="text-gray-600 hover:text-red-400 text-sm px-1"
               :title="t('alert_matrix.remove_rule')"
+              :aria-label="t('alert_matrix.remove_rule')"
             >✕</button>
           </div>
         </div>

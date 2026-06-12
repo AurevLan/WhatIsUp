@@ -120,8 +120,8 @@
                     @click.stop
                     @change="toggleSelect(inc.id)"
                   />
-                  <button v-if="!inc.is_resolved && !inc.acked_at" class="ack-btn" :title="t('incidents.acknowledge')" @click.prevent="ack(inc)"><CheckCircle :size="16" /></button>
-                  <button v-else-if="!inc.is_resolved && inc.acked_at" class="ack-btn ack-btn--active" :title="t('incidents.unacknowledge')" @click.prevent="unack(inc)"><CheckCircle :size="16" /></button>
+                  <button v-if="!inc.is_resolved && !inc.acked_at" class="ack-btn" :title="t('incidents.acknowledge')" :aria-label="t('incidents.acknowledge')" @click.prevent="ack(inc)"><CheckCircle :size="16" /></button>
+                  <button v-else-if="!inc.is_resolved && inc.acked_at" class="ack-btn ack-btn--active" :title="t('incidents.unacknowledge')" :aria-label="t('incidents.unacknowledge')" @click.prevent="unack(inc)"><CheckCircle :size="16" /></button>
                 </span>
               </div>
             </div>
@@ -156,20 +156,23 @@
                   v-if="hasRunbook(item)"
                   class="ack-btn"
                   :title="t('runbook.show_hide')"
+                  :aria-label="t('runbook.show_hide')"
                   @click.prevent="toggleRunbook(item.id)"
                 >📖</button>
                 <button
                   class="ack-btn"
                   :title="t('incidents.playback_title')"
+                  :aria-label="t('incidents.playback_title')"
                   @click.prevent="togglePlayback(item.id)"
                 ><MapPin :size="16" /></button>
                 <button
                   class="ack-btn"
                   :title="t('incidents.diagnostic_title')"
+                  :aria-label="t('incidents.diagnostic_title')"
                   @click.prevent="toggleDiagnostic(item.id)"
                 ><Activity :size="16" /></button>
-                <button v-if="!item.is_resolved && !item.acked_at" class="ack-btn" :title="t('incidents.acknowledge')" @click.prevent="ack(item)"><CheckCircle :size="16" /></button>
-                <button v-else-if="!item.is_resolved && item.acked_at" class="ack-btn ack-btn--active" :title="t('incidents.unacknowledge')" @click.prevent="unack(item)"><CheckCircle :size="16" /></button>
+                <button v-if="!item.is_resolved && !item.acked_at" class="ack-btn" :title="t('incidents.acknowledge')" :aria-label="t('incidents.acknowledge')" @click.prevent="ack(item)"><CheckCircle :size="16" /></button>
+                <button v-else-if="!item.is_resolved && item.acked_at" class="ack-btn ack-btn--active" :title="t('incidents.unacknowledge')" :aria-label="t('incidents.unacknowledge')" @click.prevent="unack(item)"><CheckCircle :size="16" /></button>
               </span>
             </div>
             <div v-if="hasRunbook(item) && expandedRunbooks[item.id]"

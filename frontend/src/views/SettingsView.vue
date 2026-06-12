@@ -107,6 +107,8 @@
           v-model="tzPref"
           @change="saveTimezone"
           class="input w-full"
+          :aria-invalid="!!tzSaveError"
+          :aria-describedby="tzSaveError ? 'tz-save-error' : undefined"
         >
           <option value="">{{ t('settings.timezone_auto', { tz: browserTz }) }}</option>
           <option v-for="tz in commonTimezones" :key="tz" :value="tz">{{ tz }}</option>
@@ -117,7 +119,7 @@
           · {{ t('settings.timezone_now') }}
           <span class="text-gray-300 font-mono">{{ tzPreview }}</span>
         </p>
-        <p v-if="tzSaveError" class="text-xs text-red-400 mt-1">{{ tzSaveError }}</p>
+        <p v-if="tzSaveError" id="tz-save-error" class="text-xs text-red-400 mt-1">{{ tzSaveError }}</p>
       </div>
 
       <!-- Mobile push notifications (Capacitor / FCM) -->
@@ -335,7 +337,7 @@
           <li v-for="c in recoveryCodes" :key="c" class="text-sm text-green-300 font-mono">{{ c }}</li>
         </ul>
         <button class="absolute right-2 top-2 text-gray-400 hover:text-white transition-colors"
-          :title="t('common.copy')" @click="copyRecoveryCodes">
+          :title="t('common.copy')" :aria-label="t('common.copy')" @click="copyRecoveryCodes">
           <Copy class="w-4 h-4" />
         </button>
       </div>

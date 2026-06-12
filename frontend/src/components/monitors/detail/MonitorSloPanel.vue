@@ -240,6 +240,7 @@
           >{{ t('common.edit') }}</button>
           <button
             class="text-xs text-red-500 hover:text-red-400"
+            :aria-label="t('common.delete')"
             @click="state.confirmDeleteSloRule(rule)"
           >✕</button>
         </li>

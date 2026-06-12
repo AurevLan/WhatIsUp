@@ -67,7 +67,7 @@
         <span v-if="m.role" class="text-xs text-blue-400 bg-blue-950/50 px-2 py-0.5 rounded">{{ m.role }}</span>
         <span class="text-xs text-gray-500">×{{ m.weight }}</span>
         <button @click="deps.removeCompositeMember(m.id)"
-          class="text-red-500 hover:text-red-400 text-xs ml-2">✕</button>
+          class="text-red-500 hover:text-red-400 text-xs ml-2" :aria-label="t('a11y.remove')">✕</button>
       </div>
     </div>
     <p v-else class="text-gray-500 text-sm mb-4">{{ t('monitors.composite.no_members') }}</p>
@@ -87,7 +87,7 @@
         <label class="text-xs text-gray-500 block mb-1">{{ t('monitors.composite.weight') }}</label>
         <input v-model.number="deps.newMember.value.weight" type="number" min="1" max="100" class="input w-full text-sm" />
       </div>
-      <button @click="deps.addCompositeMember" :disabled="!deps.newMember.value.monitor_id" class="btn-primary text-sm h-9 disabled:opacity-50">+</button>
+      <button @click="deps.addCompositeMember" :disabled="!deps.newMember.value.monitor_id" class="btn-primary text-sm h-9 disabled:opacity-50" :aria-label="t('common.add')">+</button>
     </div>
   </div>
 

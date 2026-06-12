@@ -29,6 +29,7 @@
             <button
               type="button"
               @click="createForm.can_create_monitors = !createForm.can_create_monitors"
+              :aria-label="t('admin.perm_can_create_monitors')"
               :class="createForm.can_create_monitors ? 'bg-blue-600' : 'bg-gray-700'"
               class="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
             >
@@ -47,6 +48,7 @@
             <button
               type="button"
               @click="createForm.is_superadmin = !createForm.is_superadmin"
+              :aria-label="t('admin.perm_is_admin')"
               :class="createForm.is_superadmin ? 'bg-purple-600' : 'bg-gray-700'"
               class="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
             >

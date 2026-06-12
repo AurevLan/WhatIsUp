@@ -49,6 +49,7 @@
                 type="button"
                 @click="removeRow(idx)"
                 class="text-gray-600 hover:text-red-400 text-sm px-2"
+                :aria-label="t('a11y.remove')"
               >✕</button>
             </div>
             <div class="grid grid-cols-2 gap-2 text-[11px] text-gray-400">

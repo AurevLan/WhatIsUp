@@ -64,10 +64,12 @@
               autofocus
               required
               class="input login__mfa-input"
+              :aria-invalid="!!error"
+              :aria-describedby="error ? 'mfa-error' : undefined"
             />
           </div>
 
-          <div v-if="error" class="login__error">
+          <div v-if="error" id="mfa-error" class="login__error">
             <AlertCircle :size="15" class="flex-shrink-0 mt-px" />
             {{ error }}
           </div>

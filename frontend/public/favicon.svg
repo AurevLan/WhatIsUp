@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- VELOURS — barres d'uptime sauge/or sur encre -->
+  <rect width="64" height="64" rx="14" fill="#15130e"/>
+  <rect x="12" y="22" width="8" height="30" rx="4" fill="#8fc09e"/>
+  <rect x="28" y="14" width="8" height="38" rx="4" fill="#8fc09e"/>
+  <rect x="44" y="28" width="8" height="24" rx="4" fill="#dcab4a"/>
+</svg>

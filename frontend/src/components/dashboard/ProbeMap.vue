@@ -120,6 +120,7 @@ import { useI18n } from 'vue-i18n'
 import { Radio } from 'lucide-vue-next'
 import { probesApi } from '../../api/probes'
 import { asnLabel, colorForAsn, hasProxyDivergence } from '../../lib/asnPalette'
+import { cssVar, withAlpha } from '../../lib/themeColors'
 
 const { t } = useI18n()
 
@@ -155,13 +156,16 @@ function uptimeColorClass(u) {
   return 'text-(--down)'
 }
 
+// Couleurs lues au moment du rendu des marqueurs (pas de réactivité au toggle
+// thème : les marqueurs sont re-rendus toutes les 60 s / au changement de
+// filtre, et à la navigation). Fallbacks hex requis pour jsdom (cssVar → '').
 function statusFill(probe) {
-  if (!probe.is_active)      return '#6b7280'
+  if (!probe.is_active)      return cssVar('--text-3') || '#9a8e76'
   const u = probe.uptime_24h
-  if (u == null)             return '#6b7280'
-  if (u >= 99)               return '#34d399'
-  if (u >= 90)               return '#fbbf24'
-  return '#ef4444'
+  if (u == null)             return cssVar('--text-3') || '#9a8e76'
+  if (u >= 99)               return cssVar('--up')     || '#8fc09e'
+  if (u >= 90)               return cssVar('--warn')   || '#dcab4a'
+  return cssVar('--down') || '#e8876b'
 }
 
 // V2-02-06 — derive an ASN legend from the currently-loaded probes.
@@ -217,7 +221,9 @@ async function initMap() {
     maxZoom: 18,
   }).addTo(leafletMap)
 
-  leafletMap.getContainer().style.filter = 'brightness(.85) saturate(.6) hue-rotate(200deg)'
+  // Le filtre de tuiles est en CSS (classe velours-map-tiles ci-dessous) pour
+  // pouvoir varier selon data-theme — pas d'inline style JS ici.
+  leafletMap.getContainer().classList.add('velours-map-tiles')
 
   renderMarkers()
   fitToProbes()
@@ -245,7 +251,7 @@ function buildPopup(p, statusColor) {
   popup.appendChild(document.createElement('br'))
 
   const locEl = document.createElement('span')
-  locEl.style.cssText = 'color:#94a3b8;font-size:11px;'
+  locEl.style.cssText = 'color:var(--text-3);font-size:11px;'
   locEl.textContent = p.location_name
   popup.appendChild(locEl)
   popup.appendChild(document.createElement('br'))
@@ -263,14 +269,14 @@ function buildPopup(p, statusColor) {
   // Proxy/NAT warning — V2-02-07
   if (hasProxyDivergence(p)) {
     const warnEl = document.createElement('span')
-    warnEl.style.cssText = 'font-size:10px;color:#fbbf24;font-weight:700;'
+    warnEl.style.cssText = 'font-size:10px;color:var(--warn);font-weight:700;'
     warnEl.textContent = `⚠ NAT/VPN: ${p.public_ip} ↔ ${p.self_reported_ip}`
     popup.appendChild(warnEl)
     popup.appendChild(document.createElement('br'))
   }
 
   const hr = document.createElement('hr')
-  hr.style.cssText = 'border-color:#334155;margin:6px 0;'
+  hr.style.cssText = 'border-color:var(--border);margin:6px 0;'
   popup.appendChild(hr)
 
   const uptimeEl = document.createElement('span')
@@ -280,13 +286,13 @@ function buildPopup(p, statusColor) {
   popup.appendChild(document.createElement('br'))
 
   const checksEl = document.createElement('span')
-  checksEl.style.cssText = 'font-size:11px;color:#64748b;'
+  checksEl.style.cssText = 'font-size:11px;color:var(--text-3);'
   checksEl.textContent = p.check_count_24h > 0 ? `${p.check_count_24h} checks / 24h` : 'no data'
   popup.appendChild(checksEl)
   popup.appendChild(document.createElement('br'))
 
   const onlineEl = document.createElement('span')
-  onlineEl.style.cssText = 'font-size:11px;color:#64748b;'
+  onlineEl.style.cssText = 'font-size:11px;color:var(--text-3);'
   onlineEl.textContent = !p.is_active ? 'inactive' : isOnline(p) ? '● online' : '● offline'
   popup.appendChild(onlineEl)
 
@@ -311,7 +317,7 @@ function renderMarkers() {
         width:18px;height:18px;border-radius:50%;
         background:${statusColor};
         border:3px solid ${asnColor};
-        box-shadow:0 0 6px ${statusColor}88${proxy ? ',0 0 0 2px rgba(251,191,36,.6)' : ''};
+        box-shadow:0 0 6px ${withAlpha(statusColor, 0.53)}${proxy ? `,0 0 0 2px ${withAlpha(cssVar('--warn') || '#dcab4a', 0.6)}` : ''};
         transform:translate(-50%,-50%);
       "></div>`,
       iconSize: [0, 0],
@@ -357,5 +363,15 @@ watch([probes, asnFilter], () => {
 }
 .probe-popup .leaflet-popup-tip {
   background: var(--bg-surface);
+}
+
+/* VELOURS — fond de carte assourdi et réchauffé en thème sombre. Le filtre ne
+   cible que la couche de tuiles (pas les marqueurs, dont les couleurs viennent
+   du design system). En thème clair, les tuiles OSM restent telles quelles. */
+.velours-map-tiles .leaflet-tile-pane {
+  filter: brightness(.85) sepia(.25) hue-rotate(-10deg) saturate(.85);
+}
+:root[data-theme="light"] .velours-map-tiles .leaflet-tile-pane {
+  filter: none;
 }
 </style>

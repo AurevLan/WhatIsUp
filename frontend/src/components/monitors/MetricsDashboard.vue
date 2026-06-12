@@ -91,6 +91,7 @@
 import { ref, computed, watch, defineAsyncComponent, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { metricsApi } from '../../api/metrics.js'
+import { cssVar } from '../../lib/themeColors.js'
 
 const ApexChart = defineAsyncComponent(() => import('vue3-apexcharts'))
 
@@ -135,6 +136,10 @@ function seriesFor(name) {
 
 function optionsFor(name) {
   const unit = unitFor(name)
+  // Couleurs design system lues à la construction des options (appelée au
+  // rendu) — pas de réactivité au toggle thème exigée, re-render à la
+  // navigation. Fallbacks hex pour jsdom (cssVar → '').
+  const labelColor = cssVar('--text-3') || '#9a8e76'
   return {
     chart: {
       type: 'line',
@@ -146,22 +151,22 @@ function optionsFor(name) {
     stroke: { curve: 'smooth', width: 2 },
     xaxis: {
       type: 'datetime',
-      labels: { style: { colors: '#6b7280' }, datetimeUTC: false },
+      labels: { style: { colors: labelColor }, datetimeUTC: false },
     },
     yaxis: {
       labels: {
-        style: { colors: '#6b7280' },
+        style: { colors: labelColor },
         formatter: v => unit ? `${fmtNum(v)} ${unit}` : fmtNum(v),
       },
     },
-    grid: { borderColor: '#1e293b' },
+    grid: { borderColor: cssVar('--border') || '#322a1c' },
     theme: { mode: 'dark' },
     tooltip: {
       x: { format: 'dd/MM HH:mm:ss' },
       y: { formatter: v => unit ? `${fmtNum(v)} ${unit}` : fmtNum(v) },
     },
     legend: { show: false },
-    colors: ['#3b82f6'],
+    colors: [cssVar('--accent') || '#dcab4a'],
   }
 }
 

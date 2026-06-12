@@ -7,6 +7,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { cssVar } from '../../lib/themeColors'
 
 const props = defineProps({
   data: { type: Array, default: () => [] }
@@ -14,6 +15,9 @@ const props = defineProps({
 
 const series = computed(() => [{ data: props.data }])
 
+// Options construites au setup : la couleur design system est lue à ce
+// moment-là (pas de réactivité au toggle thème — re-render à la navigation).
+// Fallback hex pour jsdom (cssVar → '').
 const opts = {
   chart: {
     type: 'area',
@@ -25,7 +29,7 @@ const opts = {
     type: 'gradient',
     gradient: { shadeIntensity: 1, opacityFrom: 0.3, opacityTo: 0.05 },
   },
-  colors: ['#4f9cf9'],
+  colors: [cssVar('--accent') || '#dcab4a'],
   tooltip: {
     enabled: true,
     fixed: { enabled: false },

@@ -115,6 +115,7 @@ import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { monitorsApi } from '../../api/monitors'
+import { cssVar } from '../../lib/themeColors'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -137,29 +138,31 @@ const graph = reactive({ nodes: [], edges: [] })
 const simNodes = ref([])  // { id, name, status, check_type, x, y, vx, vy }
 
 // ── Colors ──────────────────────────────────────────────────────────────
-const STATUS_COLORS = {
-  up:       '#34d399',
-  down:     '#f87171',
-  degraded: '#fbbf24',
-  pending:  '#6b7280',
-  paused:   '#6b7280',
-  null:     '#6b7280',
+// Fonction (et non objet module-level) : les couleurs design system sont lues
+// au rendu pour suivre le thème data-theme. Pas de réactivité au toggle thème
+// exigée (le graphe est re-rendu à la navigation / au refetch). Fallbacks hex
+// pour jsdom (cssVar → '').
+function statusColor(status) {
+  switch (status) {
+    case 'up':       return cssVar('--up')   || '#8fc09e'
+    case 'down':     return cssVar('--down') || '#e8876b'
+    case 'degraded': return cssVar('--warn') || '#dcab4a'
+    default:         return cssVar('--text-3') || '#9a8e76'  // pending / paused / null
+  }
 }
 
 function nodeColor(node) {
-  return STATUS_COLORS[node.status] ?? STATUS_COLORS.pending
+  return statusColor(node.status)
 }
 function nodeStroke(node) {
-  const c = STATUS_COLORS[node.status] ?? STATUS_COLORS.pending
-  // Lighten the stroke slightly
-  return c
+  return statusColor(node.status)
 }
 function statusKey(edge) {
   const src = simNodes.value.find(n => n.id === edge.source)
   return src?.status ?? 'pending'
 }
 function edgeColor(edge) {
-  return STATUS_COLORS[statusKey(edge)] ?? STATUS_COLORS.pending
+  return statusColor(statusKey(edge))
 }
 
 // Precompute marker defs for each status
@@ -170,11 +173,11 @@ const markerColors = computed(() => {
     const key = node.status ?? 'pending'
     if (!seen.has(key)) {
       seen.add(key)
-      result.push({ id: `arrow-${key}`, fill: STATUS_COLORS[key] ?? STATUS_COLORS.pending })
+      result.push({ id: `arrow-${key}`, fill: statusColor(key) })
     }
   }
   // Always include pending as fallback
-  if (!seen.has('pending')) result.push({ id: 'arrow-pending', fill: STATUS_COLORS.pending })
+  if (!seen.has('pending')) result.push({ id: 'arrow-pending', fill: statusColor('pending') })
   return result
 })
 

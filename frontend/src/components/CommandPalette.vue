@@ -598,7 +598,7 @@ function onKeydown(e) {
   flex-shrink: 0;
 }
 .palette__status-dot--down    { background: var(--down); box-shadow: 0 0 4px color-mix(in srgb, var(--down) 50%, transparent); }
-.palette__status-dot--error   { background: color-mix(in srgb, var(--down) 70%, var(--warn)); }
+.palette__status-dot--error   { background: var(--error); }
 .palette__status-dot--timeout { background: var(--warn); }
 
 .palette__empty {

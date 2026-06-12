@@ -130,7 +130,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Monitor, WifiOff } from 'lucide-vue-next'
 import { useMonitorStore } from '../stores/monitors'
@@ -180,10 +180,47 @@ const globalUptime = computed(() => {
   return withData.reduce((s, m) => s + m._uptime24h, 0) / withData.length
 })
 
+// Compteurs animés à l'arrivée des données (une seule fois, sautés si
+// prefers-reduced-motion ; les updates WS suivants affichent les valeurs réelles)
+const animating = ref(false)
+const animated = ref({ total: 0, online: 0, trouble: 0 })
+const realStats = computed(() => ({
+  total: monitors.value.length,
+  online: monitors.value.length - downCount.value,
+  trouble: downCount.value,
+}))
+let countersPlayed = false
+
+watch(() => monitors.value.length, (len) => {
+  if (!len || countersPlayed) return
+  countersPlayed = true
+  const reduced = typeof window.matchMedia === 'function'
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  if (reduced || typeof requestAnimationFrame !== 'function') return
+  const target = realStats.value
+  animating.value = true
+  const t0 = performance.now()
+  const DURATION = 650
+  const tick = (now) => {
+    const p = Math.min((now - t0) / DURATION, 1)
+    const e = 1 - (1 - p) ** 3
+    animated.value = {
+      total: Math.round(target.total * e),
+      online: Math.round(target.online * e),
+      trouble: Math.round(target.trouble * e),
+    }
+    if (p < 1) requestAnimationFrame(tick)
+    else animating.value = false
+  }
+  requestAnimationFrame(tick)
+})
+
+const shownStats = computed(() => (animating.value ? animated.value : realStats.value))
+
 const statCards = computed(() => [
-  { value: monitors.value.length, label: t('dashboard.stat_services'), to: '/monitors' },
-  { value: monitors.value.length - downCount.value, label: t('dashboard.stat_online'), tone: 'up', to: '/monitors?status=up' },
-  { value: downCount.value, label: t('dashboard.stat_trouble'), tone: downCount.value > 0 ? 'down' : null, to: '/monitors?status=down' },
+  { value: shownStats.value.total, label: t('dashboard.stat_services'), to: '/monitors' },
+  { value: shownStats.value.online, label: t('dashboard.stat_online'), tone: 'up', to: '/monitors?status=up' },
+  { value: shownStats.value.trouble, label: t('dashboard.stat_trouble'), tone: downCount.value > 0 ? 'down' : null, to: '/monitors?status=down' },
   { value: globalUptime.value != null ? globalUptime.value.toFixed(2) + ' %' : '—', label: t('dashboard.stat_uptime'), to: '/incidents' },
 ])
 

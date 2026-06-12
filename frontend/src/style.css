@@ -54,6 +54,8 @@
   --up:            #8fc09e;
   --down:          #e8876b;
   --warn:          #dcab4a;
+  /* error (orange brûlé, distinct de down/warn) — 6.9:1 sur surface-2 */
+  --error:         #e09a55;
   --font-display:  "Fraunces", Georgia, serif;
   --brand-gradient: linear-gradient(135deg, #b07c10, #6e5414);
   --radius:        0.75rem;
@@ -86,6 +88,8 @@
   --up:            #417050;
   --down:          #a8492f;
   --warn:          #8a6418;
+  /* error — 4.9:1 sur surface-2 */
+  --error:         #99551d;
   --brand-gradient: linear-gradient(135deg, #a87b1f, #6e5414);
   --shadow-card:   0 1px 2px rgba(60,40,10,.05), 0 10px 28px -14px rgba(60,40,10,.16);
   --shadow-card-hover: 0 2px 4px rgba(60,40,10,.06), 0 18px 40px -16px rgba(60,40,10,.22);
@@ -97,7 +101,7 @@
 :root[data-theme="light"] .badge-up      { background: rgba(65,112,80,.09);  color: #386246; border-color: rgba(65,112,80,.22); }
 :root[data-theme="light"] .badge-down    { background: rgba(168,73,47,.09);  color: #97402a; border-color: rgba(168,73,47,.22); }
 :root[data-theme="light"] .badge-timeout { background: rgba(138,100,24,.10); color: #7c5a15; border-color: rgba(138,100,24,.24); }
-:root[data-theme="light"] .badge-error   { background: rgba(168,73,47,.07);  color: #a8492f; border-color: rgba(168,73,47,.18); }
+:root[data-theme="light"] .badge-error   { background: rgba(153,85,29,.09);  color: var(--error); border-color: rgba(153,85,29,.24); }
 :root[data-theme="light"] .badge-unknown { background: rgba(108,99,84,.10);  color: var(--text-3); border-color: rgba(108,99,84,.22); }
 
 /* Light button overrides */
@@ -336,7 +340,7 @@
   .badge-up      { background: rgba(52,211,153,.1);  color: #6ee7b7; border: 1px solid rgba(52,211,153,.22); }
   .badge-down    { background: rgba(248,113,113,.1); color: #fca5a5; border: 1px solid rgba(248,113,113,.22); }
   .badge-timeout { background: rgba(251,191,36,.1);  color: #fde68a; border: 1px solid rgba(251,191,36,.22); }
-  .badge-error   { background: rgba(251,146,60,.1);  color: #fdba74; border: 1px solid rgba(251,146,60,.22); }
+  .badge-error   { background: color-mix(in srgb, var(--error) 12%, transparent);  color: var(--error); border: 1px solid color-mix(in srgb, var(--error) 28%, transparent); }
   .badge-unknown { background: rgba(77,96,112,.15);  color: var(--text-3); border: 1px solid rgba(77,96,112,.25); }
 
   /* ── Table ── */

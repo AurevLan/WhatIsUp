@@ -1,27 +1,27 @@
 <template>
   <!-- ===== MODAL TEAM DETAIL ===== -->
-  <Teleport to="body">
-    <div v-if="modelValue && team" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" @click.self="close">
-      <div class="card w-full max-w-2xl max-h-[85vh] overflow-y-auto" @click.stop>
-
-        <!-- Header -->
-        <div class="flex justify-between items-center mb-6">
-          <div>
-            <h2 class="text-lg font-semibold text-white">{{ team.name }}</h2>
-            <span class="text-xs text-gray-500 font-mono">{{ team.slug }}</span>
-          </div>
-          <div class="flex items-center gap-2">
-            <button @click="openEditTeamModal" class="p-1.5 text-gray-500 hover:text-blue-400 transition-colors rounded" :title="t('common.edit')">
-              <Pencil class="w-4 h-4" />
-            </button>
-            <button @click="confirmDeleteTeam" class="p-1.5 text-gray-500 hover:text-red-400 transition-colors rounded" :title="t('common.delete')">
-              <Trash2 class="w-4 h-4" />
-            </button>
-            <button @click="close" class="text-gray-500 hover:text-gray-300">
-              <X class="w-5 h-5" />
-            </button>
-          </div>
+  <BaseModal
+    :model-value="modelValue && !!team"
+    :title="team?.name || ''"
+    size="lg"
+    @update:model-value="$event || close()"
+  >
+    <template #header>
+      <div class="flex justify-between items-center flex-1 mr-2">
+        <div>
+          <h2 class="text-lg font-semibold text-white">{{ team.name }}</h2>
+          <span class="text-xs text-gray-500 font-mono">{{ team.slug }}</span>
         </div>
+        <div class="flex items-center gap-2">
+          <button @click="openEditTeamModal" class="p-1.5 text-gray-500 hover:text-blue-400 transition-colors rounded" :title="t('common.edit')">
+            <Pencil class="w-4 h-4" />
+          </button>
+          <button @click="confirmDeleteTeam" class="p-1.5 text-gray-500 hover:text-red-400 transition-colors rounded" :title="t('common.delete')">
+            <Trash2 class="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    </template>
 
         <!-- Members section -->
         <div class="mb-4 flex items-center justify-between">
@@ -119,19 +119,13 @@
             </tbody>
           </table>
         </div>
-
-      </div>
-    </div>
-  </Teleport>
+  </BaseModal>
 
   <!-- ===== MODAL EDIT TEAM ===== -->
-  <Teleport to="body">
-    <div v-if="showEditTeamModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" @click.self="showEditTeamModal = false">
-      <div class="card w-full max-w-md" @click.stop>
-        <div class="flex justify-between items-center mb-6">
-          <h2 class="text-lg font-semibold text-white">{{ t('admin.edit_team_title') }}</h2>
-          <button @click="showEditTeamModal = false" class="text-gray-500 hover:text-gray-300"><X class="w-5 h-5" /></button>
-        </div>
+  <BaseModal
+    v-model="showEditTeamModal"
+    :title="t('admin.edit_team_title')"
+  >
         <form @submit.prevent="submitEditTeam" class="space-y-4">
           <div>
             <label class="block text-sm text-gray-400 mb-1">{{ t('common.name') }}</label>
@@ -143,33 +137,33 @@
             <button type="submit" class="btn-primary" :disabled="submitting">{{ submitting ? t('admin.saving') : t('admin.save_btn') }}</button>
           </div>
         </form>
-      </div>
-    </div>
-  </Teleport>
+  </BaseModal>
 
   <!-- ===== MODAL CONFIRM DELETE TEAM / REMOVE MEMBER ===== -->
-  <Teleport to="body">
-    <div v-if="showTeamDeleteModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" @click.self="showTeamDeleteModal = false">
-      <div class="card w-full max-w-sm" @click.stop>
-        <h2 class="text-lg font-semibold text-white mb-3">{{ t('admin.confirm_team_action') }}</h2>
-        <p class="text-gray-400 text-sm mb-6">{{ teamDeletePrefix }} <strong class="text-white">{{ teamDeleteTarget }}</strong> {{ teamDeleteSuffix }}</p>
-        <div class="flex justify-end gap-3">
-          <button @click="showTeamDeleteModal = false" class="btn-secondary">{{ t('common.cancel') }}</button>
-          <button @click="executeTeamDelete" class="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors" :disabled="submitting">
-            {{ t('common.confirm') }}
-          </button>
-        </div>
+  <BaseModal
+    v-model="showTeamDeleteModal"
+    :title="t('admin.confirm_team_action')"
+    size="sm"
+  >
+    <p class="text-gray-400 text-sm mb-6">{{ teamDeletePrefix }} <strong class="text-white">{{ teamDeleteTarget }}</strong> {{ teamDeleteSuffix }}</p>
+    <template #footer>
+      <div class="flex justify-end gap-3 w-full">
+        <button @click="showTeamDeleteModal = false" class="btn-secondary">{{ t('common.cancel') }}</button>
+        <button @click="executeTeamDelete" class="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors" :disabled="submitting">
+          {{ t('common.confirm') }}
+        </button>
       </div>
-    </div>
-  </Teleport>
+    </template>
+  </BaseModal>
 </template>
 
 <script setup>
 import { ref, watch, computed } from 'vue'
-import { Pencil, Trash2, UserPlus, X } from 'lucide-vue-next'
+import { Pencil, Trash2, UserPlus } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useToast } from '../../composables/useToast'
 import { teamsApi } from '../../api/teams'
+import BaseModal from '../BaseModal.vue'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },

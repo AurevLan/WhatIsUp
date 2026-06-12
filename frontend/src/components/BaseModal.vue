@@ -39,7 +39,7 @@ const props = defineProps({
   modelValue: { type: Boolean, default: true },
   title: { type: String, default: '' },
   message: { type: String, default: '' },
-  size: { type: String, default: 'md' }, // sm | md | lg
+  size: { type: String, default: 'md' }, // sm | md | lg | xl
 })
 
 const emit = defineEmits(['update:modelValue', 'close'])
@@ -47,6 +47,7 @@ const emit = defineEmits(['update:modelValue', 'close'])
 const titleId = `modal-title-${useId()}`
 
 const sizeClass = computed(() => {
+  if (props.size === 'xl') return 'modal-panel-xl'
   if (props.size === 'lg') return 'modal-panel-lg'
   if (props.size === 'sm') return 'max-w-xs'
   return ''

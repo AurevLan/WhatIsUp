@@ -422,6 +422,7 @@
     overflow-y: auto;
   }
   .modal-panel-lg { max-width: 34rem; }
+  .modal-panel-xl { max-width: 64rem; } /* lightbox-style content (screenshots) */
   .modal-title {
     font-size: 0.9375rem;
     font-weight: 700;

@@ -136,35 +136,37 @@
   </div>
 
   <!-- DNS drift alert suggestion modal -->
-  <div v-if="state.alertModal.value" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-    <div class="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-sm p-6">
-      <h3 class="text-base font-semibold text-white mb-1">{{ t('monitor_detail.dns_alert_title') }}</h3>
-      <p class="text-sm text-gray-400 mb-4">
-        <i18n-t keypath="monitor_detail.dns_alert_desc" tag="span">
-          <template #code><code class="text-emerald-400">any_down</code></template>
-        </i18n-t>
-      </p>
-      <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-300 mb-1">{{ t('monitor_detail.dns_alert_channel') }}</label>
-        <select v-model="state.alertChannelId.value" class="input w-full">
-          <option v-for="ch in state.alertChannels.value" :key="ch.id" :value="ch.id">
-            {{ ch.name }} ({{ ch.type }})
-          </option>
-        </select>
-      </div>
-      <button @click="state.createAlertRule" :disabled="state.alertCreating.value || !state.alertChannelId.value" class="w-full btn-primary disabled:opacity-50 mb-3">
-        {{ state.alertCreating.value ? t('monitor_detail.dns_alert_creating') : t('monitor_detail.dns_alert_create') }}
-      </button>
-      <button @click="state.toggleSetting('dns_drift_alert'); state.alertModal.value = false" class="w-full text-xs text-gray-500 hover:text-gray-300">
+  <BaseModal :model-value="state.alertModal.value"
+    :title="t('monitor_detail.dns_alert_title')"
+    @update:model-value="state.alertModal.value = $event">
+    <p class="text-sm text-gray-400 mb-4">
+      <i18n-t keypath="monitor_detail.dns_alert_desc" tag="span">
+        <template #code><code class="text-emerald-400">any_down</code></template>
+      </i18n-t>
+    </p>
+    <div class="mb-4">
+      <label class="block text-sm font-medium text-gray-300 mb-1">{{ t('monitor_detail.dns_alert_channel') }}</label>
+      <select v-model="state.alertChannelId.value" class="input w-full">
+        <option v-for="ch in state.alertChannels.value" :key="ch.id" :value="ch.id">
+          {{ ch.name }} ({{ ch.type }})
+        </option>
+      </select>
+    </div>
+    <template #footer>
+      <button @click="state.toggleSetting('dns_drift_alert'); state.alertModal.value = false" class="flex-1 text-xs text-gray-500 hover:text-gray-300">
         {{ t('monitor_detail.dns_alert_disable') }}
       </button>
-    </div>
-  </div>
+      <button @click="state.createAlertRule" :disabled="state.alertCreating.value || !state.alertChannelId.value" class="flex-1 btn-primary disabled:opacity-50">
+        {{ state.alertCreating.value ? t('monitor_detail.dns_alert_creating') : t('monitor_detail.dns_alert_create') }}
+      </button>
+    </template>
+  </BaseModal>
 </template>
 
 <script setup>
 import { inject } from 'vue'
 import { useI18n } from 'vue-i18n'
+import BaseModal from '../../BaseModal.vue'
 import { DnsStateKey } from './injectionKeys'
 
 defineProps({

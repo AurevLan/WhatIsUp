@@ -306,35 +306,22 @@
   </div>
 
   <!-- Post-mortem modal -->
-  <div
-    v-if="state.postmortem.value.open"
-    class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
-    @click.self="state.postmortem.value.open = false"
-  >
-    <div class="bg-gray-900 border border-gray-700 rounded-xl w-full max-w-3xl max-h-[85vh] flex flex-col shadow-2xl">
-      <div class="flex items-center justify-between px-5 py-4 border-b border-gray-800">
-        <h3 class="text-sm font-semibold text-white">{{ t('monitor_detail.postmortem') }}</h3>
-        <div class="flex items-center gap-2">
-          <button
-            class="btn-primary text-xs flex items-center gap-1.5"
-            @click="state.downloadPostmortem"
-          >
-            ⬇️ {{ t('monitor_detail.download_postmortem') }}
-          </button>
-          <button
-            class="text-gray-500 hover:text-white text-lg leading-none px-1"
-            @click="state.postmortem.value.open = false"
-          >✕</button>
-        </div>
-      </div>
-      <div class="overflow-auto flex-1 p-5">
-        <div v-if="state.postmortem.value.loading" class="text-gray-400 text-sm text-center py-8">
-          {{ t('common.loading') }}
-        </div>
-        <pre v-else class="text-xs text-gray-300 font-mono whitespace-pre-wrap leading-relaxed">{{ state.postmortem.value.content }}</pre>
-      </div>
+  <BaseModal :model-value="state.postmortem.value.open" size="xl"
+    :title="t('monitor_detail.postmortem')"
+    @update:model-value="state.postmortem.value.open = $event">
+    <div v-if="state.postmortem.value.loading" class="text-gray-400 text-sm text-center py-8">
+      {{ t('common.loading') }}
     </div>
-  </div>
+    <pre v-else class="text-xs text-gray-300 font-mono whitespace-pre-wrap leading-relaxed">{{ state.postmortem.value.content }}</pre>
+    <template #footer>
+      <button
+        class="btn-primary text-xs flex items-center gap-1.5 ml-auto"
+        @click="state.downloadPostmortem"
+      >
+        ⬇️ {{ t('monitor_detail.download_postmortem') }}
+      </button>
+    </template>
+  </BaseModal>
 
   <!-- SLA report -->
   <div class="card mb-6">
@@ -393,6 +380,7 @@
 <script setup>
 import { inject } from 'vue'
 import { useI18n } from 'vue-i18n'
+import BaseModal from '../../BaseModal.vue'
 import { IncidentsStateKey } from './injectionKeys'
 
 defineProps({

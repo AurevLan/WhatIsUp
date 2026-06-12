@@ -209,18 +209,20 @@
       @close="editProbe = null" @updated="onUpdated" />
 
     <!-- Show API key once -->
-    <div v-if="newApiKey" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div class="bg-gray-900 border border-amber-700 rounded-2xl w-full max-w-md p-6">
-        <h2 class="text-lg font-semibold text-amber-400 mb-4">⚠️ {{ t('probes.api_key_warning') }}</h2>
-        <p class="text-sm text-gray-300 mb-4">
-          {{ t('probes.api_key_copy_hint') }}
-        </p>
-        <div class="bg-gray-800 rounded-lg p-3 font-mono text-sm text-white break-all mb-4">
-          {{ newApiKey }}
-        </div>
-        <button @click="newApiKey = null" class="btn-primary w-full">{{ t('probes.api_key_saved') }}</button>
+    <BaseModal :model-value="!!newApiKey" @close="newApiKey = null">
+      <template #header>
+        <h2 class="text-lg font-semibold text-amber-400">⚠️ {{ t('probes.api_key_warning') }}</h2>
+      </template>
+      <p class="text-sm text-gray-300 mb-4">
+        {{ t('probes.api_key_copy_hint') }}
+      </p>
+      <div class="bg-gray-800 rounded-lg p-3 font-mono text-sm text-white break-all">
+        {{ newApiKey }}
       </div>
-    </div>
+      <template #footer>
+        <button @click="newApiKey = null" class="btn-primary flex-1">{{ t('probes.api_key_saved') }}</button>
+      </template>
+    </BaseModal>
   </div>
 </template>
 
@@ -236,6 +238,7 @@ import { useDateFormat } from '../composables/useDateFormat'
 import RegisterProbeModal from '../components/probes/RegisterProbeModal.vue'
 import EditProbeModal from '../components/probes/EditProbeModal.vue'
 import EmptyState from '../components/shared/EmptyState.vue'
+import BaseModal from '../components/BaseModal.vue'
 import { Radio } from 'lucide-vue-next'
 
 const { t } = useI18n()

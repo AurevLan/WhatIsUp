@@ -158,29 +158,23 @@
     </div>
 
     <!-- Add monitor modal -->
-    <div v-if="showAddMonitor" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div class="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md p-6">
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="text-lg font-semibold text-white">{{ t('group_detail.add_monitor_title') }}</h2>
-          <button @click="showAddMonitor = false" class="text-gray-400 hover:text-white">✕</button>
-        </div>
-        <p class="text-sm text-gray-400 mb-4">{{ t('group_detail.select_monitor_hint') }}</p>
-        <select v-model="selectedMonitorId" class="input w-full mb-4">
-          <option value="">{{ t('group_detail.choose_monitor') }}</option>
-          <option v-for="m in availableMonitors" :key="m.id" :value="m.id">
-            {{ m.name }} ({{ m.check_type }})
-          </option>
-        </select>
-        <div class="flex gap-3">
-          <button @click="showAddMonitor = false" class="flex-1 px-4 py-2 border border-gray-700 text-gray-300 rounded-lg hover:bg-gray-800">
-            {{ t('common.cancel') }}
-          </button>
-          <button @click="addMonitor" :disabled="!selectedMonitorId" class="flex-1 btn-primary">
-            {{ t('common.add') }}
-          </button>
-        </div>
-      </div>
-    </div>
+    <BaseModal v-model="showAddMonitor" :title="t('group_detail.add_monitor_title')"
+      :message="t('group_detail.select_monitor_hint')">
+      <select v-model="selectedMonitorId" class="input w-full">
+        <option value="">{{ t('group_detail.choose_monitor') }}</option>
+        <option v-for="m in availableMonitors" :key="m.id" :value="m.id">
+          {{ m.name }} ({{ m.check_type }})
+        </option>
+      </select>
+      <template #footer>
+        <button @click="showAddMonitor = false" class="flex-1 px-4 py-2 border border-gray-700 text-gray-300 rounded-lg hover:bg-gray-800">
+          {{ t('common.cancel') }}
+        </button>
+        <button @click="addMonitor" :disabled="!selectedMonitorId" class="flex-1 btn-primary">
+          {{ t('common.add') }}
+        </button>
+      </template>
+    </BaseModal>
   </div>
   <div v-else class="p-8 text-gray-400">{{ t('common.loading') }}</div>
 </template>
@@ -190,6 +184,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { groupsApi, monitorsApi } from '../api/monitors'
+import BaseModal from '../components/BaseModal.vue'
 
 const { t } = useI18n()
 const route = useRoute()

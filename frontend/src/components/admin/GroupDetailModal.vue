@@ -1,12 +1,10 @@
 <template>
-  <Teleport to="body">
-    <div v-if="modelValue && detailGroup" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" @click.self="close">
-      <div class="card w-full max-w-2xl max-h-[80vh] overflow-y-auto" @click.stop>
-        <div class="flex justify-between items-center mb-6">
-          <h2 class="text-lg font-semibold text-white">{{ detailGroup.name }}</h2>
-          <button @click="close" class="text-gray-500 hover:text-gray-300"><X class="w-5 h-5" /></button>
-        </div>
-
+  <BaseModal
+    :model-value="modelValue && !!detailGroup"
+    :title="detailGroup?.name || ''"
+    size="lg"
+    @update:model-value="$event || close()"
+  >
         <!-- Probes section -->
         <div class="mb-6">
           <div class="flex items-center justify-between mb-3">
@@ -72,9 +70,7 @@
         </div>
 
         <div v-if="detailError" class="mt-4 text-red-400 text-sm">{{ detailError }}</div>
-      </div>
-    </div>
-  </Teleport>
+  </BaseModal>
 </template>
 
 <script setup>
@@ -82,6 +78,7 @@ import { ref, watch, computed } from 'vue'
 import { X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { adminApi } from '../../api/admin'
+import BaseModal from '../BaseModal.vue'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },

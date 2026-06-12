@@ -31,41 +31,35 @@
   </div>
 
   <!-- Modal URL de push -->
-  <div v-if="state.showPushUrlModal.value"
-    class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
-    @click.self="state.showPushUrlModal.value = false"
-  >
-    <div class="bg-gray-900 border border-gray-700 rounded-xl w-full max-w-xl shadow-2xl">
-      <div class="flex items-center justify-between px-5 py-4 border-b border-gray-800">
-        <h3 class="text-sm font-semibold text-white">URL de push — Métriques custom</h3>
-        <button @click="state.showPushUrlModal.value = false" class="text-gray-500 hover:text-white text-lg leading-none px-1">✕</button>
+  <BaseModal :model-value="state.showPushUrlModal.value" size="lg"
+    title="URL de push — Métriques custom"
+    @update:model-value="state.showPushUrlModal.value = $event">
+    <div class="space-y-4">
+      <div>
+        <p class="text-xs text-gray-500 mb-1">Endpoint</p>
+        <code class="block text-xs font-mono bg-gray-800 text-blue-300 px-3 py-2 rounded break-all">
+          POST {{ apiBase }}/api/v1/metrics/{{ monitor?.id }}
+        </code>
       </div>
-      <div class="p-5 space-y-4">
-        <div>
-          <p class="text-xs text-gray-500 mb-1">Endpoint</p>
-          <code class="block text-xs font-mono bg-gray-800 text-blue-300 px-3 py-2 rounded break-all">
-            POST {{ apiBase }}/api/v1/metrics/{{ monitor?.id }}
-          </code>
-        </div>
-        <div>
-          <p class="text-xs text-gray-500 mb-1">Exemple curl</p>
-          <pre class="text-xs font-mono bg-gray-800 text-gray-300 px-3 py-2 rounded overflow-x-auto whitespace-pre">curl -X POST \
+      <div>
+        <p class="text-xs text-gray-500 mb-1">Exemple curl</p>
+        <pre class="text-xs font-mono bg-gray-800 text-gray-300 px-3 py-2 rounded overflow-x-auto whitespace-pre">curl -X POST \
   {{ apiBase }}/api/v1/metrics/{{ monitor?.id }} \
   -H "Authorization: Bearer &lt;votre_token_jwt&gt;" \
   -H "Content-Type: application/json" \
   -d '{"metric_name":"orders_per_minute","value":42,"unit":"req/min"}'</pre>
-        </div>
-        <div class="text-xs text-gray-500">
-          <p>Champs disponibles : <code class="text-gray-300">metric_name</code> (requis), <code class="text-gray-300">value</code> (requis), <code class="text-gray-300">unit</code> (optionnel), <code class="text-gray-300">pushed_at</code> (ISO 8601, optionnel).</p>
-        </div>
+      </div>
+      <div class="text-xs text-gray-500">
+        <p>Champs disponibles : <code class="text-gray-300">metric_name</code> (requis), <code class="text-gray-300">value</code> (requis), <code class="text-gray-300">unit</code> (optionnel), <code class="text-gray-300">pushed_at</code> (ISO 8601, optionnel).</p>
       </div>
     </div>
-  </div>
+  </BaseModal>
 </template>
 
 <script setup>
 import { inject } from 'vue'
 import { useI18n } from 'vue-i18n'
+import BaseModal from '../../BaseModal.vue'
 import { CustomMetricsStateKey } from './injectionKeys'
 
 defineProps({

@@ -1,11 +1,9 @@
 <template>
-  <Teleport to="body">
-    <div v-if="modelValue" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" @click.self="close">
-      <div class="card w-full max-w-md" @click.stop>
-        <div class="flex justify-between items-center mb-6">
-          <h2 class="text-lg font-semibold text-white">{{ t('admin.create_team_title') }}</h2>
-          <button @click="close" class="text-gray-500 hover:text-gray-300"><X class="w-5 h-5" /></button>
-        </div>
+  <BaseModal
+    :model-value="modelValue"
+    :title="t('admin.create_team_title')"
+    @update:model-value="$event || close()"
+  >
         <form @submit.prevent="submitCreateTeam" class="space-y-4">
           <div>
             <label class="block text-sm text-gray-400 mb-1">{{ t('admin.label_team_name') }}</label>
@@ -21,16 +19,14 @@
             <button type="submit" class="btn-primary" :disabled="submitting">{{ submitting ? t('admin.creating') : t('admin.create_btn') }}</button>
           </div>
         </form>
-      </div>
-    </div>
-  </Teleport>
+  </BaseModal>
 </template>
 
 <script setup>
 import { ref, watch } from 'vue'
-import { X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { teamsApi } from '../../api/teams'
+import BaseModal from '../BaseModal.vue'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },

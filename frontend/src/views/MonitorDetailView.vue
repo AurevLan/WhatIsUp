@@ -267,18 +267,14 @@
     />
 
     <!-- Screenshot lightbox (global — accessible depuis n'importe quel onglet) -->
-    <div v-if="screenshotModal.open"
-      class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
-      @click.self="screenshotModal.open = false"
+    <BaseModal
+      :model-value="screenshotModal.open"
+      :title="screenshotModal.label || 'Screenshot'"
+      size="xl"
+      @update:model-value="screenshotModal.open = $event"
     >
-      <div class="relative max-w-5xl w-full">
-        <div class="flex items-center justify-between mb-2">
-          <span class="text-sm text-gray-300">{{ screenshotModal.label }}</span>
-          <button @click="screenshotModal.open = false" class="text-gray-400 hover:text-white text-xl leading-none">✕</button>
-        </div>
-        <img :src="screenshotModal.src" :alt="screenshotModal.label || 'Scenario screenshot'" class="w-full rounded-lg border border-gray-700 shadow-2xl" />
-      </div>
-    </div>
+      <img :src="screenshotModal.src" :alt="screenshotModal.label || 'Scenario screenshot'" class="w-full rounded-lg border border-gray-700 shadow-2xl" />
+    </BaseModal>
     <EditMonitorModal v-if="editingMonitor" :monitor="editingMonitor" @close="editingMonitor = null" @updated="onMonitorUpdated" />
     <CreateMonitorModal v-if="showClone" :initial-data="clonePayload" @close="showClone = false" @created="onCloneCreated" />
 
@@ -316,6 +312,7 @@ import { ref, computed, onMounted, provide, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { monitorsApi } from '../api/monitors'
+import BaseModal from '../components/BaseModal.vue'
 import { getServerUrl } from '../lib/serverConfig.js'
 import { useProbesStore } from '../stores/probes'
 import MonitorDependencies from '../components/monitors/MonitorDependencies.vue'

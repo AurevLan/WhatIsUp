@@ -12,6 +12,7 @@ import { computed, nextTick, onScopeDispose, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { monitorsApi } from '../api/monitors'
 import { useTimezone } from './useTimezone'
+import { cssVar } from '../lib/themeColors'
 
 export function useMonitorMap(monitorIdRef) {
   const { t, locale } = useI18n()
@@ -39,11 +40,12 @@ export function useMonitorMap(monitorIdRef) {
   )
 
   function markerColor(p) {
+    // cssVar lu à l'appel (suit le thème) ; fallback hex pour jsdom
     if (!p.last_status)
-      return { dot: 'bg-gray-500', text: 'text-gray-500', hex: '#6b7280' }
+      return { dot: 'bg-(--text-3)', text: 'text-(--text-3)', hex: cssVar('--text-3') || '#9a8e76' }
     if (p.last_status === 'up')
-      return { dot: 'bg-emerald-400', text: 'text-emerald-400', hex: '#34d399' }
-    return { dot: 'bg-red-500', text: 'text-red-400', hex: '#ef4444' }
+      return { dot: 'bg-(--up)', text: 'text-(--up)', hex: cssVar('--up') || '#8fc09e' }
+    return { dot: 'bg-(--down)', text: 'text-(--down)', hex: cssVar('--down') || '#e8876b' }
   }
 
   function statusLabel(p) {

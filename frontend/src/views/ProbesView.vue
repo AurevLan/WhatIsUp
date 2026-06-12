@@ -232,6 +232,7 @@ import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../stores/auth'
 import { probesApi } from '../api/probes'
 import { apiBaseUrl } from '../lib/serverConfig'
+import { cssVar, withAlpha } from '../lib/themeColors'
 import { useToast } from '../composables/useToast'
 import { useConfirm } from '../composables/useConfirm'
 import { useDateFormat } from '../composables/useDateFormat'
@@ -402,15 +403,20 @@ function renderMarkers(L) {
   for (const p of probesWithCoords.value) {
     const online = isOnline(p)
     const inactive = !p.is_active
-    const color = inactive ? '#6b7280' : online ? '#34d399' : '#ef4444'
-    const border = inactive ? '#9ca3af' : online ? '#6ee7b7' : '#fca5a5'
+    // Couleurs design system lues au rendu des marqueurs (re-render au refresh
+    // de l'onglet carte — pas de réactivité au toggle thème exigée).
+    // Fallbacks hex pour jsdom (cssVar → '').
+    const color = inactive
+      ? (cssVar('--text-3') || '#9a8e76')
+      : online ? (cssVar('--up') || '#8fc09e') : (cssVar('--down') || '#e8876b')
+    const border = withAlpha(color, 0.55)
     const icon = L.divIcon({
       className: '',
       html: `<div style="
         width:14px;height:14px;border-radius:50%;
         background:${color};
         border:2px solid ${border};
-        box-shadow:0 0 6px ${color}88;
+        box-shadow:0 0 6px ${withAlpha(color, 0.53)};
       "></div>`,
       iconSize: [14, 14],
       iconAnchor: [7, 7],

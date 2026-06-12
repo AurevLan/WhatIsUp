@@ -68,6 +68,7 @@ import { useI18n } from 'vue-i18n'
 import { Pause, Play } from 'lucide-vue-next'
 import { useIncidentPlayback } from '../../composables/useIncidentPlayback'
 import { colorForAsn } from '../../lib/asnPalette'
+import { cssVar, withAlpha } from '../../lib/themeColors'
 
 const props = defineProps({
   incidentId: { type: String, required: true },
@@ -97,13 +98,16 @@ function formatElapsed(ms) {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
+// Couleurs lues au moment du rendu de chaque frame (pas de réactivité au
+// toggle thème exigée : chaque seek/play re-rend les marqueurs). Fallbacks hex
+// requis pour jsdom (cssVar → '').
 function statusFill(status) {
   switch (status) {
-    case 'up': return '#34d399'
-    case 'down': return '#ef4444'
-    case 'timeout': return '#f97316'
-    case 'error': return '#fbbf24'
-    default: return '#6b7280'
+    case 'up': return cssVar('--up') || '#8fc09e'
+    case 'down': return cssVar('--down') || '#e8876b'
+    case 'timeout':
+    case 'error': return cssVar('--warn') || '#dcab4a'
+    default: return cssVar('--text-3') || '#9a8e76'
   }
 }
 
@@ -116,7 +120,8 @@ async function initMap() {
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 18,
   }).addTo(leafletMap)
-  leafletMap.getContainer().style.filter = 'brightness(.85) saturate(.6) hue-rotate(200deg)'
+  // Filtre de tuiles en CSS (classe velours-map-tiles) pour varier selon data-theme.
+  leafletMap.getContainer().classList.add('velours-map-tiles')
   renderFrame()
 }
 
@@ -138,7 +143,7 @@ function renderFrame() {
         width:18px;height:18px;border-radius:50%;
         background:${fill};
         border:3px solid ${ring};
-        box-shadow:0 0 8px ${fill}cc;
+        box-shadow:0 0 8px ${withAlpha(fill, 0.8)};
         transform:translate(-50%,-50%);
       "></div>`,
       iconSize: [0, 0],
@@ -180,3 +185,16 @@ onUnmounted(() => {
   }
 })
 </script>
+
+<style>
+/* VELOURS — fond de carte assourdi et réchauffé en thème sombre (tuiles
+   uniquement, les marqueurs gardent les couleurs du design system).
+   Dupliqué depuis ProbeMap.vue : les deux cartes peuvent être chargées
+   indépendamment (code-splitting). */
+.velours-map-tiles .leaflet-tile-pane {
+  filter: brightness(.85) sepia(.25) hue-rotate(-10deg) saturate(.85);
+}
+:root[data-theme="light"] .velours-map-tiles .leaflet-tile-pane {
+  filter: none;
+}
+</style>

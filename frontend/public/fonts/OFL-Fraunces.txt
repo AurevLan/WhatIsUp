@@ -1,0 +1,7 @@
+Fraunces — Copyright 2020 The Fraunces Project Authors (https://github.com/undercasetype/Fraunces)
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+Full license text: https://openfontlicense.org
+The four .woff2 files in this directory are unmodified subsets (latin,
+latin-ext; roman + italic, variable wght 100-900 / opsz 9-144) served
+locally instead of via Google Fonts CDN.

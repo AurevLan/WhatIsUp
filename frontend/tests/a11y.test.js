@@ -27,6 +27,7 @@ vi.mock('../src/api/client', () => ({
   },
 }))
 
+import DashboardView from '../src/views/DashboardView.vue'
 import LoginView from '../src/views/LoginView.vue'
 import MonitorsView from '../src/views/MonitorsView.vue'
 import MonitorDetailView from '../src/views/MonitorDetailView.vue'
@@ -108,6 +109,7 @@ function format(violations) {
 
 describe('a11y — axe gate on main views', () => {
   const cases = [
+    ['DashboardView', DashboardView, {}],
     ['LoginView', LoginView, {}],
     ['MonitorsView', MonitorsView, {}],
     ['MonitorDetailView', MonitorDetailView, { path: '/monitors/00000000-0000-0000-0000-000000000001' }],

@@ -1,98 +1,134 @@
 @import "tailwindcss";
 
-/* ── Design tokens ───────────────────────────────────────────────────── */
-:root {
-  --bg-base:       #0c1117;
-  --bg-surface:    #131920;
-  --bg-surface-2:  #1a2230;
-  --bg-surface-3:  #202c3a;
-  --border:        #1e2d3d;
-  --border-hover:  #2d4057;
-  --text-1:        #e4ecf4;
-  --text-2:        #8899aa;
-  /* A11Y-5: was #4d6070 (2.45:1 on --bg-surface-2) — fails WCAG AA.
-     #7a8b9c = 4.56:1 on --bg-surface-2, 5.05:1 on --bg-surface, 5.42:1 on --bg-base. */
-  --text-3:        #7a8b9c;
-  --accent:        #4f9cf9;
-  --accent-glow:   rgba(79,156,249,.18);
-  --accent-border: rgba(79,156,249,.35);
-  --up:            #34d399;
-  --down:          #f87171;
-  --warn:          #fbbf24;
-  --brand-gradient: linear-gradient(135deg, #3b82f6, #8b5cf6);
-  --radius:        0.5rem;
-  --radius-sm:     0.375rem;
-  --radius-lg:     0.75rem;
-  --sidebar-w:     200px;
-  --topbar-h:      40px;
-  --shadow-card:   0 1px 3px rgba(0,0,0,.2), 0 0 0 1px rgba(255,255,255,.02);
-  --shadow-card-hover: 0 4px 24px rgba(0,0,0,.3), 0 0 0 1px rgba(255,255,255,.04);
-  --shadow-modal:  0 24px 64px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.04);
-  --focus-ring:    0 0 0 3px var(--accent-glow), 0 0 12px rgba(79,156,249,.1);
+/* ── VELOURS — fonte display (auto-hébergée, licence OFL) ───────────── */
+@font-face {
+  font-family: "Fraunces";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/fraunces-roman-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Fraunces";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/fraunces-roman-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Fraunces";
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/fraunces-italic-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Fraunces";
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/fraunces-italic-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 
-/* ── Light theme ────────────────────────────────────────────────────── */
+/* ── Design tokens — VELOURS « encre » (thème sombre par défaut) ──────
+   Ratios WCAG calculés (script node, voir plan_redesign_velours.md) :
+   text-1 13.0:1 · text-2 7.6:1 · text-3 5.1:1 · gold 7.8:1 · sage 7.9:1
+   · terra 6.3:1 — tous sur --bg-surface-2 (pire fond courant), AA ≥ 4.5. */
+:root {
+  --bg-base:       #15130e;
+  --bg-surface:    #1c1913;
+  --bg-surface-2:  #251f15;
+  --bg-surface-3:  #2d261a;
+  --border:        #322a1c;
+  --border-hover:  #4a3f2a;
+  --text-1:        #ece5d8;
+  --text-2:        #bbb09a;
+  --text-3:        #9a8e76;
+  --accent:        #dcab4a;
+  --accent-glow:   rgba(220,171,74,.16);
+  --accent-border: rgba(220,171,74,.38);
+  --up:            #8fc09e;
+  --down:          #e8876b;
+  --warn:          #dcab4a;
+  --font-display:  "Fraunces", Georgia, serif;
+  --brand-gradient: linear-gradient(135deg, #b07c10, #6e5414);
+  --radius:        0.75rem;
+  --radius-sm:     0.5rem;
+  --radius-lg:     1.125rem;
+  --sidebar-w:     200px;
+  --topbar-h:      40px;
+  --shadow-card:   0 1px 2px rgba(0,0,0,.3), 0 10px 28px -14px rgba(0,0,0,.5);
+  --shadow-card-hover: 0 2px 4px rgba(0,0,0,.3), 0 18px 40px -16px rgba(0,0,0,.6);
+  --shadow-modal:  0 24px 64px rgba(0,0,0,.7), 0 0 0 1px rgba(236,229,216,.05);
+  --focus-ring:    0 0 0 3px var(--accent-glow), 0 0 12px rgba(220,171,74,.12);
+}
+
+/* ── VELOURS « ivoire » (thème clair) ─────────────────────────────────
+   Ratios WCAG sur --bg-surface-2 : text-1 14.0:1 · text-2 7.0:1 ·
+   text-3 5.0:1 · gold 4.6:1 · sage 4.9:1 · terra 4.9:1 — AA ≥ 4.5. */
 :root[data-theme="light"] {
-  --bg-base:       #f8f9fb;
-  --bg-surface:    #ffffff;
-  --bg-surface-2:  #f0f2f5;
-  --bg-surface-3:  #e4e8ed;
-  --border:        #d8dee6;
-  --border-hover:  #b8c4d0;
-  --text-1:        #1a2332;
-  --text-2:        #4a5568;
-  /* A11Y-5: was #8294a8 (2.77:1 on --bg-surface-2) — fails WCAG AA.
-     #5b7084 = 4.57:1 on --bg-surface-2, 5.13:1 on --bg-surface, 4.87:1 on --bg-base. */
-  --text-3:        #5b7084;
-  --accent:        #2f7be5;
-  --accent-glow:   rgba(47,123,229,.12);
-  --accent-border: rgba(47,123,229,.30);
-  --up:            #059669;
-  --down:          #dc2626;
-  --warn:          #d97706;
-  --brand-gradient: linear-gradient(135deg, #2563eb, #7c3aed);
-  --shadow-card:   0 1px 3px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04);
-  --shadow-card-hover: 0 4px 16px rgba(0,0,0,.08), 0 0 0 1px rgba(0,0,0,.06);
-  --shadow-modal:  0 24px 64px rgba(0,0,0,.12), 0 0 0 1px rgba(0,0,0,.06);
-  --focus-ring:    0 0 0 3px var(--accent-glow), 0 0 12px rgba(47,123,229,.08);
+  --bg-base:       #f6f2ea;
+  --bg-surface:    #fffdf9;
+  --bg-surface-2:  #f1ece0;
+  --bg-surface-3:  #e8e1d1;
+  --border:        #e3dac6;
+  --border-hover:  #cfc3a8;
+  --text-1:        #211f1a;
+  --text-2:        #544e42;
+  --text-3:        #6c6354;
+  --accent:        #8a6418;
+  --accent-glow:   rgba(168,123,31,.13);
+  --accent-border: rgba(168,123,31,.32);
+  --up:            #417050;
+  --down:          #a8492f;
+  --warn:          #8a6418;
+  --brand-gradient: linear-gradient(135deg, #a87b1f, #6e5414);
+  --shadow-card:   0 1px 2px rgba(60,40,10,.05), 0 10px 28px -14px rgba(60,40,10,.16);
+  --shadow-card-hover: 0 2px 4px rgba(60,40,10,.06), 0 18px 40px -16px rgba(60,40,10,.22);
+  --shadow-modal:  0 24px 64px rgba(60,40,10,.16), 0 0 0 1px rgba(60,40,10,.05);
+  --focus-ring:    0 0 0 3px var(--accent-glow), 0 0 12px rgba(168,123,31,.1);
 }
 
 /* Light theme overrides for semi-transparent badge backgrounds */
-:root[data-theme="light"] .badge-up      { background: rgba(5,150,105,.08);  color: #047857; border-color: rgba(5,150,105,.20); }
-:root[data-theme="light"] .badge-down    { background: rgba(220,38,38,.08);  color: #b91c1c; border-color: rgba(220,38,38,.20); }
-:root[data-theme="light"] .badge-timeout { background: rgba(217,119,6,.08);  color: #92400e; border-color: rgba(217,119,6,.20); }
-:root[data-theme="light"] .badge-error   { background: rgba(234,88,12,.08);  color: #c2410c; border-color: rgba(234,88,12,.20); }
-:root[data-theme="light"] .badge-unknown { background: rgba(130,148,168,.10); color: var(--text-3); border-color: rgba(130,148,168,.20); }
+:root[data-theme="light"] .badge-up      { background: rgba(65,112,80,.09);  color: #386246; border-color: rgba(65,112,80,.22); }
+:root[data-theme="light"] .badge-down    { background: rgba(168,73,47,.09);  color: #97402a; border-color: rgba(168,73,47,.22); }
+:root[data-theme="light"] .badge-timeout { background: rgba(138,100,24,.10); color: #7c5a15; border-color: rgba(138,100,24,.24); }
+:root[data-theme="light"] .badge-error   { background: rgba(168,73,47,.07);  color: #a8492f; border-color: rgba(168,73,47,.18); }
+:root[data-theme="light"] .badge-unknown { background: rgba(108,99,84,.10);  color: var(--text-3); border-color: rgba(108,99,84,.22); }
 
 /* Light button overrides */
 :root[data-theme="light"] .btn-primary {
   background: var(--accent);
-  color: #ffffff;
+  color: #fffdf9;
   border-color: var(--accent);
 }
 :root[data-theme="light"] .btn-primary:hover {
-  background: #2563eb;
-  color: #ffffff;
-  border-color: #2563eb;
-  box-shadow: 0 2px 8px rgba(37,99,235,.25);
+  background: #6e5014;
+  color: #fffdf9;
+  border-color: #6e5014;
+  box-shadow: 0 2px 8px rgba(138,100,24,.3);
 }
 :root[data-theme="light"] .btn-danger {
-  background: rgba(220,38,38,.06);
-  color: #dc2626;
-  border-color: rgba(220,38,38,.20);
+  background: rgba(168,73,47,.07);
+  color: #a8492f;
+  border-color: rgba(168,73,47,.22);
 }
 :root[data-theme="light"] .btn-danger:hover {
-  background: rgba(220,38,38,.12);
-  color: #b91c1c;
-  border-color: rgba(220,38,38,.35);
+  background: rgba(168,73,47,.13);
+  color: #8c3c26;
+  border-color: rgba(168,73,47,.38);
 }
 
 /* Light table row hover */
 :root[data-theme="light"] tbody tr:hover td { background: rgba(0,0,0,.02); }
 
 /* Light scrollbar */
-:root[data-theme="light"] ::-webkit-scrollbar-thumb { background: #c4cdd8; }
-:root[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: #a0afc0; }
+:root[data-theme="light"] ::-webkit-scrollbar-thumb { background: #d4c9b2; }
+:root[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: #bcae90; }
 
 /* Light modal overlay */
 :root[data-theme="light"] .modal-overlay { background: rgba(0,0,0,.30); }
@@ -102,14 +138,14 @@
 :root[data-theme="light"] .skeleton,
 :root[data-theme="light"] .skeleton-circle,
 :root[data-theme="light"] .skeleton-line {
-  background: linear-gradient(90deg, #e4e8ed 25%, #f0f2f5 50%, #e4e8ed 75%);
+  background: linear-gradient(90deg, #e8e1d1 25%, #f1ece0 50%, #e8e1d1 75%);
   background-size: 200% 100%;
 }
 
 @theme {
   --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", monospace;
-  --color-brand: #4f9cf9;
+  --color-brand: #a87b1f;
   --color-up:    #10b981;
   --color-down:  #ef4444;
 }
@@ -130,7 +166,7 @@
   ::-webkit-scrollbar { width: 4px; height: 4px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--border-hover); border-radius: 99px; }
-  ::-webkit-scrollbar-thumb:hover { background: #3d5570; }
+  ::-webkit-scrollbar-thumb:hover { background: #5a4c33; }
 
   a { color: inherit; text-decoration: none; }
 
@@ -140,11 +176,18 @@
 /* ── Components ─────────────────────────────────────────────────────── */
 @layer components {
 
+  /* Typo display VELOURS — hero, gros chiffres, titres de section */
+  .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -.015em;
+    font-variant-numeric: tabular-nums;
+  }
+
   /* Card */
   .card {
     background: var(--bg-surface);
     border: 1px solid var(--border);
-    border-radius: var(--radius);
+    border-radius: var(--radius-lg);
     padding: 1rem;
     box-shadow: var(--shadow-card);
     transition: border-color .2s, box-shadow .2s;
@@ -152,16 +195,17 @@
   .card-interactive {
     background: var(--bg-surface);
     border: 1px solid var(--border);
-    border-radius: var(--radius);
+    border-radius: var(--radius-lg);
     padding: 1rem;
     box-shadow: var(--shadow-card);
-    transition: border-color .2s, background .2s, box-shadow .2s;
+    transition: border-color .2s, background .2s, box-shadow .2s, transform .24s cubic-bezier(.2,.7,.2,1);
     cursor: pointer;
   }
   .card-interactive:hover {
     border-color: var(--border-hover);
     background: var(--bg-surface-2);
     box-shadow: var(--shadow-card-hover);
+    transform: translateY(-2px);
   }
 
   /* ── Buttons ── */
@@ -197,14 +241,14 @@
 
   .btn-primary {
     background: var(--accent-glow);
-    color: #7cbcff;
+    color: #e3bb66;
     border-color: var(--accent-border);
   }
   .btn-primary:hover {
-    background: rgba(79,156,249,.26);
-    color: #a8d4ff;
-    border-color: rgba(79,156,249,.55);
-    box-shadow: 0 0 0 1px rgba(79,156,249,.15), 0 4px 12px rgba(79,156,249,.12);
+    background: rgba(220,171,74,.24);
+    color: #f0d08c;
+    border-color: rgba(220,171,74,.55);
+    box-shadow: 0 0 0 1px rgba(220,171,74,.15), 0 4px 12px rgba(220,171,74,.12);
   }
   .btn-primary:active { transform: translateY(1px); }
 
@@ -501,15 +545,15 @@
 
   /* ── WebSocket status change highlight ── */
   @keyframes ws-highlight {
-    0%   { background: rgba(79,156,249,.15); }
+    0%   { background: rgba(220,171,74,.16); }
     100% { background: transparent; }
   }
   @keyframes ws-highlight-down {
-    0%   { background: rgba(248,113,113,.15); }
+    0%   { background: rgba(232,135,107,.18); }
     100% { background: transparent; }
   }
   @keyframes ws-highlight-up {
-    0%   { background: rgba(52,211,153,.15); }
+    0%   { background: rgba(143,192,158,.16); }
     100% { background: transparent; }
   }
   .ws-flash       { animation: ws-highlight 1.5s ease-out; }
@@ -530,7 +574,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 16px rgba(59,130,246,.35), 0 0 0 3px rgba(59,130,246,.1);
+    box-shadow: 0 4px 16px rgba(168,123,31,.35), 0 0 0 3px rgba(168,123,31,.12);
     cursor: pointer;
     z-index: 35;
     transition: transform .2s, box-shadow .2s;

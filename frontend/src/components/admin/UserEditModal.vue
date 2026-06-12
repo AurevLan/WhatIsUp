@@ -1,14 +1,9 @@
 <template>
-  <Teleport to="body">
-    <div v-if="modelValue && user" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" @click.self="close">
-      <div class="card w-full max-w-md" @click.stop>
-        <div class="flex justify-between items-center mb-6">
-          <h2 class="text-lg font-semibold text-white">{{ t('admin.edit_user_title', { name: user.username }) }}</h2>
-          <button @click="close" class="text-gray-500 hover:text-gray-300">
-            <X class="w-5 h-5" />
-          </button>
-        </div>
-
+  <BaseModal
+    :model-value="modelValue && !!user"
+    :title="user ? t('admin.edit_user_title', { name: user.username }) : ''"
+    @update:model-value="$event || close()"
+  >
         <form @submit.prevent="submitEdit" class="space-y-4">
           <div>
             <label class="block text-sm text-gray-400 mb-1">{{ t('admin.col_email') }}</label>
@@ -84,16 +79,14 @@
             </button>
           </div>
         </form>
-      </div>
-    </div>
-  </Teleport>
+  </BaseModal>
 </template>
 
 <script setup>
 import { ref, watch } from 'vue'
-import { X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { adminApi } from '../../api/admin'
+import BaseModal from '../BaseModal.vue'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },

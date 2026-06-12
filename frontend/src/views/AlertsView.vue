@@ -245,16 +245,10 @@
     </div>
 
     <!-- Add/Edit Rule Modal -->
-    <div v-if="showRuleModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div class="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
-        <div class="flex items-center justify-between mb-6">
-          <h2 class="text-lg font-semibold text-white">
-            {{ editingRule ? t('alerts.edit_rule') : t('alerts.add_rule') }}
-          </h2>
-          <button @click="closeRuleModal" class="text-gray-400 hover:text-white" :aria-label="t('common.close')">✕</button>
-        </div>
-
-        <form @submit.prevent="saveRule" class="space-y-4">
+    <BaseModal :model-value="showRuleModal" size="lg"
+      :title="editingRule ? t('alerts.edit_rule') : t('alerts.add_rule')"
+      @close="closeRuleModal">
+      <form @submit.prevent="saveRule" class="space-y-4">
           <!-- Target type (only for create) -->
           <div v-if="!editingRule">
             <label class="block text-sm font-medium text-gray-300 mb-2">{{ t('alerts.target_label') }} *</label>
@@ -457,27 +451,25 @@
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </BaseModal>
 
     <!-- Add Channel Modal -->
     <AddChannelModal v-if="showAddChannel" @close="showAddChannel = false" @created="loadData" />
 
     <!-- Confirm delete modal -->
-    <div v-if="confirmModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div class="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-sm p-6">
-        <h3 class="text-base font-semibold text-white mb-2">{{ confirmModal.title }}</h3>
-        <p class="text-sm text-gray-400 mb-6">{{ t('alerts.confirm_delete_detail') }}</p>
-        <div class="flex gap-3">
-          <button @click="confirmModal = null" class="flex-1 px-4 py-2 border border-gray-700 text-gray-300 rounded-lg hover:bg-gray-800">
-            {{ t('common.cancel') }}
-          </button>
-          <button @click="confirmModal.action(); confirmModal = null" class="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg">
-            {{ t('common.delete') }}
-          </button>
-        </div>
-      </div>
-    </div>
+    <BaseModal :model-value="!!confirmModal" size="sm"
+      :title="confirmModal?.title ?? ''"
+      :message="t('alerts.confirm_delete_detail')"
+      @close="confirmModal = null">
+      <template #footer>
+        <button @click="confirmModal = null" class="flex-1 px-4 py-2 border border-gray-700 text-gray-300 rounded-lg hover:bg-gray-800">
+          {{ t('common.cancel') }}
+        </button>
+        <button @click="confirmModal.action(); confirmModal = null" class="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg">
+          {{ t('common.delete') }}
+        </button>
+      </template>
+    </BaseModal>
   </div>
 </template>
 
@@ -489,6 +481,7 @@ import { monitorsApi, groupsApi } from '../api/monitors'
 import { useToast } from '../composables/useToast'
 import { useDateFormat } from '../composables/useDateFormat'
 import AddChannelModal from '../components/alerts/AddChannelModal.vue'
+import BaseModal from '../components/BaseModal.vue'
 import AlertTemplatesSection from '../components/alerts/AlertTemplatesSection.vue'
 import EmptyState from '../components/shared/EmptyState.vue'
 import { Bell, ClipboardList } from 'lucide-vue-next'

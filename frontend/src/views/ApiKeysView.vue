@@ -89,84 +89,73 @@
     </div>
 
     <!-- Create modal -->
-    <div
-      v-if="showCreate"
-      class="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
-      @click.self="showCreate = false"
-    >
-      <div class="card w-full max-w-md mx-4">
-        <h2 class="text-lg font-semibold text-white mb-4">{{ t('apiKeys.new') }}</h2>
-
-        <div class="space-y-4">
-          <div>
-            <label class="block text-sm text-gray-400 mb-1">{{ t('apiKeys.key_name') }}</label>
-            <input
-              v-model="form.name"
-              class="input w-full"
-              :placeholder="t('apiKeys.key_name_placeholder')"
-              maxlength="100"
-              @keydown.enter="createKey"
-            />
-          </div>
-          <div>
-            <label class="block text-sm text-gray-400 mb-1">
-              {{ t('apiKeys.expires_at') }}
-              <span class="text-gray-500 ml-1">({{ t('common.optional') }})</span>
-            </label>
-            <input v-model="form.expires_at" type="datetime-local" class="input w-full" />
-          </div>
+    <BaseModal v-model="showCreate" :title="t('apiKeys.new')">
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm text-gray-400 mb-1">{{ t('apiKeys.key_name') }}</label>
+          <input
+            v-model="form.name"
+            class="input w-full"
+            :placeholder="t('apiKeys.key_name_placeholder')"
+            maxlength="100"
+            @keydown.enter="createKey"
+          />
         </div>
-
-        <div class="flex justify-end gap-3 mt-6">
-          <button class="btn-secondary" @click="showCreate = false">
-            {{ t('common.cancel') }}
-          </button>
-          <button class="btn-primary" :disabled="!form.name.trim() || creating" @click="createKey">
-            <Loader2 v-if="creating" class="w-4 h-4 mr-2 animate-spin" />
-            {{ t('apiKeys.create') }}
-          </button>
+        <div>
+          <label class="block text-sm text-gray-400 mb-1">
+            {{ t('apiKeys.expires_at') }}
+            <span class="text-gray-500 ml-1">({{ t('common.optional') }})</span>
+          </label>
+          <input v-model="form.expires_at" type="datetime-local" class="input w-full" />
         </div>
       </div>
-    </div>
+
+      <template #footer>
+        <button class="btn-secondary ml-auto" @click="showCreate = false">
+          {{ t('common.cancel') }}
+        </button>
+        <button class="btn-primary" :disabled="!form.name.trim() || creating" @click="createKey">
+          <Loader2 v-if="creating" class="w-4 h-4 mr-2 animate-spin" />
+          {{ t('apiKeys.create') }}
+        </button>
+      </template>
+    </BaseModal>
 
     <!-- Key reveal modal — shown once after creation -->
-    <div
-      v-if="newKey"
-      class="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
-    >
-      <div class="card w-full max-w-lg mx-4">
-        <div class="flex items-center gap-3 mb-4">
+    <BaseModal :model-value="!!newKey" size="lg" @close="newKey = null">
+      <template #header>
+        <div class="flex items-center gap-3">
           <CheckCircle class="w-6 h-6 text-green-400 flex-shrink-0" />
           <h2 class="text-lg font-semibold text-white">{{ t('apiKeys.created') }}</h2>
         </div>
+      </template>
 
-        <p class="text-sm text-amber-300 mb-3">{{ t('apiKeys.show_once_warning') }}</p>
+      <p class="text-sm text-amber-300 mb-3">{{ t('apiKeys.show_once_warning') }}</p>
 
-        <div class="relative">
-          <code
-            class="block w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-sm text-green-300 font-mono break-all pr-12"
-          >
-            {{ newKey.key }}
-          </code>
-          <button
-            class="absolute right-2 top-2 text-gray-400 hover:text-white transition-colors"
-            :title="t('common.copy')"
-            @click="copyKey"
-          >
-            <Copy class="w-4 h-4" />
-          </button>
-        </div>
-
-        <p class="mt-3 text-xs text-gray-400">{{ t('apiKeys.usage_hint') }}</p>
-        <code class="mt-1 block text-xs bg-gray-900/60 rounded px-2 py-1 text-gray-300 font-mono">
-          Authorization: Bearer {{ newKey.key }}
+      <div class="relative">
+        <code
+          class="block w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-sm text-green-300 font-mono break-all pr-12"
+        >
+          {{ newKey?.key }}
         </code>
-
-        <div class="flex justify-end mt-6">
-          <button class="btn-primary" @click="newKey = null">{{ t('apiKeys.i_saved_it') }}</button>
-        </div>
+        <button
+          class="absolute right-2 top-2 text-gray-400 hover:text-white transition-colors"
+          :title="t('common.copy')"
+          @click="copyKey"
+        >
+          <Copy class="w-4 h-4" />
+        </button>
       </div>
-    </div>
+
+      <p class="mt-3 text-xs text-gray-400">{{ t('apiKeys.usage_hint') }}</p>
+      <code class="mt-1 block text-xs bg-gray-900/60 rounded px-2 py-1 text-gray-300 font-mono">
+        Authorization: Bearer {{ newKey?.key }}
+      </code>
+
+      <template #footer>
+        <button class="btn-primary ml-auto" @click="newKey = null">{{ t('apiKeys.i_saved_it') }}</button>
+      </template>
+    </BaseModal>
   </div>
 </template>
 
@@ -175,6 +164,7 @@ import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { CheckCircle, Copy, KeyRound, Loader2, Plus, Trash2 } from 'lucide-vue-next'
 import { apiKeysApi } from '../api/apiKeys.js'
+import BaseModal from '../components/BaseModal.vue'
 import { useToast } from '../composables/useToast'
 import { useConfirm } from '../composables/useConfirm'
 import { useDateFormat } from '../composables/useDateFormat'

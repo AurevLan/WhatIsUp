@@ -283,98 +283,93 @@
     </div>
 
     <!-- TOTP setup modal (QR + first code) -->
-    <div v-if="totp.setupOpen"
-      class="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
-      @click.self="closeTotpSetup">
-      <div class="card w-full max-w-md mx-4">
-        <h2 class="text-lg font-semibold text-white mb-2">{{ t('settings.security.setup_title') }}</h2>
-        <p class="text-sm text-gray-400 mb-4">{{ t('settings.security.setup_desc') }}</p>
-
-        <div v-if="totp.qrDataUrl" class="flex justify-center mb-3">
-          <img :src="totp.qrDataUrl" alt="TOTP QR code"
-            class="rounded-lg bg-white p-2" width="192" height="192" />
-        </div>
-        <div v-else-if="totp.otpauthUrl" class="mb-3 text-sm text-amber-300">
-          {{ t('settings.security.setup_qr_fallback') }}
-          <a :href="totp.otpauthUrl" class="text-blue-400 break-all underline">{{ totp.otpauthUrl }}</a>
-        </div>
-
-        <p class="text-xs text-gray-500 mb-1">{{ t('settings.security.setup_manual') }}</p>
-        <code class="block w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-green-300 font-mono break-all mb-4">
-          {{ totp.secret }}
-        </code>
-
-        <label class="block text-sm text-gray-400 mb-1">{{ t('settings.security.setup_code_label') }}</label>
-        <input v-model="totp.code" class="input w-full" placeholder="123456"
-          inputmode="numeric" autocomplete="one-time-code"
-          @keydown.enter="confirmEnable" />
-
-        <div v-if="totp.enableError" class="mt-2 text-sm text-red-400">{{ totp.enableError }}</div>
-
-        <div class="flex justify-end gap-3 mt-6">
-          <button class="btn-secondary" @click="closeTotpSetup">{{ t('common.cancel') }}</button>
-          <button class="btn-primary" :disabled="!totp.code.trim() || totp.enabling" @click="confirmEnable">
-            <Loader2 v-if="totp.enabling" class="w-4 h-4 mr-2 animate-spin" />
-            {{ t('settings.security.setup_confirm') }}
-          </button>
-        </div>
+    <BaseModal
+      :model-value="totp.setupOpen"
+      :title="t('settings.security.setup_title')"
+      :message="t('settings.security.setup_desc')"
+      @close="closeTotpSetup">
+      <div v-if="totp.qrDataUrl" class="flex justify-center mb-3">
+        <img :src="totp.qrDataUrl" alt="TOTP QR code"
+          class="rounded-lg bg-white p-2" width="192" height="192" />
       </div>
-    </div>
+      <div v-else-if="totp.otpauthUrl" class="mb-3 text-sm text-amber-300">
+        {{ t('settings.security.setup_qr_fallback') }}
+        <a :href="totp.otpauthUrl" class="text-blue-400 break-all underline">{{ totp.otpauthUrl }}</a>
+      </div>
+
+      <p class="text-xs text-gray-500 mb-1">{{ t('settings.security.setup_manual') }}</p>
+      <code class="block w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-green-300 font-mono break-all mb-4">
+        {{ totp.secret }}
+      </code>
+
+      <label class="block text-sm text-gray-400 mb-1">{{ t('settings.security.setup_code_label') }}</label>
+      <input v-model="totp.code" class="input w-full" placeholder="123456"
+        inputmode="numeric" autocomplete="one-time-code"
+        @keydown.enter="confirmEnable" />
+
+      <div v-if="totp.enableError" class="mt-2 text-sm text-red-400">{{ totp.enableError }}</div>
+
+      <template #footer>
+        <button class="btn-secondary ml-auto" @click="closeTotpSetup">{{ t('common.cancel') }}</button>
+        <button class="btn-primary" :disabled="!totp.code.trim() || totp.enabling" @click="confirmEnable">
+          <Loader2 v-if="totp.enabling" class="w-4 h-4 mr-2 animate-spin" />
+          {{ t('settings.security.setup_confirm') }}
+        </button>
+      </template>
+    </BaseModal>
 
     <!-- Recovery codes reveal modal (shown once) -->
-    <div v-if="recoveryCodes.length"
-      class="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-      <div class="card w-full max-w-md mx-4">
-        <div class="flex items-center gap-3 mb-3">
+    <BaseModal
+      :model-value="recoveryCodes.length > 0"
+      @close="recoveryCodes = []">
+      <template #header>
+        <div class="flex items-center gap-3">
           <CheckCircle class="w-6 h-6 text-green-400 flex-shrink-0" />
           <h2 class="text-lg font-semibold text-white">{{ t('settings.security.recovery_title') }}</h2>
         </div>
-        <p class="text-sm text-amber-300 mb-3">{{ t('settings.security.recovery_warning') }}</p>
+      </template>
+      <p class="text-sm text-amber-300 mb-3">{{ t('settings.security.recovery_warning') }}</p>
 
-        <div class="relative">
-          <ul class="grid grid-cols-2 gap-2 bg-gray-900 border border-gray-700 rounded-lg p-3 pr-12">
-            <li v-for="c in recoveryCodes" :key="c" class="text-sm text-green-300 font-mono">{{ c }}</li>
-          </ul>
-          <button class="absolute right-2 top-2 text-gray-400 hover:text-white transition-colors"
-            :title="t('common.copy')" @click="copyRecoveryCodes">
-            <Copy class="w-4 h-4" />
-          </button>
-        </div>
-
-        <div class="flex justify-end mt-6">
-          <button class="btn-primary" @click="recoveryCodes = []">{{ t('settings.security.recovery_saved') }}</button>
-        </div>
+      <div class="relative">
+        <ul class="grid grid-cols-2 gap-2 bg-gray-900 border border-gray-700 rounded-lg p-3 pr-12">
+          <li v-for="c in recoveryCodes" :key="c" class="text-sm text-green-300 font-mono">{{ c }}</li>
+        </ul>
+        <button class="absolute right-2 top-2 text-gray-400 hover:text-white transition-colors"
+          :title="t('common.copy')" @click="copyRecoveryCodes">
+          <Copy class="w-4 h-4" />
+        </button>
       </div>
-    </div>
+
+      <template #footer>
+        <button class="btn-primary ml-auto" @click="recoveryCodes = []">{{ t('settings.security.recovery_saved') }}</button>
+      </template>
+    </BaseModal>
 
     <!-- Disable 2FA modal (password + code) -->
-    <div v-if="disable.open"
-      class="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
-      @click.self="disable.open = false">
-      <div class="card w-full max-w-md mx-4">
-        <h2 class="text-lg font-semibold text-white mb-2">{{ t('settings.security.disable_title') }}</h2>
-        <p class="text-sm text-gray-400 mb-4">{{ t('settings.security.disable_desc') }}</p>
+    <BaseModal
+      :model-value="disable.open"
+      :title="t('settings.security.disable_title')"
+      :message="t('settings.security.disable_desc')"
+      @close="disable.open = false">
+      <label class="block text-sm text-gray-400 mb-1">{{ t('auth.password') }}</label>
+      <input v-model="disable.password" type="password" class="input w-full mb-3"
+        autocomplete="current-password" />
 
-        <label class="block text-sm text-gray-400 mb-1">{{ t('auth.password') }}</label>
-        <input v-model="disable.password" type="password" class="input w-full mb-3"
-          autocomplete="current-password" />
+      <label class="block text-sm text-gray-400 mb-1">{{ t('settings.security.setup_code_label') }}</label>
+      <input v-model="disable.code" class="input w-full" placeholder="123456"
+        inputmode="text" autocomplete="one-time-code" @keydown.enter="confirmDisable" />
 
-        <label class="block text-sm text-gray-400 mb-1">{{ t('settings.security.setup_code_label') }}</label>
-        <input v-model="disable.code" class="input w-full" placeholder="123456"
-          inputmode="text" autocomplete="one-time-code" @keydown.enter="confirmDisable" />
+      <div v-if="disable.error" class="mt-2 text-sm text-red-400">{{ disable.error }}</div>
 
-        <div v-if="disable.error" class="mt-2 text-sm text-red-400">{{ disable.error }}</div>
-
-        <div class="flex justify-end gap-3 mt-6">
-          <button class="btn-secondary" @click="disable.open = false">{{ t('common.cancel') }}</button>
-          <button class="btn-primary text-red-100 !bg-red-600 hover:!bg-red-700"
-            :disabled="!disable.password || !disable.code.trim() || disable.loading" @click="confirmDisable">
-            <Loader2 v-if="disable.loading" class="w-4 h-4 mr-2 animate-spin" />
-            {{ t('settings.security.disable_confirm') }}
-          </button>
-        </div>
-      </div>
-    </div>
+      <template #footer>
+        <button class="btn-secondary ml-auto" @click="disable.open = false">{{ t('common.cancel') }}</button>
+        <button class="btn-primary text-red-100 !bg-red-600 hover:!bg-red-700"
+          :disabled="!disable.password || !disable.code.trim() || disable.loading" @click="confirmDisable">
+          <Loader2 v-if="disable.loading" class="w-4 h-4 mr-2 animate-spin" />
+          {{ t('settings.security.disable_confirm') }}
+        </button>
+      </template>
+    </BaseModal>
   </div>
 </template>
 
@@ -383,6 +378,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import QRCode from 'qrcode'
 import { CheckCircle, Copy, Loader2, Monitor } from 'lucide-vue-next'
+import BaseModal from '../components/BaseModal.vue'
 import { useAuthStore } from '../stores/auth'
 import { useWebPushStore } from '../stores/webPush'
 import { useTimezone } from '../composables/useTimezone'

@@ -247,17 +247,11 @@
     </div>
 
     <!-- Editor modal -->
-    <div
-      v-if="state.sloEditor.value.open"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-      @click.self="state.sloEditor.value.open = false"
-    >
-      <div class="card w-full max-w-md">
-        <h3 class="text-sm font-semibold text-gray-300 mb-3">
-          {{ state.sloEditor.value.rule
-            ? t('monitor_detail.health_engine_edit_rule')
-            : t('monitor_detail.health_engine_new_rule') }}
-        </h3>
+    <BaseModal :model-value="state.sloEditor.value.open"
+      :title="state.sloEditor.value.rule
+        ? t('monitor_detail.health_engine_edit_rule')
+        : t('monitor_detail.health_engine_new_rule')"
+      @update:model-value="state.sloEditor.value.open = $event">
         <div class="space-y-3 text-sm">
           <label class="block">
             <span class="text-xs text-gray-500 mb-1 block">
@@ -341,9 +335,9 @@
             {{ state.sloEditor.value.error }}
           </p>
         </div>
-        <div class="flex justify-end gap-2 mt-4">
+        <template #footer>
           <button
-            class="btn-ghost text-xs"
+            class="btn-ghost text-xs ml-auto"
             @click="state.sloEditor.value.open = false"
           >{{ t('common.cancel') }}</button>
           <button
@@ -353,15 +347,15 @@
           >
             {{ state.sloEditor.value.saving ? '…' : t('common.save') }}
           </button>
-        </div>
-      </div>
-    </div>
+        </template>
+    </BaseModal>
   </div>
 </template>
 
 <script setup>
 import { inject } from 'vue'
 import { useI18n } from 'vue-i18n'
+import BaseModal from '../../BaseModal.vue'
 import { SloStateKey } from './injectionKeys'
 
 defineProps({

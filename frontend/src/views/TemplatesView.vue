@@ -77,11 +77,10 @@
     </div>
 
     <!-- Create/Edit modal -->
-    <div v-if="showCreate || editingTemplate" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" @click.self="closeModal">
-      <div class="card w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <h2 class="text-lg font-semibold text-white mb-4">{{ editingTemplate ? t('templates.edit_title') : t('templates.new') }}</h2>
-
-        <div class="space-y-4">
+    <BaseModal :model-value="showCreate || !!editingTemplate" size="lg"
+      :title="editingTemplate ? t('templates.edit_title') : t('templates.new')"
+      @close="closeModal">
+      <div class="space-y-4">
           <div>
             <label class="block text-sm text-gray-400 mb-1">{{ t('templates.form_name') }}</label>
             <input v-model="form.name" class="input w-full" :placeholder="t('templates.form_name_placeholder')" />
@@ -127,54 +126,51 @@
           </div>
         </div>
 
-        <div class="flex justify-end gap-3 mt-6">
-          <button @click="closeModal" class="btn-secondary">{{ t('common.cancel') }}</button>
-          <button @click="saveTemplate" class="btn-primary" :disabled="saving">
-            <Loader2 v-if="saving" class="w-4 h-4 mr-2 animate-spin inline" />
-            {{ editingTemplate ? t('common.save') : t('templates.create') }}
-          </button>
-        </div>
-      </div>
-    </div>
+      <template #footer>
+        <button @click="closeModal" class="btn-secondary ml-auto">{{ t('common.cancel') }}</button>
+        <button @click="saveTemplate" class="btn-primary" :disabled="saving">
+          <Loader2 v-if="saving" class="w-4 h-4 mr-2 animate-spin inline" />
+          {{ editingTemplate ? t('common.save') : t('templates.create') }}
+        </button>
+      </template>
+    </BaseModal>
 
     <!-- Apply modal -->
-    <div v-if="applyTemplate" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" @click.self="applyTemplate = null">
-      <div class="card w-full max-w-md">
-        <h2 class="text-lg font-semibold text-white mb-1">{{ t('templates.apply_title', { name: applyTemplate.name }) }}</h2>
-        <p class="text-sm text-gray-400 mb-4">{{ t('templates.apply_subtitle') }}</p>
-
-        <div class="space-y-3">
-          <div v-for="v in applyTemplate.variables" :key="v.name">
-            <label class="block text-sm text-gray-400 mb-1">
-              <code class="font-mono text-purple-400" v-text="'{{' + v.name + '}}'"></code>
-              <span v-if="v.description" class="text-gray-500 ml-1">{{ v.description }}</span>
-            </label>
-            <input
-              v-model="applyValues[v.name]"
-              class="input w-full"
-              :placeholder="v.default || v.name"
-            />
-          </div>
-
-          <div v-if="!applyTemplate.variables?.length" class="text-sm text-gray-500">
-            {{ t('templates.no_variables') }}
-          </div>
-
-          <div>
-            <label class="block text-sm text-gray-400 mb-1">{{ t('templates.name_override') }}</label>
-            <input v-model="applyNameOverride" class="input w-full" :placeholder="t('templates.name_override_placeholder')" />
-          </div>
+    <BaseModal :model-value="!!applyTemplate"
+      :title="t('templates.apply_title', { name: applyTemplate?.name ?? '' })"
+      :message="t('templates.apply_subtitle')"
+      @close="applyTemplate = null">
+      <div class="space-y-3">
+        <div v-for="v in applyTemplate?.variables ?? []" :key="v.name">
+          <label class="block text-sm text-gray-400 mb-1">
+            <code class="font-mono text-purple-400" v-text="'{{' + v.name + '}}'"></code>
+            <span v-if="v.description" class="text-gray-500 ml-1">{{ v.description }}</span>
+          </label>
+          <input
+            v-model="applyValues[v.name]"
+            class="input w-full"
+            :placeholder="v.default || v.name"
+          />
         </div>
 
-        <div class="flex justify-end gap-3 mt-6">
-          <button @click="applyTemplate = null" class="btn-secondary">{{ t('common.cancel') }}</button>
-          <button @click="doApply" class="btn-primary" :disabled="applying">
-            <Loader2 v-if="applying" class="w-4 h-4 mr-2 animate-spin inline" />
-            {{ t('templates.create_monitor') }}
-          </button>
+        <div v-if="!applyTemplate?.variables?.length" class="text-sm text-gray-500">
+          {{ t('templates.no_variables') }}
+        </div>
+
+        <div>
+          <label class="block text-sm text-gray-400 mb-1">{{ t('templates.name_override') }}</label>
+          <input v-model="applyNameOverride" class="input w-full" :placeholder="t('templates.name_override_placeholder')" />
         </div>
       </div>
-    </div>
+
+      <template #footer>
+        <button @click="applyTemplate = null" class="btn-secondary ml-auto">{{ t('common.cancel') }}</button>
+        <button @click="doApply" class="btn-primary" :disabled="applying">
+          <Loader2 v-if="applying" class="w-4 h-4 mr-2 animate-spin inline" />
+          {{ t('templates.create_monitor') }}
+        </button>
+      </template>
+    </BaseModal>
   </div>
 </template>
 
@@ -183,6 +179,7 @@ import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Copy, Loader2 } from 'lucide-vue-next'
 import { templatesApi } from '../api/templates.js'
+import BaseModal from '../components/BaseModal.vue'
 import { useToast } from '../composables/useToast'
 import { useConfirm } from '../composables/useConfirm'
 import { useAuthStore } from '../stores/auth'

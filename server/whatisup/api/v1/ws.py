@@ -71,30 +71,36 @@ manager = ConnectionManager()
 
 async def _redis_subscriber() -> None:
     """Background task: subscribe to Redis and broadcast to all WS clients."""
+    backoff = 2
     while True:
+        pubsub = None
         try:
             redis = get_redis()
             pubsub = redis.pubsub()
             await pubsub.subscribe(REDIS_CHANNEL)
             logger.info("ws_redis_subscriber_started", channel=REDIS_CHANNEL)
-            try:
-                async for message in pubsub.listen():
-                    if message["type"] == "message":
-                        try:
-                            event = json.loads(message["data"])
-                            await manager.broadcast(event)
-                        except Exception as exc:
-                            logger.error("ws_broadcast_error", error=str(exc))
-            finally:
-                await pubsub.unsubscribe(REDIS_CHANNEL)
+            backoff = 2
+            async for message in pubsub.listen():
+                if message["type"] == "message":
+                    try:
+                        event = json.loads(message["data"])
+                        await manager.broadcast(event)
+                    except Exception as exc:
+                        logger.error("ws_broadcast_error", error=str(exc))
         except Exception as exc:
             logger.error("ws_redis_subscriber_crashed", error=str(exc))
             # Exponential backoff: 2, 4, 8, 16, max 60s
-            if not hasattr(_redis_subscriber, "_backoff"):
-                _redis_subscriber._backoff = 2
-            await asyncio.sleep(_redis_subscriber._backoff)
-            _redis_subscriber._backoff = min(_redis_subscriber._backoff * 2, 60)
-            continue
+            await asyncio.sleep(backoff)
+            backoff = min(backoff * 2, 60)
+        finally:
+            # aclose() (not unsubscribe) returns the connection to the pool —
+            # without it every crash leaks one connection until the pool is dry
+            # and ALL Redis calls fail (login included).
+            if pubsub is not None:
+                try:
+                    await pubsub.aclose()
+                except Exception:
+                    pass
 
 
 @router.websocket("/ws/dashboard")

@@ -6,8 +6,9 @@ hard security rule — these tests pin it.
 
 from __future__ import annotations
 
+import asyncio
 import json
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -76,6 +77,35 @@ async def test_manager_broadcast_drops_dead_connections() -> None:
     alive.send_text.assert_awaited_once_with(json.dumps({"type": "check_result"}))
     assert dead not in manager._connections
     assert alive in manager._connections
+
+
+@pytest.mark.asyncio
+async def test_redis_subscriber_closes_pubsub_on_crash(monkeypatch) -> None:
+    """Regression: a crashed listen() must release the pubsub connection.
+
+    redis-py 8.0.0 times out idle pubsub reads after 5s; without aclose()
+    every crash leaked one pool connection until the pool was dry and every
+    Redis call (login included) failed with MaxConnectionsError.
+    """
+    import whatisup.api.v1.ws as ws_module
+
+    pubsub = AsyncMock()
+
+    async def _crashing_listen():
+        raise TimeoutError("Timeout reading from redis:6379")
+        yield  # pragma: no cover — makes this an async generator
+
+    pubsub.listen = _crashing_listen
+    redis = MagicMock()
+    redis.pubsub = MagicMock(return_value=pubsub)
+    monkeypatch.setattr(ws_module, "get_redis", lambda: redis)
+    # Break the retry loop after the first crash
+    monkeypatch.setattr(ws_module.asyncio, "sleep", AsyncMock(side_effect=asyncio.CancelledError))
+
+    with pytest.raises(asyncio.CancelledError):
+        await ws_module._redis_subscriber()
+
+    pubsub.aclose.assert_awaited_once()
 
 
 # ── Dashboard WS auth protocol ────────────────────────────────────────────────

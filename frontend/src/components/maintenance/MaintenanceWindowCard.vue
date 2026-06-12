@@ -3,25 +3,25 @@
     <!-- Left: info -->
     <div class="flex-1 min-w-0">
       <div class="flex items-center gap-2 flex-wrap">
-        <h3 class="font-semibold text-gray-200">{{ w.name }}</h3>
+        <h3 class="font-semibold text-(--text-1)">{{ w.name }}</h3>
         <span class="text-xs px-2 py-0.5 rounded-full" :class="statusBadgeClass">
           {{ statusLabel }}
         </span>
       </div>
-      <p v-if="w.description" class="text-sm text-gray-500 mt-1 truncate">{{ w.description }}</p>
-      <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+      <p v-if="w.description" class="text-sm text-(--text-3) mt-1 truncate">{{ w.description }}</p>
+      <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-(--text-3)">
         <span>{{ formatDt(w.starts_at) }} → {{ formatDt(w.ends_at) }}</span>
         <span v-if="monitorObj" class="flex items-center gap-1">
-          <span class="w-1.5 h-1.5 rounded-full bg-blue-400" />
-          <span class="text-blue-300/80">{{ monitorObj.name }}</span>
+          <span class="w-1.5 h-1.5 rounded-full bg-(--accent)" />
+          <span class="text-(--accent)">{{ monitorObj.name }}</span>
         </span>
-        <span v-if="!w.suppress_alerts" class="text-amber-500/70">⚠ {{ t('maintenance.alerts_not_suppressed') }}</span>
+        <span v-if="!w.suppress_alerts" class="text-(--warn)">⚠ {{ t('maintenance.alerts_not_suppressed') }}</span>
       </div>
     </div>
 
     <!-- Right: actions -->
     <div class="flex items-center gap-1 shrink-0">
-      <button @click="$emit('edit', w)" class="btn-ghost p-1.5 text-gray-500 hover:text-gray-300" :title="t('common.edit')">
+      <button @click="$emit('edit', w)" class="btn-ghost p-1.5 text-(--text-3) hover:text-(--text-1)" :title="t('common.edit')">
         <Pencil :size="13" />
       </button>
       <button @click="$emit('delete', w)" class="btn-ghost p-1.5" style="color:var(--down)" :title="t('common.delete')">
@@ -59,9 +59,9 @@ const status = computed(() => {
 })
 
 const statusBadgeClass = computed(() => ({
-  active:    'bg-amber-900/50 text-amber-400',
-  scheduled: 'bg-blue-900/50 text-blue-400',
-  completed: 'bg-gray-800 text-gray-500',
+  active:    'bg-[color-mix(in_srgb,var(--warn)_15%,transparent)] text-(--warn)',
+  scheduled: 'bg-(--accent-glow) text-(--accent)',
+  completed: 'bg-(--bg-surface-2) text-(--text-3)',
 }[status.value]))
 
 const statusLabel = computed(() => ({

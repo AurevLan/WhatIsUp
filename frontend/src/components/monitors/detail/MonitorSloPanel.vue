@@ -5,18 +5,18 @@
     class="card mb-6"
   >
     <div class="flex items-center justify-between mb-4">
-      <h2 class="text-sm font-semibold text-gray-300">{{ t('monitor_detail.slo_title') }}</h2>
+      <h2 class="text-sm font-semibold text-(--text-2)">{{ t('monitor_detail.slo_title') }}</h2>
       <div class="flex items-center gap-3">
         <span
           v-if="monitor.slo_target != null"
           class="text-xs font-mono"
           :class="{
-            'text-emerald-400': state.sloData.value?.status === 'healthy',
-            'text-amber-400': state.sloData.value?.status === 'at_risk',
-            'text-red-400':
+            'text-(--up)': state.sloData.value?.status === 'healthy',
+            'text-(--warn)': state.sloData.value?.status === 'at_risk',
+            'text-(--down)':
               state.sloData.value?.status === 'critical' ||
               state.sloData.value?.status === 'exhausted',
-            'text-gray-400': !state.sloData.value,
+            'text-(--text-2)': !state.sloData.value,
           }"
         >
           {{ state.sloData.value ? state.sloData.value.status.toUpperCase() : '…' }}
@@ -31,56 +31,56 @@
     </div>
     <div v-if="monitor.slo_target != null && state.sloData.value" class="space-y-4">
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div class="bg-gray-800/40 rounded-lg p-3 text-center">
-          <p class="text-xs text-gray-500">{{ t('monitor_detail.slo_objective') }}</p>
-          <p class="text-xl font-bold text-blue-400">{{ monitor.slo_target }}%</p>
-          <p class="text-xs text-gray-600">{{ monitor.slo_window_days }}d</p>
+        <div class="bg-(--bg-surface-2) rounded-lg p-3 text-center">
+          <p class="text-xs text-(--text-3)">{{ t('monitor_detail.slo_objective') }}</p>
+          <p class="text-xl font-bold font-display text-(--accent)">{{ monitor.slo_target }}%</p>
+          <p class="text-xs text-(--text-3)">{{ monitor.slo_window_days }}d</p>
         </div>
-        <div class="bg-gray-800/40 rounded-lg p-3 text-center">
-          <p class="text-xs text-gray-500">{{ t('monitor_detail.slo_actual_uptime') }}</p>
+        <div class="bg-(--bg-surface-2) rounded-lg p-3 text-center">
+          <p class="text-xs text-(--text-3)">{{ t('monitor_detail.slo_actual_uptime') }}</p>
           <p
-            class="text-xl font-bold"
-            :class="state.sloData.value.uptime_pct >= monitor.slo_target ? 'text-emerald-400' : 'text-red-400'"
+            class="text-xl font-bold font-display"
+            :class="state.sloData.value.uptime_pct >= monitor.slo_target ? 'text-(--up)' : 'text-(--down)'"
           >
             {{ state.sloData.value.uptime_pct?.toFixed(3) }}%
           </p>
         </div>
-        <div class="bg-gray-800/40 rounded-lg p-3 text-center">
-          <p class="text-xs text-gray-500">{{ t('monitor_detail.slo_budget_remaining') }}</p>
+        <div class="bg-(--bg-surface-2) rounded-lg p-3 text-center">
+          <p class="text-xs text-(--text-3)">{{ t('monitor_detail.slo_budget_remaining') }}</p>
           <p
-            class="text-xl font-bold"
-            :class="state.sloData.value.error_budget_remaining_minutes >= 0 ? 'text-emerald-400' : 'text-red-400'"
+            class="text-xl font-bold font-display"
+            :class="state.sloData.value.error_budget_remaining_minutes >= 0 ? 'text-(--up)' : 'text-(--down)'"
           >
             {{ state.sloData.value.error_budget_remaining_minutes >= 0 ? '+' : '' }}{{ state.sloData.value.error_budget_remaining_minutes.toFixed(1) }}min
           </p>
         </div>
-        <div class="bg-gray-800/40 rounded-lg p-3 text-center">
-          <p class="text-xs text-gray-500">{{ t('monitor_detail.slo_burn_rate') }}</p>
+        <div class="bg-(--bg-surface-2) rounded-lg p-3 text-center">
+          <p class="text-xs text-(--text-3)">{{ t('monitor_detail.slo_burn_rate') }}</p>
           <p
-            class="text-xl font-bold"
+            class="text-xl font-bold font-display"
             :class="{
-              'text-emerald-400': state.sloData.value.burn_rate <= 0.5,
-              'text-amber-400': state.sloData.value.burn_rate > 0.5 && state.sloData.value.burn_rate <= 0.8,
-              'text-red-400': state.sloData.value.burn_rate > 0.8,
+              'text-(--up)': state.sloData.value.burn_rate <= 0.5,
+              'text-(--warn)': state.sloData.value.burn_rate > 0.5 && state.sloData.value.burn_rate <= 0.8,
+              'text-(--down)': state.sloData.value.burn_rate > 0.8,
             }"
           >{{ (state.sloData.value.burn_rate * 100).toFixed(1) }}%</p>
         </div>
       </div>
       <div>
-        <div class="flex items-center justify-between mb-1.5 text-xs text-gray-500">
+        <div class="flex items-center justify-between mb-1.5 text-xs text-(--text-3)">
           <span>{{ t('monitor_detail.slo_budget_used') }}</span>
           <span>
             {{ state.sloData.value.error_budget_used_minutes.toFixed(1) }}min /
             {{ state.sloData.value.error_budget_total_minutes.toFixed(1) }}min
           </span>
         </div>
-        <div class="w-full h-2.5 bg-gray-700 rounded-full overflow-hidden">
+        <div class="w-full h-2.5 bg-(--bg-surface-2) rounded-full overflow-hidden">
           <div
             class="h-full rounded-full transition-all"
             :class="{
-              'bg-emerald-500': state.sloData.value.burn_rate <= 0.5,
-              'bg-amber-500': state.sloData.value.burn_rate > 0.5 && state.sloData.value.burn_rate <= 0.8,
-              'bg-red-500': state.sloData.value.burn_rate > 0.8,
+              'bg-(--up)': state.sloData.value.burn_rate <= 0.5,
+              'bg-(--warn)': state.sloData.value.burn_rate > 0.5 && state.sloData.value.burn_rate <= 0.8,
+              'bg-(--down)': state.sloData.value.burn_rate > 0.8,
             }"
             :style="`width: ${Math.min(state.sloData.value.burn_rate * 100, 100)}%`"
           ></div>
@@ -89,15 +89,15 @@
     </div>
     <p
       v-else-if="monitor.slo_target != null && !state.sloData.value"
-      class="text-gray-500 text-sm text-center py-4"
+      class="text-(--text-3) text-sm text-center py-4"
     >{{ t('common.loading') }}</p>
 
     <div
       v-if="state.sloEditing.value"
-      class="mt-4 p-3 bg-gray-800/60 rounded-lg border border-gray-700 flex flex-wrap items-end gap-3"
+      class="mt-4 p-3 bg-(--bg-surface-2) rounded-lg border border-(--border) flex flex-wrap items-end gap-3"
     >
       <div>
-        <label class="text-xs text-gray-500 block mb-1">{{ t('monitor_detail.slo_target') }}</label>
+        <label class="text-xs text-(--text-3) block mb-1">{{ t('monitor_detail.slo_target') }}</label>
         <input
           v-model.number="state.sloEditTarget.value"
           type="number"
@@ -109,7 +109,7 @@
         />
       </div>
       <div>
-        <label class="text-xs text-gray-500 block mb-1">{{ t('monitor_detail.slo_window') }}</label>
+        <label class="text-xs text-(--text-3) block mb-1">{{ t('monitor_detail.slo_window') }}</label>
         <input
           v-model.number="state.sloEditDays.value"
           type="number"
@@ -131,15 +131,15 @@
   <!-- V2 Global Health Engine -->
   <div v-if="monitor" class="card mb-6">
     <div class="flex items-center justify-between mb-4 gap-3 flex-wrap">
-      <h2 class="text-sm font-semibold text-gray-300">{{ t('monitor_detail.health_engine_title') }}</h2>
+      <h2 class="text-sm font-semibold text-(--text-2)">{{ t('monitor_detail.health_engine_title') }}</h2>
       <label class="flex items-center gap-2 cursor-pointer text-xs">
-        <span :class="monitor.health_engine_enabled ? 'text-emerald-400' : 'text-gray-500'">
+        <span :class="monitor.health_engine_enabled ? 'text-(--up)' : 'text-(--text-3)'">
           {{ monitor.health_engine_enabled ? t('monitor_detail.health_engine_on') : t('monitor_detail.health_engine_off') }}
         </span>
         <input
           type="checkbox"
           :checked="monitor.health_engine_enabled"
-          class="w-9 h-5 appearance-none bg-gray-700 rounded-full relative cursor-pointer transition-colors checked:bg-emerald-600 before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:w-4 before:h-4 before:bg-white before:rounded-full before:transition-transform checked:before:translate-x-4"
+          class="w-9 h-5 appearance-none bg-(--bg-surface-2) rounded-full relative cursor-pointer transition-colors checked:bg-(--up) before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:w-4 before:h-4 before:bg-white before:rounded-full before:transition-transform checked:before:translate-x-4"
           @change="state.toggleHealthEngine($event.target.checked)"
         />
       </label>
@@ -147,19 +147,19 @@
 
     <p
       v-if="!monitor.health_engine_enabled && !state.sloRules.value.length"
-      class="text-xs text-gray-500 mb-4"
+      class="text-xs text-(--text-3) mb-4"
     >
       {{ t('monitor_detail.health_engine_disabled_hint') }}
     </p>
     <div
       v-if="state.divergentProbes.value.length"
-      class="mb-4 px-3 py-2 rounded-lg bg-amber-900/30 border border-amber-700/40 text-amber-200 text-xs flex items-start gap-2"
+      class="mb-4 px-3 py-2 rounded-lg bg-[color-mix(in_srgb,var(--warn)_12%,transparent)] border border-[color-mix(in_srgb,var(--warn)_25%,transparent)] text-(--warn) text-xs flex items-start gap-2"
     >
       <span class="font-semibold flex-shrink-0">{{ t('monitor_detail.health_engine_divergent_label') }}:</span>
       <span class="flex flex-wrap gap-x-3 gap-y-1">
         <span v-for="d in state.divergentProbes.value" :key="d.probe_id" class="font-mono">
           {{ probeName(d.probe_id) }}
-          <span class="text-amber-400/70">({{ Math.round(d.score * 100) }}%)</span>
+          <span class="text-(--warn)">({{ Math.round(d.score * 100) }}%)</span>
         </span>
       </span>
     </div>
@@ -168,33 +168,33 @@
       v-if="state.healthState.value && state.healthState.value.exists"
       class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4"
     >
-      <div class="bg-gray-800/40 rounded-lg p-3 text-center">
-        <p class="text-xs text-gray-500">{{ t('monitor_detail.health_engine_quorum') }}</p>
+      <div class="bg-(--bg-surface-2) rounded-lg p-3 text-center">
+        <p class="text-xs text-(--text-3)">{{ t('monitor_detail.health_engine_quorum') }}</p>
         <p
-          class="text-xl font-bold"
-          :class="state.healthState.value.quorum_down_ratio > 0 ? 'text-red-400' : 'text-emerald-400'"
+          class="text-xl font-bold font-display"
+          :class="state.healthState.value.quorum_down_ratio > 0 ? 'text-(--down)' : 'text-(--up)'"
         >
           {{ Math.round((state.healthState.value.quorum_down_ratio || 0) * 100) }}%
         </p>
-        <p class="text-xs text-gray-600">
+        <p class="text-xs text-(--text-3)">
           {{ state.healthState.value.current_scope || t('monitor_detail.health_engine_all_up') }}
         </p>
       </div>
-      <div class="bg-gray-800/40 rounded-lg p-3 text-center">
-        <p class="text-xs text-gray-500">p50 / 5m</p>
-        <p class="text-xl font-bold text-blue-400">
+      <div class="bg-(--bg-surface-2) rounded-lg p-3 text-center">
+        <p class="text-xs text-(--text-3)">p50 / 5m</p>
+        <p class="text-xl font-bold font-display text-(--accent)">
           {{ state.healthState.value.p50_5m != null ? state.healthState.value.p50_5m.toFixed(0) + ' ms' : '—' }}
         </p>
       </div>
-      <div class="bg-gray-800/40 rounded-lg p-3 text-center">
-        <p class="text-xs text-gray-500">p95 / 5m</p>
-        <p class="text-xl font-bold text-amber-400">
+      <div class="bg-(--bg-surface-2) rounded-lg p-3 text-center">
+        <p class="text-xs text-(--text-3)">p95 / 5m</p>
+        <p class="text-xl font-bold font-display text-(--warn)">
           {{ state.healthState.value.p95_5m != null ? state.healthState.value.p95_5m.toFixed(0) + ' ms' : '—' }}
         </p>
       </div>
-      <div class="bg-gray-800/40 rounded-lg p-3 text-center">
-        <p class="text-xs text-gray-500">p99 / 5m</p>
-        <p class="text-xl font-bold text-red-400">
+      <div class="bg-(--bg-surface-2) rounded-lg p-3 text-center">
+        <p class="text-xs text-(--text-3)">p99 / 5m</p>
+        <p class="text-xl font-bold font-display text-(--down)">
           {{ state.healthState.value.p99_5m != null ? state.healthState.value.p99_5m.toFixed(0) + ' ms' : '—' }}
         </p>
       </div>
@@ -202,17 +202,17 @@
 
     <div>
       <div class="flex items-center justify-between mb-2">
-        <h3 class="text-xs font-semibold text-gray-400 uppercase">
+        <h3 class="text-xs font-semibold text-(--text-2) uppercase">
           {{ t('monitor_detail.health_engine_rules') }}
         </h3>
         <button class="btn-ghost text-xs flex items-center gap-1" @click="state.openSloEditor()">
           <span>+</span> {{ t('monitor_detail.health_engine_add_rule') }}
         </button>
       </div>
-      <p v-if="!state.sloRules.value.length" class="text-gray-500 text-sm py-2">
+      <p v-if="!state.sloRules.value.length" class="text-(--text-3) text-sm py-2">
         {{ t('monitor_detail.health_engine_no_rules') }}
       </p>
-      <ul v-else class="divide-y divide-gray-700/60">
+      <ul v-else class="divide-y divide-(--border)">
         <li
           v-for="rule in state.sloRules.value"
           :key="rule.id"
@@ -221,25 +221,25 @@
           <span
             class="font-mono text-xs px-2 py-0.5 rounded border"
             :class="rule.enabled
-              ? 'border-emerald-500/30 text-emerald-300 bg-emerald-500/10'
-              : 'border-gray-600 text-gray-500'"
+              ? 'border-[color-mix(in_srgb,var(--up)_30%,transparent)] text-(--up) bg-[color-mix(in_srgb,var(--up)_10%,transparent)]'
+              : 'border-(--border) text-(--text-3)'"
           >{{ rule.rule_type }}</span>
-          <span class="text-gray-300 flex-1 min-w-0">{{ state.formatRuleSummary(rule) }}</span>
-          <span v-if="rule.cooldown_seconds" class="text-xs text-gray-500">
+          <span class="text-(--text-2) flex-1 min-w-0">{{ state.formatRuleSummary(rule) }}</span>
+          <span v-if="rule.cooldown_seconds" class="text-xs text-(--text-3)">
             cooldown {{ rule.cooldown_seconds }}s
           </span>
           <button
-            class="text-xs text-gray-500 hover:text-gray-300"
+            class="text-xs text-(--text-3) hover:text-(--text-1)"
             @click="state.toggleSloRule(rule)"
           >
             {{ rule.enabled ? t('monitor_detail.health_engine_pause') : t('monitor_detail.health_engine_resume') }}
           </button>
           <button
-            class="text-xs text-gray-500 hover:text-indigo-300"
+            class="text-xs text-(--text-3) hover:text-(--accent)"
             @click="state.openSloEditor(rule)"
           >{{ t('common.edit') }}</button>
           <button
-            class="text-xs text-red-500 hover:text-red-400"
+            class="text-xs text-(--down)"
             :aria-label="t('common.delete')"
             @click="state.confirmDeleteSloRule(rule)"
           >✕</button>
@@ -255,7 +255,7 @@
       @update:model-value="state.sloEditor.value.open = $event">
         <div class="space-y-3 text-sm">
           <label class="block">
-            <span class="text-xs text-gray-500 mb-1 block">
+            <span class="text-xs text-(--text-3) mb-1 block">
               {{ t('monitor_detail.health_engine_rule_type') }}
             </span>
             <select
@@ -268,7 +268,7 @@
             </select>
           </label>
           <label v-if="state.sloEditor.value.form.rule_type === 'quorum_down'" class="block">
-            <span class="text-xs text-gray-500 mb-1 block">
+            <span class="text-xs text-(--text-3) mb-1 block">
               {{ t('monitor_detail.health_engine_quorum_ratio') }} (0–1)
             </span>
             <input
@@ -281,7 +281,7 @@
             />
           </label>
           <label v-if="state.sloEditor.value.form.rule_type === 'quorum_slow'" class="block">
-            <span class="text-xs text-gray-500 mb-1 block">
+            <span class="text-xs text-(--text-3) mb-1 block">
               {{ t('monitor_detail.health_engine_p95_threshold') }} (ms)
             </span>
             <input
@@ -293,7 +293,7 @@
           </label>
           <div class="grid grid-cols-2 gap-3">
             <label class="block">
-              <span class="text-xs text-gray-500 mb-1 block">
+              <span class="text-xs text-(--text-3) mb-1 block">
                 {{ t('monitor_detail.health_engine_window') }} (s)
               </span>
               <input
@@ -305,7 +305,7 @@
               />
             </label>
             <label class="block">
-              <span class="text-xs text-gray-500 mb-1 block">
+              <span class="text-xs text-(--text-3) mb-1 block">
                 {{ t('monitor_detail.health_engine_min_probes') }}
               </span>
               <input
@@ -317,7 +317,7 @@
             </label>
           </div>
           <label class="block">
-            <span class="text-xs text-gray-500 mb-1 block">
+            <span class="text-xs text-(--text-3) mb-1 block">
               {{ t('monitor_detail.health_engine_cooldown') }} (s)
             </span>
             <input
@@ -328,11 +328,11 @@
               class="input w-full text-xs"
             />
           </label>
-          <label class="flex items-center gap-2 text-xs text-gray-400">
+          <label class="flex items-center gap-2 text-xs text-(--text-2)">
             <input v-model="state.sloEditor.value.form.enabled" type="checkbox" />
             {{ t('monitor_detail.health_engine_rule_enabled') }}
           </label>
-          <p v-if="state.sloEditor.value.error" class="text-xs text-red-400">
+          <p v-if="state.sloEditor.value.error" class="text-xs text-(--down)">
             {{ state.sloEditor.value.error }}
           </p>
         </div>

@@ -46,7 +46,7 @@ const styles = computed(() => {
     dot: p.dot,
     activeStyle: `background:${p.bg};border-color:${p.border};color:${p.text};`,
     activeClass: '',
-    inactiveClass: 'border-gray-700 text-gray-500 hover:text-gray-300 hover:border-gray-500 bg-transparent',
+    inactiveClass: 'border-(--border) text-(--text-3) hover:text-(--text-1) hover:border-(--border-hover) bg-transparent',
   }
 })
 </script>

@@ -2,7 +2,7 @@
   <div class="sparkline" v-if="data.length > 1">
     <apexchart type="area" :height="28" :width="100" :options="opts" :series="series" />
   </div>
-  <span v-else class="text-gray-700 text-xs">&mdash;</span>
+  <span v-else class="text-(--text-3) text-xs">&mdash;</span>
 </template>
 
 <script setup>

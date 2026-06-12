@@ -8,17 +8,17 @@
         <!-- Probes section -->
         <div class="mb-6">
           <div class="flex items-center justify-between mb-3">
-            <h3 class="text-sm font-medium text-gray-300">{{ t('admin.section_probes') }}</h3>
+            <h3 class="text-sm font-medium text-(--text-2)">{{ t('admin.section_probes') }}</h3>
           </div>
-          <div v-if="detailGroup.probe_ids.length === 0" class="text-gray-600 text-sm">{{ t('admin.no_probes_in_group') }}</div>
+          <div v-if="detailGroup.probe_ids.length === 0" class="text-(--text-3) text-sm">{{ t('admin.no_probes_in_group') }}</div>
           <div v-else class="space-y-1 mb-3">
             <div
               v-for="probeId in detailGroup.probe_ids"
               :key="probeId"
-              class="flex items-center justify-between py-1.5 px-3 rounded bg-gray-800/60 border border-gray-700/50"
+              class="flex items-center justify-between py-1.5 px-3 rounded bg-(--bg-surface-2) border border-(--border)"
             >
-              <span class="text-gray-300 text-sm">{{ probeNameById(probeId) }}</span>
-              <button @click="removeProbeFromDetailGroup(probeId)" class="text-gray-600 hover:text-red-400 transition-colors" :disabled="submitting" :aria-label="t('a11y.remove')">
+              <span class="text-(--text-2) text-sm">{{ probeNameById(probeId) }}</span>
+              <button @click="removeProbeFromDetailGroup(probeId)" class="text-(--text-3) hover:text-(--down) transition-colors" :disabled="submitting" :aria-label="t('a11y.remove')">
                 <X class="w-4 h-4" />
               </button>
             </div>
@@ -40,17 +40,17 @@
         <!-- Users section -->
         <div>
           <div class="flex items-center justify-between mb-3">
-            <h3 class="text-sm font-medium text-gray-300">{{ t('admin.section_users') }}</h3>
+            <h3 class="text-sm font-medium text-(--text-2)">{{ t('admin.section_users') }}</h3>
           </div>
-          <div v-if="detailGroup.user_ids.length === 0" class="text-gray-600 text-sm">{{ t('admin.no_users_in_group') }}</div>
+          <div v-if="detailGroup.user_ids.length === 0" class="text-(--text-3) text-sm">{{ t('admin.no_users_in_group') }}</div>
           <div v-else class="space-y-1 mb-3">
             <div
               v-for="userId in detailGroup.user_ids"
               :key="userId"
-              class="flex items-center justify-between py-1.5 px-3 rounded bg-gray-800/60 border border-gray-700/50"
+              class="flex items-center justify-between py-1.5 px-3 rounded bg-(--bg-surface-2) border border-(--border)"
             >
-              <span class="text-gray-300 text-sm">{{ userNameById(userId) }}</span>
-              <button @click="revokeUserFromDetailGroup(userId)" class="text-gray-600 hover:text-red-400 transition-colors" :disabled="submitting" :aria-label="t('a11y.remove')">
+              <span class="text-(--text-2) text-sm">{{ userNameById(userId) }}</span>
+              <button @click="revokeUserFromDetailGroup(userId)" class="text-(--text-3) hover:text-(--down) transition-colors" :disabled="submitting" :aria-label="t('a11y.remove')">
                 <X class="w-4 h-4" />
               </button>
             </div>
@@ -69,7 +69,7 @@
           </div>
         </div>
 
-        <div v-if="detailError" class="mt-4 text-red-400 text-sm">{{ detailError }}</div>
+        <div v-if="detailError" class="mt-4 text-(--down) text-sm">{{ detailError }}</div>
   </BaseModal>
 </template>
 

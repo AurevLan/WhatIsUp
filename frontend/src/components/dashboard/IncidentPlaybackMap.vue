@@ -1,24 +1,24 @@
 <template>
   <div class="card p-0 overflow-hidden">
     <!-- Header -->
-    <div class="flex items-center justify-between px-5 py-3 border-b border-gray-800/80">
+    <div class="flex items-center justify-between px-5 py-3 border-b border-(--border)">
       <div class="flex items-center gap-2">
-        <Play v-if="!playback.playing.value" class="w-4 h-4 text-blue-400" />
-        <Pause v-else class="w-4 h-4 text-blue-400" />
-        <h3 class="text-sm font-semibold text-gray-100">
+        <Play v-if="!playback.playing.value" class="w-4 h-4 text-(--accent)" />
+        <Pause v-else class="w-4 h-4 text-(--accent)" />
+        <h3 class="text-sm font-semibold text-(--text-1)">
           {{ t('incidents.playback_title') }}
         </h3>
       </div>
-      <div class="text-[11px] text-gray-500 font-mono">
+      <div class="text-[11px] text-(--text-3) font-mono">
         {{ playback.cursorAt.value ? cursorLabel : '—' }}
       </div>
     </div>
 
-    <div v-if="playback.loading.value" class="p-6 text-center text-xs text-gray-600">
+    <div v-if="playback.loading.value" class="p-6 text-center text-xs text-(--text-3)">
       <div class="animate-pulse">{{ t('common.loading') }}</div>
     </div>
 
-    <div v-else-if="playback.error.value" class="p-6 text-center text-xs text-red-400">
+    <div v-else-if="playback.error.value" class="p-6 text-center text-xs text-(--down)">
       {{ playback.error.value }}
     </div>
 
@@ -27,10 +27,10 @@
       <div ref="mapEl" style="height: 280px;" class="w-full" />
 
       <!-- Controls -->
-      <div class="flex items-center gap-3 px-5 py-3 border-t border-gray-800/80">
+      <div class="flex items-center gap-3 px-5 py-3 border-t border-(--border)">
         <button
           type="button"
-          class="rounded-md bg-gray-800 hover:bg-gray-700 text-gray-200 px-2.5 py-1 text-xs flex items-center gap-1"
+          class="rounded-md bg-(--bg-surface-2) hover:bg-(--bg-surface-3) text-(--text-1) px-2.5 py-1 text-xs flex items-center gap-1"
           @click="playback.playing.value ? playback.pause() : playback.play()"
         >
           <component :is="playback.playing.value ? Pause : Play" class="w-3 h-3" />
@@ -38,7 +38,7 @@
         </button>
         <button
           type="button"
-          class="rounded-md bg-gray-800 hover:bg-gray-700 text-gray-300 px-2 py-1 text-xs"
+          class="rounded-md bg-(--bg-surface-2) hover:bg-(--bg-surface-3) text-(--text-2) px-2 py-1 text-xs"
           @click="playback.reset()"
         >{{ t('incidents.playback_reset') }}</button>
         <input
@@ -50,13 +50,13 @@
           class="flex-1"
           @input="playback.seek(Number($event.target.value))"
         />
-        <span class="text-[10px] text-gray-500 font-mono whitespace-nowrap">
+        <span class="text-[10px] text-(--text-3) font-mono whitespace-nowrap">
           {{ formatElapsed(playback.cursorMs.value) }} / {{ formatElapsed(playback.durationMs.value) }}
         </span>
       </div>
     </template>
 
-    <div v-else class="p-6 text-center text-xs text-gray-600">
+    <div v-else class="p-6 text-center text-xs text-(--text-3)">
       {{ t('incidents.playback_empty') }}
     </div>
   </div>

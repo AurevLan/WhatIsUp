@@ -2,14 +2,14 @@
   <!-- DNS: resolution history table -->
   <div class="card mb-6">
     <div class="flex items-center justify-between mb-4">
-      <h2 class="text-sm font-semibold text-gray-300">All resolutions</h2>
-      <span v-if="monitor.dns_expected_value" class="text-xs text-gray-500 font-mono bg-gray-800 px-2 py-1 rounded">
+      <h2 class="text-sm font-semibold text-(--text-2)">All resolutions</h2>
+      <span v-if="monitor.dns_expected_value" class="text-xs text-(--text-3) font-mono bg-(--bg-surface-2) px-2 py-1 rounded">
         expected value: {{ monitor.dns_expected_value }}
       </span>
     </div>
     <table class="w-full text-sm">
       <thead>
-        <tr class="text-xs text-gray-500 border-b border-gray-800">
+        <tr class="text-xs text-(--text-3) border-b border-(--border)">
           <th class="pb-2 text-left w-4"></th>
           <th class="pb-2 text-left">Time</th>
           <th class="pb-2 text-left">Probe</th>
@@ -17,15 +17,15 @@
           <th class="pb-2 text-left">Returned value</th>
         </tr>
       </thead>
-      <tbody class="divide-y divide-gray-800">
+      <tbody class="divide-y divide-(--border)">
         <tr v-for="(r, idx) in results.slice(0, 100)" :key="r.id"
-          :class="state.isValueChange(idx) ? 'bg-amber-950/20' : ''"
+          :class="state.isValueChange(idx) ? 'bg-[color-mix(in_srgb,var(--warn)_20%,transparent)]' : ''"
         >
           <!-- Change indicator -->
           <td class="py-2 pr-1">
-            <span v-if="state.isValueChange(idx)" class="text-amber-400 text-xs" title="Valeur différente du check précédent">⚡</span>
+            <span v-if="state.isValueChange(idx)" class="text-(--warn) text-xs" title="Valeur différente du check précédent">⚡</span>
           </td>
-          <td class="py-2 text-gray-400 text-xs whitespace-nowrap">{{ formatDate(r.checked_at) }}</td>
+          <td class="py-2 text-(--text-2) text-xs whitespace-nowrap">{{ formatDate(r.checked_at) }}</td>
           <td class="py-2 text-xs">
             <span class="font-medium" :style="`color:${probeColor(r.probe_id)}`">
               {{ probeName(r.probe_id) }}
@@ -34,10 +34,9 @@
           <td class="py-2">
             <span class="text-xs font-medium px-2 py-0.5 rounded-full"
               :class="{
-                'bg-emerald-900/50 text-emerald-400': r.status === 'up',
-                'bg-red-900/50 text-red-400': r.status === 'down',
-                'bg-amber-900/50 text-amber-400': r.status === 'timeout',
-                'bg-orange-900/50 text-orange-400': r.status === 'error',
+                'bg-[color-mix(in_srgb,var(--up)_12%,transparent)] text-(--up)': r.status === 'up',
+                'bg-[color-mix(in_srgb,var(--down)_12%,transparent)] text-(--down)': r.status === 'down' || r.status === 'error',
+                'bg-[color-mix(in_srgb,var(--warn)_12%,transparent)] text-(--warn)': r.status === 'timeout',
               }">
               {{ r.status }}
             </span>
@@ -45,11 +44,11 @@
           <td class="py-2 text-xs font-mono max-w-xs"
             :title="state.dnsValueStr(r) || r.error_message || ''">
             <span v-if="state.dnsValueStr(r)"
-              :class="state.isValueChange(idx) ? 'text-amber-300 font-semibold' : 'text-emerald-400'">
+              :class="state.isValueChange(idx) ? 'text-(--warn) font-semibold' : 'text-(--up)'">
               {{ state.dnsValueStr(r) }}
             </span>
-            <span v-else-if="r.error_message" class="text-red-300 truncate block max-w-xs">{{ r.error_message }}</span>
-            <span v-else class="text-gray-600">—</span>
+            <span v-else-if="r.error_message" class="text-(--down) truncate block max-w-xs">{{ r.error_message }}</span>
+            <span v-else class="text-(--text-3)">—</span>
           </td>
         </tr>
       </tbody>

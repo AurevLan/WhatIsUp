@@ -1,12 +1,12 @@
 <template>
-  <div class="min-h-screen bg-gray-950 p-8" :style="accentStyle">
+  <div class="min-h-screen bg-(--bg-base) p-8" :style="accentStyle">
     <div class="max-w-4xl mx-auto">
 
       <!-- Erreur de chargement (404 ou réseau) -->
       <div v-if="loadError" class="text-center py-32">
         <p class="text-4xl mb-4">🔍</p>
-        <h1 class="text-2xl font-bold text-white mb-2">{{ t('public_page.not_found_title') }}</h1>
-        <p class="text-gray-500 text-sm">{{ t('public_page.not_found_desc') }}</p>
+        <h1 class="font-display text-2xl font-bold text-(--text-1) mb-2">{{ t('public_page.not_found_title') }}</h1>
+        <p class="text-(--text-3) text-sm">{{ t('public_page.not_found_desc') }}</p>
       </div>
 
       <template v-else>
@@ -17,7 +17,7 @@
         :style="page.accent_color
           ? `background-color: ${page.accent_color}15; border-color: ${page.accent_color}40; color: ${page.accent_color}`
           : ''"
-        :class="!page.accent_color ? 'bg-blue-900/30 border-blue-700/40 text-blue-300' : ''">
+        :class="!page.accent_color ? 'bg-(--accent-glow) border-(--accent-border) text-(--accent)' : ''">
         <span class="flex-1">{{ page.announcement_banner }}</span>
         <button @click="bannerDismissed = true" class="shrink-0 opacity-60 hover:opacity-100 transition-opacity">&#x2715;</button>
       </div>
@@ -25,31 +25,31 @@
       <!-- Header / Statut global -->
       <div class="text-center mb-10">
         <img v-if="page?.public_logo_url || page?.custom_logo_url" :src="page.public_logo_url || page.custom_logo_url" alt="Logo" class="mx-auto mb-4 max-h-16 object-contain" />
-        <h1 class="text-3xl font-bold text-white">{{ page?.public_title || page?.name || 'Status Page' }}</h1>
-        <p v-if="page?.public_description || page?.description" class="text-gray-400 mt-2">{{ page.public_description || page.description }}</p>
+        <h1 class="font-display text-3xl font-bold text-(--text-1)">{{ page?.public_title || page?.name || 'Status Page' }}</h1>
+        <p v-if="page?.public_description || page?.description" class="text-(--text-2) mt-2">{{ page.public_description || page.description }}</p>
 
         <!-- Bandeau statut global -->
         <div class="mt-5">
           <div v-if="globalStatus === 'operational'"
-            class="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-emerald-900/40 border text-emerald-300 font-semibold"
+            class="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-[color-mix(in_srgb,var(--up)_15%,transparent)] border text-(--up) font-semibold"
             :style="page?.accent_color ? `border-color: ${page.accent_color}80` : ''"
-            :class="!page?.accent_color ? 'border-emerald-700/50' : ''">
-            <span class="w-2.5 h-2.5 rounded-full" :style="page?.accent_color ? `background-color: ${page.accent_color}` : ''" :class="!page?.accent_color ? 'bg-emerald-400' : ''"></span>
+            :class="!page?.accent_color ? 'border-[color-mix(in_srgb,var(--up)_35%,transparent)]' : ''">
+            <span class="w-2.5 h-2.5 rounded-full" :style="page?.accent_color ? `background-color: ${page.accent_color}` : ''" :class="!page?.accent_color ? 'bg-(--up)' : ''"></span>
             {{ t('public.all_operational') }}
           </div>
           <div v-else-if="globalStatus === 'degraded'"
-            class="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-amber-900/40 border border-amber-700/50 text-amber-300 font-semibold">
-            <span class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
+            class="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-[color-mix(in_srgb,var(--warn)_15%,transparent)] border border-[color-mix(in_srgb,var(--warn)_35%,transparent)] text-(--warn) font-semibold">
+            <span class="w-2.5 h-2.5 rounded-full bg-(--warn) animate-pulse"></span>
             {{ t('public.partial_outage') }}
           </div>
           <div v-else-if="globalStatus === 'down'"
-            class="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-red-900/40 border border-red-700/50 text-red-300 font-semibold">
-            <span class="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></span>
+            class="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-[color-mix(in_srgb,var(--down)_15%,transparent)] border border-[color-mix(in_srgb,var(--down)_35%,transparent)] text-(--down) font-semibold">
+            <span class="w-2.5 h-2.5 rounded-full bg-(--down) animate-pulse"></span>
             {{ t('public.major_outage') }}
           </div>
           <div v-else
-            class="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-gray-800/60 border border-gray-700/50 text-gray-400 font-semibold">
-            <span class="w-2.5 h-2.5 rounded-full bg-gray-500"></span>
+            class="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-(--bg-surface-2) border border-(--border) text-(--text-2) font-semibold">
+            <span class="w-2.5 h-2.5 rounded-full bg-(--text-3)"></span>
             {{ t('public_page.no_data') }}
           </div>
         </div>
@@ -57,15 +57,15 @@
 
       <!-- Composants (moniteurs) -->
       <section class="space-y-4 mb-10">
-        <h2 class="text-lg font-semibold text-gray-300 mb-3">{{ t('public.component_status') }}</h2>
+        <h2 class="text-lg font-semibold text-(--text-2) mb-3">{{ t('public.component_status') }}</h2>
 
         <div v-if="!loading && monitors.length === 0"
-          class="bg-gray-900 border border-gray-800 rounded-xl p-8 text-center text-gray-500 text-sm">
+          class="bg-(--bg-surface) border border-(--border) rounded-xl p-8 text-center text-(--text-3) text-sm">
           {{ t('public_page.no_monitors') }}
         </div>
 
         <div v-for="m in monitors" :key="m.id"
-          class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+          class="bg-(--bg-surface) border border-(--border) rounded-xl p-5">
 
           <!-- Ligne principale -->
           <div class="flex items-center justify-between gap-4">
@@ -73,49 +73,48 @@
               <div class="flex items-center gap-2">
                 <span class="w-2.5 h-2.5 rounded-full shrink-0"
                   :class="{
-                    'bg-emerald-400': m.current_status === 'up',
-                    'bg-red-500 animate-pulse': m.current_status === 'down',
-                    'bg-amber-400': m.current_status === 'timeout',
-                    'bg-orange-400': m.current_status === 'error',
-                    'bg-gray-600': !m.current_status,
+                    'bg-(--up)': m.current_status === 'up',
+                    'bg-(--down) animate-pulse': m.current_status === 'down',
+                    'bg-(--warn)': m.current_status === 'timeout' || m.current_status === 'error',
+                    'bg-(--text-3)': !m.current_status,
                   }"></span>
-                <h3 class="font-semibold text-white truncate">{{ m.name }}</h3>
-                <span class="text-xs px-1.5 py-0.5 rounded bg-gray-800 text-gray-500 uppercase shrink-0">
+                <h3 class="font-semibold text-(--text-1) truncate">{{ m.name }}</h3>
+                <span class="text-xs px-1.5 py-0.5 rounded bg-(--bg-surface-2) text-(--text-3) uppercase shrink-0">
                   {{ m.check_type }}
                 </span>
               </div>
 
               <div class="mt-1.5 text-sm font-mono">
                 <template v-if="m.check_type === 'dns'">
-                  <span class="text-gray-600">{{ m.dns_record_type || 'A' }} </span>
-                  <span v-if="m.current_value" class="text-emerald-400">{{ m.current_value }}</span>
-                  <span v-else class="text-gray-600">—</span>
+                  <span class="text-(--text-3)">{{ m.dns_record_type || 'A' }} </span>
+                  <span v-if="m.current_value" class="text-(--up)">{{ m.current_value }}</span>
+                  <span v-else class="text-(--text-3)">—</span>
                 </template>
                 <template v-else-if="m.check_type === 'tcp'">
-                  <span class="text-gray-500">{{ formatTcpTarget(m) }}</span>
+                  <span class="text-(--text-3)">{{ formatTcpTarget(m) }}</span>
                 </template>
                 <template v-else-if="m.check_type === 'scenario'">
-                  <span class="text-gray-500">Browser scenario</span>
+                  <span class="text-(--text-3)">Browser scenario</span>
                 </template>
                 <template v-else>
-                  <span class="text-gray-500 truncate block">{{ m.url?.replace(/^https?:\/\//, '') }}</span>
+                  <span class="text-(--text-3) truncate block">{{ m.url?.replace(/^https?:\/\//, '') }}</span>
                 </template>
               </div>
             </div>
 
             <div class="flex items-center gap-2 shrink-0">
               <div class="text-right">
-                <p class="text-lg font-bold"
-                  :class="m.uptime_24h >= 99 ? 'text-emerald-400' : m.uptime_24h >= 90 ? 'text-amber-400' : 'text-red-400'">
+                <p class="font-display text-lg font-bold"
+                  :class="m.uptime_24h >= 99 ? 'text-(--up)' : m.uptime_24h >= 90 ? 'text-(--warn)' : 'text-(--down)'">
                   {{ m.uptime_24h?.toFixed(2) ?? '—' }}%
                 </p>
-                <p class="text-xs text-gray-500">{{ t('public.uptime') }} 24h</p>
+                <p class="text-xs text-(--text-3)">{{ t('public.uptime') }} 24h</p>
               </div>
               <button
                 @click.stop="copyBadgeUrl(m.name)"
                 :title="t('public.copy_badge_url') || 'Copy badge URL'"
                 :aria-label="t('public.copy_badge_url') || 'Copy badge URL'"
-                class="p-1.5 rounded-lg text-gray-500 hover:text-indigo-400 hover:bg-gray-800 transition-colors"
+                class="p-1.5 rounded-lg text-(--text-3) hover:text-(--accent) hover:bg-(--bg-surface-2) transition-colors"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2h-1.528A6 6 0 004 9.528V4z" />
@@ -126,7 +125,7 @@
           </div>
 
           <!-- Métriques supplémentaires -->
-          <div class="mt-3 pt-3 border-t border-gray-800/60 flex items-center gap-4 text-xs text-gray-500">
+          <div class="mt-3 pt-3 border-t border-(--border) flex items-center gap-4 text-xs text-(--text-3)">
             <template v-if="m.check_type === 'dns'">
               <span v-if="m.last_checked_at">{{ t('public.checked_ago', { ago: timeAgo(m.last_checked_at) }) }}</span>
             </template>
@@ -143,15 +142,15 @@
                 :key="idx"
                 class="flex-1 h-8 rounded-sm cursor-pointer transition-opacity hover:opacity-75 relative group"
                 :class="{
-                  'bg-emerald-500': day.status === 'up',
-                  'bg-amber-400': day.status === 'degraded',
-                  'bg-red-500': day.status === 'down',
-                  'bg-gray-700': day.status === 'no_data',
+                  'bg-(--up)': day.status === 'up',
+                  'bg-(--warn)': day.status === 'degraded',
+                  'bg-(--down)': day.status === 'down',
+                  'bg-(--bg-surface-2)': day.status === 'no_data',
                 }"
                 :title="dayTooltip(day)"
               ></div>
             </div>
-            <div class="flex justify-between text-xs text-gray-600 mt-1">
+            <div class="flex justify-between text-xs text-(--text-3) mt-1">
               <span>{{ ninetyDaysAgo }}</span>
               <span>{{ uptimeLast90(m) }}% — {{ t('public.history_90d') }}</span>
               <span>{{ t('public.today') }}</span>
@@ -162,24 +161,24 @@
 
       <!-- Incidents récents (30 jours) -->
       <section v-if="incidents30d.length" class="mb-10">
-        <h2 class="text-lg font-semibold text-gray-300 mb-3">{{ t('public.recent_incidents') }}</h2>
+        <h2 class="text-lg font-semibold text-(--text-2) mb-3">{{ t('public.recent_incidents') }}</h2>
         <div class="space-y-3">
           <div v-for="inc in incidents30d" :key="inc.id"
-            class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+            class="bg-(--bg-surface) border border-(--border) rounded-xl p-4">
 
             <div class="flex items-start gap-4">
               <!-- Badge résolu / en cours -->
               <span
                 :class="inc.is_resolved
-                  ? 'bg-emerald-900/40 text-emerald-400 border-emerald-700/50'
-                  : 'bg-red-900/40 text-red-400 border-red-700/50 animate-pulse'"
+                  ? 'bg-[color-mix(in_srgb,var(--up)_15%,transparent)] text-(--up) border-[color-mix(in_srgb,var(--up)_35%,transparent)]'
+                  : 'bg-[color-mix(in_srgb,var(--down)_15%,transparent)] text-(--down) border-[color-mix(in_srgb,var(--down)_35%,transparent)] animate-pulse'"
                 class="text-xs font-semibold px-2 py-0.5 rounded border shrink-0 mt-0.5">
                 {{ inc.is_resolved ? t('public.resolved') : t('public.ongoing') }}
               </span>
 
               <div class="flex-1 min-w-0">
-                <p class="text-white font-medium text-sm">{{ inc.monitor_name }}</p>
-                <p class="text-gray-500 text-xs mt-0.5">
+                <p class="text-(--text-1) font-medium text-sm">{{ inc.monitor_name }}</p>
+                <p class="text-(--text-3) text-xs mt-0.5">
                   {{ t('public.started') }}: {{ formatDatetime(inc.started_at) }}
                   <template v-if="inc.resolved_at">
                     · {{ t('public.ended') }}: {{ formatDatetime(inc.resolved_at) }}
@@ -189,42 +188,40 @@
 
               <!-- Durée -->
               <div v-if="inc.duration_minutes != null" class="text-right shrink-0">
-                <span class="text-sm font-semibold text-gray-300">{{ formatDuration(inc.duration_minutes) }}</span>
-                <p class="text-xs text-gray-600">{{ t('public.duration') }}</p>
+                <span class="text-sm font-semibold text-(--text-2)">{{ formatDuration(inc.duration_minutes) }}</span>
+                <p class="text-xs text-(--text-3)">{{ t('public.duration') }}</p>
               </div>
 
               <!-- Expand updates -->
               <button
                 @click="togglePublicUpdates(inc.id)"
-                class="text-xs text-blue-400 hover:text-blue-300 shrink-0"
+                class="text-xs text-(--accent) hover:text-(--accent) shrink-0"
               >
                 {{ expandedPublicIncident === inc.id ? t('public.hide_updates') : t('public.show_updates') }}
               </button>
             </div>
 
             <!-- Incident updates timeline -->
-            <div v-if="expandedPublicIncident === inc.id && publicUpdates[inc.id]" class="mt-3 ml-2 border-l-2 border-gray-700 pl-4 space-y-2">
-              <div v-if="publicUpdatesLoading[inc.id]" class="text-xs text-gray-500">{{ t('common.loading') }}</div>
-              <div v-else-if="!publicUpdates[inc.id]?.length" class="text-xs text-gray-600 italic">{{ t('public.no_updates_posted') }}</div>
+            <div v-if="expandedPublicIncident === inc.id && publicUpdates[inc.id]" class="mt-3 ml-2 border-l-2 border-(--border) pl-4 space-y-2">
+              <div v-if="publicUpdatesLoading[inc.id]" class="text-xs text-(--text-3)">{{ t('common.loading') }}</div>
+              <div v-else-if="!publicUpdates[inc.id]?.length" class="text-xs text-(--text-3) italic">{{ t('public.no_updates_posted') }}</div>
               <div v-for="u in publicUpdates[inc.id]" :key="u.id" class="relative">
-                <span class="absolute -left-[21px] top-1 w-3 h-3 rounded-full border-2 border-gray-700"
+                <span class="absolute -left-[21px] top-1 w-3 h-3 rounded-full border-2 border-(--border)"
                   :class="{
-                    'bg-amber-400': u.status === 'investigating',
-                    'bg-blue-400': u.status === 'identified',
-                    'bg-purple-400': u.status === 'monitoring',
-                    'bg-emerald-400': u.status === 'resolved',
+                    'bg-(--warn)': u.status === 'investigating',
+                    'bg-(--accent)': u.status === 'identified' || u.status === 'monitoring',
+                    'bg-(--up)': u.status === 'resolved',
                   }"
                 ></span>
-                <p class="text-xs text-gray-400">{{ formatDatetime(u.created_at) }}</p>
+                <p class="text-xs text-(--text-2)">{{ formatDatetime(u.created_at) }}</p>
                 <p class="text-xs font-semibold capitalize mb-0.5"
                   :class="{
-                    'text-amber-400': u.status === 'investigating',
-                    'text-blue-400': u.status === 'identified',
-                    'text-purple-400': u.status === 'monitoring',
-                    'text-emerald-400': u.status === 'resolved',
+                    'text-(--warn)': u.status === 'investigating',
+                    'text-(--accent)': u.status === 'identified' || u.status === 'monitoring',
+                    'text-(--up)': u.status === 'resolved',
                   }"
                 >{{ u.status }}</p>
-                <p class="text-sm text-gray-300">{{ u.message }}</p>
+                <p class="text-sm text-(--text-2)">{{ u.message }}</p>
               </div>
             </div>
           </div>
@@ -232,16 +229,16 @@
       </section>
 
       <section v-else-if="!loading" class="mb-10">
-        <h2 class="text-lg font-semibold text-gray-300 mb-3">{{ t('public.recent_incidents') }}</h2>
-        <div class="bg-gray-900 border border-gray-800 rounded-xl p-5 text-center text-gray-500 text-sm">
+        <h2 class="text-lg font-semibold text-(--text-2) mb-3">{{ t('public.recent_incidents') }}</h2>
+        <div class="bg-(--bg-surface) border border-(--border) rounded-xl p-5 text-center text-(--text-3) text-sm">
           {{ t('public.no_incidents') }}
         </div>
       </section>
 
       <!-- Abonnement email -->
-      <section class="mb-10 bg-gray-900 border border-gray-800 rounded-xl p-6">
-        <h2 class="text-lg font-semibold text-gray-300 mb-1">{{ t('public.subscribe') }}</h2>
-        <p class="text-gray-500 text-sm mb-4">{{ t('public.subscribe_desc') }}</p>
+      <section class="mb-10 bg-(--bg-surface) border border-(--border) rounded-xl p-6">
+        <h2 class="text-lg font-semibold text-(--text-2) mb-1">{{ t('public.subscribe') }}</h2>
+        <p class="text-(--text-3) text-sm mb-4">{{ t('public.subscribe_desc') }}</p>
 
         <form @submit.prevent="subscribe" class="flex gap-3 flex-wrap">
           <input
@@ -250,26 +247,26 @@
             :placeholder="t('public.subscribe_email')"
             required
             :disabled="subLoading"
-            class="flex-1 min-w-48 bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+            class="flex-1 min-w-48 bg-(--bg-surface-2) border border-(--border) rounded-lg px-4 py-2 text-sm text-(--text-1) placeholder-(--text-3) focus:outline-none focus:ring-2 focus:ring-(color:--accent) disabled:opacity-50"
           />
           <button
             type="submit"
             :disabled="subLoading"
-            class="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors disabled:opacity-50">
+            class="px-5 py-2 rounded-lg bg-(--accent-glow) border border-(--accent-border) text-(--accent) hover:bg-[color-mix(in_srgb,var(--accent)_24%,transparent)] text-sm font-medium transition-colors disabled:opacity-50">
             {{ subLoading ? t('common.loading') : t('public.subscribe_btn') }}
           </button>
         </form>
 
         <p v-if="subMessage"
-          :class="subError ? 'text-red-400' : 'text-emerald-400'"
+          :class="subError ? 'text-(--down)' : 'text-(--up)'"
           class="mt-3 text-sm">
           {{ subMessage }}
         </p>
       </section>
 
       <!-- Footer -->
-      <div class="text-center text-xs text-gray-600">
-        Powered by <span class="text-gray-500">WhatIsUp</span> ·
+      <div class="text-center text-xs text-(--text-3)">
+        Powered by <span class="text-(--text-3)">WhatIsUp</span> ·
         {{ t('public.last_updated') }}: {{ lastUpdated }}
       </div>
 

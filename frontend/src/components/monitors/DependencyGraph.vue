@@ -473,7 +473,7 @@ onUnmounted(() => {
   outline: none;
 }
 .dep-graph__node:focus-visible .dep-graph__circle {
-  stroke: #60a5fa;
+  stroke: var(--accent);
   stroke-width: 3;
 }
 
@@ -490,14 +490,14 @@ onUnmounted(() => {
   font-family: inherit;
   font-weight: 500;
   text-shadow: 0 1px 3px rgba(0,0,0,0.6);
-  fill: white;
+  fill: var(--text-1);
 }
 
 /* Tooltip */
 .dep-graph__tooltip {
   position: fixed;
   z-index: 9999;
-  background: var(--bg-surface-2, #1e2330);
+  background: var(--bg-surface-2);
   border: 1px solid var(--border);
   border-radius: 7px;
   padding: 8px 12px;
@@ -534,9 +534,9 @@ onUnmounted(() => {
   font-weight: 600;
   text-transform: capitalize;
 }
-.dep-graph__status--up      { color: #34d399; }
-.dep-graph__status--down    { color: #f87171; }
-.dep-graph__status--degraded{ color: #fbbf24; }
+.dep-graph__status--up      { color: var(--up); }
+.dep-graph__status--down    { color: var(--down); }
+.dep-graph__status--degraded{ color: var(--warn); }
 .dep-graph__status--pending,
-.dep-graph__status--paused  { color: #6b7280; }
+.dep-graph__status--paused  { color: var(--text-3); }
 </style>

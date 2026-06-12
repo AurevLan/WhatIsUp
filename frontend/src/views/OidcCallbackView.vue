@@ -1,13 +1,13 @@
 <template>
-  <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#030712;">
-    <div style="text-align:center;color:#94a3b8;font-size:14px;">
-      <div v-if="error" style="color:#f87171;">
-        <h1 style="font-size:18px;font-weight:600;margin-bottom:8px;">{{ t('oidc.login_failed') }}</h1>
+  <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg-base);">
+    <div style="text-align:center;color:var(--text-2);font-size:14px;">
+      <div v-if="error" style="color:var(--down);">
+        <h1 class="font-display" style="font-size:18px;font-weight:600;margin-bottom:8px;">{{ t('oidc.login_failed') }}</h1>
         <p>{{ errorMessage }}</p>
-        <a href="/login" style="display:inline-block;margin-top:16px;color:#3b82f6;">{{ t('oidc.back_to_login') }}</a>
+        <a href="/login" style="display:inline-block;margin-top:16px;color:var(--accent);">{{ t('oidc.back_to_login') }}</a>
       </div>
       <div v-else>
-        <div style="width:32px;height:32px;border:3px solid rgba(59,130,246,.3);border-top-color:#3b82f6;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 16px;"></div>
+        <div style="width:32px;height:32px;border:3px solid color-mix(in srgb, var(--accent) 30%, transparent);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 16px;"></div>
         {{ t('oidc.signing_in') }}
       </div>
     </div>

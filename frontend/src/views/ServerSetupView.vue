@@ -5,7 +5,7 @@
         <div class="login__logo">
           <Server :size="24" color="white" :stroke-width="2.5" />
         </div>
-        <h1 class="login__title">WhatIsUp</h1>
+        <h1 class="login__title font-display">WhatIsUp</h1>
         <p class="login__sub">{{ t('setup.subtitle') }}</p>
       </div>
 

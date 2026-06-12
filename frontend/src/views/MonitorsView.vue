@@ -4,7 +4,7 @@
     <!-- Header -->
     <div class="flex items-start justify-between mb-4">
       <div>
-        <h1 class="text-xl font-bold" style="color:var(--text-1)">{{ t('monitors.title') }}</h1>
+        <h1 class="font-display text-xl font-bold" style="color:var(--text-1)">{{ t('monitors.title') }}</h1>
         <p class="mt-0.5 text-xs" style="color:var(--text-3)">
           {{ monitors.length }} {{ t('nav.monitors').toLowerCase() }}<template v-if="downCount > 0"> — <span style="color:var(--down)">{{ downCount }} {{ t('status.down').toLowerCase() }}</span></template><template v-if="errorCount > 0">, <span style="color:#fb923c">{{ errorCount }} {{ t('common.error').toLowerCase() }}</span></template>
         </p>
@@ -58,18 +58,18 @@
       <!-- Row 1: search + view toggle + add -->
       <div class="flex gap-2 items-center">
         <div class="relative flex-1">
-          <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
+          <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-(--text-3) pointer-events-none" />
           <input ref="searchInput" :value="searchInput_" @input="onSearchInput($event.target.value)" class="input pl-9 h-8 text-xs" :placeholder="t('common.search') + '…'" />
         </div>
-        <div class="flex gap-0.5 bg-gray-800/60 p-0.5 rounded-lg border border-gray-700/80">
+        <div class="flex gap-0.5 bg-(--bg-surface-2) p-0.5 rounded-lg border border-(--border)">
           <button @click="setViewMode('list')"
-            :class="viewMode === 'list' ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-300'"
+            :class="viewMode === 'list' ? 'bg-(--bg-surface-2) text-(--text-1)' : 'text-(--text-3) hover:text-(--text-1)'"
             class="px-2.5 py-1.5 rounded-md transition-colors" :title="t('monitors.view_list')"
             :aria-label="t('monitors.view_list')">
             <List class="w-4 h-4" />
           </button>
           <button @click="setViewMode('board')"
-            :class="viewMode === 'board' ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-300'"
+            :class="viewMode === 'board' ? 'bg-(--bg-surface-2) text-(--text-1)' : 'text-(--text-3) hover:text-(--text-1)'"
             class="px-2.5 py-1.5 rounded-md transition-colors" :title="t('monitors.view_board')"
             :aria-label="t('monitors.view_board')">
             <LayoutGrid class="w-4 h-4" />
@@ -96,34 +96,34 @@
         <div class="flex gap-1">
           <button v-for="s in statusFilters" :key="s.val"
             @click="filterStatus = s.val"
-            :class="filterStatus === s.val ? s.active : 'border-gray-700/80 text-gray-500 hover:border-gray-600 hover:text-gray-400'"
+            :class="filterStatus === s.val ? s.active : 'border-(--border) text-(--text-3) hover:border-(--border-hover) hover:text-(--text-2)'"
             class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs border transition-colors font-medium">
             <span v-if="s.dot" class="w-1.5 h-1.5 rounded-full flex-shrink-0" :class="s.dot" />
             {{ s.label }}
           </button>
         </div>
 
-        <div class="w-px h-4 bg-gray-700/60" />
+        <div class="w-px h-4 bg-(--bg-surface-2)" />
 
         <!-- Type dropdown -->
         <select v-model="filterType"
           :aria-label="t('monitors.filter_type')"
-          class="h-7 px-2 pr-6 rounded-lg border border-gray-700/80 bg-gray-900 text-xs text-gray-400 focus:outline-none focus:border-blue-600 transition-colors appearance-none cursor-pointer"
-          :class="filterType ? 'border-blue-600/60 text-blue-300' : ''">
+          class="h-7 px-2 pr-6 rounded-lg border border-(--border) bg-(--bg-surface-2) text-xs text-(--text-2) focus:outline-none focus:border-(--accent) transition-colors appearance-none cursor-pointer"
+          :class="filterType ? 'border-(--accent-border) text-(--accent)' : ''">
           <option value="">{{ t('monitors.all_types') }}</option>
           <option v-for="typ in checkTypes" :key="typ" :value="typ">{{ typ }}</option>
         </select>
 
         <!-- Active filter count badge -->
         <span v-if="activeFilterCount > 0"
-          class="text-xs px-2 py-0.5 rounded-full bg-blue-600/20 border border-blue-500/40 text-blue-300 font-semibold">
+          class="text-xs px-2 py-0.5 rounded-full bg-(--accent-glow) border border-(--accent-border) text-(--accent) font-semibold">
           {{ activeFilterCount }} filtre{{ activeFilterCount > 1 ? 's' : '' }}
         </span>
 
         <!-- Clear -->
         <button v-if="hasActiveFilters"
           @click="clearFilters"
-          class="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-400 ml-auto transition-colors">
+          class="flex items-center gap-1 text-xs text-(--text-3) hover:text-(--text-2) ml-auto transition-colors">
           <X class="w-3 h-3" /> {{ t('monitors.clear_filters') }}
         </button>
       </div>
@@ -150,20 +150,20 @@
 
       <!-- Mobile: stacked cards (visible < 768px) -->
       <div v-else>
-      <div class="md:hidden flex flex-col divide-y divide-gray-800/60">
+      <div class="md:hidden flex flex-col divide-y divide-(--border)">
         <router-link
           v-for="monitor in paginatedMonitors"
           :key="'m-' + monitor.id"
           :to="`/monitors/${monitor.id}`"
-          class="block px-4 py-4 min-h-[64px] active:bg-white/[0.03] transition-colors no-underline"
+          class="block px-4 py-4 min-h-[64px] active:bg-(--bg-surface-2) transition-colors no-underline"
         >
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-2 mb-1">
                 <span class="w-2 h-2 rounded-full flex-shrink-0" :class="dotClass(monitor._lastStatus)" />
-                <span class="font-semibold text-gray-100 truncate">{{ monitor.name }}</span>
+                <span class="font-semibold text-(--text-1) truncate">{{ monitor.name }}</span>
               </div>
-              <p class="text-xs text-gray-500 truncate font-mono">
+              <p class="text-xs text-(--text-3) truncate font-mono">
                 <span class="uppercase mr-1.5">{{ monitor.check_type }}</span>· {{ formatTarget(monitor) }}
               </p>
             </div>
@@ -173,7 +173,7 @@
           </div>
           <div class="flex items-center justify-between mt-3 text-xs">
             <div>
-              <span class="text-gray-500">{{ t('monitors.uptime_24h') }}: </span>
+              <span class="text-(--text-3)">{{ t('monitors.uptime_24h') }}: </span>
               <span class="font-semibold" :class="uptimeColor(monitor._uptime24h)">
                 {{ monitor._uptime24h != null ? monitor._uptime24h.toFixed(1) + '%' : '—' }}
               </span>
@@ -183,34 +183,34 @@
                 ? monitor._lastResponseTimeMs + 'ms'
                 : (monitor._lastResponseTimeMs / 1000).toFixed(2) + 's' }}
             </div>
-            <p v-if="!monitor.enabled" class="text-gray-600">{{ t('status.paused') }}</p>
+            <p v-if="!monitor.enabled" class="text-(--text-3)">{{ t('status.paused') }}</p>
           </div>
         </router-link>
       </div>
 
       <!-- Desktop: dense table (visible >= 768px) -->
       <table class="hidden md:table w-full">
-        <thead class="border-b border-gray-800">
+        <thead class="border-b border-(--border)">
           <tr class="px-6">
             <th class="th pl-4 w-8">
               <input
                 type="checkbox"
-                class="w-4 h-4 rounded border-gray-600 bg-gray-800 text-blue-500 cursor-pointer"
+                class="w-4 h-4 rounded border-(--border-hover) bg-(--bg-surface-2) text-(--accent) cursor-pointer"
                 :checked="allVisibleSelected"
                 :indeterminate="someVisibleSelected"
                 @change="toggleSelectAll"
               />
             </th>
             <th class="th pl-2">{{ t('common.status') }}</th>
-            <th class="th cursor-pointer select-none hover:text-gray-300 transition-colors" @click="setSortKey('name')">
+            <th class="th cursor-pointer select-none hover:text-(--text-1) transition-colors" @click="setSortKey('name')">
               <span class="inline-flex items-center gap-0.5">{{ t('common.name') }} <component v-if="isSorted('name')" :is="sortIcon('name')" :size="11" /></span>
             </th>
             <th class="th hidden md:table-cell">{{ t('monitors.col_target') }}</th>
             <th class="th hidden lg:table-cell">{{ t('monitors.col_interval') }}</th>
-            <th class="th hidden sm:table-cell cursor-pointer select-none hover:text-gray-300 transition-colors" @click="setSortKey('uptime')">
+            <th class="th hidden sm:table-cell cursor-pointer select-none hover:text-(--text-1) transition-colors" @click="setSortKey('uptime')">
               <span class="inline-flex items-center gap-0.5">{{ t('monitors.uptime_24h') }} <component v-if="isSorted('uptime')" :is="sortIcon('uptime')" :size="11" /></span>
             </th>
-            <th class="th hidden lg:table-cell cursor-pointer select-none hover:text-gray-300 transition-colors" @click="setSortKey('rt')">
+            <th class="th hidden lg:table-cell cursor-pointer select-none hover:text-(--text-1) transition-colors" @click="setSortKey('rt')">
               <span class="inline-flex items-center gap-0.5">{{ t('monitors.col_response') }} <component v-if="isSorted('rt')" :is="sortIcon('rt')" :size="11" /></span>
             </th>
             <th class="th hidden lg:table-cell">{{ t('monitors.col_trend') }}</th>
@@ -223,13 +223,13 @@
             :key="monitor.id"
             class="table-row stagger-item group"
             :style="{ animationDelay: idx * 20 + 'ms' }"
-            :class="selectedIds.has(monitor.id) ? 'bg-blue-950/20' : ''"
+            :class="selectedIds.has(monitor.id) ? 'bg-(--accent-glow)' : ''"
           >
             <!-- Checkbox -->
             <td class="td pl-4 w-8">
               <input
                 type="checkbox"
-                class="w-4 h-4 rounded border-gray-600 bg-gray-800 text-blue-500 cursor-pointer"
+                class="w-4 h-4 rounded border-(--border-hover) bg-(--bg-surface-2) text-(--accent) cursor-pointer"
                 :checked="selectedIds.has(monitor.id)"
                 @change="toggleSelect(monitor.id)"
               />
@@ -245,22 +245,22 @@
 
             <!-- Name -->
             <td class="td">
-              <router-link :to="`/monitors/${monitor.id}`" class="font-semibold text-gray-200 hover:text-white transition-colors">
+              <router-link :to="`/monitors/${monitor.id}`" class="font-semibold text-(--text-1) hover:text-(--text-1) transition-colors">
                 {{ monitor.name }}
               </router-link>
-              <p v-if="!monitor.enabled" class="text-xs text-gray-600 mt-0.5">{{ t('status.paused') }}</p>
+              <p v-if="!monitor.enabled" class="text-xs text-(--text-3) mt-0.5">{{ t('status.paused') }}</p>
             </td>
 
             <!-- Cible -->
             <td class="td hidden md:table-cell">
               <div class="flex items-center gap-2">
-                <span class="text-xs px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 font-mono uppercase flex-shrink-0">{{ monitor.check_type }}</span>
-                <span class="font-mono text-xs text-gray-500 truncate max-w-[180px]">{{ formatTarget(monitor) }}</span>
+                <span class="text-xs px-1.5 py-0.5 rounded bg-(--bg-surface-2) text-(--text-2) font-mono uppercase flex-shrink-0">{{ monitor.check_type }}</span>
+                <span class="font-mono text-xs text-(--text-3) truncate max-w-[180px]">{{ formatTarget(monitor) }}</span>
               </div>
             </td>
 
             <!-- Interval -->
-            <td class="td hidden lg:table-cell text-gray-500">
+            <td class="td hidden lg:table-cell text-(--text-3)">
               {{ monitor.interval_seconds < 60 ? monitor.interval_seconds + 's' : Math.round(monitor.interval_seconds / 60) + 'm' }}
             </td>
 
@@ -278,7 +278,7 @@
                   ? monitor._lastResponseTimeMs + 'ms'
                   : (monitor._lastResponseTimeMs / 1000).toFixed(2) + 's' }}
               </span>
-              <span v-else class="text-gray-700 text-xs">—</span>
+              <span v-else class="text-(--text-3) text-xs">—</span>
             </td>
 
             <!-- Sparkline -->
@@ -290,27 +290,27 @@
             <td class="td pr-6">
               <div class="flex items-center justify-end gap-1.5">
                 <router-link :to="`/monitors/${monitor.id}`"
-                  class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-400 hover:text-blue-400 hover:bg-blue-500/10 transition-colors"
+                  class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-(--text-2) hover:text-(--accent) hover:bg-(--accent-glow) transition-colors"
                   :title="t('common.view')" :aria-label="t('common.view')">
                   <Eye class="w-3.5 h-3.5" />
                 </router-link>
                 <button @click.stop="editingMonitor = monitor"
-                  class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
+                  class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-(--text-2) hover:text-(--warn) hover:bg-[color-mix(in_srgb,var(--warn)_10%,transparent)] transition-colors"
                   :title="t('common.edit')" :aria-label="t('common.edit')">
                   <PencilLine class="w-3.5 h-3.5" />
                 </button>
                 <button @click.stop="toggleEnabled(monitor)"
                   class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors"
                   :class="monitor.enabled
-                    ? 'text-gray-400 hover:text-orange-400 hover:bg-orange-500/10'
-                    : 'text-emerald-600 hover:text-emerald-400 hover:bg-emerald-500/10'"
+                    ? 'text-(--text-2) hover:text-(--warn) hover:bg-[color-mix(in_srgb,var(--warn)_10%,transparent)]'
+                    : 'text-(--up) hover:text-(--up) hover:bg-[color-mix(in_srgb,var(--up)_10%,transparent)]'"
                   :title="monitor.enabled ? t('monitors.bulk_pause') : t('monitors.bulk_enable')"
                   :aria-label="monitor.enabled ? t('monitors.bulk_pause') : t('monitors.bulk_enable')">
                   <Pause v-if="monitor.enabled" class="w-3.5 h-3.5" />
                   <Play v-else class="w-3.5 h-3.5" />
                 </button>
                 <button @click.stop="handleDelete(monitor)"
-                  class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                  class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-(--text-3) hover:text-(--down) hover:bg-[color-mix(in_srgb,var(--down)_10%,transparent)] transition-colors"
                   :title="t('common.delete')" :aria-label="t('common.delete')">
                   <Trash2 class="w-3.5 h-3.5" />
                 </button>
@@ -328,7 +328,7 @@
           <span v-if="p === '...'" class="text-xs px-1" style="color:var(--text-3)">...</span>
           <button v-else @click="currentPage = p"
             class="text-xs w-7 h-7 rounded flex items-center justify-center transition-colors"
-            :class="p === currentPage ? 'font-bold' : 'hover:bg-white/5'"
+            :class="p === currentPage ? 'font-bold' : 'hover:bg-(--bg-surface-2)'"
             :style="p === currentPage ? 'background:var(--accent-glow);color:var(--accent);border:1px solid var(--accent-border)' : 'color:var(--text-3)'">
             {{ p }}
           </button>
@@ -346,43 +346,41 @@
           class="stagger-item group relative rounded-xl border p-4 transition-all duration-200 hover:scale-[1.02]"
           :style="{ animationDelay: idx * 30 + 'ms' }"
           :class="{
-            'border-emerald-700/50 bg-emerald-950/20 hover:border-emerald-600': monitor._lastStatus === 'up',
-            'border-red-700/60 bg-red-950/30 hover:border-red-600': monitor._lastStatus === 'down',
-            'border-amber-700/50 bg-amber-950/20 hover:border-amber-600': monitor._lastStatus === 'timeout',
-            'border-orange-700/50 bg-orange-950/20 hover:border-orange-600': monitor._lastStatus === 'error',
-            'border-gray-700 bg-gray-900/30 hover:border-gray-600': !monitor._lastStatus,
+            'border-[color-mix(in_srgb,var(--up)_35%,transparent)] bg-[color-mix(in_srgb,var(--up)_15%,transparent)] hover:border-(--up)': monitor._lastStatus === 'up',
+            'border-[color-mix(in_srgb,var(--down)_35%,transparent)] bg-[color-mix(in_srgb,var(--down)_15%,transparent)] hover:border-(--down)': monitor._lastStatus === 'down',
+            'border-[color-mix(in_srgb,var(--warn)_35%,transparent)] bg-[color-mix(in_srgb,var(--warn)_15%,transparent)] hover:border-(--warn)': monitor._lastStatus === 'timeout' || monitor._lastStatus === 'error',
+            'border-(--border) bg-(--bg-surface) hover:border-(--border-hover)': !monitor._lastStatus,
           }"
         >
           <!-- Status indicator -->
           <div class="flex items-start justify-between mb-3">
             <span class="w-3 h-3 rounded-full mt-0.5 flex-shrink-0"
               :class="{
-                'bg-emerald-400 shadow-lg shadow-emerald-500/30': monitor._lastStatus === 'up',
-                'bg-red-500 shadow-lg shadow-red-500/40 animate-pulse': monitor._lastStatus === 'down',
-                'bg-amber-400': monitor._lastStatus === 'timeout',
-                'bg-orange-500': monitor._lastStatus === 'error',
-                'bg-gray-600': !monitor._lastStatus,
+                'bg-(--up) shadow-lg shadow-(color:--up)': monitor._lastStatus === 'up',
+                'bg-(--down) shadow-lg shadow-(color:--down) animate-pulse': monitor._lastStatus === 'down',
+                'bg-(--warn)': monitor._lastStatus === 'timeout' || monitor._lastStatus === 'error',
+                'bg-(--text-3)': !monitor._lastStatus,
               }"
             />
-            <span class="text-xs font-mono text-gray-600 bg-gray-800/60 px-1.5 py-0.5 rounded uppercase">
+            <span class="text-xs font-mono text-(--text-3) bg-(--bg-surface-2) px-1.5 py-0.5 rounded uppercase">
               {{ monitor.check_type }}
             </span>
           </div>
 
           <!-- Name -->
-          <p class="text-sm font-semibold text-gray-200 truncate group-hover:text-white mb-1">
+          <p class="text-sm font-semibold text-(--text-1) truncate group-hover:text-(--text-1) mb-1">
             {{ monitor.name }}
           </p>
 
           <!-- URL (truncated) -->
-          <p class="text-xs text-gray-600 truncate font-mono mb-3">
+          <p class="text-xs text-(--text-3) truncate font-mono mb-3">
             {{ monitor.url?.replace(/^https?:\/\//, '') || '—' }}
           </p>
 
           <!-- Uptime + réponse + paused badge -->
           <div class="flex items-end justify-between">
             <div>
-              <p class="text-xs text-gray-600">{{ t('monitors.uptime_24h') }}</p>
+              <p class="text-xs text-(--text-3)">{{ t('monitors.uptime_24h') }}</p>
               <p class="text-base font-bold" :class="uptimeColor(monitor._uptime24h)">
                 {{ monitor._uptime24h != null ? monitor._uptime24h.toFixed(1) + '%' : '—' }}
               </p>
@@ -393,7 +391,7 @@
                   ? monitor._lastResponseTimeMs + 'ms'
                   : (monitor._lastResponseTimeMs / 1000).toFixed(1) + 's' }}
               </p>
-              <p v-if="!monitor.enabled" class="text-xs text-gray-700 bg-gray-800 px-1.5 py-0.5 rounded">{{ t('status.paused') }}</p>
+              <p v-if="!monitor.enabled" class="text-xs text-(--text-3) bg-(--bg-surface-2) px-1.5 py-0.5 rounded">{{ t('status.paused') }}</p>
             </div>
           </div>
 
@@ -403,25 +401,25 @@
           </div>
 
           <!-- Card actions -->
-          <div class="mt-3 pt-2 border-t border-gray-700/50 flex items-center justify-end gap-1"
+          <div class="mt-3 pt-2 border-t border-(--border) flex items-center justify-end gap-1"
             @click.prevent @mousedown.prevent>
             <button @click.prevent="editingMonitor = monitor"
-              class="p-1.5 rounded-md text-gray-500 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
+              class="p-1.5 rounded-md text-(--text-3) hover:text-(--warn) hover:bg-[color-mix(in_srgb,var(--warn)_10%,transparent)] transition-colors"
               :title="t('common.edit')" :aria-label="t('common.edit')">
               <PencilLine class="w-3.5 h-3.5" />
             </button>
             <button @click.prevent="toggleEnabled(monitor)"
               class="p-1.5 rounded-md transition-colors"
               :class="monitor.enabled
-                ? 'text-gray-500 hover:text-orange-400 hover:bg-orange-500/10'
-                : 'text-emerald-600 hover:text-emerald-400 hover:bg-emerald-500/10'"
+                ? 'text-(--text-3) hover:text-(--warn) hover:bg-[color-mix(in_srgb,var(--warn)_10%,transparent)]'
+                : 'text-(--up) hover:text-(--up) hover:bg-[color-mix(in_srgb,var(--up)_10%,transparent)]'"
               :title="monitor.enabled ? t('monitors.bulk_pause') : t('monitors.bulk_enable')"
               :aria-label="monitor.enabled ? t('monitors.bulk_pause') : t('monitors.bulk_enable')">
               <Pause v-if="monitor.enabled" class="w-3.5 h-3.5" />
               <Play v-else class="w-3.5 h-3.5" />
             </button>
             <button @click.prevent="handleDelete(monitor)"
-              class="p-1.5 rounded-md text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+              class="p-1.5 rounded-md text-(--text-3) hover:text-(--down) hover:bg-[color-mix(in_srgb,var(--down)_10%,transparent)] transition-colors"
               :title="t('common.delete')" :aria-label="t('common.delete')">
               <Trash2 class="w-3.5 h-3.5" />
             </button>
@@ -450,7 +448,7 @@
           <span v-if="p === '...'" class="text-xs px-1" style="color:var(--text-3)">...</span>
           <button v-else @click="currentPage = p"
             class="text-xs w-7 h-7 rounded flex items-center justify-center transition-colors"
-            :class="p === currentPage ? 'font-bold' : 'hover:bg-white/5'"
+            :class="p === currentPage ? 'font-bold' : 'hover:bg-(--bg-surface-2)'"
             :style="p === currentPage ? 'background:var(--accent-glow);color:var(--accent);border:1px solid var(--accent-border)' : 'color:var(--text-3)'">
             {{ p }}
           </button>

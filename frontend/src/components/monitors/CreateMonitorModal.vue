@@ -4,32 +4,32 @@
 
         <!-- Check type selector -->
         <div>
-          <label class="block text-sm font-medium text-gray-300 mb-2">{{ t('create_monitor.check_type') }}</label>
+          <label class="block text-sm font-medium text-(--text-2) mb-2">{{ t('create_monitor.check_type') }}</label>
           <div class="grid grid-cols-4 sm:grid-cols-6 gap-1">
             <button
               v-for="ct in checkTypes" :key="ct.value" type="button"
               @click="form.check_type = ct.value"
               class="py-2 px-1 rounded-lg border text-xs font-medium transition-colors text-center"
               :class="form.check_type === ct.value
-                ? 'bg-blue-600 border-blue-500 text-white'
-                : 'border-gray-700 text-gray-400 hover:border-gray-600 hover:text-gray-300'"
+                ? 'bg-(--accent-glow) border-(--accent-border) text-(--accent)'
+                : 'border-(--border) text-(--text-2) hover:border-(--border-hover) hover:text-(--text-1)'"
             >
               <div class="text-base mb-0.5">{{ ct.icon }}</div>
               {{ ct.label }}
             </button>
           </div>
-          <p class="text-xs text-gray-500 mt-1.5">{{ currentType.description }}</p>
+          <p class="text-xs text-(--text-3) mt-1.5">{{ currentType.description }}</p>
         </div>
 
         <!-- Name -->
         <div>
-          <label class="block text-sm font-medium text-gray-300 mb-1">{{ t('common.name') }} *</label>
+          <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('common.name') }} *</label>
           <input v-model="form.name" class="input w-full" :placeholder="currentType.namePlaceholder" required />
         </div>
 
         <!-- URL / Host field -->
         <div v-if="form.check_type !== 'scenario' && form.check_type !== 'heartbeat' && form.check_type !== 'composite'">
-          <label class="block text-sm font-medium text-gray-300 mb-1">{{ currentType.urlLabel }} *</label>
+          <label class="block text-sm font-medium text-(--text-2) mb-1">{{ currentType.urlLabel }} *</label>
           <input
             v-model="form.url"
             class="input w-full"
@@ -43,22 +43,22 @@
         <template v-if="form.check_type === 'heartbeat'">
           <!-- Slug -->
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">{{ t('create_monitor.heartbeat_slug') }} *</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('create_monitor.heartbeat_slug') }} *</label>
             <input v-model="form.heartbeat_slug" class="input w-full" placeholder="mon-cron-backup"
               pattern="[a-z0-9\-]+" required />
-            <p class="text-xs text-gray-500 mt-1">
+            <p class="text-xs text-(--text-3) mt-1">
               {{ t('create_monitor.heartbeat_slug_hint') }}
             </p>
           </div>
           <!-- Interval / Grace -->
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-medium text-gray-300 mb-1">{{ t('create_monitor.heartbeat_interval') }} *</label>
+              <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('create_monitor.heartbeat_interval') }} *</label>
               <input v-model.number="form.heartbeat_interval_seconds" type="number" min="60" class="input w-full"
                 placeholder="86400 (1 day)" required />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-300 mb-1">{{ t('create_monitor.heartbeat_grace') }}</label>
+              <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('create_monitor.heartbeat_grace') }}</label>
               <input v-model.number="form.heartbeat_grace_seconds" type="number" min="30" class="input w-full"
                 placeholder="300 (5 min)" />
             </div>
@@ -67,28 +67,28 @@
 
         <!-- TCP port -->
         <div v-if="form.check_type === 'tcp'">
-          <label class="block text-sm font-medium text-gray-300 mb-1">Port *</label>
+          <label class="block text-sm font-medium text-(--text-2) mb-1">Port *</label>
           <input v-model.number="form.tcp_port" class="input w-full" type="number" min="1" max="65535" placeholder="e.g. 443, 22, 5432" required />
         </div>
 
         <!-- UDP port -->
         <div v-if="form.check_type === 'udp'">
-          <label class="block text-sm font-medium text-gray-300 mb-1">Port *</label>
+          <label class="block text-sm font-medium text-(--text-2) mb-1">Port *</label>
           <input v-model.number="form.udp_port" class="input w-full" type="number" min="1" max="65535" placeholder="e.g. 53, 123, 161" required />
-          <p class="text-xs text-gray-500 mt-1">Sends an empty datagram — no ICMP unreachable = port open/filtered → up.</p>
+          <p class="text-xs text-(--text-3) mt-1">Sends an empty datagram — no ICMP unreachable = port open/filtered → up.</p>
         </div>
 
         <!-- SMTP options -->
         <div v-if="form.check_type === 'smtp'" class="space-y-3">
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-medium text-gray-300 mb-1">Port</label>
+              <label class="block text-sm font-medium text-(--text-2) mb-1">Port</label>
               <input v-model.number="form.smtp_port" class="input w-full" type="number" min="1" max="65535" placeholder="25" />
             </div>
             <div class="flex items-end pb-1">
               <div class="flex items-center gap-2">
                 <input v-model="form.smtp_starttls" type="checkbox" id="smtp_starttls" />
-                <label for="smtp_starttls" class="text-sm text-gray-300">STARTTLS</label>
+                <label for="smtp_starttls" class="text-sm text-(--text-2)">STARTTLS</label>
               </div>
             </div>
           </div>
@@ -96,44 +96,44 @@
 
         <!-- Domain expiry options -->
         <div v-if="form.check_type === 'domain_expiry'">
-          <label class="block text-sm font-medium text-gray-300 mb-1">Alert threshold (days)</label>
+          <label class="block text-sm font-medium text-(--text-2) mb-1">Alert threshold (days)</label>
           <input v-model.number="form.domain_expiry_warn_days" class="input w-full" type="number" min="1" max="365" placeholder="30" />
-          <p class="text-xs text-gray-500 mt-1">Alert when domain expires in ≤ N days.</p>
+          <p class="text-xs text-(--text-3) mt-1">Alert when domain expires in ≤ N days.</p>
         </div>
 
         <!-- DNS options -->
         <div v-if="form.check_type === 'dns'" class="space-y-4">
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-medium text-gray-300 mb-1">Record type</label>
+              <label class="block text-sm font-medium text-(--text-2) mb-1">Record type</label>
               <select v-model="form.dns_record_type" class="input w-full">
                 <option v-for="r in dnsRecordTypes" :key="r" :value="r">{{ r }}</option>
               </select>
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-300 mb-1">Expected value <span class="text-gray-500">(optional)</span></label>
+              <label class="block text-sm font-medium text-(--text-2) mb-1">Expected value <span class="text-(--text-3)">(optional)</span></label>
               <input v-model="form.dns_expected_value" class="input w-full" placeholder="1.2.3.4" />
             </div>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">{{ t('monitors.dns_nameservers.label') }} <span class="text-gray-500">(optional)</span></label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('monitors.dns_nameservers.label') }} <span class="text-(--text-3)">(optional)</span></label>
             <input v-model="form.dns_nameservers_raw" class="input w-full" :placeholder="t('monitors.dns_nameservers.placeholder')" />
-            <p class="text-xs text-gray-500 mt-1">{{ t('monitors.dns_nameservers.desc') }}</p>
+            <p class="text-xs text-(--text-3) mt-1">{{ t('monitors.dns_nameservers.desc') }}</p>
           </div>
-          <div class="rounded-lg border border-gray-700 p-3 space-y-3">
-            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide">{{ t('monitors.dns_drift.label') }}</p>
+          <div class="rounded-lg border border-(--border) p-3 space-y-3">
+            <p class="text-xs font-semibold text-(--text-2) uppercase tracking-wide">{{ t('monitors.dns_drift.label') }}</p>
             <div class="flex items-start gap-3">
               <input v-model="form.dns_drift_alert" type="checkbox" id="dns_drift_alert" class="mt-0.5" />
               <div>
-                <label for="dns_drift_alert" class="text-sm text-gray-300">{{ t('monitors.dns_drift.label') }}</label>
-                <p class="text-xs text-gray-500">{{ t('monitors.dns_drift.desc') }}</p>
+                <label for="dns_drift_alert" class="text-sm text-(--text-2)">{{ t('monitors.dns_drift.label') }}</label>
+                <p class="text-xs text-(--text-3)">{{ t('monitors.dns_drift.desc') }}</p>
               </div>
             </div>
             <div v-if="form.dns_drift_alert" class="flex items-start gap-3 pl-1">
               <input v-model="form.dns_split_enabled" type="checkbox" id="dns_split_enabled" class="mt-0.5" />
               <div>
-                <label for="dns_split_enabled" class="text-sm text-gray-300">{{ t('monitors.dns_drift.split_horizon') }}</label>
-                <p class="text-xs text-gray-500">{{ t('monitors.dns_drift.split_horizon_desc') }}</p>
+                <label for="dns_split_enabled" class="text-sm text-(--text-2)">{{ t('monitors.dns_drift.split_horizon') }}</label>
+                <p class="text-xs text-(--text-3)">{{ t('monitors.dns_drift.split_horizon_desc') }}</p>
               </div>
             </div>
           </div>
@@ -142,45 +142,45 @@
         <!-- Composite options -->
         <div v-if="form.check_type === 'composite'" class="space-y-3">
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">{{ t('monitors.composite.aggregation') }}</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('monitors.composite.aggregation') }}</label>
             <select v-model="form.composite_aggregation" class="input w-full">
               <option value="majority_up">{{ t('monitors.composite.aggregation_majority_up') }}</option>
               <option value="all_up">{{ t('monitors.composite.aggregation_all_up') }}</option>
               <option value="any_up">{{ t('monitors.composite.aggregation_any_up') }}</option>
               <option value="weighted_up">{{ t('monitors.composite.aggregation_weighted_up') }}</option>
             </select>
-            <p class="text-xs text-gray-500 mt-1">{{ t('monitors.composite.desc') }}</p>
+            <p class="text-xs text-(--text-3) mt-1">{{ t('monitors.composite.desc') }}</p>
           </div>
-          <p class="text-xs text-gray-500 bg-gray-800/50 rounded p-2">
+          <p class="text-xs text-(--text-3) bg-(--bg-surface-2) rounded p-2">
             Member monitors can be added after creation from the monitor detail page.
           </p>
         </div>
 
         <!-- Keyword options -->
         <div v-if="form.check_type === 'keyword'">
-          <label class="block text-sm font-medium text-gray-300 mb-1">Keyword to find *</label>
+          <label class="block text-sm font-medium text-(--text-2) mb-1">Keyword to find *</label>
           <input v-model="form.keyword" class="input w-full" placeholder="e.g. &quot;status&quot;: &quot;ok&quot;" required />
           <div class="flex items-center gap-2 mt-2">
             <input v-model="form.keyword_negate" type="checkbox" id="negate" />
-            <label for="negate" class="text-sm text-gray-400">Alert if keyword <strong class="text-white">IS found</strong> (negate check)</label>
+            <label for="negate" class="text-sm text-(--text-2)">Alert if keyword <strong class="text-(--text-1)">IS found</strong> (negate check)</label>
           </div>
         </div>
 
         <!-- JSON path options -->
         <div v-if="form.check_type === 'json_path'" class="grid grid-cols-2 gap-4">
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">JSON path *</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">JSON path *</label>
             <input v-model="form.expected_json_path" class="input w-full" placeholder="$.status" required />
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">Expected value <span class="text-gray-500">(optional)</span></label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">Expected value <span class="text-(--text-3)">(optional)</span></label>
             <input v-model="form.expected_json_value" class="input w-full" placeholder="ok" />
           </div>
         </div>
 
         <!-- Scenario builder -->
         <div v-if="form.check_type === 'scenario'">
-          <label class="block text-sm font-medium text-gray-300 mb-2">{{ t('create_monitor.scenario_label') }}</label>
+          <label class="block text-sm font-medium text-(--text-2) mb-2">{{ t('create_monitor.scenario_label') }}</label>
           <ScenarioBuilder
             v-model="form.scenario_steps"
             :variables="form.scenario_variables"
@@ -190,31 +190,31 @@
 
         <!-- Network scope (hidden for heartbeat and composite) -->
         <div v-if="form.check_type !== 'heartbeat' && form.check_type !== 'composite'">
-          <label class="block text-sm font-medium text-gray-300 mb-1">{{ t('monitors.network_scope.label') }}</label>
+          <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('monitors.network_scope.label') }}</label>
           <div class="grid grid-cols-3 gap-2">
             <button
               v-for="s in networkScopes" :key="s.value" type="button"
               @click="form.network_scope = s.value"
               class="py-2 px-2 rounded-lg border text-xs font-medium transition-colors text-center"
               :class="form.network_scope === s.value
-                ? 'bg-blue-600 border-blue-500 text-white'
-                : 'border-gray-700 text-gray-400 hover:border-gray-600 hover:text-gray-300'"
+                ? 'bg-(--accent-glow) border-(--accent-border) text-(--accent)'
+                : 'border-(--border) text-(--text-2) hover:border-(--border-hover) hover:text-(--text-1)'"
             >
               <div class="text-base mb-0.5">{{ s.icon }}</div>
               {{ s.label }}
             </button>
           </div>
-          <p class="text-xs text-gray-500 mt-1">{{ networkScopes.find(s => s.value === form.network_scope)?.desc }}</p>
+          <p class="text-xs text-(--text-3) mt-1">{{ networkScopes.find(s => s.value === form.network_scope)?.desc }}</p>
         </div>
 
         <!-- Interval / Timeout (hidden for heartbeat and composite — no physical probe) -->
         <div v-if="form.check_type !== 'heartbeat' && form.check_type !== 'composite'" class="grid grid-cols-2 gap-4">
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">Interval (s)</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">Interval (s)</label>
             <input v-model.number="form.interval_seconds" class="input w-full" type="number" min="5" max="86400" />
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">Timeout (s)</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">Timeout (s)</label>
             <input v-model.number="form.timeout_seconds" class="input w-full" type="number" min="1" max="60" />
           </div>
         </div>
@@ -223,39 +223,39 @@
         <template v-if="['http', 'keyword', 'json_path'].includes(form.check_type)">
           <div class="flex items-center gap-3">
             <input v-model="form.follow_redirects" type="checkbox" id="redirects" />
-            <label for="redirects" class="text-sm text-gray-300">Follow redirects</label>
+            <label for="redirects" class="text-sm text-(--text-2)">Follow redirects</label>
           </div>
           <div class="flex items-center gap-3">
             <input v-model="form.ssl_check_enabled" type="checkbox" id="ssl" />
-            <label for="ssl" class="text-sm text-gray-300">Monitor SSL certificate</label>
+            <label for="ssl" class="text-sm text-(--text-2)">Monitor SSL certificate</label>
           </div>
-          <div v-if="form.ssl_check_enabled" class="ml-6 space-y-2 border-l-2 border-gray-800 pl-3">
+          <div v-if="form.ssl_check_enabled" class="ml-6 space-y-2 border-l-2 border-(--border) pl-3">
             <div>
-              <label class="text-xs text-gray-400 block mb-1">{{ t('monitors.sslAdvanced.pin') }}</label>
+              <label class="text-xs text-(--text-2) block mb-1">{{ t('monitors.sslAdvanced.pin') }}</label>
               <input v-model="form.ssl_pin_sha256" class="input w-full font-mono text-xs" :placeholder="t('monitors.sslAdvanced.pinPlaceholder')" maxlength="64" pattern="[a-f0-9]{64}" />
-              <p class="text-xs text-gray-500 mt-1">{{ t('monitors.sslAdvanced.pinHint') }}</p>
+              <p class="text-xs text-(--text-3) mt-1">{{ t('monitors.sslAdvanced.pinHint') }}</p>
             </div>
             <div>
-              <label class="text-xs text-gray-400 block mb-1">{{ t('monitors.sslAdvanced.minChainDays') }}</label>
+              <label class="text-xs text-(--text-2) block mb-1">{{ t('monitors.sslAdvanced.minChainDays') }}</label>
               <input v-model.number="form.ssl_min_chain_days" type="number" class="input w-32 text-xs" min="1" max="365" :placeholder="t('monitors.sslAdvanced.minChainPlaceholder')" />
-              <p class="text-xs text-gray-500 mt-1">{{ t('monitors.sslAdvanced.minChainHint') }}</p>
+              <p class="text-xs text-(--text-3) mt-1">{{ t('monitors.sslAdvanced.minChainHint') }}</p>
             </div>
           </div>
 
           <!-- Custom request headers accordion -->
-          <div class="border border-gray-700 rounded-lg overflow-hidden">
+          <div class="border border-(--border) rounded-lg overflow-hidden">
             <button
               type="button"
               @click="showCustomHeaders = !showCustomHeaders"
-              class="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-800/50 transition-colors"
+              class="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium text-(--text-2) hover:text-(--text-1) hover:bg-(--bg-surface-2) transition-colors"
             >
               <span>{{ t('monitors.customHeaders.title') }}</span>
               <span class="text-xs transition-transform" :class="showCustomHeaders ? 'rotate-180' : ''">▼</span>
             </button>
-            <div v-if="showCustomHeaders" class="px-4 pb-4 pt-2 space-y-3 border-t border-gray-700 bg-gray-800/20">
-              <p class="text-xs text-gray-500">{{ t('monitors.customHeaders.desc') }}</p>
+            <div v-if="showCustomHeaders" class="px-4 pb-4 pt-2 space-y-3 border-t border-(--border) bg-(--bg-surface-2)">
+              <p class="text-xs text-(--text-3)">{{ t('monitors.customHeaders.desc') }}</p>
               <div class="flex items-center gap-2">
-                <label class="text-xs text-gray-400 shrink-0">{{ t('monitors.customHeaders.presets.label') }}</label>
+                <label class="text-xs text-(--text-2) shrink-0">{{ t('monitors.customHeaders.presets.label') }}</label>
                 <select v-model="selectedUaPreset" @change="onUaPresetChange" class="input text-xs flex-1">
                   <option value="">{{ t('monitors.customHeaders.presets.choose') }}</option>
                   <option v-for="p in UA_PRESETS" :key="p.id" :value="p.id">{{ t(p.labelKey) }}</option>
@@ -265,51 +265,51 @@
                 <div v-for="(h, idx) in form.custom_headers_list" :key="idx" class="flex gap-2 items-center">
                   <input v-model="h.key" class="input flex-1 font-mono text-xs" :placeholder="t('monitors.customHeaders.namePlaceholder')" maxlength="100" />
                   <input v-model="h.value" class="input flex-1 font-mono text-xs" :placeholder="t('monitors.customHeaders.valuePlaceholder')" maxlength="500" />
-                  <button type="button" @click="removeCustomHeader(idx)" class="text-red-400 hover:text-red-300 text-xs px-1 shrink-0" :aria-label="t('a11y.remove')">✕</button>
+                  <button type="button" @click="removeCustomHeader(idx)" class="text-(--down) text-xs px-1 shrink-0" :aria-label="t('a11y.remove')">✕</button>
                 </div>
               </div>
-              <p v-else class="text-xs text-gray-600">{{ t('monitors.customHeaders.empty') }}</p>
+              <p v-else class="text-xs text-(--text-3)">{{ t('monitors.customHeaders.empty') }}</p>
               <button
                 type="button"
                 @click="addCustomHeader"
-                class="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                class="text-xs text-(--accent) flex items-center gap-1"
                 :disabled="form.custom_headers_list.length >= 20"
               >+ {{ t('monitors.customHeaders.add') }}</button>
             </div>
           </div>
 
           <!-- Advanced assertions accordion -->
-          <div class="border border-gray-700 rounded-lg overflow-hidden">
+          <div class="border border-(--border) rounded-lg overflow-hidden">
             <button
               type="button"
               @click="showAdvanced = !showAdvanced"
-              class="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-800/50 transition-colors"
+              class="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium text-(--text-2) hover:text-(--text-1) hover:bg-(--bg-surface-2) transition-colors"
             >
               <span>{{ t('create_monitor.advanced_assertions') }}</span>
               <span class="text-xs transition-transform" :class="showAdvanced ? 'rotate-180' : ''">▼</span>
             </button>
-            <div v-if="showAdvanced" class="px-4 pb-4 pt-2 space-y-4 border-t border-gray-700 bg-gray-800/20">
+            <div v-if="showAdvanced" class="px-4 pb-4 pt-2 space-y-4 border-t border-(--border) bg-(--bg-surface-2)">
               <!-- Regex body -->
               <div>
-                <label class="block text-sm font-medium text-gray-300 mb-1">
-                  {{ t('create_monitor.body_regex') }} <span class="text-gray-500">({{ t('common.optional') }})</span>
+                <label class="block text-sm font-medium text-(--text-2) mb-1">
+                  {{ t('create_monitor.body_regex') }} <span class="text-(--text-3)">({{ t('common.optional') }})</span>
                 </label>
                 <input
                   v-model="form.body_regex"
                   class="input w-full font-mono text-sm"
                   placeholder=".*&quot;status&quot;:&quot;ok&quot;.*"
                 />
-                <p class="text-xs text-gray-500 mt-1">{{ t('create_monitor.body_regex_hint') }}</p>
+                <p class="text-xs text-(--text-3) mt-1">{{ t('create_monitor.body_regex_hint') }}</p>
               </div>
 
               <!-- Expected headers -->
               <div>
                 <div class="flex items-center justify-between mb-2">
-                  <label class="text-sm font-medium text-gray-300">{{ t('create_monitor.expected_headers') }}</label>
+                  <label class="text-sm font-medium text-(--text-2)">{{ t('create_monitor.expected_headers') }}</label>
                   <button
                     type="button"
                     @click="addExpectedHeader"
-                    class="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                    class="text-xs text-(--accent) flex items-center gap-1"
                   >+ {{ t('common.add') }}</button>
                 </div>
                 <div v-if="form.expected_headers_list.length" class="space-y-2">
@@ -327,19 +327,19 @@
                     <button
                       type="button"
                       @click="removeExpectedHeader(idx)"
-                      class="text-red-400 hover:text-red-300 text-xs px-1 shrink-0"
+                      class="text-(--down) text-xs px-1 shrink-0"
                       :aria-label="t('a11y.remove')"
                     >✕</button>
                   </div>
                 </div>
-                <p v-else class="text-xs text-gray-600">{{ t('create_monitor.no_headers') }}</p>
-                <p class="text-xs text-gray-500 mt-1">{{ t('create_monitor.headers_regex_hint') }}</p>
+                <p v-else class="text-xs text-(--text-3)">{{ t('create_monitor.no_headers') }}</p>
+                <p class="text-xs text-(--text-3) mt-1">{{ t('create_monitor.headers_regex_hint') }}</p>
               </div>
 
               <!-- JSON Schema -->
               <div>
-                <label class="block text-sm font-medium text-gray-300 mb-1">
-                  JSON Schema <span class="text-gray-500">({{ t('common.optional') }})</span>
+                <label class="block text-sm font-medium text-(--text-2) mb-1">
+                  JSON Schema <span class="text-(--text-3)">({{ t('common.optional') }})</span>
                 </label>
                 <textarea
                   v-model="form.json_schema_text"
@@ -347,60 +347,60 @@
                   rows="4"
                   placeholder="{&quot;type&quot;:&quot;object&quot;,&quot;required&quot;:[&quot;status&quot;],&quot;properties&quot;:{&quot;status&quot;:{&quot;type&quot;:&quot;string&quot;}}}"
                 ></textarea>
-                <p v-if="jsonSchemaError" class="text-xs text-red-400 mt-1">{{ jsonSchemaError }}</p>
-                <p class="text-xs text-gray-500 mt-1">{{ t('create_monitor.json_schema_hint') }}</p>
+                <p v-if="jsonSchemaError" class="text-xs text-(--down) mt-1">{{ jsonSchemaError }}</p>
+                <p class="text-xs text-(--text-3) mt-1">{{ t('create_monitor.json_schema_hint') }}</p>
               </div>
             </div>
           </div>
         </template>
 
         <!-- Flapping detection overrides -->
-        <div v-if="form.check_type !== 'heartbeat'" class="border border-gray-700 rounded-lg overflow-hidden">
+        <div v-if="form.check_type !== 'heartbeat'" class="border border-(--border) rounded-lg overflow-hidden">
           <button
             type="button"
             @click="showFlapping = !showFlapping"
-            class="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-800/50 transition-colors"
+            class="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium text-(--text-2) hover:text-(--text-1) hover:bg-(--bg-surface-2) transition-colors"
           >
             <span>{{ t('monitors.flapping_settings') }}</span>
             <span class="text-xs transition-transform" :class="showFlapping ? 'rotate-180' : ''">▼</span>
           </button>
-          <div v-if="showFlapping" class="px-4 pb-4 pt-2 space-y-3 border-t border-gray-700 bg-gray-800/20">
-            <p class="text-xs text-gray-500">{{ t('monitors.flapping_desc') }}</p>
+          <div v-if="showFlapping" class="px-4 pb-4 pt-2 space-y-3 border-t border-(--border) bg-(--bg-surface-2)">
+            <p class="text-xs text-(--text-3)">{{ t('monitors.flapping_desc') }}</p>
             <div class="grid grid-cols-2 gap-4">
               <div>
-                <label class="block text-xs text-gray-400 mb-1">{{ t('monitors.flap_threshold') }}</label>
+                <label class="block text-xs text-(--text-2) mb-1">{{ t('monitors.flap_threshold') }}</label>
                 <input v-model.number="form.flap_threshold" type="number" min="2" max="50" class="input w-full" />
               </div>
               <div>
-                <label class="block text-xs text-gray-400 mb-1">{{ t('monitors.flap_window_minutes') }}</label>
+                <label class="block text-xs text-(--text-2) mb-1">{{ t('monitors.flap_window_minutes') }}</label>
                 <input v-model.number="form.flap_window_minutes" type="number" min="1" max="60" class="input w-full" />
               </div>
             </div>
             <div class="mt-3">
-              <label class="block text-xs text-gray-400 mb-1">{{ t('monitors.auto_pause_after') }}</label>
+              <label class="block text-xs text-(--text-2) mb-1">{{ t('monitors.auto_pause_after') }}</label>
               <input v-model.number="form.auto_pause_after" type="number" min="2" max="100" placeholder="" class="input w-full" />
-              <p class="text-xs text-gray-500 mt-1">{{ t('monitors.auto_pause_after_hint') }}</p>
+              <p class="text-xs text-(--text-3) mt-1">{{ t('monitors.auto_pause_after_hint') }}</p>
             </div>
           </div>
         </div>
 
         <!-- Alert setup -->
-        <div class="border border-gray-800 rounded-xl p-4 space-y-3">
+        <div class="border border-(--border) rounded-xl p-4 space-y-3">
           <div class="flex items-center justify-between">
             <div>
-              <h3 class="text-sm font-medium text-white">{{ t('monitors.alert_setup.title') }}</h3>
-              <p class="text-xs text-gray-500 mt-0.5">{{ t('monitors.alert_setup.desc') }}</p>
+              <h3 class="text-sm font-medium text-(--text-1)">{{ t('monitors.alert_setup.title') }}</h3>
+              <p class="text-xs text-(--text-3) mt-0.5">{{ t('monitors.alert_setup.desc') }}</p>
             </div>
             <label class="relative inline-flex items-center cursor-pointer">
               <input type="checkbox" v-model="alertEnabled" class="sr-only peer" />
-              <div class="w-9 h-5 bg-gray-700 peer-checked:bg-blue-600 rounded-full
+              <div class="w-9 h-5 bg-(--bg-surface-2) peer-checked:bg-(--accent) rounded-full
                 after:content-[''] after:absolute after:top-0.5 after:left-[2px]
                 after:bg-white after:rounded-full after:h-4 after:w-4
                 after:transition-all peer-checked:after:translate-x-full"></div>
             </label>
           </div>
           <div v-if="alertEnabled">
-            <div v-if="alertChannels.length === 0" class="text-xs text-amber-400 bg-amber-900/20 border border-amber-800/40 rounded-lg px-3 py-2">
+            <div v-if="alertChannels.length === 0" class="text-xs text-(--warn) bg-[color-mix(in_srgb,var(--warn)_10%,transparent)] border border-[color-mix(in_srgb,var(--warn)_25%,transparent)] rounded-lg px-3 py-2">
               {{ t('monitors.alert_setup.no_channels') }}
             </div>
             <div v-else class="space-y-1.5">
@@ -408,23 +408,23 @@
                 v-for="ch in alertChannels" :key="ch.id"
                 class="flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors"
                 :class="selectedChannelIds.includes(ch.id)
-                  ? 'border-blue-600/60 bg-blue-950/30'
-                  : 'border-gray-800 hover:border-gray-700'"
+                  ? 'border-(--accent-border) bg-(--accent-glow)'
+                  : 'border-(--border) hover:border-(--border-hover)'"
               >
                 <input
                   type="checkbox"
                   :value="ch.id"
                   v-model="selectedChannelIds"
-                  class="rounded bg-gray-800 border-gray-600 text-blue-500 focus:ring-blue-500/30"
+                  class="rounded bg-(--bg-surface-2) border-(--border) text-(--accent) focus:ring-(--accent-border)"
                 />
-                <span class="text-sm text-gray-300">{{ ch.name }}</span>
-                <span class="text-xs text-gray-600 ml-auto">{{ ch.type }}</span>
+                <span class="text-sm text-(--text-2)">{{ ch.name }}</span>
+                <span class="text-xs text-(--text-3) ml-auto">{{ ch.type }}</span>
               </label>
             </div>
           </div>
         </div>
 
-        <div v-if="error" class="bg-red-900/40 border border-red-700 rounded p-3 text-sm text-red-300">
+        <div v-if="error" class="bg-[color-mix(in_srgb,var(--down)_12%,transparent)] border border-[color-mix(in_srgb,var(--down)_30%,transparent)] rounded p-3 text-sm text-(--down)">
           {{ error }}
         </div>
 

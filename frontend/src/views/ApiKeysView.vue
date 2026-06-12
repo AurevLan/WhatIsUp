@@ -1,7 +1,7 @@
 <template>
   <div class="page-body">
     <div class="flex items-center justify-between mb-8">
-      <h1 class="text-2xl font-bold text-white">{{ t('apiKeys.title') }}</h1>
+      <h1 class="font-display text-2xl font-bold text-(--text-1)">{{ t('apiKeys.title') }}</h1>
       <button class="btn-primary" @click="showCreate = true">
         <Plus class="w-4 h-4 mr-2" />
         {{ t('apiKeys.new') }}
@@ -9,10 +9,10 @@
     </div>
 
     <!-- Info banner -->
-    <div class="mb-6 p-4 rounded-lg bg-blue-500/10 border border-blue-500/30 text-sm text-blue-300">
+    <div class="mb-6 p-4 rounded-lg bg-(--accent-glow) border border-(--accent-border) text-sm text-(--accent)">
       <p class="font-medium mb-1">{{ t('apiKeys.info_title') }}</p>
-      <p class="text-blue-400">{{ t('apiKeys.info_body') }}</p>
-      <code class="mt-2 block text-xs bg-gray-900/60 rounded px-2 py-1 text-gray-300">
+      <p class="text-(--accent)">{{ t('apiKeys.info_body') }}</p>
+      <code class="mt-2 block text-xs bg-(--bg-surface-2) rounded px-2 py-1 text-(--text-2)">
         Authorization: Bearer wiu_u_...
       </code>
     </div>
@@ -40,20 +40,20 @@
       <div
         v-for="k in keys"
         :key="k.id"
-        class="flex items-center justify-between p-3 rounded-lg bg-gray-800/50 border border-gray-700/50"
+        class="flex items-center justify-between p-3 rounded-lg bg-(--bg-surface-2) border border-(--border)"
       >
         <div class="flex items-center gap-3 min-w-0">
-          <KeyRound class="w-4 h-4 text-gray-400 flex-shrink-0" />
+          <KeyRound class="w-4 h-4 text-(--text-2) flex-shrink-0" />
           <div class="min-w-0">
-            <p class="text-white font-medium truncate">{{ k.name }}</p>
-            <p class="text-xs text-gray-400 font-mono">
+            <p class="text-(--text-1) font-medium truncate">{{ k.name }}</p>
+            <p class="text-xs text-(--text-2) font-mono">
               {{ k.key_prefix }}••••••••••••••••••••••••••••••
             </p>
           </div>
         </div>
 
         <div class="flex items-center gap-4 flex-shrink-0 ml-4">
-          <div class="text-right text-xs text-gray-400 hidden sm:block">
+          <div class="text-right text-xs text-(--text-2) hidden sm:block">
             <p v-if="k.last_used_at">
               {{ t('apiKeys.last_used') }} {{ formatDate(k.last_used_at) }}
             </p>
@@ -65,20 +65,20 @@
 
           <span
             v-if="k.is_revoked"
-            class="text-xs px-2 py-0.5 rounded-full bg-red-500/20 text-red-400"
+            class="text-xs px-2 py-0.5 rounded-full bg-[color-mix(in_srgb,var(--down)_20%,transparent)] text-(--down)"
           >
             {{ t('apiKeys.revoked') }}
           </span>
           <span
             v-else
-            class="text-xs px-2 py-0.5 rounded-full bg-green-500/20 text-green-400"
+            class="text-xs px-2 py-0.5 rounded-full bg-[color-mix(in_srgb,var(--up)_20%,transparent)] text-(--up)"
           >
             {{ t('apiKeys.active') }}
           </span>
 
           <button
             v-if="!k.is_revoked"
-            class="text-red-400 hover:text-red-300 transition-colors"
+            class="text-(--down) hover:text-(--down) transition-colors"
             :title="t('apiKeys.revoke')"
             :aria-label="t('apiKeys.revoke')"
             @click="confirmRevoke(k)"
@@ -93,7 +93,7 @@
     <BaseModal v-model="showCreate" :title="t('apiKeys.new')">
       <div class="space-y-4">
         <div>
-          <label class="block text-sm text-gray-400 mb-1">{{ t('apiKeys.key_name') }}</label>
+          <label class="block text-sm text-(--text-2) mb-1">{{ t('apiKeys.key_name') }}</label>
           <input
             v-model="form.name"
             class="input w-full"
@@ -103,9 +103,9 @@
           />
         </div>
         <div>
-          <label class="block text-sm text-gray-400 mb-1">
+          <label class="block text-sm text-(--text-2) mb-1">
             {{ t('apiKeys.expires_at') }}
-            <span class="text-gray-500 ml-1">({{ t('common.optional') }})</span>
+            <span class="text-(--text-3) ml-1">({{ t('common.optional') }})</span>
           </label>
           <input v-model="form.expires_at" type="datetime-local" class="input w-full" />
         </div>
@@ -126,21 +126,21 @@
     <BaseModal :model-value="!!newKey" size="lg" @close="newKey = null">
       <template #header>
         <div class="flex items-center gap-3">
-          <CheckCircle class="w-6 h-6 text-green-400 flex-shrink-0" />
-          <h2 class="text-lg font-semibold text-white">{{ t('apiKeys.created') }}</h2>
+          <CheckCircle class="w-6 h-6 text-(--up) flex-shrink-0" />
+          <h2 class="text-lg font-semibold text-(--text-1)">{{ t('apiKeys.created') }}</h2>
         </div>
       </template>
 
-      <p class="text-sm text-amber-300 mb-3">{{ t('apiKeys.show_once_warning') }}</p>
+      <p class="text-sm text-(--warn) mb-3">{{ t('apiKeys.show_once_warning') }}</p>
 
       <div class="relative">
         <code
-          class="block w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-sm text-green-300 font-mono break-all pr-12"
+          class="block w-full bg-(--bg-surface-2) border border-(--border) rounded-lg px-4 py-3 text-sm text-(--up) font-mono break-all pr-12"
         >
           {{ newKey?.key }}
         </code>
         <button
-          class="absolute right-2 top-2 text-gray-400 hover:text-white transition-colors"
+          class="absolute right-2 top-2 text-(--text-2) hover:text-(--text-1) transition-colors"
           :title="t('common.copy')"
           :aria-label="t('common.copy')"
           @click="copyKey"
@@ -149,8 +149,8 @@
         </button>
       </div>
 
-      <p class="mt-3 text-xs text-gray-400">{{ t('apiKeys.usage_hint') }}</p>
-      <code class="mt-1 block text-xs bg-gray-900/60 rounded px-2 py-1 text-gray-300 font-mono">
+      <p class="mt-3 text-xs text-(--text-2)">{{ t('apiKeys.usage_hint') }}</p>
+      <code class="mt-1 block text-xs bg-(--bg-surface-2) rounded px-2 py-1 text-(--text-2) font-mono">
         Authorization: Bearer {{ newKey?.key }}
       </code>
 

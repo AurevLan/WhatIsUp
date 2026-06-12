@@ -110,7 +110,7 @@ describe('AddRuleMenu', () => {
     const selectAllBtn = wrapper.findAll('.footer-stub button').filter(b => b.text() === 'Select all')[0]
     await selectAllBtn.trigger('click')
     const wrappers = conditionButtons(wrapper).map(b => b.element.closest('.rounded-lg'))
-    expect(wrappers.every(el => el.className.includes('border-blue-500'))).toBe(true)
+    expect(wrappers.every(el => el.className.includes('border-(--accent-border)'))).toBe(true)
   })
 })
 

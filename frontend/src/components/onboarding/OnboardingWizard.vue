@@ -308,7 +308,7 @@ async function finish() {
   margin-bottom: 1.25rem;
 }
 .onboarding__icon--success {
-  background: rgba(52,211,153,.12);
+  background: color-mix(in srgb, var(--up) 12%, transparent);
   color: var(--up);
 }
 
@@ -430,9 +430,9 @@ async function finish() {
   font-size: 0.8125rem;
 }
 .onboarding__summary-item--ok {
-  background: rgba(52,211,153,.08);
+  background: color-mix(in srgb, var(--up) 8%, transparent);
   color: var(--up);
-  border: 1px solid rgba(52,211,153,.2);
+  border: 1px solid color-mix(in srgb, var(--up) 20%, transparent);
 }
 
 .onboarding__spinner {

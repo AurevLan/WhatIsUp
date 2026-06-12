@@ -1,7 +1,7 @@
 <template>
-  <p v-if="hasSplit" class="text-[10px] text-gray-500 mt-1 tabular-nums">
+  <p v-if="hasSplit" class="text-[10px] text-(--text-3) mt-1 tabular-nums">
     <span v-if="stats.internal_uptime_percent !== null && stats.internal_uptime_percent !== undefined">
-      <span class="text-gray-400">{{ t('monitor_detail.uptime_internal') }}</span>
+      <span class="text-(--text-2)">{{ t('monitor_detail.uptime_internal') }}</span>
       <span :class="colorFor(stats.internal_uptime_percent)">
         {{ stats.internal_uptime_percent.toFixed(2) }}%
       </span>
@@ -10,7 +10,7 @@
       v-if="stats.external_uptime_percent !== null && stats.external_uptime_percent !== undefined"
       class="ml-2"
     >
-      <span class="text-gray-400">{{ t('monitor_detail.uptime_external') }}</span>
+      <span class="text-(--text-2)">{{ t('monitor_detail.uptime_external') }}</span>
       <span :class="colorFor(stats.external_uptime_percent)">
         {{ stats.external_uptime_percent.toFixed(2) }}%
       </span>
@@ -37,8 +37,8 @@ const hasSplit = computed(() => {
 })
 
 function colorFor(pct) {
-  if (pct >= 99) return 'text-emerald-400 ml-1'
-  if (pct >= 95) return 'text-amber-400 ml-1'
-  return 'text-red-400 ml-1'
+  if (pct >= 99) return 'text-(--up) ml-1'
+  if (pct >= 95) return 'text-(--warn) ml-1'
+  return 'text-(--down) ml-1'
 }
 </script>

@@ -2,25 +2,25 @@
   <div>
     <div class="flex items-center justify-between mb-4">
       <div>
-        <h2 class="text-lg font-semibold text-white">{{ t('alert_matrix.templates.section_title') }}</h2>
-        <p class="text-xs text-gray-500 mt-1">{{ t('alert_matrix.templates.section_hint') }}</p>
+        <h2 class="text-lg font-semibold text-(--text-1)">{{ t('alert_matrix.templates.section_title') }}</h2>
+        <p class="text-xs text-(--text-3) mt-1">{{ t('alert_matrix.templates.section_hint') }}</p>
       </div>
       <button @click="createNew" class="text-sm btn-primary">
         + {{ t('alert_matrix.templates.new') }}
       </button>
     </div>
 
-    <div v-if="loading" class="text-sm text-gray-500 text-center py-6">
+    <div v-if="loading" class="text-sm text-(--text-3) text-center py-6">
       {{ t('common.loading') }}
     </div>
 
-    <div v-else-if="!groupedTemplates.length" class="text-sm text-gray-500 text-center py-8 italic">
+    <div v-else-if="!groupedTemplates.length" class="text-sm text-(--text-3) text-center py-8 italic">
       {{ t('alert_matrix.templates.empty') }}
     </div>
 
     <div v-else class="space-y-6">
       <div v-for="group in groupedTemplates" :key="group.check_type">
-        <h3 class="text-xs font-mono uppercase tracking-wide text-gray-500 mb-2">{{ group.check_type }}</h3>
+        <h3 class="text-xs font-mono uppercase tracking-wide text-(--text-3) mb-2">{{ group.check_type }}</h3>
         <div class="space-y-2">
           <div
             v-for="tpl in group.templates"
@@ -29,18 +29,18 @@
           >
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-2 mb-1">
-                <span class="text-sm font-semibold text-white">{{ tpl.name }}</span>
+                <span class="text-sm font-semibold text-(--text-1)">{{ tpl.name }}</span>
                 <span
                   v-if="tpl.is_system"
-                  class="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 border border-gray-700"
+                  class="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-(--bg-surface-2) text-(--text-2) border border-(--border)"
                 >{{ t('alert_matrix.templates.system') }}</span>
               </div>
-              <p v-if="tpl.description" class="text-xs text-gray-500 mb-2">{{ tpl.description }}</p>
+              <p v-if="tpl.description" class="text-xs text-(--text-3) mb-2">{{ tpl.description }}</p>
               <div class="flex flex-wrap gap-1">
                 <span
                   v-for="row in tpl.rows"
                   :key="row.condition"
-                  class="inline-block px-2 py-0.5 rounded text-[10px] font-mono bg-gray-800/80 text-gray-300 border border-gray-800"
+                  class="inline-block px-2 py-0.5 rounded text-[10px] font-mono bg-(--bg-surface-2) text-(--text-2) border border-(--border)"
                 >
                   {{ row.condition }}
                 </span>
@@ -51,7 +51,7 @@
                 v-if="!tpl.is_system"
                 type="button"
                 @click="edit(tpl)"
-                class="text-gray-500 hover:text-blue-400"
+                class="text-(--text-3) hover:text-(--accent)"
                 :title="t('common.edit')"
                 :aria-label="t('common.edit')"
               >
@@ -61,7 +61,7 @@
                 v-if="!tpl.is_system"
                 type="button"
                 @click="remove(tpl)"
-                class="text-gray-500 hover:text-red-400"
+                class="text-(--text-3) hover:text-(--down)"
                 :title="t('common.delete')"
                 :aria-label="t('common.delete')"
               >

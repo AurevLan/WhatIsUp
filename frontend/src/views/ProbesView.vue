@@ -2,8 +2,8 @@
   <div class="page-body">
     <div class="flex items-center justify-between mb-8">
       <div>
-        <h1 class="text-2xl font-bold text-white">{{ t('probes.title') }}</h1>
-        <p class="text-gray-400 mt-1">{{ t('probes.subtitle') }}</p>
+        <h1 class="font-display text-2xl font-bold text-(--text-1)">{{ t('probes.title') }}</h1>
+        <p class="text-(--text-2) mt-1">{{ t('probes.subtitle') }}</p>
       </div>
       <button v-if="auth.isSuperadmin" @click="showRegister = true" class="btn-primary">
         + {{ t('probes.add') }}
@@ -11,19 +11,19 @@
     </div>
 
     <!-- Error banner -->
-    <div v-if="errorMsg" class="mb-4 px-4 py-3 rounded-lg bg-red-900/50 border border-red-700 text-red-300 text-sm">
+    <div v-if="errorMsg" class="mb-4 px-4 py-3 rounded-lg bg-[color-mix(in_srgb,var(--down)_15%,transparent)] border border-[color-mix(in_srgb,var(--down)_35%,transparent)] text-(--down) text-sm">
       {{ errorMsg }}
     </div>
 
     <!-- Tabs -->
-    <div class="flex gap-1 mb-6 border-b border-gray-800">
+    <div class="flex gap-1 mb-6 border-b border-(--border)">
       <button
         v-for="tab in tabs" :key="tab.key"
         @click="activeTab = tab.key"
         class="px-4 py-2 text-sm font-medium transition-colors"
         :class="activeTab === tab.key
-          ? 'text-blue-400 border-b-2 border-blue-400 -mb-px'
-          : 'text-gray-500 hover:text-gray-300'"
+          ? 'text-(--accent) border-b-2 border-(--accent-border) -mb-px'
+          : 'text-(--text-3) hover:text-(--text-1)'"
       >
         {{ tab.label }}
       </button>
@@ -52,51 +52,51 @@
         <div v-for="(probe, idx) in probes" :key="probe.id"
           class="card stagger-item"
           :style="{ animationDelay: idx * 40 + 'ms' }"
-          :class="!probe.is_active ? 'opacity-60 border border-gray-700' : ''">
+          :class="!probe.is_active ? 'opacity-60 border border-(--border)' : ''">
           <div class="flex items-start justify-between">
             <div>
               <div class="flex items-center gap-2 flex-wrap">
                 <span class="w-2 h-2 rounded-full"
                   :class="probeStatusClass(probe)"></span>
-                <h2 class="font-semibold text-white">{{ probe.name }}</h2>
+                <h2 class="font-semibold text-(--text-1)">{{ probe.name }}</h2>
                 <span v-if="!probe.is_active"
-                  class="text-xs px-1.5 py-0.5 rounded bg-gray-700 text-gray-400">
+                  class="text-xs px-1.5 py-0.5 rounded bg-(--bg-surface-2) text-(--text-2)">
                   {{ t('probes.inactive') }}
                 </span>
                 <span :class="probe.network_type === 'internal'
-                  ? 'bg-purple-500/15 text-purple-400 border-purple-500/30'
-                  : 'bg-blue-500/15 text-blue-400 border-blue-500/30'"
+                  ? 'bg-(--accent-glow) text-(--accent) border-(--accent-border)'
+                  : 'bg-(--accent-glow) text-(--accent) border-(--accent-border)'"
                   class="text-xs px-2 py-0.5 rounded-full border">
                   {{ probe.network_type === 'internal' ? '🏢 ' + t('probes.network_internal_badge') : '🌐 ' + t('probes.network_external_badge') }}
                 </span>
                 <span v-if="probe.version && !isOutdated(probe)"
-                  class="text-xs px-2 py-0.5 rounded-full border bg-gray-800 text-gray-400 border-gray-700">
+                  class="text-xs px-2 py-0.5 rounded-full border bg-(--bg-surface-2) text-(--text-2) border-(--border)">
                   v{{ probe.version }}
                 </span>
                 <span v-else-if="probe.version && isOutdated(probe)"
-                  class="text-xs px-2 py-0.5 rounded-full border bg-amber-500/15 text-amber-400 border-amber-500/30"
+                  class="text-xs px-2 py-0.5 rounded-full border bg-[color-mix(in_srgb,var(--warn)_15%,transparent)] text-(--warn) border-[color-mix(in_srgb,var(--warn)_35%,transparent)]"
                   :title="t('probes.version_outdated_tooltip', { probe: probe.version, server: serverVersion })">
                   ⚠️ v{{ probe.version }} — {{ t('probes.version_outdated') }}
                 </span>
                 <span v-else-if="probe.last_seen_at"
-                  class="text-xs px-2 py-0.5 rounded-full border bg-amber-500/15 text-amber-400 border-amber-500/30"
+                  class="text-xs px-2 py-0.5 rounded-full border bg-[color-mix(in_srgb,var(--warn)_15%,transparent)] text-(--warn) border-[color-mix(in_srgb,var(--warn)_35%,transparent)]"
                   :title="t('probes.version_unknown_tooltip')">
                   ⚠️ {{ t('probes.version_unknown') }}
                 </span>
               </div>
-              <p class="text-sm text-gray-400 mt-1">{{ probe.location_name }}</p>
+              <p class="text-sm text-(--text-2) mt-1">{{ probe.location_name }}</p>
             </div>
             <span class="text-xs px-2 py-1 rounded-full"
               :class="!probe.is_active
-                ? 'bg-gray-800 text-gray-500'
+                ? 'bg-(--bg-surface-2) text-(--text-3)'
                 : isOnline(probe)
-                  ? 'bg-emerald-900/50 text-emerald-400'
-                  : 'bg-red-900/50 text-red-400'">
+                  ? 'bg-[color-mix(in_srgb,var(--up)_15%,transparent)] text-(--up)'
+                  : 'bg-[color-mix(in_srgb,var(--down)_15%,transparent)] text-(--down)'">
               {{ !probe.is_active ? t('probes.inactive') : isOnline(probe) ? t('probes.online') : t('probes.offline') }}
             </span>
           </div>
 
-          <div class="mt-4 space-y-1 text-xs text-gray-500">
+          <div class="mt-4 space-y-1 text-xs text-(--text-3)">
             <div v-if="probe.latitude && probe.longitude">
               📍 {{ probe.latitude.toFixed(4) }}, {{ probe.longitude.toFixed(4) }}
             </div>
@@ -106,58 +106,58 @@
           </div>
 
           <!-- Health metrics (superadmin, probe online with recent health data) -->
-          <div v-if="probe.health && isOnline(probe)" class="mt-3 pt-3 border-t border-gray-800/60">
-            <p class="text-xs font-medium text-gray-500 mb-2">{{ t('probes.health_title') }}</p>
+          <div v-if="probe.health && isOnline(probe)" class="mt-3 pt-3 border-t border-(--border)">
+            <p class="text-xs font-medium text-(--text-3) mb-2">{{ t('probes.health_title') }}</p>
             <div class="space-y-1.5">
               <div v-for="metric in [
                 { label: 'CPU', value: probe.health.cpu_percent },
                 { label: 'RAM', value: probe.health.ram_percent },
                 { label: 'Disk', value: probe.health.disk_percent },
               ]" :key="metric.label" class="flex items-center gap-2">
-                <span class="text-xs text-gray-500 w-10 shrink-0">{{ metric.label }}</span>
-                <div class="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                <span class="text-xs text-(--text-3) w-10 shrink-0">{{ metric.label }}</span>
+                <div class="flex-1 h-1.5 bg-(--bg-surface-2) rounded-full overflow-hidden">
                   <div class="h-full rounded-full transition-all"
                     :class="healthBarColor(metric.value)"
                     :style="{ width: (metric.value ?? 0) + '%' }"></div>
                 </div>
-                <span class="text-xs text-gray-400 w-8 text-right shrink-0">
+                <span class="text-xs text-(--text-2) w-8 text-right shrink-0">
                   {{ metric.value != null ? metric.value.toFixed(0) + '%' : '—' }}
                 </span>
               </div>
               <div class="flex justify-between items-center pt-0.5">
-                <span class="text-xs text-gray-500">{{ t('probes.health_monitors') }}</span>
-                <span class="text-xs text-gray-300">
+                <span class="text-xs text-(--text-3)">{{ t('probes.health_monitors') }}</span>
+                <span class="text-xs text-(--text-2)">
                   {{ probe.health.monitors_active }}
-                  <span class="text-gray-500">({{ probe.health.checks_running }} {{ t('probes.health_running') }})</span>
+                  <span class="text-(--text-3)">({{ probe.health.checks_running }} {{ t('probes.health_running') }})</span>
                 </span>
               </div>
               <div v-if="probe.health.load_avg_1m != null" class="flex justify-between items-center">
-                <span class="text-xs text-gray-500">{{ t('probes.health_load') }} 1m</span>
-                <span class="text-xs" :class="probe.health.load_avg_1m > 2 ? 'text-amber-400' : 'text-gray-400'">
+                <span class="text-xs text-(--text-3)">{{ t('probes.health_load') }} 1m</span>
+                <span class="text-xs" :class="probe.health.load_avg_1m > 2 ? 'text-(--warn)' : 'text-(--text-2)'">
                   {{ probe.health.load_avg_1m.toFixed(2) }}
                 </span>
               </div>
             </div>
           </div>
 
-          <div v-if="auth.isSuperadmin" class="mt-4 pt-4 border-t border-gray-800 flex gap-4">
+          <div v-if="auth.isSuperadmin" class="mt-4 pt-4 border-t border-(--border) flex gap-4">
             <router-link
               :to="`/probes/${probe.id}/timeline`"
-              class="text-xs text-purple-400 hover:text-purple-300"
+              class="text-xs text-(--accent) hover:text-(--accent)"
             >📊 {{ t('probeTimeline.title') }}</router-link>
-            <button @click="startEdit(probe)" class="text-xs text-blue-400 hover:text-blue-300">
+            <button @click="startEdit(probe)" class="text-xs text-(--accent) hover:text-(--accent)">
               ✏️ {{ t('common.edit') }}
             </button>
             <button v-if="probe.is_active" @click="toggleActive(probe, false)"
-              class="text-xs text-amber-400 hover:text-amber-300">
+              class="text-xs text-(--warn) hover:text-(--warn)">
               {{ t('probes.disable') }}
             </button>
             <button v-else @click="toggleActive(probe, true)"
-              class="text-xs text-emerald-400 hover:text-emerald-300">
+              class="text-xs text-(--up) hover:text-(--up)">
               {{ t('probes.enable') }}
             </button>
             <button @click="removeProbe(probe)"
-              class="text-xs text-red-400 hover:text-red-300 ml-auto">
+              class="text-xs text-(--down) hover:text-(--down) ml-auto">
               {{ t('probes.delete') }}
             </button>
           </div>
@@ -183,16 +183,16 @@
 
       <!-- Probes sans coordonnées -->
       <div v-if="probesWithoutCoords.length" class="mt-6">
-        <h2 class="text-sm font-semibold text-gray-400 mb-3">{{ t('probes.no_coordinates') }}</h2>
+        <h2 class="text-sm font-semibold text-(--text-2) mb-3">{{ t('probes.no_coordinates') }}</h2>
         <div class="space-y-2">
           <div v-for="p in probesWithoutCoords" :key="p.id"
-            class="flex items-center gap-3 text-sm text-gray-300">
-            <span class="w-2 h-2 rounded-full" :class="isOnline(p) ? 'bg-emerald-400' : 'bg-red-500'"></span>
+            class="flex items-center gap-3 text-sm text-(--text-2)">
+            <span class="w-2 h-2 rounded-full" :class="isOnline(p) ? 'bg-(--up)' : 'bg-(--down)'"></span>
             <span class="font-medium">{{ p.name }}</span>
-            <span class="text-gray-500">{{ p.location_name }}</span>
+            <span class="text-(--text-3)">{{ p.location_name }}</span>
             <span :class="p.network_type === 'internal'
-              ? 'bg-purple-500/15 text-purple-400 border-purple-500/30'
-              : 'bg-blue-500/15 text-blue-400 border-blue-500/30'"
+              ? 'bg-(--accent-glow) text-(--accent) border-(--accent-border)'
+              : 'bg-(--accent-glow) text-(--accent) border-(--accent-border)'"
               class="text-xs px-2 py-0.5 rounded-full border">
               {{ p.network_type === 'internal' ? '🏢 ' + t('probes.network_internal_badge') : '🌐 ' + t('probes.network_external_badge') }}
             </span>
@@ -211,12 +211,12 @@
     <!-- Show API key once -->
     <BaseModal :model-value="!!newApiKey" @close="newApiKey = null">
       <template #header>
-        <h2 class="text-lg font-semibold text-amber-400">⚠️ {{ t('probes.api_key_warning') }}</h2>
+        <h2 class="text-lg font-semibold text-(--warn)">⚠️ {{ t('probes.api_key_warning') }}</h2>
       </template>
-      <p class="text-sm text-gray-300 mb-4">
+      <p class="text-sm text-(--text-2) mb-4">
         {{ t('probes.api_key_copy_hint') }}
       </p>
-      <div class="bg-gray-800 rounded-lg p-3 font-mono text-sm text-white break-all">
+      <div class="bg-(--bg-surface-2) rounded-lg p-3 font-mono text-sm text-(--text-1) break-all">
         {{ newApiKey }}
       </div>
       <template #footer>
@@ -287,15 +287,15 @@ function isOnline(probe) {
 }
 
 function probeStatusClass(probe) {
-  if (!probe.is_active) return 'bg-gray-500'
-  return isOnline(probe) ? 'bg-emerald-400' : 'bg-red-500'
+  if (!probe.is_active) return 'bg-(--text-3)'
+  return isOnline(probe) ? 'bg-(--up)' : 'bg-(--down)'
 }
 
 function healthBarColor(pct) {
-  if (pct == null) return 'bg-gray-600'
-  if (pct < 60) return 'bg-emerald-500'
-  if (pct < 80) return 'bg-amber-500'
-  return 'bg-red-500'
+  if (pct == null) return 'bg-(--bg-surface-3)'
+  if (pct < 60) return 'bg-(--up)'
+  if (pct < 80) return 'bg-(--warn)'
+  return 'bg-(--down)'
 }
 
 // ── data ─────────────────────────────────────────────────────────────────────

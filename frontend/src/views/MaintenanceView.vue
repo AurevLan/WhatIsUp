@@ -3,14 +3,14 @@
     <!-- Header -->
     <div class="flex items-center justify-between mb-8">
       <div>
-        <h1 class="text-2xl font-bold text-white">{{ t('maintenance.title') }}</h1>
-        <p class="text-gray-400 mt-1">{{ t('maintenance.subtitle') }}</p>
+        <h1 class="font-display text-2xl font-bold text-(--text-1)">{{ t('maintenance.title') }}</h1>
+        <p class="text-(--text-2) mt-1">{{ t('maintenance.subtitle') }}</p>
       </div>
       <div class="flex items-center gap-2">
         <button
           @click="calendarView = !calendarView"
           class="btn-secondary text-xs flex items-center gap-1.5"
-          :class="calendarView ? 'ring-1 ring-blue-500/60' : ''"
+          :class="calendarView ? 'ring-1 ring-(color:--accent-border)' : ''"
         >
           <CalendarDays :size="14" />
           {{ t('maintenance.calendar_view') }}
@@ -23,7 +23,7 @@
     </div>
 
     <!-- Error banner -->
-    <div v-if="errorMsg" class="mb-4 px-4 py-3 rounded-lg bg-red-900/50 border border-red-700 text-red-300 text-sm">
+    <div v-if="errorMsg" class="mb-4 px-4 py-3 rounded-lg bg-[color-mix(in_srgb,var(--down)_15%,transparent)] border border-[color-mix(in_srgb,var(--down)_35%,transparent)] text-(--down) text-sm">
       {{ errorMsg }}
     </div>
 
@@ -58,7 +58,7 @@
       <div v-else-if="calendarView" class="card mb-6">
         <div class="flex items-center justify-between mb-4">
           <button @click="prevMonth" class="btn-ghost p-1" :aria-label="t('a11y.prev_month')"><ChevronLeft :size="16" /></button>
-          <span class="font-semibold text-gray-200">{{ calendarTitle }}</span>
+          <span class="font-semibold text-(--text-1)">{{ calendarTitle }}</span>
           <button @click="nextMonth" class="btn-ghost p-1" :aria-label="t('a11y.next_month')"><ChevronRight :size="16" /></button>
         </div>
 
@@ -66,7 +66,7 @@
         <div class="grid grid-cols-7 gap-1 mb-1">
           <div
             v-for="d in weekDays" :key="d"
-            class="text-center text-[10px] font-medium text-gray-500 py-1"
+            class="text-center text-[10px] font-medium text-(--text-3) py-1"
           >{{ d }}</div>
         </div>
 
@@ -76,12 +76,12 @@
             v-for="(cell, i) in calendarCells" :key="i"
             class="min-h-[72px] rounded-lg p-1.5 text-xs"
             :class="cell.currentMonth
-              ? 'bg-gray-800/40 border border-gray-800'
+              ? 'bg-(--bg-surface-2) border border-(--border)'
               : 'bg-transparent border border-transparent opacity-40'"
           >
             <div
               class="font-mono text-[10px] mb-1"
-              :class="cell.isToday ? 'text-blue-400 font-bold' : 'text-gray-500'"
+              :class="cell.isToday ? 'text-(--accent) font-bold' : 'text-(--text-3)'"
             >{{ cell.day }}</div>
             <div v-for="(w, wi) in cell.windows" :key="wi" class="mb-0.5">
               <span
@@ -94,17 +94,17 @@
         </div>
 
         <!-- Legend -->
-        <div class="flex items-center gap-4 mt-3 text-[11px] text-gray-500">
+        <div class="flex items-center gap-4 mt-3 text-[11px] text-(--text-3)">
           <span class="flex items-center gap-1.5">
-            <span class="w-2.5 h-2.5 rounded bg-amber-700/70" />
+            <span class="w-2.5 h-2.5 rounded bg-[color-mix(in_srgb,var(--warn)_15%,transparent)]" />
             {{ t('maintenance.status_active') }}
           </span>
           <span class="flex items-center gap-1.5">
-            <span class="w-2.5 h-2.5 rounded bg-blue-800/70" />
+            <span class="w-2.5 h-2.5 rounded bg-(--accent-glow)" />
             {{ t('maintenance.status_scheduled') }}
           </span>
           <span class="flex items-center gap-1.5">
-            <span class="w-2.5 h-2.5 rounded bg-gray-700" />
+            <span class="w-2.5 h-2.5 rounded bg-(--bg-surface-2)" />
             {{ t('maintenance.status_completed') }}
           </span>
         </div>
@@ -114,12 +114,12 @@
       <div v-else class="space-y-3">
         <!-- Active -->
         <template v-if="activeWindows.length">
-          <h2 class="text-xs font-semibold text-amber-400/80 uppercase tracking-wider mb-1 px-1">
+          <h2 class="text-xs font-semibold text-(--warn) uppercase tracking-wider mb-1 px-1">
             {{ t('maintenance.status_active') }}
           </h2>
           <div
             v-for="(w, idx) in activeWindows" :key="w.id"
-            class="card stagger-item border-l-2 border-amber-500/50"
+            class="card stagger-item border-l-2 border-[color-mix(in_srgb,var(--warn)_35%,transparent)]"
             :style="{ animationDelay: idx * 40 + 'ms' }"
           >
             <MaintenanceWindowCard :w="w" :monitors="allMonitors" @delete="deleteWindow" @edit="openEdit" />
@@ -128,7 +128,7 @@
 
         <!-- Scheduled -->
         <template v-if="scheduledWindows.length">
-          <h2 class="text-xs font-semibold text-blue-400/80 uppercase tracking-wider mt-4 mb-1 px-1">
+          <h2 class="text-xs font-semibold text-(--accent) uppercase tracking-wider mt-4 mb-1 px-1">
             {{ t('maintenance.status_scheduled') }}
           </h2>
           <div
@@ -142,7 +142,7 @@
 
         <!-- Completed -->
         <template v-if="completedWindows.length">
-          <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mt-4 mb-1 px-1">
+          <h2 class="text-xs font-semibold text-(--text-3) uppercase tracking-wider mt-4 mb-1 px-1">
             {{ t('maintenance.status_completed') }}
           </h2>
           <div
@@ -165,7 +165,7 @@
       <div class="space-y-4">
         <!-- Name -->
         <div>
-          <label class="text-sm text-gray-400">{{ t('common.name') }} <span class="text-red-400">*</span></label>
+          <label class="text-sm text-(--text-2)">{{ t('common.name') }} <span class="text-(--down)">*</span></label>
           <input
             v-model="form.name"
             class="input w-full mt-1"
@@ -175,9 +175,9 @@
 
         <!-- Description -->
         <div>
-          <label class="text-sm text-gray-400">
+          <label class="text-sm text-(--text-2)">
             {{ t('maintenance.description_label') }}
-            <span class="text-gray-600">({{ t('common.optional') }})</span>
+            <span class="text-(--text-3)">({{ t('common.optional') }})</span>
           </label>
           <textarea
             v-model="form.description"
@@ -190,20 +190,20 @@
         <!-- Start / End pickers -->
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="text-sm text-gray-400">{{ t('maintenance.starts') }} <span class="text-red-400">*</span></label>
+            <label class="text-sm text-(--text-2)">{{ t('maintenance.starts') }} <span class="text-(--down)">*</span></label>
             <input v-model="form.starts_at" type="datetime-local" class="input w-full mt-1" />
           </div>
           <div>
-            <label class="text-sm text-gray-400">{{ t('maintenance.ends') }} <span class="text-red-400">*</span></label>
+            <label class="text-sm text-(--text-2)">{{ t('maintenance.ends') }} <span class="text-(--down)">*</span></label>
             <input v-model="form.ends_at" type="datetime-local" class="input w-full mt-1" />
           </div>
         </div>
 
         <!-- Monitor selector -->
         <div>
-          <label class="text-sm text-gray-400">
+          <label class="text-sm text-(--text-2)">
             {{ t('maintenance.monitor_label') }}
-            <span class="text-gray-600">({{ t('common.optional') }})</span>
+            <span class="text-(--text-3)">({{ t('common.optional') }})</span>
           </label>
           <div class="relative mt-1">
             <button
@@ -211,9 +211,9 @@
               @click="showMonitorDropdown = !showMonitorDropdown"
               class="input w-full text-left flex items-center justify-between cursor-pointer"
             >
-              <span v-if="selectedMonitorObj" class="text-gray-200 truncate">{{ selectedMonitorObj.name }}</span>
-              <span v-else class="text-gray-500">{{ t('maintenance.monitor_placeholder') }}</span>
-              <ChevronDown :size="14" class="text-gray-500 shrink-0 ml-2" />
+              <span v-if="selectedMonitorObj" class="text-(--text-1) truncate">{{ selectedMonitorObj.name }}</span>
+              <span v-else class="text-(--text-3)">{{ t('maintenance.monitor_placeholder') }}</span>
+              <ChevronDown :size="14" class="text-(--text-3) shrink-0 ml-2" />
             </button>
             <!-- Invisible backdrop to close dropdown on outside click -->
             <div
@@ -223,12 +223,12 @@
             />
             <div
               v-if="showMonitorDropdown"
-              class="absolute z-20 mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-52 overflow-y-auto"
+              class="absolute z-20 mt-1 w-full bg-(--bg-surface-2) border border-(--border) rounded-lg shadow-xl max-h-52 overflow-y-auto"
             >
               <button
                 type="button"
                 @click="form.monitor_id = null; showMonitorDropdown = false"
-                class="w-full text-left px-3 py-2 text-sm text-gray-400 hover:bg-gray-700"
+                class="w-full text-left px-3 py-2 text-sm text-(--text-2) hover:bg-(--bg-surface-3)"
               >
                 — {{ t('maintenance.monitor_none') }}
               </button>
@@ -236,15 +236,15 @@
                 v-for="m in allMonitors" :key="m.id"
                 type="button"
                 @click="form.monitor_id = m.id; showMonitorDropdown = false"
-                class="w-full text-left px-3 py-2 text-sm flex items-center gap-2 hover:bg-gray-700"
-                :class="form.monitor_id === m.id ? 'text-blue-400' : 'text-gray-300'"
+                class="w-full text-left px-3 py-2 text-sm flex items-center gap-2 hover:bg-(--bg-surface-3)"
+                :class="form.monitor_id === m.id ? 'text-(--accent)' : 'text-(--text-2)'"
               >
                 <span
                   class="w-1.5 h-1.5 rounded-full shrink-0"
-                  :class="m.last_status === 'up' ? 'bg-emerald-400' : m.last_status === 'down' ? 'bg-red-500' : 'bg-gray-500'"
+                  :class="m.last_status === 'up' ? 'bg-(--up)' : m.last_status === 'down' ? 'bg-(--down)' : 'bg-(--text-3)'"
                 />
                 <span class="truncate flex-1">{{ m.name }}</span>
-                <span class="ml-auto text-xs text-gray-600 shrink-0 uppercase">{{ m.check_type }}</span>
+                <span class="ml-auto text-xs text-(--text-3) shrink-0 uppercase">{{ m.check_type }}</span>
               </button>
             </div>
           </div>
@@ -257,7 +257,7 @@
             @click="form.suppress_alerts = !form.suppress_alerts"
             :aria-label="t('maintenance.suppress_alerts_label')"
             class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200"
-            :class="form.suppress_alerts ? 'bg-blue-600' : 'bg-gray-700'"
+            :class="form.suppress_alerts ? 'bg-(--accent)' : 'bg-(--bg-surface-3)'"
           >
             <span
               class="inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform duration-200"
@@ -265,7 +265,7 @@
             />
           </button>
           <span
-            class="text-sm text-gray-300 cursor-pointer select-none"
+            class="text-sm text-(--text-2) cursor-pointer select-none"
             @click="form.suppress_alerts = !form.suppress_alerts"
           >
             {{ t('maintenance.suppress_alerts_label') }}
@@ -342,9 +342,9 @@ function windowStatus(w) {
 function calendarWindowClass(w) {
   const s = windowStatus(w)
   return {
-    active:    'bg-amber-700/60 text-amber-100',
-    scheduled: 'bg-blue-800/60 text-blue-100',
-    completed: 'bg-gray-700/60 text-gray-300',
+    active:    'bg-[color-mix(in_srgb,var(--warn)_15%,transparent)] text-(--warn)',
+    scheduled: 'bg-(--accent-glow) text-(--accent)',
+    completed: 'bg-(--bg-surface-2) text-(--text-2)',
   }[s]
 }
 

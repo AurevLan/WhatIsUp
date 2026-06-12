@@ -7,14 +7,14 @@
   >
         <form @submit.prevent="submitCreateGroup" class="space-y-4">
           <div>
-            <label class="block text-sm text-gray-400 mb-1">{{ t('admin.label_group_name') }}</label>
+            <label class="block text-sm text-(--text-2) mb-1">{{ t('admin.label_group_name') }}</label>
             <input v-model="groupForm.name" type="text" class="input w-full" required maxlength="255" />
           </div>
           <div>
-            <label class="block text-sm text-gray-400 mb-1">{{ t('admin.label_description') }}</label>
+            <label class="block text-sm text-(--text-2) mb-1">{{ t('admin.label_description') }}</label>
             <input v-model="groupForm.description" type="text" class="input w-full" />
           </div>
-          <div v-if="groupError" class="text-red-400 text-sm">{{ groupError }}</div>
+          <div v-if="groupError" class="text-(--down) text-sm">{{ groupError }}</div>
           <div class="flex justify-end gap-3 pt-2">
             <button type="button" @click="close" class="btn-secondary">{{ t('common.cancel') }}</button>
             <button type="submit" class="btn-primary" :disabled="submitting">{{ submitting ? t('admin.creating') : t('admin.create_btn') }}</button>
@@ -30,14 +30,14 @@
   >
         <form @submit.prevent="submitEditGroup" class="space-y-4">
           <div>
-            <label class="block text-sm text-gray-400 mb-1">{{ t('common.name') }}</label>
+            <label class="block text-sm text-(--text-2) mb-1">{{ t('common.name') }}</label>
             <input v-model="groupForm.name" type="text" class="input w-full" maxlength="255" />
           </div>
           <div>
-            <label class="block text-sm text-gray-400 mb-1">{{ t('admin.label_description') }}</label>
+            <label class="block text-sm text-(--text-2) mb-1">{{ t('admin.label_description') }}</label>
             <input v-model="groupForm.description" type="text" class="input w-full" />
           </div>
-          <div v-if="groupError" class="text-red-400 text-sm">{{ groupError }}</div>
+          <div v-if="groupError" class="text-(--down) text-sm">{{ groupError }}</div>
           <div class="flex justify-end gap-3 pt-2">
             <button type="button" @click="close" class="btn-secondary">{{ t('common.cancel') }}</button>
             <button type="submit" class="btn-primary" :disabled="submitting">{{ submitting ? t('admin.saving') : t('admin.save_btn') }}</button>

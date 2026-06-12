@@ -4,20 +4,20 @@
     <!-- Header -->
     <div class="flex items-start justify-between mb-8">
       <div>
-        <h1 class="text-2xl font-bold text-white">{{ t('admin.title') }}</h1>
-        <p class="text-gray-500 mt-1 text-sm">{{ t('admin.subtitle') }}</p>
+        <h1 class="font-display text-2xl font-bold text-(--text-1)">{{ t('admin.title') }}</h1>
+        <p class="text-(--text-3) mt-1 text-sm">{{ t('admin.subtitle') }}</p>
       </div>
     </div>
 
     <!-- Tabs -->
-    <div class="flex gap-1 mb-6 bg-gray-800/60 p-1 rounded-xl border border-gray-700/50 w-fit">
+    <div class="flex gap-1 mb-6 bg-(--bg-surface-2) p-1 rounded-xl border border-(--border) w-fit">
       <button
         v-for="tab in tabs"
         :key="tab.id"
         @click="activeTab = tab.id"
         :class="activeTab === tab.id
-          ? 'bg-gray-700 text-white shadow-sm'
-          : 'text-gray-500 hover:text-gray-300'"
+          ? 'bg-(--bg-surface-2) text-(--text-1) shadow-sm'
+          : 'text-(--text-3) hover:text-(--text-1)'"
         class="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
       >
         {{ tab.label }}
@@ -27,7 +27,7 @@
     <!-- ===== USERS TAB ===== -->
     <div v-if="activeTab === 'users'">
       <div class="flex justify-between items-center mb-4">
-        <span class="text-sm text-gray-500">{{ t('admin.user_count', { n: users.length }) }}</span>
+        <span class="text-sm text-(--text-3)">{{ t('admin.user_count', { n: users.length }) }}</span>
         <button @click="openCreateModal" class="btn-primary flex items-center gap-2">
           <UserPlus class="w-4 h-4" /> {{ t('admin.add_user') }}
         </button>
@@ -36,58 +36,58 @@
       <div class="card overflow-hidden">
         <table class="w-full text-sm">
           <thead>
-            <tr class="border-b border-gray-800">
-              <th class="text-left px-4 py-3 text-gray-400 font-medium">{{ t('admin.col_user') }}</th>
-              <th class="text-left px-4 py-3 text-gray-400 font-medium">{{ t('admin.col_email') }}</th>
-              <th class="text-left px-4 py-3 text-gray-400 font-medium">{{ t('admin.col_status') }}</th>
-              <th class="text-left px-4 py-3 text-gray-400 font-medium">{{ t('admin.col_permissions') }}</th>
-              <th class="text-left px-4 py-3 text-gray-400 font-medium">{{ t('admin.col_teams') }}</th>
-              <th class="text-right px-4 py-3 text-gray-400 font-medium">{{ t('admin.col_monitors') }}</th>
-              <th class="text-right px-4 py-3 text-gray-400 font-medium">{{ t('admin.col_actions') }}</th>
+            <tr class="border-b border-(--border)">
+              <th class="text-left px-4 py-3 text-(--text-2) font-medium">{{ t('admin.col_user') }}</th>
+              <th class="text-left px-4 py-3 text-(--text-2) font-medium">{{ t('admin.col_email') }}</th>
+              <th class="text-left px-4 py-3 text-(--text-2) font-medium">{{ t('admin.col_status') }}</th>
+              <th class="text-left px-4 py-3 text-(--text-2) font-medium">{{ t('admin.col_permissions') }}</th>
+              <th class="text-left px-4 py-3 text-(--text-2) font-medium">{{ t('admin.col_teams') }}</th>
+              <th class="text-right px-4 py-3 text-(--text-2) font-medium">{{ t('admin.col_monitors') }}</th>
+              <th class="text-right px-4 py-3 text-(--text-2) font-medium">{{ t('admin.col_actions') }}</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="loadingUsers">
-              <td colspan="7" class="text-center py-8 text-gray-600">{{ t('admin.loading') }}</td>
+              <td colspan="7" class="text-center py-8 text-(--text-3)">{{ t('admin.loading') }}</td>
             </tr>
             <tr v-else-if="users.length === 0">
-              <td colspan="7" class="text-center py-8 text-gray-600">{{ t('admin.no_users') }}</td>
+              <td colspan="7" class="text-center py-8 text-(--text-3)">{{ t('admin.no_users') }}</td>
             </tr>
             <tr
               v-else
               v-for="user in users"
               :key="user.id"
-              class="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors"
+              class="border-b border-(--border) hover:bg-(--bg-surface-2) transition-colors"
             >
               <!-- Avatar + username -->
               <td class="px-4 py-3">
                 <div class="flex items-center gap-3">
-                  <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                  <div class="w-8 h-8 rounded-full [background:var(--brand-gradient)] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                     {{ user.username[0]?.toUpperCase() }}
                   </div>
                   <div>
-                    <div class="text-white font-medium">{{ user.username }}</div>
-                    <div v-if="user.full_name" class="text-gray-500 text-xs">{{ user.full_name }}</div>
+                    <div class="text-(--text-1) font-medium">{{ user.username }}</div>
+                    <div v-if="user.full_name" class="text-(--text-3) text-xs">{{ user.full_name }}</div>
                   </div>
                 </div>
               </td>
               <!-- Email -->
-              <td class="px-4 py-3 text-gray-400">{{ user.email }}</td>
+              <td class="px-4 py-3 text-(--text-2)">{{ user.email }}</td>
               <!-- Statut -->
               <td class="px-4 py-3">
                 <span
-                  :class="user.is_active ? 'bg-green-900/40 text-green-400 border-green-800' : 'bg-gray-800 text-gray-500 border-gray-700'"
+                  :class="user.is_active ? 'bg-[color-mix(in_srgb,var(--up)_15%,transparent)] text-(--up) border-[color-mix(in_srgb,var(--up)_35%,transparent)]' : 'bg-(--bg-surface-2) text-(--text-3) border-(--border)'"
                   class="px-2 py-0.5 rounded text-xs border font-medium"
                 >{{ user.is_active ? t('admin.status_active') : t('admin.status_inactive') }}</span>
-                <span v-if="user.is_superadmin" class="ml-1 px-2 py-0.5 rounded text-xs border bg-purple-900/40 text-purple-400 border-purple-800 font-medium">Admin</span>
+                <span v-if="user.is_superadmin" class="ml-1 px-2 py-0.5 rounded text-xs border bg-(--accent-glow) text-(--accent) border-(--accent-border) font-medium">Admin</span>
               </td>
               <!-- Permissions -->
               <td class="px-4 py-3">
                 <span
                   v-if="user.can_create_monitors"
-                  class="px-2 py-0.5 rounded text-xs border bg-blue-900/40 text-blue-400 border-blue-800 font-medium"
+                  class="px-2 py-0.5 rounded text-xs border bg-(--accent-glow) text-(--accent) border-(--accent-border) font-medium"
                 >{{ t('admin.can_create_monitors') }}</span>
-                <span v-else class="text-gray-600 text-xs">--</span>
+                <span v-else class="text-(--text-3) text-xs">--</span>
               </td>
               <!-- Teams -->
               <td class="px-4 py-3">
@@ -95,19 +95,19 @@
                   <span
                     v-for="tm in userTeamMap[user.id] || []"
                     :key="tm.team_id"
-                    class="px-2 py-0.5 rounded text-xs border bg-gray-800 text-gray-300 border-gray-700 font-medium"
-                  >{{ tm.team_name }} <span class="text-gray-500">{{ tm.role }}</span></span>
-                  <span v-if="!(userTeamMap[user.id] || []).length" class="text-gray-600 text-xs">--</span>
+                    class="px-2 py-0.5 rounded text-xs border bg-(--bg-surface-2) text-(--text-2) border-(--border) font-medium"
+                  >{{ tm.team_name }} <span class="text-(--text-3)">{{ tm.role }}</span></span>
+                  <span v-if="!(userTeamMap[user.id] || []).length" class="text-(--text-3) text-xs">--</span>
                 </div>
               </td>
               <!-- Monitor count -->
-              <td class="px-4 py-3 text-right text-gray-400">{{ user.monitor_count }}</td>
+              <td class="px-4 py-3 text-right text-(--text-2)">{{ user.monitor_count }}</td>
               <!-- Actions -->
               <td class="px-4 py-3">
                 <div class="flex justify-end gap-2">
                   <button
                     @click="openEditModal(user)"
-                    class="p-1.5 text-gray-500 hover:text-blue-400 transition-colors rounded"
+                    class="p-1.5 text-(--text-3) hover:text-(--accent) transition-colors rounded"
                     :title="t('common.edit')"
                     :aria-label="t('common.edit')"
                   >
@@ -116,7 +116,7 @@
                   <button
                     v-if="!user.is_superadmin"
                     @click="confirmDelete(user)"
-                    class="p-1.5 text-gray-500 hover:text-red-400 transition-colors rounded"
+                    class="p-1.5 text-(--text-3) hover:text-(--down) transition-colors rounded"
                     :title="t('common.delete')"
                     :aria-label="t('common.delete')"
                   >
@@ -133,30 +133,30 @@
     <!-- ===== TEAMS TAB ===== -->
     <div v-if="activeTab === 'teams'">
       <div class="flex justify-between items-center mb-4">
-        <span class="text-sm text-gray-500">{{ t('admin.team_count', { n: teams.length }) }}</span>
+        <span class="text-sm text-(--text-3)">{{ t('admin.team_count', { n: teams.length }) }}</span>
         <button @click="showCreateTeamModal = true" class="btn-primary flex items-center gap-2">
           <Plus class="w-4 h-4" /> {{ t('admin.create_team') }}
         </button>
       </div>
 
-      <div v-if="loadingTeams" class="text-center py-8 text-gray-600">{{ t('admin.loading') }}</div>
+      <div v-if="loadingTeams" class="text-center py-8 text-(--text-3)">{{ t('admin.loading') }}</div>
       <div v-else-if="teams.length === 0" class="text-center py-16">
-        <Users class="w-12 h-12 text-gray-700 mx-auto mb-3" />
-        <p class="text-gray-500">{{ t('admin.no_teams') }}</p>
+        <Users class="w-12 h-12 text-(--text-3) mx-auto mb-3" />
+        <p class="text-(--text-3)">{{ t('admin.no_teams') }}</p>
       </div>
 
       <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div
           v-for="team in teams"
           :key="team.id"
-          class="card cursor-pointer hover:border-gray-600 transition-colors"
+          class="card cursor-pointer hover:border-(--border-hover) transition-colors"
           @click="openTeamDetail(team)"
         >
           <div class="flex items-center justify-between mb-3">
-            <h2 class="text-white font-semibold text-lg">{{ team.name }}</h2>
-            <span class="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded font-mono">{{ team.slug }}</span>
+            <h2 class="text-(--text-1) font-semibold text-lg">{{ team.name }}</h2>
+            <span class="text-xs text-(--text-3) bg-(--bg-surface-2) px-2 py-0.5 rounded font-mono">{{ team.slug }}</span>
           </div>
-          <div class="flex items-center gap-2 text-sm text-gray-400">
+          <div class="flex items-center gap-2 text-sm text-(--text-2)">
             <Users class="w-4 h-4" />
             <span>{{ team.member_count }} {{ team.member_count === 1 ? t('admin.member_singular') : t('admin.member_plural') }}</span>
           </div>
@@ -167,49 +167,49 @@
     <!-- ===== MONITORS TAB ===== -->
     <div v-if="activeTab === 'monitors'">
       <div class="mb-4">
-        <span class="text-sm text-gray-500">{{ t('admin.monitor_count', { n: allMonitors.length }) }}</span>
+        <span class="text-sm text-(--text-3)">{{ t('admin.monitor_count', { n: allMonitors.length }) }}</span>
       </div>
 
       <div class="card overflow-hidden">
         <table class="w-full text-sm">
           <thead>
-            <tr class="border-b border-gray-800">
-              <th class="text-left px-4 py-3 text-gray-400 font-medium">{{ t('admin.col_owner') }}</th>
-              <th class="text-left px-4 py-3 text-gray-400 font-medium">{{ t('admin.col_name') }}</th>
-              <th class="text-left px-4 py-3 text-gray-400 font-medium">{{ t('admin.col_type') }}</th>
-              <th class="text-left px-4 py-3 text-gray-400 font-medium">{{ t('admin.col_url') }}</th>
-              <th class="text-left px-4 py-3 text-gray-400 font-medium">{{ t('admin.col_status') }}</th>
+            <tr class="border-b border-(--border)">
+              <th class="text-left px-4 py-3 text-(--text-2) font-medium">{{ t('admin.col_owner') }}</th>
+              <th class="text-left px-4 py-3 text-(--text-2) font-medium">{{ t('admin.col_name') }}</th>
+              <th class="text-left px-4 py-3 text-(--text-2) font-medium">{{ t('admin.col_type') }}</th>
+              <th class="text-left px-4 py-3 text-(--text-2) font-medium">{{ t('admin.col_url') }}</th>
+              <th class="text-left px-4 py-3 text-(--text-2) font-medium">{{ t('admin.col_status') }}</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="loadingMonitors">
-              <td colspan="5" class="text-center py-8 text-gray-600">{{ t('admin.loading') }}</td>
+              <td colspan="5" class="text-center py-8 text-(--text-3)">{{ t('admin.loading') }}</td>
             </tr>
             <tr v-else-if="allMonitors.length === 0">
-              <td colspan="5" class="text-center py-8 text-gray-600">{{ t('admin.no_monitors') }}</td>
+              <td colspan="5" class="text-center py-8 text-(--text-3)">{{ t('admin.no_monitors') }}</td>
             </tr>
             <tr
               v-else
               v-for="monitor in allMonitors"
               :key="monitor.id"
-              class="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors"
+              class="border-b border-(--border) hover:bg-(--bg-surface-2) transition-colors"
             >
               <td class="px-4 py-3">
                 <div class="flex items-center gap-2">
-                  <div class="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+                  <div class="w-6 h-6 rounded-full [background:var(--brand-gradient)] flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
                     {{ monitor.owner_username[0]?.toUpperCase() }}
                   </div>
-                  <span class="text-gray-300 text-xs">{{ monitor.owner_username }}</span>
+                  <span class="text-(--text-2) text-xs">{{ monitor.owner_username }}</span>
                 </div>
               </td>
-              <td class="px-4 py-3 text-white font-medium">{{ monitor.name }}</td>
+              <td class="px-4 py-3 text-(--text-1) font-medium">{{ monitor.name }}</td>
               <td class="px-4 py-3">
-                <span class="px-2 py-0.5 rounded text-xs border bg-gray-800 text-gray-400 border-gray-700 font-mono">{{ monitor.check_type }}</span>
+                <span class="px-2 py-0.5 rounded text-xs border bg-(--bg-surface-2) text-(--text-2) border-(--border) font-mono">{{ monitor.check_type }}</span>
               </td>
-              <td class="px-4 py-3 text-gray-500 text-xs max-w-xs truncate">{{ monitor.url }}</td>
+              <td class="px-4 py-3 text-(--text-3) text-xs max-w-xs truncate">{{ monitor.url }}</td>
               <td class="px-4 py-3">
                 <span
-                  :class="monitor.enabled ? 'bg-green-900/40 text-green-400 border-green-800' : 'bg-gray-800 text-gray-500 border-gray-700'"
+                  :class="monitor.enabled ? 'bg-[color-mix(in_srgb,var(--up)_15%,transparent)] text-(--up) border-[color-mix(in_srgb,var(--up)_35%,transparent)]' : 'bg-(--bg-surface-2) text-(--text-3) border-(--border)'"
                   class="px-2 py-0.5 rounded text-xs border font-medium"
                 >{{ monitor.enabled ? t('admin.monitor_enabled') : t('admin.monitor_disabled') }}</span>
               </td>
@@ -222,14 +222,14 @@
     <!-- ===== PROBE GROUPS TAB ===== -->
     <div v-if="activeTab === 'probe-groups'">
       <div class="flex justify-between items-center mb-4">
-        <span class="text-sm text-gray-500">{{ t('admin.group_count', { n: probeGroups.length }) }}</span>
+        <span class="text-sm text-(--text-3)">{{ t('admin.group_count', { n: probeGroups.length }) }}</span>
         <button @click="openCreateGroupModal" class="btn-primary flex items-center gap-2">
           <Plus class="w-4 h-4" /> {{ t('admin.create_group') }}
         </button>
       </div>
 
-      <div v-if="loadingGroups" class="text-center py-8 text-gray-600">{{ t('admin.loading') }}</div>
-      <div v-else-if="probeGroups.length === 0" class="text-center py-8 text-gray-600">{{ t('admin.no_groups') }}</div>
+      <div v-if="loadingGroups" class="text-center py-8 text-(--text-3)">{{ t('admin.loading') }}</div>
+      <div v-else-if="probeGroups.length === 0" class="text-center py-8 text-(--text-3)">{{ t('admin.no_groups') }}</div>
       <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <div
           v-for="group in probeGroups"
@@ -238,23 +238,23 @@
         >
           <div class="flex items-start justify-between gap-2">
             <div>
-              <div class="text-white font-semibold">{{ group.name }}</div>
-              <div v-if="group.description" class="text-gray-500 text-xs mt-0.5">{{ group.description }}</div>
+              <div class="text-(--text-1) font-semibold">{{ group.name }}</div>
+              <div v-if="group.description" class="text-(--text-3) text-xs mt-0.5">{{ group.description }}</div>
             </div>
             <div class="flex gap-1 flex-shrink-0">
-              <button @click="openEditGroupModal(group)" class="p-1.5 text-gray-500 hover:text-blue-400 transition-colors rounded" :title="t('common.edit')" :aria-label="t('common.edit')">
+              <button @click="openEditGroupModal(group)" class="p-1.5 text-(--text-3) hover:text-(--accent) transition-colors rounded" :title="t('common.edit')" :aria-label="t('common.edit')">
                 <Pencil class="w-4 h-4" />
               </button>
-              <button @click="confirmDeleteGroup(group)" class="p-1.5 text-gray-500 hover:text-red-400 transition-colors rounded" :title="t('common.delete')" :aria-label="t('common.delete')">
+              <button @click="confirmDeleteGroup(group)" class="p-1.5 text-(--text-3) hover:text-(--down) transition-colors rounded" :title="t('common.delete')" :aria-label="t('common.delete')">
                 <Trash2 class="w-4 h-4" />
               </button>
             </div>
           </div>
-          <div class="flex gap-3 text-xs text-gray-500">
-            <span class="px-2 py-0.5 rounded bg-gray-800 border border-gray-700">{{ t('admin.group_probes', { n: group.probe_ids.length }) }}</span>
-            <span class="px-2 py-0.5 rounded bg-gray-800 border border-gray-700">{{ t('admin.group_users', { n: group.user_ids.length }) }}</span>
+          <div class="flex gap-3 text-xs text-(--text-3)">
+            <span class="px-2 py-0.5 rounded bg-(--bg-surface-2) border border-(--border)">{{ t('admin.group_probes', { n: group.probe_ids.length }) }}</span>
+            <span class="px-2 py-0.5 rounded bg-(--bg-surface-2) border border-(--border)">{{ t('admin.group_users', { n: group.user_ids.length }) }}</span>
           </div>
-          <button @click="openGroupDetailModal(group)" class="text-xs text-blue-400 hover:text-blue-300 transition-colors text-left">
+          <button @click="openGroupDetailModal(group)" class="text-xs text-(--accent) hover:text-(--accent) transition-colors text-left">
             {{ t('admin.manage_access') }}
           </button>
         </div>
@@ -263,24 +263,24 @@
 
     <!-- ===== OIDC TAB ===== -->
     <div v-if="activeTab === 'oidc'">
-      <div v-if="oidcLoading" class="text-center py-8 text-gray-600">{{ t('admin.loading') }}</div>
+      <div v-if="oidcLoading" class="text-center py-8 text-(--text-3)">{{ t('admin.loading') }}</div>
       <div v-else class="max-w-xl">
-        <div v-if="oidcSettings?.source === 'env'" class="mb-4 px-3 py-2 rounded-lg bg-yellow-900/30 border border-yellow-700/50 text-yellow-400 text-sm">
+        <div v-if="oidcSettings?.source === 'env'" class="mb-4 px-3 py-2 rounded-lg bg-[color-mix(in_srgb,var(--warn)_15%,transparent)] border border-[color-mix(in_srgb,var(--warn)_35%,transparent)] text-(--warn) text-sm">
           {{ t('admin.oidc_env_warning') }}
         </div>
 
         <form @submit.prevent="saveOidcSettings" class="space-y-5">
           <!-- Enabled toggle -->
-          <div class="flex items-center justify-between py-3 px-4 rounded-lg bg-gray-800/60 border border-gray-700/50">
+          <div class="flex items-center justify-between py-3 px-4 rounded-lg bg-(--bg-surface-2) border border-(--border)">
             <div>
-              <div class="text-sm text-gray-300 font-medium">{{ t('admin.oidc_enable_label') }}</div>
-              <div class="text-xs text-gray-500 mt-0.5">{{ t('admin.oidc_enable_desc') }}</div>
+              <div class="text-sm text-(--text-2) font-medium">{{ t('admin.oidc_enable_label') }}</div>
+              <div class="text-xs text-(--text-3) mt-0.5">{{ t('admin.oidc_enable_desc') }}</div>
             </div>
             <button
               type="button"
               @click="oidcForm.oidc_enabled = !oidcForm.oidc_enabled"
               :aria-label="t('admin.oidc_enable_label')"
-              :class="oidcForm.oidc_enabled ? 'bg-blue-600' : 'bg-gray-700'"
+              :class="oidcForm.oidc_enabled ? 'bg-(--accent)' : 'bg-(--bg-surface-3)'"
               class="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
             >
               <span
@@ -291,48 +291,48 @@
           </div>
 
           <div>
-            <label class="block text-sm text-gray-400 mb-1">{{ t('admin.oidc_issuer_label') }} <span class="text-gray-600">(ex: https://accounts.google.com)</span></label>
+            <label class="block text-sm text-(--text-2) mb-1">{{ t('admin.oidc_issuer_label') }} <span class="text-(--text-3)">(ex: https://accounts.google.com)</span></label>
             <input v-model="oidcForm.oidc_issuer_url" type="url" class="input w-full" placeholder="https://accounts.example.com" />
           </div>
 
           <div>
-            <label class="block text-sm text-gray-400 mb-1">{{ t('admin.oidc_client_id_label') }}</label>
+            <label class="block text-sm text-(--text-2) mb-1">{{ t('admin.oidc_client_id_label') }}</label>
             <input v-model="oidcForm.oidc_client_id" type="text" class="input w-full" />
           </div>
 
           <div>
-            <label class="block text-sm text-gray-400 mb-1">
+            <label class="block text-sm text-(--text-2) mb-1">
               {{ t('admin.oidc_client_secret_label') }}
-              <span v-if="oidcSettings?.oidc_client_secret_set" class="ml-1 text-xs text-green-500">{{ t('admin.oidc_client_secret_set') }}</span>
-              <span v-else class="ml-1 text-xs text-gray-600">{{ t('admin.oidc_client_secret_unset') }}</span>
+              <span v-if="oidcSettings?.oidc_client_secret_set" class="ml-1 text-xs text-(--up)">{{ t('admin.oidc_client_secret_set') }}</span>
+              <span v-else class="ml-1 text-xs text-(--text-3)">{{ t('admin.oidc_client_secret_unset') }}</span>
             </label>
             <input v-model="oidcForm.oidc_client_secret" type="password" class="input w-full" autocomplete="new-password" placeholder="••••••••" />
           </div>
 
           <div>
-            <label class="block text-sm text-gray-400 mb-1">
+            <label class="block text-sm text-(--text-2) mb-1">
               {{ t('admin.oidc_redirect_uri_label') }}
-              <span class="text-gray-600">{{ t('admin.oidc_redirect_uri_hint') }}</span>
+              <span class="text-(--text-3)">{{ t('admin.oidc_redirect_uri_hint') }}</span>
             </label>
             <input v-model="oidcForm.oidc_redirect_uri" type="url" class="input w-full" placeholder="https://app.example.com/api/v1/auth/oidc/callback" />
           </div>
 
           <div>
-            <label class="block text-sm text-gray-400 mb-1">{{ t('admin.oidc_scopes_label') }}</label>
+            <label class="block text-sm text-(--text-2) mb-1">{{ t('admin.oidc_scopes_label') }}</label>
             <input v-model="oidcForm.oidc_scopes" type="text" class="input w-full" />
           </div>
 
           <!-- Auto-provision toggle -->
-          <div class="flex items-center justify-between py-3 px-4 rounded-lg bg-gray-800/60 border border-gray-700/50">
+          <div class="flex items-center justify-between py-3 px-4 rounded-lg bg-(--bg-surface-2) border border-(--border)">
             <div>
-              <div class="text-sm text-gray-300 font-medium">{{ t('admin.oidc_auto_provision_label') }}</div>
-              <div class="text-xs text-gray-500 mt-0.5">{{ t('admin.oidc_auto_provision_desc') }}</div>
+              <div class="text-sm text-(--text-2) font-medium">{{ t('admin.oidc_auto_provision_label') }}</div>
+              <div class="text-xs text-(--text-3) mt-0.5">{{ t('admin.oidc_auto_provision_desc') }}</div>
             </div>
             <button
               type="button"
               @click="oidcForm.oidc_auto_provision = !oidcForm.oidc_auto_provision"
               :aria-label="t('admin.oidc_auto_provision_label')"
-              :class="oidcForm.oidc_auto_provision ? 'bg-blue-600' : 'bg-gray-700'"
+              :class="oidcForm.oidc_auto_provision ? 'bg-(--accent)' : 'bg-(--bg-surface-3)'"
               class="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
             >
               <span
@@ -342,8 +342,8 @@
             </button>
           </div>
 
-          <div v-if="oidcError" class="text-red-400 text-sm">{{ oidcError }}</div>
-          <div v-if="oidcSuccess" class="text-green-400 text-sm">{{ t('admin.oidc_saved') }}</div>
+          <div v-if="oidcError" class="text-(--down) text-sm">{{ oidcError }}</div>
+          <div v-if="oidcSuccess" class="text-(--up) text-sm">{{ t('admin.oidc_saved') }}</div>
 
           <div class="flex justify-end">
             <button type="submit" class="btn-primary" :disabled="oidcSaving">

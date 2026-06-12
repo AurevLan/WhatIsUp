@@ -4,8 +4,8 @@
     <!-- Variables -->
     <div>
       <div class="flex items-center justify-between mb-2">
-        <label class="text-sm font-medium text-gray-300">Variables <span class="text-gray-500 font-normal">(usable with {{ NAME }})</span></label>
-        <button type="button" @click="addVariable" class="text-xs text-blue-400 hover:text-blue-300">+ Add variable</button>
+        <label class="text-sm font-medium text-(--text-2)">Variables <span class="text-(--text-3) font-normal">(usable with {{ NAME }})</span></label>
+        <button type="button" @click="addVariable" class="text-xs text-(--accent)">+ Add variable</button>
       </div>
       <div v-if="localVars.length" class="space-y-2 mb-2">
         <div v-for="(v, i) in localVars" :key="i" class="flex items-center gap-2">
@@ -19,11 +19,11 @@
           />
           <button type="button" @click="v.secret = !v.secret; emitVars()"
             class="text-xs px-2 py-1.5 rounded border transition-colors flex-shrink-0"
-            :class="v.secret ? 'border-amber-600 text-amber-400 bg-amber-900/20' : 'border-gray-700 text-gray-500'"
+            :class="v.secret ? 'border-(--warn) text-(--warn) bg-[color-mix(in_srgb,var(--warn)_20%,transparent)]' : 'border-(--border) text-(--text-3)'"
             title="Mark as secret (hidden)">
             {{ v.secret ? '🔒' : '👁' }}
           </button>
-          <button type="button" @click="removeVar(i)" class="text-gray-600 hover:text-red-400 flex-shrink-0" aria-label="Remove variable">✕</button>
+          <button type="button" @click="removeVar(i)" class="text-(--text-3) hover:text-(--down) flex-shrink-0" aria-label="Remove variable">✕</button>
         </div>
       </div>
     </div>
@@ -33,24 +33,24 @@
       <!-- Steps header -->
       <div class="flex items-center justify-between mb-2">
         <div class="flex items-center gap-3">
-          <label class="text-sm font-medium text-gray-300">Steps</label>
-          <span class="text-xs text-gray-500">{{ localSteps.length }} step(s)</span>
+          <label class="text-sm font-medium text-(--text-2)">Steps</label>
+          <span class="text-xs text-(--text-3)">{{ localSteps.length }} step(s)</span>
           <button type="button" @click="showTemplates = !showTemplates"
-            class="text-xs px-2 py-0.5 rounded border border-gray-700 text-gray-400 hover:border-blue-600 hover:text-blue-400 transition-colors">
+            class="text-xs px-2 py-0.5 rounded border border-(--border) text-(--text-2) hover:border-(--accent-border) hover:text-(--accent) transition-colors">
             📋 Templates
           </button>
         </div>
         <div class="flex items-center gap-2">
           <!-- Import JSON -->
           <button type="button" @click="$refs.importInput.click()"
-            class="text-xs px-2 py-0.5 rounded border border-gray-700 text-gray-400 hover:border-blue-600 hover:text-blue-400 transition-colors"
+            class="text-xs px-2 py-0.5 rounded border border-(--border) text-(--text-2) hover:border-(--accent-border) hover:text-(--accent) transition-colors"
             title="Import steps from a JSON file">
             ⬇ Import
           </button>
           <input ref="importInput" type="file" accept=".json" class="hidden" @change="importJSON" />
           <!-- Export JSON -->
           <button type="button" @click="exportJSON"
-            class="text-xs px-2 py-0.5 rounded border border-gray-700 text-gray-400 hover:border-blue-600 hover:text-blue-400 transition-colors"
+            class="text-xs px-2 py-0.5 rounded border border-(--border) text-(--text-2) hover:border-(--accent-border) hover:text-(--accent) transition-colors"
             title="Export steps as JSON">
             ⬆ Export
           </button>
@@ -58,17 +58,17 @@
       </div>
 
       <!-- Templates panel -->
-      <div v-if="showTemplates" class="mb-3 p-3 bg-gray-900/60 rounded-xl border border-gray-700 space-y-2">
-        <p class="text-xs text-gray-400 font-medium mb-2">Choose a template to pre-fill steps:</p>
+      <div v-if="showTemplates" class="mb-3 p-3 bg-(--bg-surface) rounded-xl border border-(--border) space-y-2">
+        <p class="text-xs text-(--text-2) font-medium mb-2">Choose a template to pre-fill steps:</p>
         <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <div v-for="tmpl in templates" :key="tmpl.id"
             @click="applyTemplate(tmpl)"
-            class="bg-gray-800/40 rounded-xl p-4 border border-gray-700 hover:border-blue-600 cursor-pointer transition-all">
-            <div class="text-sm font-medium text-gray-200 mb-1">{{ tmpl.title }}</div>
-            <div class="text-xs text-gray-500">{{ tmpl.description }}</div>
+            class="bg-(--bg-surface-2) rounded-xl p-4 border border-(--border) hover:border-(--accent-border) cursor-pointer transition-all">
+            <div class="text-sm font-medium text-(--text-1) mb-1">{{ tmpl.title }}</div>
+            <div class="text-xs text-(--text-3)">{{ tmpl.description }}</div>
             <div class="mt-2 flex flex-wrap gap-1">
               <span v-for="varName in tmpl.vars" :key="varName"
-                class="text-xs font-mono bg-gray-700/50 text-gray-400 px-1.5 py-0.5 rounded">
+                class="text-xs font-mono bg-(--bg-surface-2) text-(--text-2) px-1.5 py-0.5 rounded">
                 <span v-text="'{{' + varName + '}}'"></span>
               </span>
             </div>
@@ -89,23 +89,23 @@
           @dragend="dragIndex = null; dragOverIndex = null"
           :class="[
             step.type === 'group'
-              ? 'bg-gradient-to-r from-gray-800 to-transparent rounded-lg px-4 py-2'
-              : 'border rounded-xl p-3 bg-gray-800/50',
+              ? 'bg-gradient-to-r from-(--bg-surface-2) to-transparent rounded-lg px-4 py-2'
+              : 'border rounded-xl p-3 bg-(--bg-surface-2)',
             dragIndex === i ? 'opacity-40' : '',
-            dragOverIndex === i && dragIndex !== i ? 'border-blue-500 ring-1 ring-blue-500' : (step.type !== 'group' ? 'border-gray-700' : ''),
+            dragOverIndex === i && dragIndex !== i ? 'border-(--accent-border) ring-1 ring-(--accent-border)' : (step.type !== 'group' ? 'border-(--border)' : ''),
           ]"
         >
           <!-- Group step: section divider -->
           <template v-if="step.type === 'group'">
             <div class="flex items-center gap-2">
-              <span class="text-xs text-gray-600 cursor-grab select-none">⠿</span>
-              <input v-model="step.label" class="bg-transparent border-none outline-none text-sm font-semibold text-gray-300 flex-1 min-w-0"
+              <span class="text-xs text-(--text-3) cursor-grab select-none">⠿</span>
+              <input v-model="step.label" class="bg-transparent border-none outline-none text-sm font-semibold text-(--text-2) flex-1 min-w-0"
                 placeholder="Section title…" @input="emitSteps" />
               <button type="button" @click="moveStep(i, -1)" :disabled="i === 0" aria-label="Move step up"
-                class="text-gray-600 hover:text-gray-300 disabled:opacity-20 flex-shrink-0 text-xs">▲</button>
+                class="text-(--text-3) hover:text-(--text-1) disabled:opacity-20 flex-shrink-0 text-xs">▲</button>
               <button type="button" @click="moveStep(i, 1)" :disabled="i === localSteps.length - 1" aria-label="Move step down"
-                class="text-gray-600 hover:text-gray-300 disabled:opacity-20 flex-shrink-0 text-xs">▼</button>
-              <button type="button" @click="removeStep(i)" class="text-gray-600 hover:text-red-400 flex-shrink-0 text-sm" aria-label="Remove step">✕</button>
+                class="text-(--text-3) hover:text-(--text-1) disabled:opacity-20 flex-shrink-0 text-xs">▼</button>
+              <button type="button" @click="removeStep(i)" class="text-(--text-3) hover:text-(--down) flex-shrink-0 text-sm" aria-label="Remove step">✕</button>
             </div>
           </template>
 
@@ -113,8 +113,8 @@
           <template v-else>
             <!-- Step header -->
             <div class="flex items-center gap-2 mb-2">
-              <span class="text-xs text-gray-600 cursor-grab select-none flex-shrink-0">⠿</span>
-              <span class="text-sm font-mono text-gray-500 flex-shrink-0 w-5 text-right">{{ i + 1 }}</span>
+              <span class="text-xs text-(--text-3) cursor-grab select-none flex-shrink-0">⠿</span>
+              <span class="text-sm font-mono text-(--text-3) flex-shrink-0 w-5 text-right">{{ i + 1 }}</span>
               <span class="text-base flex-shrink-0">{{ stepIcon(step.type) }}</span>
 
               <!-- Type selector -->
@@ -150,10 +150,10 @@
 
               <!-- Move up/down (accessibility) -->
               <button type="button" @click="moveStep(i, -1)" :disabled="i === 0" aria-label="Move step up"
-                class="text-gray-600 hover:text-gray-300 disabled:opacity-20 flex-shrink-0 text-xs">▲</button>
+                class="text-(--text-3) hover:text-(--text-1) disabled:opacity-20 flex-shrink-0 text-xs">▲</button>
               <button type="button" @click="moveStep(i, 1)" :disabled="i === localSteps.length - 1" aria-label="Move step down"
-                class="text-gray-600 hover:text-gray-300 disabled:opacity-20 flex-shrink-0 text-xs">▼</button>
-              <button type="button" @click="removeStep(i)" class="text-gray-600 hover:text-red-400 flex-shrink-0 text-sm" aria-label="Remove step">✕</button>
+                class="text-(--text-3) hover:text-(--text-1) disabled:opacity-20 flex-shrink-0 text-xs">▼</button>
+              <button type="button" @click="removeStep(i)" class="text-(--text-3) hover:text-(--down) flex-shrink-0 text-sm" aria-label="Remove step">✕</button>
             </div>
 
             <!-- Step params -->
@@ -326,16 +326,16 @@
             <div class="ml-7 mt-1">
               <button type="button"
                 @click="step._showOpts = !step._showOpts"
-                class="text-xs text-gray-600 hover:text-gray-400 transition-colors">
+                class="text-xs text-(--text-3) hover:text-(--text-2) transition-colors">
                 ⚙ Options{{ (step.timeout_ms || step.continue_on_fail) ? ' ●' : '' }}
               </button>
               <div v-if="step._showOpts" class="mt-2 grid grid-cols-2 gap-2">
                 <input v-model.number="step.timeout_ms" class="input text-xs" type="number" min="0"
                   placeholder="Timeout ms (inherits global if empty)"
                   @input="emitSteps" />
-                <label class="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer">
+                <label class="flex items-center gap-1.5 text-xs text-(--text-2) cursor-pointer">
                   <input type="checkbox" v-model="step.continue_on_fail" @change="emitSteps"
-                    class="rounded border-gray-600 bg-gray-700 text-blue-500" />
+                    class="rounded border-(--border) bg-(--bg-surface-2) text-(--accent)" />
                   Continue if this step fails
                 </label>
               </div>
@@ -345,18 +345,18 @@
       </div>
 
       <!-- Visual step type palette -->
-      <div class="mt-4 p-3 bg-gray-900/40 rounded-xl border border-gray-700/60">
-        <p class="text-xs text-gray-500 font-medium mb-2">Add a step</p>
+      <div class="mt-4 p-3 bg-(--bg-surface) rounded-xl border border-(--border)">
+        <p class="text-xs text-(--text-3) font-medium mb-2">Add a step</p>
         <div class="grid grid-cols-5 gap-2">
           <button
             v-for="t in paletteTypes"
             :key="t.type"
             type="button"
             @click="addStep(t.type)"
-            class="bg-gray-800/60 hover:bg-gray-700/80 rounded-xl p-3 text-center cursor-pointer border border-gray-700 hover:border-blue-600 transition-all flex flex-col items-center gap-1"
+            class="bg-(--bg-surface-2) hover:bg-(--bg-surface-3) rounded-xl p-3 text-center cursor-pointer border border-(--border) hover:border-(--accent-border) transition-all flex flex-col items-center gap-1"
           >
             <span class="text-2xl leading-none">{{ t.icon }}</span>
-            <span class="text-xs text-gray-400 leading-tight">{{ t.label }}</span>
+            <span class="text-xs text-(--text-2) leading-tight">{{ t.label }}</span>
           </button>
         </div>
       </div>

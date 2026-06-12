@@ -2,7 +2,7 @@
   <div class="page-body">
     <div class="flex items-start justify-between mb-6">
       <div>
-        <h1 class="text-xl font-bold" style="color:var(--text-1)">{{ t('silences.title') }}</h1>
+        <h1 class="font-display text-xl font-bold" style="color:var(--text-1)">{{ t('silences.title') }}</h1>
         <p class="mt-0.5 text-xs" style="color:var(--text-3)">{{ t('silences.subtitle') }}</p>
       </div>
       <button class="btn-primary" @click="openCreate">+ {{ t('silences.add') }}</button>
@@ -44,12 +44,12 @@
     <BaseModal v-if="showCreate" @close="showCreate = false" :title="t('silences.add')">
       <div class="space-y-3">
         <label class="block text-xs">
-          <span class="text-gray-400">{{ t('common.name') }}</span>
+          <span class="text-(--text-2)">{{ t('common.name') }}</span>
           <input v-model="draft.name" class="input mt-1" :placeholder="t('silences.name_placeholder')" />
         </label>
 
         <label class="block text-xs">
-          <span class="text-gray-400">{{ t('silences.scope_label') }}</span>
+          <span class="text-(--text-2)">{{ t('silences.scope_label') }}</span>
           <select v-model="draft.monitor_id" class="input mt-1">
             <option :value="null">{{ t('silences.scope_all') }}</option>
             <option v-for="m in monitors" :key="m.id" :value="m.id">{{ m.name }}</option>
@@ -58,11 +58,11 @@
 
         <div class="grid grid-cols-2 gap-3">
           <label class="block text-xs">
-            <span class="text-gray-400">{{ t('silences.starts_at') }}</span>
+            <span class="text-(--text-2)">{{ t('silences.starts_at') }}</span>
             <input type="datetime-local" v-model="draft.starts_at" class="input mt-1" />
           </label>
           <label class="block text-xs">
-            <span class="text-gray-400">{{ t('silences.ends_at') }}</span>
+            <span class="text-(--text-2)">{{ t('silences.ends_at') }}</span>
             <input type="datetime-local" v-model="draft.ends_at" class="input mt-1" />
           </label>
         </div>
@@ -74,7 +74,7 @@
         </div>
 
         <label class="block text-xs">
-          <span class="text-gray-400">{{ t('silences.reason') }}</span>
+          <span class="text-(--text-2)">{{ t('silences.reason') }}</span>
           <input v-model="draft.reason" class="input mt-1" :placeholder="t('silences.reason_placeholder')" />
         </label>
       </div>
@@ -247,9 +247,9 @@ onMounted(load)
   padding: 0.1rem 0.45rem;
   border-radius: 0.375rem;
 }
-.silence-row__badge--active    { background: rgba(16, 185, 129, 0.18); color: #6ee7b7; }
-.silence-row__badge--scheduled { background: rgba(96, 165, 250, 0.18); color: #93c5fd; }
-.silence-row__badge--past      { background: rgba(148, 163, 184, 0.18); color: #cbd5e1; }
+.silence-row__badge--active    { background: color-mix(in srgb, var(--up) 18%, transparent); color: var(--up); }
+.silence-row__badge--scheduled { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+.silence-row__badge--past      { background: color-mix(in srgb, var(--text-3) 18%, transparent); color: var(--text-2); }
 .silence-row__meta { font-size: 0.72rem; color: var(--text-3); margin-top: 0.2rem; }
 .silence-row__reason { color: var(--text-2); }
 </style>

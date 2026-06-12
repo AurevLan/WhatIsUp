@@ -9,14 +9,14 @@
     <template #header>
       <div class="flex justify-between items-center flex-1 mr-2">
         <div>
-          <h2 class="text-lg font-semibold text-white">{{ team.name }}</h2>
-          <span class="text-xs text-gray-500 font-mono">{{ team.slug }}</span>
+          <h2 class="text-lg font-semibold text-(--text-1)">{{ team.name }}</h2>
+          <span class="text-xs text-(--text-3) font-mono">{{ team.slug }}</span>
         </div>
         <div class="flex items-center gap-2">
-          <button @click="openEditTeamModal" class="p-1.5 text-gray-500 hover:text-blue-400 transition-colors rounded" :title="t('common.edit')" :aria-label="t('common.edit')">
+          <button @click="openEditTeamModal" class="p-1.5 text-(--text-3) hover:text-(--accent) transition-colors rounded" :title="t('common.edit')" :aria-label="t('common.edit')">
             <Pencil class="w-4 h-4" />
           </button>
-          <button @click="confirmDeleteTeam" class="p-1.5 text-gray-500 hover:text-red-400 transition-colors rounded" :title="t('common.delete')" :aria-label="t('common.delete')">
+          <button @click="confirmDeleteTeam" class="p-1.5 text-(--text-3) hover:text-(--down) transition-colors rounded" :title="t('common.delete')" :aria-label="t('common.delete')">
             <Trash2 class="w-4 h-4" />
           </button>
         </div>
@@ -25,16 +25,16 @@
 
         <!-- Members section -->
         <div class="mb-4 flex items-center justify-between">
-          <h3 class="text-sm font-medium text-gray-400">{{ t('admin.members_count', { n: teamMembers.length }) }}</h3>
+          <h3 class="text-sm font-medium text-(--text-2)">{{ t('admin.members_count', { n: teamMembers.length }) }}</h3>
           <button @click="showTeamAddMember = !showTeamAddMember" class="btn-primary text-xs flex items-center gap-1 px-3 py-1.5">
             <UserPlus class="w-3.5 h-3.5" /> {{ t('admin.add_member') }}
           </button>
         </div>
 
         <!-- Add member inline form -->
-        <div v-if="showTeamAddMember" class="mb-4 p-3 rounded-lg bg-gray-800/60 border border-gray-700/50 space-y-3">
+        <div v-if="showTeamAddMember" class="mb-4 p-3 rounded-lg bg-(--bg-surface-2) border border-(--border) space-y-3">
           <div>
-            <label class="block text-xs text-gray-400 mb-1">{{ t('admin.label_user') }}</label>
+            <label class="block text-xs text-(--text-2) mb-1">{{ t('admin.label_user') }}</label>
             <select v-model="teamAddMemberForm.user_id" class="input w-full text-sm">
               <option value="">{{ t('admin.select_user') }}</option>
               <option
@@ -45,7 +45,7 @@
             </select>
           </div>
           <div>
-            <label class="block text-xs text-gray-400 mb-1">{{ t('admin.label_role') }}</label>
+            <label class="block text-xs text-(--text-2) mb-1">{{ t('admin.label_role') }}</label>
             <select v-model="teamAddMemberForm.role" class="input w-full text-sm">
               <option value="viewer">Viewer</option>
               <option value="editor">Editor</option>
@@ -53,7 +53,7 @@
               <option value="owner">Owner</option>
             </select>
           </div>
-          <div v-if="teamMemberError" class="text-red-400 text-xs">{{ teamMemberError }}</div>
+          <div v-if="teamMemberError" class="text-(--down) text-xs">{{ teamMemberError }}</div>
           <div class="flex justify-end gap-2">
             <button @click="showTeamAddMember = false" class="btn-secondary text-xs px-3 py-1">{{ t('common.cancel') }}</button>
             <button @click="submitTeamAddMember" class="btn-primary text-xs px-3 py-1" :disabled="!teamAddMemberForm.user_id || submitting">{{ t('admin.add_btn') }}</button>
@@ -64,33 +64,33 @@
         <div class="card overflow-hidden !p-0">
           <table class="w-full text-sm">
             <thead>
-              <tr class="border-b border-gray-800">
-                <th class="text-left px-4 py-2.5 text-gray-400 font-medium">{{ t('admin.col_user') }}</th>
-                <th class="text-left px-4 py-2.5 text-gray-400 font-medium">{{ t('admin.label_role') }}</th>
-                <th class="text-right px-4 py-2.5 text-gray-400 font-medium">{{ t('admin.col_actions') }}</th>
+              <tr class="border-b border-(--border)">
+                <th class="text-left px-4 py-2.5 text-(--text-2) font-medium">{{ t('admin.col_user') }}</th>
+                <th class="text-left px-4 py-2.5 text-(--text-2) font-medium">{{ t('admin.label_role') }}</th>
+                <th class="text-right px-4 py-2.5 text-(--text-2) font-medium">{{ t('admin.col_actions') }}</th>
               </tr>
             </thead>
             <tbody>
               <tr v-if="loadingTeamMembers">
-                <td colspan="3" class="text-center py-6 text-gray-600">{{ t('admin.loading') }}</td>
+                <td colspan="3" class="text-center py-6 text-(--text-3)">{{ t('admin.loading') }}</td>
               </tr>
               <tr v-else-if="teamMembers.length === 0">
-                <td colspan="3" class="text-center py-6 text-gray-600">{{ t('admin.no_members') }}</td>
+                <td colspan="3" class="text-center py-6 text-(--text-3)">{{ t('admin.no_members') }}</td>
               </tr>
               <tr
                 v-else
                 v-for="m in teamMembers"
                 :key="m.user_id"
-                class="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors"
+                class="border-b border-(--border) hover:bg-(--bg-surface-2) transition-colors"
               >
                 <td class="px-4 py-2.5">
                   <div class="flex items-center gap-2">
-                    <div class="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+                    <div class="w-7 h-7 rounded-full bg-(--accent-glow) flex items-center justify-center text-(--accent) font-bold text-xs flex-shrink-0">
                       {{ m.username[0]?.toUpperCase() }}
                     </div>
                     <div>
-                      <div class="text-white font-medium text-sm">{{ m.username }}</div>
-                      <div class="text-gray-500 text-xs">{{ m.email }}</div>
+                      <div class="text-(--text-1) font-medium text-sm">{{ m.username }}</div>
+                      <div class="text-(--text-3) text-xs">{{ m.email }}</div>
                     </div>
                   </div>
                 </td>
@@ -109,7 +109,7 @@
                 <td class="px-4 py-2.5 text-right">
                   <button
                     @click="confirmRemoveTeamMember(m)"
-                    class="p-1 text-gray-500 hover:text-red-400 transition-colors rounded"
+                    class="p-1 text-(--text-3) hover:text-(--down) transition-colors rounded"
                     :title="t('admin.remove_member_prefix')"
                     :aria-label="t('admin.remove_member_prefix')"
                   >
@@ -129,10 +129,10 @@
   >
         <form @submit.prevent="submitEditTeam" class="space-y-4">
           <div>
-            <label class="block text-sm text-gray-400 mb-1">{{ t('common.name') }}</label>
+            <label class="block text-sm text-(--text-2) mb-1">{{ t('common.name') }}</label>
             <input v-model="teamEditForm.name" type="text" class="input w-full" required maxlength="200" />
           </div>
-          <div v-if="teamError" class="text-red-400 text-sm">{{ teamError }}</div>
+          <div v-if="teamError" class="text-(--down) text-sm">{{ teamError }}</div>
           <div class="flex justify-end gap-3 pt-2">
             <button type="button" @click="showEditTeamModal = false" class="btn-secondary">{{ t('common.cancel') }}</button>
             <button type="submit" class="btn-primary" :disabled="submitting">{{ submitting ? t('admin.saving') : t('admin.save_btn') }}</button>
@@ -146,11 +146,11 @@
     :title="t('admin.confirm_team_action')"
     size="sm"
   >
-    <p class="text-gray-400 text-sm mb-6">{{ teamDeletePrefix }} <strong class="text-white">{{ teamDeleteTarget }}</strong> {{ teamDeleteSuffix }}</p>
+    <p class="text-(--text-2) text-sm mb-6">{{ teamDeletePrefix }} <strong class="text-(--text-1)">{{ teamDeleteTarget }}</strong> {{ teamDeleteSuffix }}</p>
     <template #footer>
       <div class="flex justify-end gap-3 w-full">
         <button @click="showTeamDeleteModal = false" class="btn-secondary">{{ t('common.cancel') }}</button>
-        <button @click="executeTeamDelete" class="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors" :disabled="submitting">
+        <button @click="executeTeamDelete" class="btn-danger" :disabled="submitting">
           {{ t('common.confirm') }}
         </button>
       </div>

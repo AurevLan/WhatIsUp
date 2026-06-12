@@ -2,8 +2,8 @@
   <div class="page-body">
     <div class="flex items-center justify-between mb-8">
       <div>
-        <h1 class="text-2xl font-bold text-white">{{ t('templates.title') }}</h1>
-        <p class="text-gray-400 mt-1">{{ t('templates.subtitle') }}</p>
+        <h1 class="font-display text-2xl font-bold text-(--text-1)">{{ t('templates.title') }}</h1>
+        <p class="text-(--text-2) mt-1">{{ t('templates.subtitle') }}</p>
       </div>
       <button @click="showCreate = true" class="btn-primary">+ {{ t('templates.new') }}</button>
     </div>
@@ -36,34 +36,34 @@
         <div class="flex items-start justify-between">
           <div>
             <div class="flex items-center gap-2">
-              <span class="text-white font-semibold">{{ tpl.name }}</span>
-              <span v-if="tpl.is_public" class="text-xs px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">{{ t('templates.public_badge') }}</span>
-              <span v-if="tpl.owner_id !== currentUserId" class="text-xs px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400">{{ t('templates.shared_badge') }}</span>
+              <span class="text-(--text-1) font-semibold">{{ tpl.name }}</span>
+              <span v-if="tpl.is_public" class="text-xs px-1.5 py-0.5 rounded bg-(--accent-glow) text-(--accent)">{{ t('templates.public_badge') }}</span>
+              <span v-if="tpl.owner_id !== currentUserId" class="text-xs px-1.5 py-0.5 rounded bg-(--accent-glow) text-(--accent)">{{ t('templates.shared_badge') }}</span>
             </div>
-            <p v-if="tpl.description" class="text-sm text-gray-400 mt-1">{{ tpl.description }}</p>
+            <p v-if="tpl.description" class="text-sm text-(--text-2) mt-1">{{ tpl.description }}</p>
           </div>
           <div class="flex gap-2 flex-shrink-0 ml-2">
             <button
               v-if="tpl.owner_id === currentUserId"
               @click="startEdit(tpl)"
-              class="text-xs text-blue-400 hover:text-blue-300"
+              class="text-xs text-(--accent) hover:text-(--accent)"
             >{{ t('templates.edit') }}</button>
             <button
               v-if="tpl.owner_id === currentUserId"
               @click="deleteTemplate(tpl)"
-              class="text-xs text-red-400 hover:text-red-300"
+              class="text-xs text-(--down) hover:text-(--down)"
             >{{ t('templates.delete') }}</button>
           </div>
         </div>
 
         <!-- Variables -->
-        <div v-if="tpl.variables?.length" class="text-xs text-gray-500">
-          <span class="text-gray-400">{{ t('templates.variables_label') }}:</span>
-          <span v-for="v in tpl.variables" :key="v.name" class="ml-1 font-mono bg-gray-800 px-1 rounded" v-text="'{{' + v.name + '}}'"></span>
+        <div v-if="tpl.variables?.length" class="text-xs text-(--text-3)">
+          <span class="text-(--text-2)">{{ t('templates.variables_label') }}:</span>
+          <span v-for="v in tpl.variables" :key="v.name" class="ml-1 font-mono bg-(--bg-surface-2) px-1 rounded" v-text="'{{' + v.name + '}}'"></span>
         </div>
 
         <!-- Check type badge -->
-        <span class="text-xs font-mono px-2 py-0.5 rounded w-fit bg-gray-800 text-gray-400 uppercase">
+        <span class="text-xs font-mono px-2 py-0.5 rounded w-fit bg-(--bg-surface-2) text-(--text-2) uppercase">
           {{ tpl.monitor_config?.check_type || 'http' }}
         </span>
 
@@ -82,36 +82,36 @@
       @close="closeModal">
       <div class="space-y-4">
           <div>
-            <label class="block text-sm text-gray-400 mb-1">{{ t('templates.form_name') }}</label>
+            <label class="block text-sm text-(--text-2) mb-1">{{ t('templates.form_name') }}</label>
             <input v-model="form.name" class="input w-full" :placeholder="t('templates.form_name_placeholder')" />
           </div>
           <div>
-            <label class="block text-sm text-gray-400 mb-1">{{ t('templates.form_description') }}</label>
+            <label class="block text-sm text-(--text-2) mb-1">{{ t('templates.form_description') }}</label>
             <input v-model="form.description" class="input w-full" />
           </div>
           <div class="flex items-center gap-2">
             <input v-model="form.is_public" type="checkbox" id="tpl-public" />
-            <label for="tpl-public" class="text-sm text-gray-300">{{ t('templates.form_public') }}</label>
+            <label for="tpl-public" class="text-sm text-(--text-2)">{{ t('templates.form_public') }}</label>
           </div>
 
           <div>
-            <label class="block text-sm text-gray-400 mb-1">{{ t('templates.variables_label') }}</label>
+            <label class="block text-sm text-(--text-2) mb-1">{{ t('templates.variables_label') }}</label>
             <div v-for="(v, i) in form.variables" :key="i" class="flex gap-2 mb-2">
               <input v-model="v.name" class="input flex-1" :placeholder="t('templates.var_name')" />
               <input v-model="v.description" class="input flex-1" :placeholder="t('templates.var_description')" />
               <input v-model="v.default" class="input w-32" :placeholder="t('templates.var_default')" />
-              <button @click="form.variables.splice(i, 1)" class="text-red-400 hover:text-red-300" :aria-label="t('a11y.remove')">✕</button>
+              <button @click="form.variables.splice(i, 1)" class="text-(--down) hover:text-(--down)" :aria-label="t('a11y.remove')">✕</button>
             </div>
-            <button @click="form.variables.push({ name: '', description: '', default: '' })" class="text-xs text-blue-400 hover:text-blue-300">{{ t('templates.form_add_variable') }}</button>
+            <button @click="form.variables.push({ name: '', description: '', default: '' })" class="text-xs text-(--accent) hover:text-(--accent)">{{ t('templates.form_add_variable') }}</button>
           </div>
 
           <div>
-            <label class="block text-sm text-gray-400 mb-1">
+            <label class="block text-sm text-(--text-2) mb-1">
               {{ t('templates.form_config') }}
-              <span class="text-gray-500 ml-1">—
+              <span class="text-(--text-3) ml-1">—
                 <i18n-t keypath="templates.form_config_hint" tag="span">
                   <template #placeholder>
-                    <code class="font-mono bg-gray-800 px-1 rounded" v-text="'{{VAR}}'"></code>
+                    <code class="font-mono bg-(--bg-surface-2) px-1 rounded" v-text="'{{VAR}}'"></code>
                   </template>
                 </i18n-t>
               </span>
@@ -124,7 +124,7 @@
               :aria-invalid="!!configError"
               :aria-describedby="configError ? 'template-config-error' : undefined"
             ></textarea>
-            <p v-if="configError" id="template-config-error" class="text-xs text-red-400 mt-1">{{ configError }}</p>
+            <p v-if="configError" id="template-config-error" class="text-xs text-(--down) mt-1">{{ configError }}</p>
           </div>
         </div>
 
@@ -144,9 +144,9 @@
       @close="applyTemplate = null">
       <div class="space-y-3">
         <div v-for="v in applyTemplate?.variables ?? []" :key="v.name">
-          <label class="block text-sm text-gray-400 mb-1">
-            <code class="font-mono text-purple-400" v-text="'{{' + v.name + '}}'"></code>
-            <span v-if="v.description" class="text-gray-500 ml-1">{{ v.description }}</span>
+          <label class="block text-sm text-(--text-2) mb-1">
+            <code class="font-mono text-(--accent)" v-text="'{{' + v.name + '}}'"></code>
+            <span v-if="v.description" class="text-(--text-3) ml-1">{{ v.description }}</span>
           </label>
           <input
             v-model="applyValues[v.name]"
@@ -155,12 +155,12 @@
           />
         </div>
 
-        <div v-if="!applyTemplate?.variables?.length" class="text-sm text-gray-500">
+        <div v-if="!applyTemplate?.variables?.length" class="text-sm text-(--text-3)">
           {{ t('templates.no_variables') }}
         </div>
 
         <div>
-          <label class="block text-sm text-gray-400 mb-1">{{ t('templates.name_override') }}</label>
+          <label class="block text-sm text-(--text-2) mb-1">{{ t('templates.name_override') }}</label>
           <input v-model="applyNameOverride" class="input w-full" :placeholder="t('templates.name_override_placeholder')" />
         </div>
       </div>

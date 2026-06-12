@@ -117,7 +117,7 @@ const target = computed(() => {
   cursor: pointer;
   text-decoration: none;
 }
-.monitor-row:hover { background: rgba(255,255,255,.028); }
+.monitor-row:hover { background: var(--bg-surface-2); }
 
 /* Status dot */
 .monitor-row__dot {
@@ -126,10 +126,10 @@ const target = computed(() => {
   border-radius: 50%;
   flex-shrink: 0;
 }
-.dot--up      { background: #34d399; }
-.dot--down    { background: #f87171; box-shadow: 0 0 0 0 rgba(248,113,113,.5); animation: pulse-ring 2s ease-out infinite; }
-.dot--timeout { background: #fbbf24; }
-.dot--error   { background: #fb923c; }
+.dot--up      { background: var(--up); }
+.dot--down    { background: var(--down); box-shadow: 0 0 0 0 color-mix(in srgb, var(--down) 50%, transparent); animation: pulse-ring 2s ease-out infinite; }
+.dot--timeout { background: var(--warn); }
+.dot--error   { background: var(--down); }
 .dot--unknown { background: var(--text-3); }
 
 /* Info */
@@ -210,9 +210,9 @@ const target = computed(() => {
   border-radius: 1px;
   transition: width .3s ease;
 }
-.monitor-row__uptime-fill.text-up   { background: #34d399; }
-.monitor-row__uptime-fill.text-warn { background: #fbbf24; }
-.monitor-row__uptime-fill.text-down { background: #f87171; }
+.monitor-row__uptime-fill.text-up   { background: var(--up); }
+.monitor-row__uptime-fill.text-warn { background: var(--warn); }
+.monitor-row__uptime-fill.text-down { background: var(--down); }
 .monitor-row__uptime-fill.text-muted { background: var(--text-3); }
 
 /* Badge */
@@ -251,21 +251,21 @@ const target = computed(() => {
   flex-shrink: 0;
   letter-spacing: 0;
 }
-.health--A { background: rgba(52,211,153,.15); color: #34d399; border: 1px solid rgba(52,211,153,.3); }
-.health--B { background: rgba(96,165,250,.15); color: #60a5fa; border: 1px solid rgba(96,165,250,.3); }
-.health--C { background: rgba(251,191,36,.15);  color: #fbbf24; border: 1px solid rgba(251,191,36,.3); }
-.health--D { background: rgba(251,146,60,.15);  color: #fb923c; border: 1px solid rgba(251,146,60,.3); }
-.health--F { background: rgba(248,113,113,.15); color: #f87171; border: 1px solid rgba(248,113,113,.3); }
+.health--A { background: color-mix(in srgb, var(--up) 15%, transparent); color: var(--up); border: 1px solid color-mix(in srgb, var(--up) 30%, transparent); }
+.health--B { background: var(--accent-glow); color: var(--accent); border: 1px solid var(--accent-border); }
+.health--C { background: color-mix(in srgb, var(--warn) 15%, transparent);  color: var(--warn); border: 1px solid color-mix(in srgb, var(--warn) 30%, transparent); }
+.health--D { background: color-mix(in srgb, var(--down) 9%, transparent);  color: color-mix(in srgb, var(--down) 55%, var(--warn)); border: 1px solid color-mix(in srgb, var(--down) 18%, transparent); }
+.health--F { background: color-mix(in srgb, var(--down) 15%, transparent); color: var(--down); border: 1px solid color-mix(in srgb, var(--down) 30%, transparent); }
 
 /* Color utilities */
-.text-up   { color: #34d399; }
-.text-warn { color: #fbbf24; }
-.text-down { color: #f87171; }
+.text-up   { color: var(--up); }
+.text-warn { color: var(--warn); }
+.text-down { color: var(--down); }
 .text-muted { color: var(--text-3); }
 
 @keyframes pulse-ring {
-  0%   { box-shadow: 0 0 0 0 rgba(248,113,113,.5); }
-  70%  { box-shadow: 0 0 0 5px rgba(248,113,113,0); }
-  100% { box-shadow: 0 0 0 0 rgba(248,113,113,0); }
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--down) 50%, transparent); }
+  70%  { box-shadow: 0 0 0 5px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
 }
 </style>

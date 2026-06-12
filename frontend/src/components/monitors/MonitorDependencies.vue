@@ -135,7 +135,7 @@ onMounted(loadDeps)
 }
 .section-desc {
   font-size: 0.875rem;
-  color: var(--color-text-muted, #6b7280);
+  color: var(--text-3);
   margin-bottom: 1rem;
 }
 .dep-list {
@@ -148,7 +148,7 @@ onMounted(loadDeps)
   align-items: center;
   gap: 0.5rem;
   padding: 0.4rem 0;
-  border-bottom: 1px solid var(--color-border, #e5e7eb);
+  border-bottom: 1px solid var(--border);
 }
 .dep-parent-name {
   flex: 1;
@@ -160,8 +160,8 @@ onMounted(loadDeps)
   border-radius: 9999px;
 }
 .badge-warn {
-  background: #fef3c7;
-  color: #92400e;
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+  color: var(--warn);
 }
 .btn-icon {
   background: none;
@@ -172,8 +172,8 @@ onMounted(loadDeps)
   padding: 0.1rem 0.4rem;
   border-radius: 4px;
 }
-.btn-danger { color: #dc2626; }
-.btn-danger:hover { background: #fee2e2; }
+.btn-danger { color: var(--down); }
+.btn-danger:hover { background: color-mix(in srgb, var(--down) 12%, transparent); }
 .dep-add-form {
   display: flex;
   align-items: center;
@@ -185,7 +185,7 @@ onMounted(loadDeps)
   flex: 1;
   min-width: 160px;
   padding: 0.35rem 0.5rem;
-  border: 1px solid var(--color-border, #d1d5db);
+  border: 1px solid var(--border);
   border-radius: 6px;
   font-size: 0.875rem;
 }
@@ -196,11 +196,11 @@ onMounted(loadDeps)
   font-size: 0.875rem;
 }
 .btn { padding: 0.35rem 0.9rem; border-radius: 6px; border: none; cursor: pointer; font-size: 0.875rem; }
-.btn-primary { background: #2563eb; color: #fff; }
+.btn-primary { background: var(--accent-glow); color: var(--accent); border: 1px solid var(--accent-border); }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-sm { padding: 0.3rem 0.75rem; }
-.empty-text { font-size: 0.875rem; color: var(--color-text-muted, #6b7280); }
-.loading-text { font-size: 0.875rem; color: var(--color-text-muted, #6b7280); }
-.error-text { color: #dc2626; font-size: 0.875rem; margin-top: 0.5rem; }
-.success-text { color: #16a34a; font-size: 0.875rem; margin-top: 0.5rem; }
+.empty-text { font-size: 0.875rem; color: var(--text-3); }
+.loading-text { font-size: 0.875rem; color: var(--text-3); }
+.error-text { color: var(--down); font-size: 0.875rem; margin-top: 0.5rem; }
+.success-text { color: var(--up); font-size: 0.875rem; margin-top: 0.5rem; }
 </style>

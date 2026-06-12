@@ -2,17 +2,17 @@
   <BaseModal v-model="open" :title="title" size="lg">
     <form @submit.prevent="submit" class="space-y-4">
       <div>
-        <label class="block text-xs text-gray-400 mb-1">{{ t('alert_matrix.templates.editor.name') }}</label>
+        <label class="block text-xs text-(--text-2) mb-1">{{ t('alert_matrix.templates.editor.name') }}</label>
         <input v-model="form.name" type="text" class="input w-full" required maxlength="100" />
       </div>
 
       <div>
-        <label class="block text-xs text-gray-400 mb-1">{{ t('alert_matrix.templates.editor.description') }}</label>
+        <label class="block text-xs text-(--text-2) mb-1">{{ t('alert_matrix.templates.editor.description') }}</label>
         <textarea v-model="form.description" class="input w-full" rows="2" />
       </div>
 
       <div>
-        <label class="block text-xs text-gray-400 mb-1">{{ t('alert_matrix.templates.editor.check_type') }}</label>
+        <label class="block text-xs text-(--text-2) mb-1">{{ t('alert_matrix.templates.editor.check_type') }}</label>
         <select v-model="form.check_type" class="input w-full" :disabled="isEdit">
           <option v-for="ct in checkTypes" :key="ct" :value="ct">{{ ct }}</option>
         </select>
@@ -20,22 +20,22 @@
 
       <div>
         <div class="flex items-center justify-between mb-2">
-          <label class="text-xs text-gray-400">{{ t('alert_matrix.templates.editor.rules') }}</label>
+          <label class="text-xs text-(--text-2)">{{ t('alert_matrix.templates.editor.rules') }}</label>
           <button
             type="button"
             @click="addRow"
             :disabled="!availableConditions.length"
-            class="text-xs text-blue-400 hover:text-blue-300 disabled:opacity-40"
+            class="text-xs text-(--accent) disabled:opacity-40"
           >+ {{ t('alert_matrix.add_rule') }}</button>
         </div>
-        <div v-if="!form.rows.length" class="text-xs text-gray-500 italic text-center py-3">
+        <div v-if="!form.rows.length" class="text-xs text-(--text-3) italic text-center py-3">
           {{ t('alert_matrix.templates.editor.no_rules') }}
         </div>
         <div v-else class="space-y-2">
           <div
             v-for="(row, idx) in form.rows"
             :key="idx"
-            class="rounded-lg border border-gray-800 bg-gray-900/40 p-3 space-y-2"
+            class="rounded-lg border border-(--border) bg-(--bg-surface) p-3 space-y-2"
           >
             <div class="flex items-center justify-between gap-2">
               <select v-model="row.condition" class="input text-xs flex-1 font-mono">
@@ -48,11 +48,11 @@
               <button
                 type="button"
                 @click="removeRow(idx)"
-                class="text-gray-600 hover:text-red-400 text-sm px-2"
+                class="text-(--text-3) hover:text-(--down) text-sm px-2"
                 :aria-label="t('a11y.remove')"
               >✕</button>
             </div>
-            <div class="grid grid-cols-2 gap-2 text-[11px] text-gray-400">
+            <div class="grid grid-cols-2 gap-2 text-[11px] text-(--text-2)">
               <label v-if="needsThreshold(row.condition)" class="flex items-center gap-1.5">
                 <span class="shrink-0">{{ t('alert_matrix.threshold') }}</span>
                 <input v-model.number="row.threshold_value" type="number" min="0" class="input text-xs w-full py-1" />
@@ -78,7 +78,7 @@
         </div>
       </div>
 
-      <p v-if="error" class="text-xs text-red-400">{{ error }}</p>
+      <p v-if="error" class="text-xs text-(--down)">{{ error }}</p>
     </form>
 
     <template #footer>
@@ -86,7 +86,7 @@
         v-if="isEdit && !template?.is_system"
         type="button"
         @click="remove"
-        class="btn-ghost text-xs text-red-400 hover:text-red-300"
+        class="btn-ghost text-xs text-(--down)"
       >{{ t('common.delete') }}</button>
       <div class="flex-1" />
       <button type="button" @click="close" class="btn-ghost text-xs">{{ t('common.cancel') }}</button>

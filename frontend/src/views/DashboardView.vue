@@ -10,155 +10,121 @@
     <!-- Normal dashboard -->
     <template v-else>
 
-    <!-- Header -->
-    <div class="dash__header">
-      <h1 class="dash__title">{{ t('dashboard.title') }}</h1>
-      <p class="dash__sub">{{ t('dashboard.subtitle') }}</p>
+    <!-- Hero -->
+    <section class="dash__hero">
+      <p class="dash__kicker">{{ todayStr }}</p>
+      <h1 class="dash__title font-display" :class="{ 'dash__title--down': !loading && downCount > 0 }">
+        <template v-if="loading">{{ t('dashboard.hero_loading') }}<span class="dash__ellip">…</span></template>
+        <template v-else-if="downCount === 0">{{ t('dashboard.hero_ok_1') }} <em>{{ t('dashboard.hero_ok_2') }}</em></template>
+        <template v-else>{{ t('dashboard.hero_down_pre', downCount) }} <em>{{ t('dashboard.hero_down_em') }}</em></template>
+      </h1>
+      <p v-if="!loading && monitors.length > 0 && downCount === 0" class="dash__lede">
+        {{ t('dashboard.lede_ok', { monitors: monitors.length, probes: probesOnline }) }}
+      </p>
+      <p v-else-if="!loading && downCount > 0" class="dash__lede dash__lede--warn">
+        {{ t('dashboard.lede_down', openIncidents.length) }}
+      </p>
+    </section>
+
+    <!-- Stat ribbon -->
+    <section v-if="monitors.length > 0" class="dash__stats">
+      <router-link
+        v-for="(s, i) in statCards"
+        :key="s.label"
+        :to="s.to"
+        class="dash__stat"
+        :style="{ animationDelay: 80 + i * 90 + 'ms' }"
+      >
+        <span class="dash__stat-value font-display" :class="s.tone ? `dash__stat-value--${s.tone}` : ''">{{ s.value }}</span>
+        <span class="dash__stat-label">{{ s.label }}</span>
+      </router-link>
+    </section>
+
+    <!-- Loading -->
+    <div v-if="loading" class="card p-4 mt-10 space-y-3">
+      <SkeletonRow v-for="i in 5" :key="i" />
     </div>
 
-    <!-- Stat cards -->
-    <div class="dash__stats">
-      <router-link to="/monitors" class="stat-card">
-        <div class="stat-card__icon" style="background:rgba(79,156,249,.1)">
-          <Monitor :size="16" color="#60a5fa" :stroke-width="2" />
-        </div>
-        <div class="stat-card__body">
-          <div class="stat-card__label">{{ t('dashboard.total_monitors') }}</div>
-          <div class="stat-card__value" style="color:#60a5fa">{{ monitors.length }}</div>
-        </div>
-      </router-link>
+    <!-- Empty state -->
+    <EmptyState
+      v-else-if="monitors.length === 0"
+      :title="t('monitors.no_monitors')"
+      :text="t('empty.monitors_text')"
+      :cta-label="t('monitors.add')"
+      replay-tour
+      @cta="$router.push('/monitors')"
+    >
+      <template #icon><Monitor :size="22" /></template>
+    </EmptyState>
 
-      <router-link to="/monitors?status=up" class="stat-card">
-        <div class="stat-card__icon" style="background:rgba(52,211,153,.1)">
-          <CheckCircle2 :size="16" color="#34d399" :stroke-width="2" />
-        </div>
-        <div class="stat-card__body">
-          <div class="stat-card__label">{{ t('dashboard.monitors_up') }}</div>
-          <div class="stat-card__value" style="color:#34d399">{{ upCount }}</div>
-        </div>
-      </router-link>
+    <template v-else>
 
-      <router-link to="/monitors?status=down" class="stat-card">
-        <div class="stat-card__icon" :style="`background:${downCount > 0 ? 'rgba(248,113,113,.1)' : 'rgba(52,211,153,.06)'}`">
-          <XCircle :size="16" :color="downCount > 0 ? '#f87171' : '#34d399'" :stroke-width="2" />
-          <span v-if="downCount > 0" class="stat-card__pulse" />
-        </div>
-        <div class="stat-card__body">
-          <div class="stat-card__label">{{ t('dashboard.monitors_down') }}</div>
-          <div class="stat-card__value" :style="`color:${downCount > 0 ? '#f87171' : '#34d399'}`">{{ downCount }}</div>
-        </div>
+    <!-- Active incidents -->
+    <section v-if="openIncidents.length" class="dash__section">
+      <h2 class="dash__h2 font-display">{{ t('dashboard.active_incidents') }}</h2>
+      <router-link v-for="m in openIncidents.slice(0, 6)" :key="m.id" :to="`/monitors/${m.id}`" class="dash__incident">
+        <span class="dash__incident-pip" aria-hidden="true" />
+        <span class="dash__incident-name">{{ m.name }}</span>
+        <span class="dash__incident-type">{{ m.check_type }}</span>
+        <span class="dash__incident-go" aria-hidden="true">→</span>
       </router-link>
+    </section>
 
-      <router-link to="/incidents" class="stat-card">
-        <div class="stat-card__icon" style="background:rgba(251,191,36,.1)">
-          <AlertTriangle :size="16" color="#fbbf24" :stroke-width="2" />
-          <span v-if="incidentCount > 0" class="stat-card__pulse" />
-        </div>
-        <div class="stat-card__body">
-          <div class="stat-card__label">{{ t('dashboard.active_incidents') }}</div>
-          <div class="stat-card__value" style="color:#fbbf24">{{ incidentCount }}</div>
-        </div>
+    <!-- Offline probes -->
+    <section v-if="offlineProbes.length" class="dash__section">
+      <h2 class="dash__h2 font-display">{{ t('dashboard.offline_probes') }}</h2>
+      <router-link v-for="p in offlineProbes" :key="p.id" to="/probes" class="dash__incident">
+        <WifiOff :size="13" class="dash__incident-wifi" aria-hidden="true" />
+        <span class="dash__incident-name">{{ p.name }}</span>
+        <span class="dash__incident-type">{{ probeLastSeen(p) }}</span>
+        <span class="dash__incident-go" aria-hidden="true">→</span>
       </router-link>
+    </section>
 
-      <div class="stat-card">
-        <div class="stat-card__icon" style="background:rgba(192,132,252,.1)">
-          <TrendingUp :size="16" color="#c084fc" :stroke-width="2" />
-        </div>
-        <div class="stat-card__body">
-          <div class="stat-card__label">{{ t('dashboard.global_uptime') }}</div>
-          <div class="stat-card__value" style="color:#c084fc">{{ globalUptimeStr }}</div>
-        </div>
+    <!-- Services -->
+    <section class="dash__section">
+      <div class="dash__section-head">
+        <h2 class="dash__h2 font-display">{{ t('dashboard.services') }}</h2>
+        <router-link to="/monitors" class="dash__all">{{ t('common.view_all') }} →</router-link>
       </div>
-    </div>
-
-    <!-- Grid -->
-    <div class="dash__grid">
-
-      <!-- Monitor list -->
-      <div class="card dash__monitors-card p-0 overflow-hidden">
-        <div class="dash__card-header">
-          <h2 class="dash__card-title">{{ t('monitors.title') }}</h2>
-          <router-link to="/monitors" class="dash__view-all">
-            {{ t('common.view_all') }} <ArrowRight :size="12" />
-          </router-link>
-        </div>
-
-        <div v-if="loading" class="px-3 py-2">
-          <SkeletonRow v-for="i in 5" :key="i" />
-        </div>
-
-        <EmptyState
-          v-else-if="monitors.length === 0"
-          :title="t('monitors.no_monitors')"
-          :text="t('empty.monitors_text')"
-          :cta-label="t('monitors.add')"
-          replay-tour
-          inline
-          @cta="$router.push('/monitors')"
+      <div class="dash__cards">
+        <router-link
+          v-for="(m, i) in previewMonitors"
+          :key="m.id"
+          :to="`/monitors/${m.id}`"
+          class="dash__card"
+          :class="{ 'dash__card--down': isDown(m) }"
+          :style="{ animationDelay: Math.min(i * 55, 660) + 'ms' }"
         >
-          <template #icon><Monitor :size="22" /></template>
-        </EmptyState>
-
-        <div v-else class="px-2 py-1.5">
-          <TransitionGroup name="list">
-            <MonitorRow v-for="m in previewMonitors" :key="m.id" :monitor="m" />
-          </TransitionGroup>
-          <p v-if="monitors.length > 15" class="dash__more-link">
-            +{{ monitors.length - 15 }} —
-            <router-link to="/monitors">{{ t('common.view_all') }}</router-link>
-          </p>
-        </div>
+          <div class="dash__card-row">
+            <span class="dash__pill" :class="isDown(m) ? 'dash__pill--down' : 'dash__pill--up'">
+              {{ isDown(m) ? t('dashboard.pill_down') : t('dashboard.pill_up') }}
+            </span>
+            <span class="dash__card-ms">{{ m._lastResponseTimeMs != null ? m._lastResponseTimeMs + ' ms' : '' }}</span>
+          </div>
+          <h3 class="dash__card-name">{{ m.name }}</h3>
+          <svg v-if="sparkPath(m._sparkline)" class="dash__spark" viewBox="0 0 100 28" preserveAspectRatio="none" aria-hidden="true">
+            <path :d="sparkPath(m._sparkline) + ' L100,28 L0,28 Z'" class="dash__spark-fill" :class="{ 'dash__spark-fill--down': isDown(m) }" />
+            <path :d="sparkPath(m._sparkline)" class="dash__spark-line" :class="{ 'dash__spark-line--down': isDown(m) }" />
+          </svg>
+          <div class="dash__card-foot">
+            <span>{{ m.check_type }}</span>
+            <span v-if="m._uptime24h != null">{{ m._uptime24h.toFixed(2) }} % / 24 h</span>
+          </div>
+        </router-link>
       </div>
+      <p v-if="monitors.length > PREVIEW_COUNT" class="dash__more">
+        <router-link to="/monitors">+{{ monitors.length - PREVIEW_COUNT }} — {{ t('common.view_all') }}</router-link>
+      </p>
+    </section>
 
-      <!-- Right column -->
-      <div class="dash__right">
+    <!-- Probe map -->
+    <section class="dash__section">
+      <h2 class="dash__h2 font-display">{{ t('nav.probes') }}</h2>
+      <ProbeMap />
+    </section>
 
-        <!-- Active incidents -->
-        <div v-if="openIncidents.length > 0" class="card p-0 overflow-hidden">
-          <div class="dash__card-header">
-            <h2 class="dash__card-title flex items-center gap-2">
-              <span class="dot-pulse" />
-              {{ t('dashboard.active_incidents') }}
-            </h2>
-            <span class="dash__incident-count">{{ openIncidents.length }}</span>
-          </div>
-          <div>
-            <div v-for="m in openIncidents.slice(0, 5)" :key="m.id" class="dash__incident-row">
-              <span class="dot-down" />
-              <router-link :to="`/monitors/${m.id}`" class="dash__incident-name">{{ m.name }}</router-link>
-              <span class="dash__incident-type">{{ m.check_type }}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Offline probes -->
-        <div v-if="offlineProbes.length > 0" class="card p-0 overflow-hidden">
-          <div class="dash__card-header">
-            <h2 class="dash__card-title flex items-center gap-2">
-              <WifiOff :size="13" style="color:#f87171" />
-              {{ t('dashboard.offline_probes') }}
-            </h2>
-            <span class="dash__incident-count">{{ offlineProbes.length }}</span>
-          </div>
-          <div>
-            <router-link
-              v-for="p in offlineProbes"
-              :key="p.id"
-              to="/probes"
-              class="dash__incident-row"
-            >
-              <span class="dot-down" />
-              <span class="dash__incident-name">{{ p.name }}</span>
-              <span class="dash__incident-type">{{ probeLastSeen(p) }} ago</span>
-            </router-link>
-          </div>
-        </div>
-
-        <!-- Probe map -->
-        <ProbeMap />
-      </div>
-    </div>
-
+    </template>
     </template>
   </div>
 </template>
@@ -166,10 +132,9 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { AlertTriangle, ArrowRight, CheckCircle2, Monitor, TrendingUp, WifiOff, XCircle } from 'lucide-vue-next'
+import { Monitor, WifiOff } from 'lucide-vue-next'
 import { useMonitorStore } from '../stores/monitors'
 import { useAuthStore } from '../stores/auth'
-import MonitorRow from '../components/monitors/MonitorRow.vue'
 import ProbeMap from '../components/dashboard/ProbeMap.vue'
 import OnboardingWizard from '../components/onboarding/OnboardingWizard.vue'
 import SkeletonRow from '../components/shared/SkeletonRow.vue'
@@ -178,8 +143,9 @@ import { useTour } from '../composables/useTour'
 import api from '../api/client'
 
 const STATUS_PRIORITY = { down: 0, error: 1, timeout: 2, up: 3 }
+const PREVIEW_COUNT = 12
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const monitorStore = useMonitorStore()
 const auth = useAuthStore()
 
@@ -191,29 +157,41 @@ function onOnboardingComplete() {
   showOnboarding.value = false
   monitorStore.fetchAll()
 }
+
 const monitors = computed(() => monitorStore.monitors)
 const loading  = computed(() => monitorStore.loading)
 
-const upCount       = computed(() => monitors.value.filter(m => m._lastStatus === 'up').length)
-const downCount     = computed(() => monitors.value.filter(m => ['down', 'error', 'timeout'].includes(m._lastStatus)).length)
-const incidentCount = computed(() => monitors.value.filter(m => m._hasOpenIncident).length)
+function isDown(m) {
+  return ['down', 'error', 'timeout'].includes(m._lastStatus)
+}
 
-const globalUptimeStr = computed(() => {
-  const withData = monitors.value.filter(m => m._uptime24h != null)
-  if (!withData.length) return '—'
-  const avg = withData.reduce((s, m) => s + m._uptime24h, 0) / withData.length
-  return avg.toFixed(2) + '%'
-})
+const downCount     = computed(() => monitors.value.filter(m => isDown(m)).length)
+const openIncidents = computed(() => monitors.value.filter(m => m._hasOpenIncident))
 
 const previewMonitors = computed(() =>
   [...monitors.value]
     .sort((a, b) => (STATUS_PRIORITY[a._lastStatus] ?? 4) - (STATUS_PRIORITY[b._lastStatus] ?? 4))
-    .slice(0, 15)
+    .slice(0, PREVIEW_COUNT)
 )
 
-const openIncidents = computed(() => monitors.value.filter(m => m._hasOpenIncident))
+const globalUptime = computed(() => {
+  const withData = monitors.value.filter(m => m._uptime24h != null)
+  if (!withData.length) return null
+  return withData.reduce((s, m) => s + m._uptime24h, 0) / withData.length
+})
 
-// Offline probes
+const statCards = computed(() => [
+  { value: monitors.value.length, label: t('dashboard.stat_services'), to: '/monitors' },
+  { value: monitors.value.length - downCount.value, label: t('dashboard.stat_online'), tone: 'up', to: '/monitors?status=up' },
+  { value: downCount.value, label: t('dashboard.stat_trouble'), tone: downCount.value > 0 ? 'down' : null, to: '/monitors?status=down' },
+  { value: globalUptime.value != null ? globalUptime.value.toFixed(2) + ' %' : '—', label: t('dashboard.stat_uptime'), to: '/incidents' },
+])
+
+const todayStr = computed(() =>
+  new Date().toLocaleDateString(locale.value === 'fr' ? 'fr-FR' : 'en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
+)
+
+// Probes
 const probes = ref([])
 const OFFLINE_MS = 5 * 60 * 1000
 const offlineProbes = computed(() =>
@@ -223,12 +201,27 @@ const offlineProbes = computed(() =>
     return Date.now() - new Date(p.last_seen_at).getTime() > OFFLINE_MS
   })
 )
+const probesOnline = computed(() => probes.value.filter(p => p.is_enabled).length - offlineProbes.value.length)
+
 function probeLastSeen(p) {
   if (!p.last_seen_at) return t('common.never')
   const diff = Math.round((Date.now() - new Date(p.last_seen_at).getTime()) / 1000)
   if (diff < 60) return `${diff}s`
   if (diff < 3600) return `${Math.round(diff / 60)}m`
   return `${Math.round(diff / 3600)}h`
+}
+
+function sparkPath(values) {
+  if (!values || values.length < 2) return ''
+  const v = values.slice(-30)
+  const min = Math.min(...v)
+  const max = Math.max(...v)
+  const span = max - min || 1
+  const pts = v.map((x, i) => [
+    (i / (v.length - 1)) * 100,
+    26 - ((x - min) / span) * 22,
+  ])
+  return 'M' + pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' L')
 }
 
 onMounted(async () => {
@@ -257,230 +250,133 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* ════ Dashboard VELOURS — tout sur tokens : fonctionne en encre et ivoire ════ */
 .dash {
-  padding: 1.25rem 1rem 2rem;
-  max-width: 72rem;
+  max-width: 1100px;
   margin: 0 auto;
+  padding: 0 clamp(16px, 3vw, 32px) 48px;
 }
-@media (min-width: 640px)  { .dash { padding: 1.5rem 1.5rem 2rem; } }
-@media (min-width: 1024px) { .dash { padding: 2rem 2rem 2.5rem; } }
 
-.dash__header { margin-bottom: 1rem; }
+/* Hero */
+.dash__hero { padding: clamp(28px, 6vh, 64px) 0 8px; max-width: 820px; }
+.dash__kicker {
+  margin: 0 0 10px;
+  font-size: 12.5px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--text-3);
+}
 .dash__title {
-  font-size: 1.25rem;
-  font-weight: 700;
+  margin: 0;
+  font-weight: 470;
+  font-size: clamp(34px, 5.5vw, 64px);
+  line-height: 1.04;
   color: var(--text-1);
-  letter-spacing: -.02em;
-  line-height: 1.2;
+  animation: dash-rise .6s cubic-bezier(.2,.7,.2,1) backwards;
 }
-.dash__sub { font-size: .8125rem; color: var(--text-3); margin-top: .25rem; }
+.dash__title em {
+  font-style: italic; font-weight: 520;
+  color: var(--up);
+  font-variation-settings: "opsz" 100;
+  transition: color .3s;
+}
+.dash__title--down em { color: var(--down); }
+.dash__lede {
+  margin: 16px 0 0;
+  font-size: 15px; color: var(--text-3); max-width: 56ch;
+  animation: dash-rise .6s .12s cubic-bezier(.2,.7,.2,1) backwards;
+}
+.dash__lede--warn { color: var(--down); }
+.dash__ellip { animation: dash-pulse 1.2s ease-in-out infinite; }
 
-/* Stat cards */
+/* Stat ribbon */
 .dash__stats {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: .625rem;
-  margin-bottom: 1.25rem;
+  display: flex; flex-wrap: wrap; gap: 14px;
+  margin-top: 32px; padding-top: 24px;
+  border-top: 1px solid var(--border);
 }
-@media (min-width: 640px)  { .dash__stats { grid-template-columns: repeat(3, 1fr); } }
-@media (min-width: 1024px) { .dash__stats { grid-template-columns: repeat(5, 1fr); } }
-
-/* Main grid */
-.dash__grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1rem;
+.dash__stat {
+  flex: 1 1 140px;
+  display: flex; flex-direction: column; gap: 2px;
+  border-radius: var(--radius-sm); padding: 6px 8px; margin: -6px -8px;
+  animation: dash-rise .55s cubic-bezier(.2,.7,.2,1) backwards;
+  transition: background .2s;
 }
-@media (min-width: 1024px) {
-  .dash__grid { grid-template-columns: 3fr 2fr; }
-}
-
-.dash__right { display: flex; flex-direction: column; gap: 1rem; }
-
-/* Card header */
-.dash__card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: .875rem 1.125rem;
-  border-bottom: 1px solid var(--border);
-}
-.dash__card-title {
-  font-size: .8125rem;
-  font-weight: 600;
+.dash__stat:hover { background: var(--bg-surface-2); }
+.dash__stat-value {
+  font-size: clamp(24px, 3vw, 36px); font-weight: 560;
   color: var(--text-1);
 }
-.dash__view-all {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: .75rem;
-  color: var(--accent);
-  transition: color .15s;
-  text-decoration: none;
-}
-.dash__view-all:hover { color: #7cbcff; }
+.dash__stat-value--up { color: var(--up); }
+.dash__stat-value--down { color: var(--down); }
+.dash__stat-label { font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-3); }
 
-.dash__incident-count {
-  font-size: .75rem;
-  font-weight: 700;
-  color: #f87171;
-  background: rgba(248,113,113,.1);
-  border: 1px solid rgba(248,113,113,.22);
-  border-radius: 99px;
-  padding: 2px 8px;
-}
+/* Sections */
+.dash__section { margin-top: 40px; }
+.dash__section-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 16px; }
+.dash__h2 { font-weight: 520; font-size: 21px; margin: 0 0 14px; color: var(--text-1); }
+.dash__section-head .dash__h2 { margin-bottom: 0; }
+.dash__all { font-size: 13px; color: var(--accent); }
+.dash__all:hover { text-decoration: underline; }
 
-/* Empty state */
-.dash__empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 3rem 1.5rem;
-  text-align: center;
-}
-.dash__empty-icon {
-  width: 48px;
-  height: 48px;
-  background: var(--bg-surface-2);
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-3);
-  margin-bottom: 1rem;
-}
-.dash__empty-text { font-size: .875rem; color: var(--text-3); }
-
-.dash__more-link {
-  text-align: center;
-  font-size: .75rem;
-  color: var(--text-3);
-  padding: .75rem;
-}
-.dash__more-link a { color: var(--accent); }
-
-/* Incidents */
-.dash__incident-row {
-  display: flex;
-  align-items: center;
-  gap: .75rem;
-  padding: .625rem 1.125rem;
-  border-bottom: 1px solid var(--border);
-  transition: background .15s;
-}
-.dash__incident-row:last-child { border-bottom: none; }
-.dash__incident-row:hover { background: rgba(255,255,255,.018); }
-
-.dash__incident-name {
-  flex: 1;
-  font-size: .8125rem;
-  font-weight: 500;
-  color: var(--text-1);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  text-decoration: none;
-  transition: color .15s;
-}
-.dash__incident-name:hover { color: white; }
-.dash__incident-type {
-  font-size: .6875rem;
-  font-family: "JetBrains Mono", monospace;
-  color: var(--text-3);
-  flex-shrink: 0;
-}
-
-/* Status dots */
-.dot-down {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #f87171;
-  flex-shrink: 0;
-}
-.dot-pulse {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #f87171;
-  flex-shrink: 0;
-  animation: pulse-ring 2s ease-out infinite;
-}
-@keyframes pulse-ring {
-  0%   { box-shadow: 0 0 0 0 rgba(248,113,113,.5); }
-  70%  { box-shadow: 0 0 0 5px rgba(248,113,113,0); }
-  100% { box-shadow: 0 0 0 0 rgba(248,113,113,0); }
-}
-
-/* StatCard */
-.stat-card {
+/* Incidents / sondes offline */
+.dash__incident {
+  display: flex; align-items: center; gap: 14px;
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: .75rem .875rem;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  transition: border-color .2s, background .15s;
-  text-decoration: none;
-  color: inherit;
-  cursor: pointer;
+  padding: 13px 18px; margin-bottom: 10px;
+  box-shadow: var(--shadow-card);
+  transition: transform .22s cubic-bezier(.2,.7,.2,1), box-shadow .22s;
 }
-.stat-card:hover { border-color: var(--border-hover); background: var(--bg-surface-2); }
+.dash__incident:hover { transform: translateY(-2px); box-shadow: var(--shadow-card-hover); }
+.dash__incident-pip {
+  width: 9px; height: 9px; border-radius: 99px; flex-shrink: 0;
+  background: var(--down);
+  animation: dash-pulse 1.6s ease-in-out infinite;
+}
+.dash__incident-wifi { color: var(--down); flex-shrink: 0; }
+.dash__incident-name { font-weight: 600; font-size: 13.5px; color: var(--text-1); }
+.dash__incident-type { font-size: 12px; color: var(--text-3); }
+.dash__incident-go { margin-left: auto; color: var(--text-3); transition: transform .2s, color .2s; }
+.dash__incident:hover .dash__incident-go { transform: translateX(4px); color: var(--text-1); }
 
-.stat-card__icon {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  position: relative;
+/* Services grid */
+.dash__cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+.dash__card {
+  display: block;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px 16px 12px;
+  box-shadow: var(--shadow-card);
+  transition: transform .24s cubic-bezier(.2,.7,.2,1), box-shadow .24s, border-color .24s;
+  animation: dash-rise .5s cubic-bezier(.2,.7,.2,1) backwards;
 }
-.stat-card__pulse {
-  position: absolute;
-  top: -2px;
-  right: -2px;
-  width: 7px;
-  height: 7px;
-  background: #ef4444;
-  border-radius: 50%;
-  border: 1.5px solid var(--bg-surface);
-  animation: pulse-ring 2s ease-out infinite;
+.dash__card:hover { transform: translateY(-3px); box-shadow: var(--shadow-card-hover); border-color: var(--border-hover); }
+.dash__card--down { border-color: color-mix(in srgb, var(--down) 45%, transparent); }
+.dash__card-row { display: flex; justify-content: space-between; align-items: center; }
+.dash__pill {
+  font-size: 10px; letter-spacing: .08em; text-transform: uppercase; font-weight: 700;
+  padding: 3px 9px; border-radius: 99px;
 }
+.dash__pill--up { color: var(--up); background: color-mix(in srgb, var(--up) 12%, transparent); }
+.dash__pill--down { color: var(--bg-surface); background: var(--down); animation: dash-pulse 1.6s ease-in-out infinite; }
+.dash__card-ms { font-size: 11.5px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.dash__card-name {
+  margin: 9px 0 5px; font-size: 15px; font-weight: 650; letter-spacing: -.01em;
+  color: var(--text-1);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.dash__spark { width: 100%; height: 28px; display: block; }
+.dash__spark-line { fill: none; stroke: var(--up); stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
+.dash__spark-fill { fill: color-mix(in srgb, var(--up) 10%, transparent); }
+.dash__spark-line--down { stroke: var(--down); }
+.dash__spark-fill--down { fill: color-mix(in srgb, var(--down) 10%, transparent); }
+.dash__card-foot { display: flex; justify-content: space-between; margin-top: 7px; font-size: 11px; color: var(--text-3); }
 
-.stat-card__label {
-  font-size: .6rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .07em;
-  color: var(--text-3);
-  margin-bottom: 2px;
-  white-space: nowrap;
-}
-.stat-card__value {
-  font-size: 1.375rem;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: -.03em;
-}
+.dash__more { margin-top: 14px; font-size: 12.5px; }
+.dash__more a { color: var(--accent); }
+.dash__more a:hover { text-decoration: underline; }
 
-/* Mobile: bigger stat cards, more breathing room, larger tap targets */
-@media (max-width: 640px) {
-  .stat-card {
-    padding: 14px 14px;
-    min-height: 64px;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .stat-card__icon { width: 38px; height: 38px; }
-  .stat-card__icon svg { width: 20px; height: 20px; }
-  .stat-card__label { font-size: .65rem; }
-  .stat-card__value { font-size: 1.5rem; }
-  .dash__title { font-size: 1.375rem; }
-  .dash__sub { font-size: .85rem; }
-  .dash__card-header { padding: 14px 16px; }
-  .dash__card-title { font-size: 1rem; }
-}
+@keyframes dash-rise { from { opacity: 0; transform: translateY(14px); } }
+@keyframes dash-pulse { 50% { opacity: .45; } }
 </style>

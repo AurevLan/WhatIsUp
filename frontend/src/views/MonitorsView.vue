@@ -83,7 +83,7 @@
           <Upload class="w-4 h-4" />
           {{ t('monitors.import_json') }}
         </button>
-        <input ref="importFileInput" type="file" accept=".json" class="hidden" @change="handleImportFile" />
+        <input ref="importFileInput" type="file" accept=".json" class="hidden" :aria-label="t('monitors.import_json')" @change="handleImportFile" />
         <button @click="showCreate = true" class="btn-primary h-8 text-xs">
           <Plus class="w-4 h-4" />
           {{ t('monitors.add') }}
@@ -107,6 +107,7 @@
 
         <!-- Type dropdown -->
         <select v-model="filterType"
+          :aria-label="t('monitors.filter_type')"
           class="h-7 px-2 pr-6 rounded-lg border border-gray-700/80 bg-gray-900 text-xs text-gray-400 focus:outline-none focus:border-blue-600 transition-colors appearance-none cursor-pointer"
           :class="filterType ? 'border-blue-600/60 text-blue-300' : ''">
           <option value="">{{ t('monitors.all_types') }}</option>

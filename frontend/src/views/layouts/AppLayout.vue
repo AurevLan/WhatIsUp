@@ -1,6 +1,6 @@
 <template>
   <div class="app-shell">
-    <a href="#main-content" class="skip-to-content">Skip to content</a>
+    <a href="#main-content" class="skip-to-content">{{ t('a11y.skip_to_content') }}</a>
 
     <!-- Mobile overlay -->
     <div v-if="sidebarOpen" class="sidebar-overlay lg:hidden" @click="sidebarOpen = false" aria-hidden="true" />
@@ -46,7 +46,7 @@
 
         <template v-if="auth.isSuperadmin">
           <div class="nav-section">Admin</div>
-          <NavLink to="/admin" :icon="ShieldCheck" label="Administration" />
+          <NavLink to="/admin" :icon="ShieldCheck" :label="t('nav.admin')" />
         </template>
       </div>
 
@@ -118,7 +118,9 @@
       </header>
 
       <!-- Content -->
-      <main id="main-content" class="content" @click="sidebarOpen && (sidebarOpen = false)">
+      <!-- tabindex=-1: focus target for the skip-link and the router's
+           post-navigation focus reset (programmatic focus only) -->
+      <main id="main-content" tabindex="-1" class="content" @click="sidebarOpen && (sidebarOpen = false)">
         <router-view v-slot="{ Component }">
           <Transition name="page" mode="out-in">
             <component :is="Component" />
@@ -636,5 +638,10 @@ async function handleLogout() {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
+}
+/* Programmatic focus (skip-link / route change) must not draw a ring around
+   the whole content area */
+.content:focus {
+  outline: none;
 }
 </style>

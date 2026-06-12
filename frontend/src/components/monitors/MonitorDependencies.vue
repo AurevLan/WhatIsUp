@@ -21,7 +21,7 @@
 
       <!-- Add form -->
       <form class="dep-add-form" @submit.prevent="addDep">
-        <select v-model="selectedParentId" class="select-input" required>
+        <select v-model="selectedParentId" :aria-label="t('dependencies.parent_monitor')" class="select-input" required>
           <option value="" disabled>{{ t('dependencies.parent_monitor') }}</option>
           <option
             v-for="m in availableMonitors"

@@ -1,6 +1,10 @@
 export default {
+  a11y: {
+    skip_to_content: 'Skip to content',
+  },
   // Navigation
   nav: {
+    admin: 'Administration',
     dashboard: 'Dashboard',
     monitors: 'Monitors',
     probes: 'Probes',
@@ -417,6 +421,7 @@ export default {
     update_public: 'Public',
     update_post: 'Post',
     update_placeholder: 'Status update message…',
+    update_status: 'Update status',
     update_status_investigating: 'Investigating',
     update_status_identified: 'Identified',
     update_status_monitoring: 'Monitoring',

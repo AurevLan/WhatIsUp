@@ -174,7 +174,7 @@
           </template>
 
           <div class="pt-2 flex gap-2 flex-wrap">
-            <select v-model="state.newUpdate.value.status" class="input text-xs flex-shrink-0 w-36">
+            <select v-model="state.newUpdate.value.status" :aria-label="t('monitor_detail.update_status')" class="input text-xs flex-shrink-0 w-36">
               <option value="investigating">{{ t('monitor_detail.update_status_investigating') }}</option>
               <option value="identified">{{ t('monitor_detail.update_status_identified') }}</option>
               <option value="monitoring">{{ t('monitor_detail.update_status_monitoring') }}</option>
@@ -278,7 +278,7 @@
           </div>
           <div class="mt-2 pt-2 border-t border-gray-800 space-y-2">
             <div class="flex gap-2">
-              <select v-model="state.newUpdate.value.status" class="input text-xs flex-shrink-0 w-36">
+              <select v-model="state.newUpdate.value.status" :aria-label="t('monitor_detail.update_status')" class="input text-xs flex-shrink-0 w-36">
                 <option value="investigating">{{ t('monitor_detail.update_status_investigating') }}</option>
                 <option value="identified">{{ t('monitor_detail.update_status_identified') }}</option>
                 <option value="monitoring">{{ t('monitor_detail.update_status_monitoring') }}</option>
@@ -343,12 +343,12 @@
     </div>
     <div class="flex flex-wrap gap-3 items-end">
       <div>
-        <label class="text-xs text-gray-500 block mb-1">{{ t('monitor_detail.sla_from') }}</label>
-        <input v-model="state.slaFrom.value" type="date" class="input text-xs" />
+        <label for="sla-from" class="text-xs text-gray-500 block mb-1">{{ t('monitor_detail.sla_from') }}</label>
+        <input id="sla-from" v-model="state.slaFrom.value" type="date" class="input text-xs" />
       </div>
       <div>
-        <label class="text-xs text-gray-500 block mb-1">{{ t('monitor_detail.sla_to') }}</label>
-        <input v-model="state.slaTo.value" type="date" class="input text-xs" />
+        <label for="sla-to" class="text-xs text-gray-500 block mb-1">{{ t('monitor_detail.sla_to') }}</label>
+        <input id="sla-to" v-model="state.slaTo.value" type="date" class="input text-xs" />
       </div>
       <button
         :disabled="!state.slaFrom.value || state.slaLoading.value"

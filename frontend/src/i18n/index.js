@@ -11,6 +11,10 @@ export const i18n = createI18n({
   messages: { en, fr },
 })
 
+// Keep <html lang> in sync from the very first paint (WCAG 3.1.1) — setLocale
+// only covers later switches.
+document.documentElement.lang = savedLang
+
 export function setLocale(lang) {
   i18n.global.locale.value = lang
   localStorage.setItem('whatisup_lang', lang)

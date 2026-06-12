@@ -1,5 +1,9 @@
 export default {
+  a11y: {
+    skip_to_content: 'Aller au contenu',
+  },
   nav: {
+    admin: 'Administration',
     dashboard: 'Tableau de bord',
     monitors: 'Moniteurs',
     probes: 'Sondes',
@@ -407,6 +411,7 @@ export default {
     update_public: 'Public',
     update_post: 'Publier',
     update_placeholder: 'Message de mise à jour…',
+    update_status: 'Statut de la mise à jour',
     update_status_investigating: 'En investigation',
     update_status_identified: 'Identifié',
     update_status_monitoring: 'Surveillance',

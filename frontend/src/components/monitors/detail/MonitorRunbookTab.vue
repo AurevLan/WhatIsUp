@@ -3,8 +3,8 @@
     <div class="card">
       <div class="flex items-center justify-between mb-3">
         <div>
-          <h2 class="text-sm font-semibold text-gray-200">{{ t('runbook.title') }}</h2>
-          <p class="text-xs text-gray-500 mt-0.5">{{ t('runbook.subtitle') }}</p>
+          <h2 class="text-sm font-semibold text-(--text-1)">{{ t('runbook.title') }}</h2>
+          <p class="text-xs text-(--text-3) mt-0.5">{{ t('runbook.subtitle') }}</p>
         </div>
         <div class="flex items-center gap-2">
           <button
@@ -39,7 +39,7 @@
           @input="$emit('update:draft', $event.target.value)"
         ></textarea>
         <div
-          class="runbook-preview prose prose-invert max-w-none text-sm p-3 rounded-lg border border-gray-800 bg-gray-950/40 overflow-auto"
+          class="runbook-preview prose prose-invert max-w-none text-sm p-3 rounded-lg border border-(--border) bg-(--bg-surface) overflow-auto"
           v-html="previewHtml"
         ></div>
       </div>
@@ -50,7 +50,7 @@
           class="runbook-preview prose prose-invert max-w-none text-sm"
           v-html="renderedHtml"
         ></div>
-        <p v-else class="text-sm text-gray-500 italic">{{ t('runbook.empty') }}</p>
+        <p v-else class="text-sm text-(--text-3) italic">{{ t('runbook.empty') }}</p>
       </div>
     </div>
   </div>

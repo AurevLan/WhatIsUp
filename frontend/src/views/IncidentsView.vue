@@ -3,7 +3,7 @@
 
     <div class="incidents__header">
       <div>
-        <h1 class="incidents__title">{{ t('incidents.title') }}</h1>
+        <h1 class="incidents__title font-display">{{ t('incidents.title') }}</h1>
         <p class="incidents__sub">{{ t('incidents.subtitle') }}</p>
       </div>
     </div>
@@ -179,7 +179,7 @@
               class="inc-runbook runbook-preview prose prose-invert max-w-none text-sm"
               v-html="renderRunbook(item.runbook_markdown)"
             ></div>
-            <div v-if="expandedPlayback[item.id]" class="px-3 py-3 bg-slate-950/40">
+            <div v-if="expandedPlayback[item.id]" class="px-3 py-3 bg-(--bg-surface-2)">
               <IncidentPlaybackMap :incident-id="item.id" />
             </div>
             <IncidentDiagnosticPanel
@@ -578,13 +578,13 @@ async function unack(inc) {
   transition: background .15s;
 }
 .inc-row--data:last-child { border-bottom: none; }
-.inc-row--data:hover { background: rgba(255,255,255,.025); }
+.inc-row--data:hover { background: var(--bg-surface-2); }
 
 .inc-row--grouped {
   padding-left: 2.5rem;
-  background: rgba(99,102,241,.02);
+  background: color-mix(in srgb, var(--accent) 2%, transparent);
 }
-.inc-row--grouped:hover { background: rgba(99,102,241,.05); }
+.inc-row--grouped:hover { background: color-mix(in srgb, var(--accent) 5%, transparent); }
 
 .inc-col { font-size: .8125rem; color: var(--text-2); }
 .inc-col--monitor { font-weight: 500; color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-decoration: none; }
@@ -608,19 +608,19 @@ async function unack(inc) {
   white-space: nowrap;
 }
 .inc-badge--open {
-  background: rgba(248,113,113,.12);
-  color: #f87171;
-  border: 1px solid rgba(248,113,113,.25);
+  background: color-mix(in srgb, var(--down) 12%, transparent);
+  color: var(--down);
+  border: 1px solid color-mix(in srgb, var(--down) 25%, transparent);
 }
 .inc-badge--resolved {
-  background: rgba(52,211,153,.1);
-  color: #34d399;
-  border: 1px solid rgba(52,211,153,.2);
+  background: color-mix(in srgb, var(--up) 10%, transparent);
+  color: var(--up);
+  border: 1px solid color-mix(in srgb, var(--up) 20%, transparent);
 }
 .inc-badge--acked {
-  background: rgba(251,191,36,.1);
-  color: #fbbf24;
-  border: 1px solid rgba(251,191,36,.25);
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+  color: var(--warn);
+  border: 1px solid color-mix(in srgb, var(--warn) 25%, transparent);
 }
 
 /* V2-02-02 — network verdict badges (rendered next to the status badge) */
@@ -631,19 +631,19 @@ async function unack(inc) {
   cursor: help;
 }
 .inc-badge--verdict-service {
-  background: rgba(248,113,113,.12);
-  color: #f87171;
-  border: 1px solid rgba(248,113,113,.25);
+  background: color-mix(in srgb, var(--down) 12%, transparent);
+  color: var(--down);
+  border: 1px solid color-mix(in srgb, var(--down) 25%, transparent);
 }
 .inc-badge--verdict-asn {
-  background: rgba(96,165,250,.12);
-  color: #60a5fa;
-  border: 1px solid rgba(96,165,250,.25);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
 }
 .inc-badge--verdict-geo {
-  background: rgba(168,85,247,.12);
-  color: #a855f7;
-  border: 1px solid rgba(168,85,247,.25);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
 }
 
 /* Ack button */
@@ -661,7 +661,7 @@ async function unack(inc) {
   transition: all .15s;
 }
 .ack-btn:hover { border-color: var(--border-hover); color: var(--text-2); }
-.ack-btn--active { color: #fbbf24; border-color: rgba(251,191,36,.4); }
+.ack-btn--active { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, transparent); }
 @media (max-width: 640px) {
   .ack-btn { width: 44px; height: 44px; -webkit-tap-highlight-color: transparent; }
   .ack-btn svg { width: 20px; height: 20px; }
@@ -678,14 +678,14 @@ async function unack(inc) {
   gap: .75rem;
   width: 100%;
   padding: .75rem 1.125rem;
-  background: rgba(99,102,241,.04);
+  background: color-mix(in srgb, var(--accent) 4%, transparent);
   border: none;
   cursor: pointer;
   text-align: left;
   font-family: inherit;
   transition: background .15s;
 }
-.inc-group__header:hover { background: rgba(99,102,241,.08); }
+.inc-group__header:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
 
 .inc-group__icon {
   display: flex;
@@ -694,8 +694,8 @@ async function unack(inc) {
   width: 24px;
   height: 24px;
   border-radius: 6px;
-  background: rgba(99,102,241,.15);
-  color: #818cf8;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
   flex-shrink: 0;
 }
 
@@ -710,7 +710,7 @@ async function unack(inc) {
   color: var(--text-3);
 }
 .inc-group__cause strong {
-  color: #f87171;
+  color: var(--down);
   font-weight: 600;
 }
 
@@ -723,9 +723,9 @@ async function unack(inc) {
   letter-spacing: .04em;
   flex-shrink: 0;
 }
-.inc-group__type--probe { background: rgba(96,165,250,.1); color: #60a5fa; border: 1px solid rgba(96,165,250,.25); }
-.inc-group__type--group { background: rgba(168,85,247,.1); color: #a855f7; border: 1px solid rgba(168,85,247,.25); }
-.inc-group__type--dependency { background: rgba(251,191,36,.1); color: #fbbf24; border: 1px solid rgba(251,191,36,.25); }
+.inc-group__type--probe { background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); }
+.inc-group__type--group { background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); }
+.inc-group__type--dependency { background: color-mix(in srgb, var(--warn) 10%, transparent); color: var(--warn); border: 1px solid color-mix(in srgb, var(--warn) 25%, transparent); }
 
 .inc-group__monitors {
   flex: 1;
@@ -745,7 +745,7 @@ async function unack(inc) {
 .inc-group__chevron--open { transform: rotate(180deg); }
 
 .inc-group__body {
-  border-top: 1px solid rgba(99,102,241,.1);
+  border-top: 1px solid color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 .incidents__empty {
@@ -760,8 +760,8 @@ async function unack(inc) {
 
 .inc-runbook {
   padding: 1rem 1.25rem 1.25rem 3rem;
-  border-top: 1px solid rgba(99,102,241,.12);
-  background: rgba(99,102,241,.04);
+  border-top: 1px solid color-mix(in srgb, var(--accent) 12%, transparent);
+  background: color-mix(in srgb, var(--accent) 4%, transparent);
   line-height: 1.55;
 }
 .inc-runbook :deep(h1),
@@ -778,19 +778,19 @@ async function unack(inc) {
 .inc-runbook :deep(ol) { padding-left: 1.25rem; margin: .25rem 0; }
 .inc-runbook :deep(li) { margin: .15rem 0; }
 .inc-runbook :deep(code) {
-  background: rgba(255,255,255,.08);
+  background: var(--bg-surface-3);
   padding: .1em .35em;
   border-radius: 3px;
   font-size: .85em;
 }
 .inc-runbook :deep(pre) {
-  background: rgba(0,0,0,.35);
+  background: var(--bg-surface-2);
   padding: .65rem .85rem;
   border-radius: 6px;
   overflow-x: auto;
   margin: .35rem 0;
 }
-.inc-runbook :deep(a) { color: #60a5fa; text-decoration: underline; }
+.inc-runbook :deep(a) { color: var(--accent); text-decoration: underline; }
 .inc-runbook :deep(.runbook-task) { list-style: none; margin-left: -1rem; }
 .inc-runbook :deep(.runbook-task input[type="checkbox"]) { margin-right: .45rem; }
 </style>

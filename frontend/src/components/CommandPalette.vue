@@ -534,7 +534,7 @@ function onKeydown(e) {
   opacity: 1;
 }
 .palette__action-btn:hover {
-  background: rgba(59, 130, 246, 0.18);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
   color: var(--text-1);
 }
 
@@ -557,12 +557,12 @@ function onKeydown(e) {
 
 .palette__item:hover,
 .palette__item--active {
-  background: rgba(59, 130, 246, 0.08);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
   color: var(--text-1);
 }
 
 .palette__item--active {
-  background: rgba(59, 130, 246, 0.12);
+  background: var(--accent-glow);
 }
 
 .palette__item-name {
@@ -597,9 +597,9 @@ function onKeydown(e) {
   border-radius: 50%;
   flex-shrink: 0;
 }
-.palette__status-dot--down    { background: #f87171; box-shadow: 0 0 4px rgba(248,113,113,.5); }
-.palette__status-dot--error   { background: #fb923c; }
-.palette__status-dot--timeout { background: #fbbf24; }
+.palette__status-dot--down    { background: var(--down); box-shadow: 0 0 4px color-mix(in srgb, var(--down) 50%, transparent); }
+.palette__status-dot--error   { background: color-mix(in srgb, var(--down) 70%, var(--warn)); }
+.palette__status-dot--timeout { background: var(--warn); }
 
 .palette__empty {
   padding: 24px 16px;

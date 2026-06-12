@@ -2,7 +2,7 @@
   <BaseModal :title="t('probes.edit_title')" @close="$emit('close')">
       <form @submit.prevent="save" class="space-y-4">
         <div>
-          <label class="block text-xs text-gray-400 mb-1">{{ t('probes.location_label') }}</label>
+          <label class="block text-xs text-(--text-2) mb-1">{{ t('probes.location_label') }}</label>
           <div class="flex gap-2">
             <input v-model="form.location_name" type="text" required
               class="input flex-1" :placeholder="t('probes.location_placeholder')" />
@@ -13,22 +13,22 @@
               {{ geocoding ? t('probes.locating') : t('probes.locate_btn') }}
             </button>
           </div>
-          <div v-if="geoResult" class="text-xs text-emerald-400 flex items-center gap-1 mt-1">
+          <div v-if="geoResult" class="text-xs text-(--up) flex items-center gap-1 mt-1">
             ✓ {{ geoResult.display_name_short }} — {{ form.latitude }}°, {{ form.longitude }}°
           </div>
-          <div v-if="geoError" class="text-xs text-red-400 mt-1">{{ geoError }}</div>
+          <div v-if="geoError" class="text-xs text-(--down) mt-1">{{ geoError }}</div>
         </div>
 
         <details class="mt-1">
-          <summary class="text-xs text-gray-500 cursor-pointer select-none hover:text-gray-400">{{ t('probes.manual_coordinates') }}</summary>
+          <summary class="text-xs text-(--text-3) cursor-pointer select-none hover:text-(--text-2)">{{ t('probes.manual_coordinates') }}</summary>
           <div class="grid grid-cols-2 gap-3 mt-2">
             <div>
-              <label class="block text-xs text-gray-400 mb-1">{{ t('probes.latitude') }}</label>
+              <label class="block text-xs text-(--text-2) mb-1">{{ t('probes.latitude') }}</label>
               <input v-model.number="form.latitude" type="number" step="0.0001"
                 min="-90" max="90" class="input w-full" placeholder="48.8566" />
             </div>
             <div>
-              <label class="block text-xs text-gray-400 mb-1">{{ t('probes.longitude') }}</label>
+              <label class="block text-xs text-(--text-2) mb-1">{{ t('probes.longitude') }}</label>
               <input v-model.number="form.longitude" type="number" step="0.0001"
                 min="-180" max="180" class="input w-full" placeholder="2.3522" />
             </div>
@@ -36,17 +36,17 @@
         </details>
 
         <div>
-          <label class="block text-xs text-gray-400 mb-1">{{ t('probes.network_type') }}</label>
+          <label class="block text-xs text-(--text-2) mb-1">{{ t('probes.network_type') }}</label>
           <select v-model="form.network_type" class="input w-full">
             <option value="external">🌐 {{ t('probes.network_external') }}</option>
             <option value="internal">🏢 {{ t('probes.network_internal') }}</option>
           </select>
-          <p class="text-xs text-gray-500 mt-1">
+          <p class="text-xs text-(--text-3) mt-1">
             {{ t('probes.network_type_hint') }}
           </p>
         </div>
 
-        <p v-if="error" class="text-red-400 text-sm">{{ error }}</p>
+        <p v-if="error" class="text-(--down) text-sm">{{ error }}</p>
 
         <div class="flex gap-3 pt-2">
           <button type="submit" :disabled="saving" class="btn-primary flex-1">

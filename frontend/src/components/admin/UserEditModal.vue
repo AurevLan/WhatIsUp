@@ -6,74 +6,74 @@
   >
         <form @submit.prevent="submitEdit" class="space-y-4">
           <div>
-            <label class="block text-sm text-gray-400 mb-1">{{ t('admin.col_email') }}</label>
+            <label class="block text-sm text-(--text-2) mb-1">{{ t('admin.col_email') }}</label>
             <input v-model="editForm.email" type="email" class="input w-full" />
           </div>
           <div>
-            <label class="block text-sm text-gray-400 mb-1">{{ t('admin.label_full_name') }}</label>
+            <label class="block text-sm text-(--text-2) mb-1">{{ t('admin.label_full_name') }}</label>
             <input v-model="editForm.full_name" type="text" class="input w-full" />
           </div>
           <div>
-            <label class="block text-sm text-gray-400 mb-1">{{ t('admin.label_new_password') }}</label>
+            <label class="block text-sm text-(--text-2) mb-1">{{ t('admin.label_new_password') }}</label>
             <input v-model="editForm.password" type="password" class="input w-full" minlength="8" />
           </div>
 
-          <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-800/60 border border-gray-700/50">
+          <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-(--bg-surface-2) border border-(--border)">
             <div>
-              <div class="text-sm text-gray-300 font-medium">{{ t('admin.toggle_active') }}</div>
+              <div class="text-sm text-(--text-2) font-medium">{{ t('admin.toggle_active') }}</div>
             </div>
             <button
               type="button"
               @click="editForm.is_active = !editForm.is_active"
               :aria-label="t('admin.toggle_active')"
-              :class="editForm.is_active ? 'bg-green-600' : 'bg-gray-700'"
+              :class="editForm.is_active ? 'bg-(--up)' : 'bg-(--bg-surface-3)'"
               class="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
             >
               <span
                 :class="editForm.is_active ? 'translate-x-5' : 'translate-x-1'"
-                class="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"
+                class="absolute top-0.5 w-5 h-5 bg-(--text-1) rounded-full shadow transition-transform"
               />
             </button>
           </div>
 
-          <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-800/60 border border-gray-700/50">
+          <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-(--bg-surface-2) border border-(--border)">
             <div>
-              <div class="text-sm text-gray-300 font-medium">{{ t('admin.perm_can_create_monitors') }}</div>
+              <div class="text-sm text-(--text-2) font-medium">{{ t('admin.perm_can_create_monitors') }}</div>
             </div>
             <button
               type="button"
               @click="editForm.can_create_monitors = !editForm.can_create_monitors"
               :aria-label="t('admin.perm_can_create_monitors')"
-              :class="editForm.can_create_monitors ? 'bg-blue-600' : 'bg-gray-700'"
+              :class="editForm.can_create_monitors ? 'bg-(--accent)' : 'bg-(--bg-surface-3)'"
               class="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
             >
               <span
                 :class="editForm.can_create_monitors ? 'translate-x-5' : 'translate-x-1'"
-                class="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"
+                class="absolute top-0.5 w-5 h-5 bg-(--text-1) rounded-full shadow transition-transform"
               />
             </button>
           </div>
 
-          <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-800/60 border border-gray-700/50">
+          <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-(--bg-surface-2) border border-(--border)">
             <div>
-              <div class="text-sm text-gray-300 font-medium">{{ t('admin.perm_is_admin') }}</div>
-              <div class="text-xs text-gray-500">{{ t('admin.perm_is_admin_desc_short') }}</div>
+              <div class="text-sm text-(--text-2) font-medium">{{ t('admin.perm_is_admin') }}</div>
+              <div class="text-xs text-(--text-3)">{{ t('admin.perm_is_admin_desc_short') }}</div>
             </div>
             <button
               type="button"
               @click="editForm.is_superadmin = !editForm.is_superadmin"
               :aria-label="t('admin.perm_is_admin')"
-              :class="editForm.is_superadmin ? 'bg-purple-600' : 'bg-gray-700'"
+              :class="editForm.is_superadmin ? 'bg-(--accent)' : 'bg-(--bg-surface-3)'"
               class="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
             >
               <span
                 :class="editForm.is_superadmin ? 'translate-x-5' : 'translate-x-1'"
-                class="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"
+                class="absolute top-0.5 w-5 h-5 bg-(--text-1) rounded-full shadow transition-transform"
               />
             </button>
           </div>
 
-          <div v-if="editError" class="text-red-400 text-sm">{{ editError }}</div>
+          <div v-if="editError" class="text-(--down) text-sm">{{ editError }}</div>
 
           <div class="flex justify-end gap-3 pt-2">
             <button type="button" @click="close" class="btn-secondary">{{ t('common.cancel') }}</button>

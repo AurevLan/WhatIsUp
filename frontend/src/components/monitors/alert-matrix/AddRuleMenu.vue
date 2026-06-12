@@ -4,7 +4,7 @@
       type="button"
       @click="openModal"
       :disabled="!availableOptions.length"
-      class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-gray-700 text-sm text-gray-400 hover:text-gray-200 hover:border-gray-500 disabled:opacity-40 disabled:cursor-not-allowed"
+      class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-(--border) text-sm text-(--text-2) hover:text-(--text-1) hover:border-(--border-hover) disabled:opacity-40 disabled:cursor-not-allowed"
     >
       <Plus :size="14" />
       <span>{{ t('alert_matrix.add_rule') }}</span>
@@ -12,7 +12,7 @@
 
     <BaseModal v-model="open" :title="t('alert_matrix.add_rule')" size="md">
       <div class="space-y-3">
-        <p class="text-xs text-gray-500">{{ t('alert_matrix.add_hint') }}</p>
+        <p class="text-xs text-(--text-3)">{{ t('alert_matrix.add_hint') }}</p>
 
         <div class="space-y-1 max-h-96 overflow-y-auto -mx-1 px-1">
           <div
@@ -20,8 +20,8 @@
             :key="cond"
             class="rounded-lg border transition-colors"
             :class="selected.has(cond)
-              ? 'border-blue-500/60 bg-blue-500/10'
-              : 'border-gray-800 hover:border-gray-700'"
+              ? 'border-(--accent-border) bg-(--accent-glow)'
+              : 'border-(--border) hover:border-(--border-hover)'"
           >
             <button
               type="button"
@@ -31,24 +31,24 @@
               <div
                 class="mt-0.5 w-4 h-4 rounded flex items-center justify-center border shrink-0"
                 :class="selected.has(cond)
-                  ? 'border-blue-400 bg-blue-500 text-white'
-                  : 'border-gray-600'"
+                  ? 'border-(--accent) bg-(--accent) text-(--bg-base)'
+                  : 'border-(--border)'"
               >
                 <Check v-if="selected.has(cond)" :size="12" />
               </div>
               <div class="min-w-0 flex-1">
-                <div class="text-xs font-mono text-gray-200">{{ cond }}</div>
-                <div class="text-[11px] text-gray-500 mt-0.5">
+                <div class="text-xs font-mono text-(--text-1)">{{ cond }}</div>
+                <div class="text-[11px] text-(--text-3) mt-0.5">
                   {{ t('alert_matrix.conditions.' + cond) }}
                 </div>
               </div>
             </button>
             <details class="px-3 pb-2 -mt-1" @click.stop>
-              <summary class="cursor-pointer text-[11px] text-blue-400 hover:text-blue-300 select-none inline-flex items-center gap-1 pl-7">
+              <summary class="cursor-pointer text-[11px] text-(--accent) select-none inline-flex items-center gap-1 pl-7">
                 <Info :size="11" />
                 <span>{{ t('alert_matrix.help_title') }}</span>
               </summary>
-              <p class="mt-2 ml-7 pl-3 pr-1 text-[11px] leading-relaxed text-gray-400 border-l-2 border-blue-900/50">
+              <p class="mt-2 ml-7 pl-3 pr-1 text-[11px] leading-relaxed text-(--text-2) border-l-2 border-(--accent-border)">
                 {{ t('alert_matrix.help.' + cond) }}
               </p>
             </details>

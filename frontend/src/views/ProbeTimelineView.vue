@@ -7,13 +7,13 @@
         <span class="breadcrumbs__current">{{ t('probeTimeline.title') }}</span>
       </nav>
       <div class="flex-1">
-        <h1 class="text-2xl font-bold text-white">
+        <h1 class="font-display text-2xl font-bold text-(--text-1)">
           {{ t('probeTimeline.title') }}
-          <span v-if="probe" class="text-blue-400 ml-2">{{ probe.name }}</span>
+          <span v-if="probe" class="text-(--accent) ml-2">{{ probe.name }}</span>
         </h1>
-        <p class="text-gray-400 text-sm mt-1">{{ t('probeTimeline.subtitle') }}</p>
+        <p class="text-(--text-2) text-sm mt-1">{{ t('probeTimeline.subtitle') }}</p>
       </div>
-      <select v-model="days" @change="load" class="bg-gray-900 border border-gray-700 text-gray-300 text-sm px-3 py-1.5 rounded-lg">
+      <select v-model="days" @change="load" class="bg-(--bg-surface-2) border border-(--border) text-(--text-2) text-sm px-3 py-1.5 rounded-lg">
         <option :value="1">1 {{ t('common.day') }}</option>
         <option :value="7">7 {{ t('common.days') }}</option>
         <option :value="14">14 {{ t('common.days') }}</option>
@@ -22,9 +22,9 @@
       </select>
     </div>
 
-    <div v-if="loading" class="text-gray-400">{{ t('common.loading') }}</div>
+    <div v-if="loading" class="text-(--text-2)">{{ t('common.loading') }}</div>
 
-    <p v-else-if="timeline.length === 0" class="text-gray-500">
+    <p v-else-if="timeline.length === 0" class="text-(--text-3)">
       {{ t('probeTimeline.empty') }}
     </p>
 
@@ -34,19 +34,19 @@
           <div>
             <router-link
               :to="`/monitors/${m.monitor_id}`"
-              class="font-semibold text-white hover:text-blue-400 transition-colors"
+              class="font-semibold text-(--text-1) hover:text-(--accent) transition-colors"
             >{{ m.monitor_name }}</router-link>
-            <span class="ml-2 text-xs px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 uppercase">{{ m.check_type }}</span>
+            <span class="ml-2 text-xs px-1.5 py-0.5 rounded bg-(--bg-surface-2) text-(--text-2) uppercase">{{ m.check_type }}</span>
           </div>
-          <span class="text-xs text-gray-500 font-mono truncate max-w-xs">{{ m.monitor_url }}</span>
+          <span class="text-xs text-(--text-3) font-mono truncate max-w-xs">{{ m.monitor_url }}</span>
         </div>
 
         <!-- Incidents timeline bar -->
-        <div class="relative h-8 bg-gray-800 rounded overflow-hidden mb-3">
+        <div class="relative h-8 bg-(--bg-surface-2) rounded overflow-hidden mb-3">
           <div
             v-for="inc in m.incidents" :key="inc.id"
             class="absolute top-0 h-full rounded"
-            :class="inc.resolved_at ? 'bg-red-700/70' : 'bg-red-500/90'"
+            :class="inc.resolved_at ? 'bg-[color-mix(in_srgb,var(--down)_15%,transparent)]' : 'bg-[color-mix(in_srgb,var(--down)_90%,transparent)]'"
             :style="incidentBarStyle(inc)"
             :title="`${formatDt(inc.started_at)} → ${inc.resolved_at ? formatDt(inc.resolved_at) : 'En cours'} (${inc.scope})`"
           ></div>
@@ -56,19 +56,19 @@
         <div class="space-y-1">
           <div
             v-for="inc in m.incidents.slice(0, 5)" :key="inc.id + '-row'"
-            class="flex items-center gap-4 text-xs text-gray-400"
+            class="flex items-center gap-4 text-xs text-(--text-2)"
           >
             <span
               class="w-2 h-2 rounded-full flex-shrink-0"
-              :class="inc.resolved_at ? 'bg-red-700' : 'bg-red-400'"
+              :class="inc.resolved_at ? 'bg-[color-mix(in_srgb,var(--down)_55%,transparent)]' : 'bg-(--down)'"
             ></span>
-            <span class="text-gray-300 whitespace-nowrap">{{ formatDt(inc.started_at) }}</span>
-            <span class="text-gray-600">→</span>
+            <span class="text-(--text-2) whitespace-nowrap">{{ formatDt(inc.started_at) }}</span>
+            <span class="text-(--text-3)">→</span>
             <span class="whitespace-nowrap">{{ inc.resolved_at ? formatDt(inc.resolved_at) : t('probeTimeline.ongoing') }}</span>
-            <span v-if="inc.duration_seconds" class="text-gray-500">{{ formatDuration(inc.duration_seconds) }}</span>
-            <span class="px-1.5 py-0.5 rounded bg-gray-800 text-gray-500">{{ inc.scope }}</span>
+            <span v-if="inc.duration_seconds" class="text-(--text-3)">{{ formatDuration(inc.duration_seconds) }}</span>
+            <span class="px-1.5 py-0.5 rounded bg-(--bg-surface-2) text-(--text-3)">{{ inc.scope }}</span>
           </div>
-          <p v-if="m.incidents.length > 5" class="text-xs text-gray-600">
+          <p v-if="m.incidents.length > 5" class="text-xs text-(--text-3)">
             + {{ m.incidents.length - 5 }} {{ t('probeTimeline.more') }}
           </p>
         </div>

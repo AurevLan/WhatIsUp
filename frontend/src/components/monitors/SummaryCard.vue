@@ -4,8 +4,8 @@
       <component :is="icon" class="w-5 h-5" :class="iconColor" />
     </div>
     <div class="min-w-0">
-      <p class="text-xs text-gray-500 font-medium uppercase tracking-wide truncate">{{ label }}</p>
-      <p class="text-2xl font-bold mt-0.5" :class="valueColor">{{ value }}</p>
+      <p class="text-xs text-(--text-3) font-medium uppercase tracking-wide truncate">{{ label }}</p>
+      <p class="text-2xl font-bold font-display mt-0.5" :class="valueColor">{{ value }}</p>
     </div>
   </div>
 </template>
@@ -21,11 +21,11 @@ const props = defineProps({
 })
 
 const palettes = {
-  blue:    { bg: 'bg-blue-500/10',    icon: 'text-blue-400',    value: 'text-blue-400' },
-  emerald: { bg: 'bg-emerald-500/10', icon: 'text-emerald-400', value: 'text-emerald-400' },
-  red:     { bg: 'bg-red-500/10',     icon: 'text-red-400',     value: 'text-red-400' },
-  amber:   { bg: 'bg-amber-500/10',   icon: 'text-amber-400',   value: 'text-amber-400' },
-  gray:    { bg: 'bg-gray-500/10',    icon: 'text-gray-400',    value: 'text-gray-400' },
+  blue:    { bg: 'bg-(--accent-glow)',    icon: 'text-(--accent)',    value: 'text-(--accent)' },
+  emerald: { bg: 'bg-[color-mix(in_srgb,var(--up)_10%,transparent)]', icon: 'text-(--up)', value: 'text-(--up)' },
+  red:     { bg: 'bg-[color-mix(in_srgb,var(--down)_10%,transparent)]',     icon: 'text-(--down)',     value: 'text-(--down)' },
+  amber:   { bg: 'bg-[color-mix(in_srgb,var(--warn)_10%,transparent)]',   icon: 'text-(--warn)',   value: 'text-(--warn)' },
+  gray:    { bg: 'bg-(--bg-surface-2)',    icon: 'text-(--text-2)',    value: 'text-(--text-2)' },
 }
 
 const p = computed(() => palettes[props.color] || palettes.blue)

@@ -2,8 +2,8 @@
   <div class="space-y-4">
     <div class="flex items-start justify-between gap-4">
       <div>
-        <h2 class="text-sm font-semibold text-gray-200">{{ t('alert_matrix.title') }}</h2>
-        <p class="text-xs text-gray-500 mt-1">{{ t('alert_matrix.subtitle_cards') }}</p>
+        <h2 class="text-sm font-semibold text-(--text-1)">{{ t('alert_matrix.title') }}</h2>
+        <p class="text-xs text-(--text-3) mt-1">{{ t('alert_matrix.subtitle_cards') }}</p>
       </div>
       <div class="flex items-center gap-2">
         <TemplatePicker
@@ -21,15 +21,15 @@
       </div>
     </div>
 
-    <div v-if="!channels.length" class="card text-sm text-gray-400">
+    <div v-if="!channels.length" class="card text-sm text-(--text-2)">
       {{ t('alert_matrix.no_channels') }}
-      <router-link to="/settings/alerts" class="text-blue-400 underline ml-1">
+      <router-link to="/settings/alerts" class="text-(--accent) underline ml-1">
         {{ t('alert_matrix.create_channel') }}
       </router-link>
     </div>
 
     <template v-else>
-      <div v-if="!activeRows.length" class="card text-sm text-gray-500 text-center py-8">
+      <div v-if="!activeRows.length" class="card text-sm text-(--text-3) text-center py-8">
         {{ t('alert_matrix.empty_hint') }}
       </div>
 
@@ -53,7 +53,7 @@
       </div>
     </template>
 
-    <p v-if="error" class="text-xs text-red-400">{{ error }}</p>
+    <p v-if="error" class="text-xs text-(--down)">{{ error }}</p>
   </div>
 </template>
 

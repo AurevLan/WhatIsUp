@@ -32,10 +32,10 @@ function toastIcon(type) {
 
 function toastStyle(type) {
   const cfg = {
-    success: 'background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.35);color:#34d399;',
-    error:   'background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.35);color:#f87171;',
-    warning: 'background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.35);color:#fbbf24;',
-    info:    'background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.35);color:#60a5fa;',
+    success: 'background:color-mix(in srgb, var(--up) 15%, var(--bg-surface));border:1px solid color-mix(in srgb, var(--up) 35%, transparent);color:var(--up);',
+    error:   'background:color-mix(in srgb, var(--down) 15%, var(--bg-surface));border:1px solid color-mix(in srgb, var(--down) 35%, transparent);color:var(--down);',
+    warning: 'background:color-mix(in srgb, var(--warn) 15%, var(--bg-surface));border:1px solid color-mix(in srgb, var(--warn) 35%, transparent);color:var(--warn);',
+    info:    'background:color-mix(in srgb, var(--accent) 15%, var(--bg-surface));border:1px solid color-mix(in srgb, var(--accent) 35%, transparent);color:var(--accent);',
   }
   return cfg[type] ?? cfg.info
 }

@@ -63,17 +63,17 @@ function onClick(ev) {
 
 .nav-link:hover {
   color: var(--text-2);
-  background: rgba(255,255,255,.04);
+  background: var(--bg-surface-2);
 }
 
 .nav-link--active {
-  color: #7cbcff;
-  background: rgba(79,156,249,.1);
+  color: var(--accent);
+  background: var(--accent-glow);
   font-weight: 600;
 }
 .nav-link--active:hover {
-  color: #93caff;
-  background: rgba(79,156,249,.14);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 .nav-link__icon {
@@ -92,7 +92,7 @@ function onClick(ev) {
   min-width: 17px;
   height: 17px;
   border-radius: 99px;
-  background: #ef4444;
+  background: var(--down);
   color: white;
   font-size: 9.5px;
   font-weight: 700;

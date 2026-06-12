@@ -5,7 +5,7 @@
       :key="tag.id"
       class="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-full border"
       :style="tag.color ? `border-color:${tag.color}80; background:${tag.color}20; color:${tag.color}` : ''"
-      :class="!tag.color ? 'border-gray-700 text-gray-300 bg-gray-800/40' : ''"
+      :class="!tag.color ? 'border-(--border) text-(--text-2) bg-(--bg-surface-2)' : ''"
     >
       {{ tag.name }}
       <button
@@ -23,7 +23,7 @@
         v-if="!adding"
         type="button"
         @click="startAdd"
-        class="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-full border border-dashed border-gray-700 text-gray-500 hover:text-gray-300 hover:border-gray-500"
+        class="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-full border border-dashed border-(--border) text-(--text-3) hover:text-(--text-1) hover:border-(--border-hover)"
       >
         + {{ t('tags.add') }}
       </button>

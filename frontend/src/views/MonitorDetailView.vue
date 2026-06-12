@@ -10,10 +10,10 @@
       <div class="flex-1">
         <div class="flex items-center gap-3">
           <span class="w-3 h-3 rounded-full" :class="statusClass"></span>
-          <h1 class="text-2xl font-bold text-white">{{ monitor.name }}</h1>
+          <h1 class="font-display text-2xl font-bold text-(--text-1)">{{ monitor.name }}</h1>
         </div>
-        <p class="text-gray-400 text-sm mt-1 font-mono">
-          <span class="text-xs px-1.5 py-0.5 rounded bg-gray-800 text-gray-500 uppercase mr-2">{{ monitor.check_type }}</span>
+        <p class="text-(--text-2) text-sm mt-1 font-mono">
+          <span class="text-xs px-1.5 py-0.5 rounded bg-(--bg-surface-2) text-(--text-3) uppercase mr-2">{{ monitor.check_type }}</span>
           {{ formatTarget(monitor) }}
         </p>
         <div class="mt-2">
@@ -26,14 +26,14 @@
     <MonitorAlertSetupBanner />
 
     <!-- View tabs -->
-    <div class="flex gap-1 mb-6 border-b border-gray-800">
+    <div class="flex gap-1 mb-6 border-b border-(--border)">
       <button
         v-for="tab in viewTabs" :key="tab"
         @click="setTab(tab)"
         class="px-4 py-2 text-sm font-medium transition-colors"
         :class="activeTab === tab
-          ? 'text-blue-400 border-b-2 border-blue-400 -mb-px'
-          : 'text-gray-500 hover:text-gray-300'"
+          ? 'text-(--accent) border-b-2 border-(--accent-border) -mb-px'
+          : 'text-(--text-3) hover:text-(--text-1)'"
       >
         {{ tabLabel(tab) }}
       </button>
@@ -82,8 +82,8 @@
     <!-- Annual uptime heatmap -->
     <div class="card mb-6">
       <div class="flex items-center justify-between mb-3">
-        <h2 class="text-sm font-semibold text-gray-300">{{ t('monitor_detail.heatmap_title') }}</h2>
-        <span class="text-xs text-gray-500">365 {{ t('common.days') }}</span>
+        <h2 class="text-sm font-semibold text-(--text-2)">{{ t('monitor_detail.heatmap_title') }}</h2>
+        <span class="text-xs text-(--text-3)">365 {{ t('common.days') }}</span>
       </div>
       <UptimeHeatmap :monitor-id="String(monitor.id)" />
     </div>
@@ -123,16 +123,16 @@
         @click="chartWindow = w.h"
         class="px-2.5 py-1 text-xs rounded-md border transition-colors"
         :class="chartWindow === w.h
-          ? 'bg-blue-600 border-blue-500 text-white'
-          : 'border-gray-700 text-gray-500 hover:border-gray-600 hover:text-gray-300'"
+          ? 'bg-(--accent-glow) border-(--accent-border) text-(--accent)'
+          : 'border-(--border) text-(--text-3) hover:border-(--border-hover) hover:text-(--text-1)'"
       >{{ w.label }}</button>
     </div>
 
     <!-- Availability timeline -->
     <div class="card mb-6">
       <div class="flex items-center justify-between mb-4">
-        <h2 class="text-sm font-semibold text-gray-300">{{ t('monitor_detail.availability') }}</h2>
-        <span class="text-xs text-gray-500">{{ chartBucketMin(chartWindow) }}min {{ t('monitor_detail.buckets') }}</span>
+        <h2 class="text-sm font-semibold text-(--text-2)">{{ t('monitor_detail.availability') }}</h2>
+        <span class="text-xs text-(--text-3)">{{ chartBucketMin(chartWindow) }}min {{ t('monitor_detail.buckets') }}</span>
       </div>
       <apexchart
         v-if="availSeries[0]?.data?.length"
@@ -141,21 +141,21 @@
         :options="availOptions"
         :series="availSeries"
       />
-      <p v-else class="text-gray-500 text-sm text-center py-6">{{ t('monitor_detail.no_data') }}</p>
+      <p v-else class="text-(--text-3) text-sm text-center py-6">{{ t('monitor_detail.no_data') }}</p>
     </div>
 
     <!-- Response time per probe (HTTP/TCP/Keyword/JSON only — not DNS) -->
     <div v-if="hasResponseTime" class="card mb-6">
       <div class="flex items-center justify-between mb-4">
-        <h2 class="text-sm font-semibold text-gray-300">
+        <h2 class="text-sm font-semibold text-(--text-2)">
           {{ isNetwork ? t('monitor_detail.tcp_latency') : t('monitor_detail.response_time') }}
         </h2>
         <div class="flex items-center gap-3 flex-wrap">
           <span v-if="responseTrend" class="flex items-center gap-1 text-xs font-medium"
-            :class="responseTrend.up ? 'text-red-400' : 'text-emerald-400'">
+            :class="responseTrend.up ? 'text-(--down)' : 'text-(--up)'">
             {{ responseTrend.up ? '↑' : '↓' }} {{ responseTrend.pct }}% {{ t('monitor_detail.trend_vs_6h') }}
           </span>
-          <span v-for="(s, i) in rtSeries" :key="s.name" class="flex items-center gap-1.5 text-xs text-gray-400">
+          <span v-for="(s, i) in rtSeries" :key="s.name" class="flex items-center gap-1.5 text-xs text-(--text-2)">
             <span class="w-3 h-1.5 rounded-full inline-block" :style="`background:${probeColors[i % probeColors.length]}`" />
             {{ s.name }}
           </span>
@@ -168,12 +168,12 @@
         :options="rtOptions"
         :series="rtSeries"
       />
-      <p v-else class="text-gray-500 text-sm text-center py-6">{{ t('monitor_detail.no_data') }}</p>
+      <p v-else class="text-(--text-3) text-sm text-center py-6">{{ t('monitor_detail.no_data') }}</p>
     </div>
 
     <!-- Response Time Percentiles (P50/P95/P99) -->
     <div v-if="percentilesData.length && hasResponseTime" class="card mb-6">
-      <h3 class="text-sm font-semibold text-gray-300 mb-3">{{ t('monitor_detail.percentiles_title') }}</h3>
+      <h3 class="text-sm font-semibold text-(--text-2) mb-3">{{ t('monitor_detail.percentiles_title') }}</h3>
       <apexchart type="line" height="250" :options="percentileOptions" :series="percentileSeries" />
     </div>
 
@@ -229,13 +229,13 @@
 
       <!-- Sondes sans coordonnées -->
       <div v-if="probesWithoutCoords.length" class="mt-6">
-        <h3 class="text-sm font-semibold text-gray-400 mb-3">{{ t('monitor_detail.unlocated_probes') }}</h3>
+        <h3 class="text-sm font-semibold text-(--text-2) mb-3">{{ t('monitor_detail.unlocated_probes') }}</h3>
         <div class="space-y-2">
           <div v-for="p in probesWithoutCoords" :key="p.probe_id"
-            class="flex items-center gap-3 text-sm text-gray-300">
+            class="flex items-center gap-3 text-sm text-(--text-2)">
             <span class="w-2 h-2 rounded-full" :class="markerColor(p).dot"></span>
             <span class="font-medium">{{ p.name }}</span>
-            <span class="text-gray-500">{{ p.location_name }}</span>
+            <span class="text-(--text-3)">{{ p.location_name }}</span>
             <span class="text-xs" :class="markerColor(p).text">{{ statusLabel(p) }}</span>
           </div>
         </div>
@@ -273,7 +273,7 @@
       size="xl"
       @update:model-value="screenshotModal.open = $event"
     >
-      <img :src="screenshotModal.src" :alt="screenshotModal.label || 'Scenario screenshot'" class="w-full rounded-lg border border-gray-700 shadow-2xl" />
+      <img :src="screenshotModal.src" :alt="screenshotModal.label || 'Scenario screenshot'" class="w-full rounded-lg border border-(--border) shadow-2xl" />
     </BaseModal>
     <EditMonitorModal v-if="editingMonitor" :monitor="editingMonitor" @close="editingMonitor = null" @updated="onMonitorUpdated" />
     <CreateMonitorModal v-if="showClone" :initial-data="clonePayload" @close="showClone = false" @created="onCloneCreated" />
@@ -290,7 +290,7 @@
       </div>
     </div>
     <!-- Skeleton tabs -->
-    <div class="flex gap-3 mb-6 border-b border-gray-800 pb-2">
+    <div class="flex gap-3 mb-6 border-b border-(--border) pb-2">
       <SkeletonBox v-for="i in 4" :key="i" width="5rem" height="1rem" />
     </div>
     <!-- Skeleton chart + cards -->
@@ -486,8 +486,8 @@ const {
 const probeColors = PROBE_COLORS
 
 // ── helpers ──────────────────────────────────────────────────────────────────
-const statusMap  = { up: 'bg-emerald-400', down: 'bg-red-500', timeout: 'bg-amber-400', error: 'bg-orange-500' }
-const statusClass = computed(() => statusMap[monitor.value?._lastStatus ?? monitor.value?.last_status] || 'bg-gray-600')
+const statusMap  = { up: 'bg-(--up)', down: 'bg-(--down)', timeout: 'bg-(--warn)', error: 'bg-(--warn)' }
+const statusClass = computed(() => statusMap[monitor.value?._lastStatus ?? monitor.value?.last_status] || 'bg-(--text-3)')
 
 // ── Tendance temps de réponse ─────────────────────────────────────────────────
 const responseTrend = computed(() => {
@@ -532,24 +532,24 @@ function openScreenshot(src, label) {
 }
 
 const STEP_TYPE_COLORS = {
-  navigate:       'bg-blue-900/60 text-blue-300',
-  click:          'bg-violet-900/60 text-violet-300',
-  fill:           'bg-cyan-900/60 text-cyan-300',
-  select:         'bg-cyan-900/60 text-cyan-300',
-  hover:          'bg-violet-900/60 text-violet-300',
-  scroll:         'bg-gray-800 text-gray-400',
-  wait_element:   'bg-amber-900/60 text-amber-300',
-  wait_time:      'bg-amber-900/60 text-amber-300',
-  assert_text:    'bg-emerald-900/60 text-emerald-300',
-  assert_visible: 'bg-emerald-900/60 text-emerald-300',
-  assert_url:     'bg-emerald-900/60 text-emerald-300',
-  screenshot:     'bg-pink-900/60 text-pink-300',
-  group:          'bg-gray-700 text-gray-400',
-  extract:        'bg-purple-900/60 text-purple-300',
+  navigate:       'bg-(--accent-glow) text-(--accent)',
+  click:          'bg-(--accent-glow) text-(--accent)',
+  fill:           'bg-(--accent-glow) text-(--accent)',
+  select:         'bg-(--accent-glow) text-(--accent)',
+  hover:          'bg-(--accent-glow) text-(--accent)',
+  scroll:         'bg-(--bg-surface-2) text-(--text-2)',
+  wait_element:   'bg-[color-mix(in_srgb,var(--warn)_15%,transparent)] text-(--warn)',
+  wait_time:      'bg-[color-mix(in_srgb,var(--warn)_15%,transparent)] text-(--warn)',
+  assert_text:    'bg-[color-mix(in_srgb,var(--up)_15%,transparent)] text-(--up)',
+  assert_visible: 'bg-[color-mix(in_srgb,var(--up)_15%,transparent)] text-(--up)',
+  assert_url:     'bg-[color-mix(in_srgb,var(--up)_15%,transparent)] text-(--up)',
+  screenshot:     'bg-(--accent-glow) text-(--accent)',
+  group:          'bg-(--bg-surface-2) text-(--text-2)',
+  extract:        'bg-(--accent-glow) text-(--accent)',
 }
 
 function stepTypeBadgeClass(type) {
-  return STEP_TYPE_COLORS[type] ?? 'bg-gray-800 text-gray-400'
+  return STEP_TYPE_COLORS[type] ?? 'bg-(--bg-surface-2) text-(--text-2)'
 }
 
 // Map probe_id → ordered index (stable colors across renders)
@@ -776,19 +776,19 @@ onMounted(async () => {
 .runbook-preview :deep(ol) { padding-left: 1.25rem; margin: .3rem 0; }
 .runbook-preview :deep(li) { margin: .2rem 0; }
 .runbook-preview :deep(code) {
-  background: rgba(255,255,255,.08);
+  background: var(--bg-surface-3);
   padding: .1em .35em;
   border-radius: 3px;
   font-size: .85em;
 }
 .runbook-preview :deep(pre) {
-  background: rgba(0,0,0,.4);
+  background: var(--bg-surface-2);
   padding: .7rem .9rem;
   border-radius: 6px;
   overflow-x: auto;
   margin: .4rem 0;
 }
-.runbook-preview :deep(a) { color: #60a5fa; text-decoration: underline; }
+.runbook-preview :deep(a) { color: var(--accent); text-decoration: underline; }
 .runbook-preview :deep(.runbook-task) { list-style: none; margin-left: -1rem; }
 .runbook-preview :deep(.runbook-task input[type="checkbox"]) { margin-right: .45rem; }
 </style>

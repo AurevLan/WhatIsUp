@@ -2,16 +2,16 @@
   <div>
     <!-- Header: title + time range selector -->
     <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
-      <h2 class="text-sm font-semibold text-gray-300">{{ t('metrics.title') }}</h2>
-      <div class="inline-flex rounded-md border border-gray-800 overflow-hidden">
+      <h2 class="text-sm font-semibold text-(--text-2)">{{ t('metrics.title') }}</h2>
+      <div class="inline-flex rounded-md border border-(--border) overflow-hidden">
         <button
           v-for="range in TIME_RANGES"
           :key="range.hours"
           @click="setRange(range.hours)"
-          class="px-3 py-1.5 text-xs font-medium transition-colors border-r border-gray-800 last:border-r-0"
+          class="px-3 py-1.5 text-xs font-medium transition-colors border-r border-(--border) last:border-r-0"
           :class="selectedHours === range.hours
-            ? 'bg-blue-600/30 text-blue-300'
-            : 'text-gray-500 hover:text-gray-300'"
+            ? 'bg-(--accent-glow) text-(--accent)'
+            : 'text-(--text-3) hover:text-(--text-1)'"
         >
           {{ range.label }}
         </button>
@@ -19,13 +19,13 @@
     </div>
 
     <!-- Loading state -->
-    <div v-if="loading" class="text-center py-12 text-gray-500 text-sm">
+    <div v-if="loading" class="text-center py-12 text-(--text-3) text-sm">
       {{ t('common.loading') }}
     </div>
 
     <!-- Empty state -->
     <div v-else-if="!metricNames.length" class="text-center py-12">
-      <p class="text-gray-500 text-sm">{{ t('metrics.no_data') }}</p>
+      <p class="text-(--text-3) text-sm">{{ t('metrics.no_data') }}</p>
     </div>
 
     <!-- Metrics grid -->
@@ -38,33 +38,33 @@
         <!-- Metric header + summary stats -->
         <div class="flex items-start justify-between gap-4 mb-4 flex-wrap">
           <div>
-            <span class="text-sm font-mono font-semibold text-gray-200">{{ name }}</span>
-            <span v-if="unitFor(name)" class="text-xs text-gray-500 ml-2">({{ unitFor(name) }})</span>
+            <span class="text-sm font-mono font-semibold text-(--text-1)">{{ name }}</span>
+            <span v-if="unitFor(name)" class="text-xs text-(--text-3) ml-2">({{ unitFor(name) }})</span>
           </div>
 
           <!-- Summary cards -->
           <div v-if="summaryFor(name)" class="flex items-center gap-3 flex-wrap">
-            <div class="text-center px-3 py-1.5 bg-blue-950/40 rounded-lg border border-blue-900/40">
-              <p class="text-[10px] text-gray-500 uppercase tracking-wider">{{ t('metrics.current') }}</p>
-              <p class="text-sm font-bold text-blue-300">
+            <div class="text-center px-3 py-1.5 bg-(--accent-glow) rounded-lg border border-(--accent-border)">
+              <p class="text-[10px] text-(--text-3) uppercase tracking-wider">{{ t('metrics.current') }}</p>
+              <p class="text-sm font-bold font-display text-(--accent)">
                 {{ fmtVal(summaryFor(name).last_value, unitFor(name)) }}
               </p>
             </div>
-            <div class="text-center px-3 py-1.5 bg-gray-800/50 rounded-lg border border-gray-700/40">
-              <p class="text-[10px] text-gray-500 uppercase tracking-wider">{{ t('metrics.min') }}</p>
-              <p class="text-sm font-bold text-gray-300">
+            <div class="text-center px-3 py-1.5 bg-(--bg-surface-2) rounded-lg border border-(--border)">
+              <p class="text-[10px] text-(--text-3) uppercase tracking-wider">{{ t('metrics.min') }}</p>
+              <p class="text-sm font-bold font-display text-(--text-2)">
                 {{ fmtVal(summaryFor(name).min, unitFor(name)) }}
               </p>
             </div>
-            <div class="text-center px-3 py-1.5 bg-gray-800/50 rounded-lg border border-gray-700/40">
-              <p class="text-[10px] text-gray-500 uppercase tracking-wider">{{ t('metrics.max') }}</p>
-              <p class="text-sm font-bold text-gray-300">
+            <div class="text-center px-3 py-1.5 bg-(--bg-surface-2) rounded-lg border border-(--border)">
+              <p class="text-[10px] text-(--text-3) uppercase tracking-wider">{{ t('metrics.max') }}</p>
+              <p class="text-sm font-bold font-display text-(--text-2)">
                 {{ fmtVal(summaryFor(name).max, unitFor(name)) }}
               </p>
             </div>
-            <div class="text-center px-3 py-1.5 bg-gray-800/50 rounded-lg border border-gray-700/40">
-              <p class="text-[10px] text-gray-500 uppercase tracking-wider">{{ t('metrics.avg') }}</p>
-              <p class="text-sm font-bold text-gray-300">
+            <div class="text-center px-3 py-1.5 bg-(--bg-surface-2) rounded-lg border border-(--border)">
+              <p class="text-[10px] text-(--text-3) uppercase tracking-wider">{{ t('metrics.avg') }}</p>
+              <p class="text-sm font-bold font-display text-(--text-2)">
                 {{ fmtVal(summaryFor(name).avg, unitFor(name)) }}
               </p>
             </div>
@@ -80,8 +80,8 @@
           :options="optionsFor(name)"
           :series="seriesFor(name)"
         />
-        <p v-else-if="!ApexChart" class="text-xs text-gray-600 text-center py-6">Loading chart…</p>
-        <p v-else class="text-xs text-gray-600 text-center py-6">No data points in this range.</p>
+        <p v-else-if="!ApexChart" class="text-xs text-(--text-3) text-center py-6">Loading chart…</p>
+        <p v-else class="text-xs text-(--text-3) text-center py-6">No data points in this range.</p>
       </div>
     </div>
   </div>

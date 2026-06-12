@@ -1,42 +1,42 @@
 <template>
   <div class="page-body">
-    <h1 class="text-2xl font-bold text-white mb-8">{{ t('settings.title') }}</h1>
+    <h1 class="font-display text-2xl font-bold text-(--text-1) mb-8">{{ t('settings.title') }}</h1>
 
     <div class="max-w-xl space-y-6">
       <!-- Profile -->
       <div class="card">
-        <h2 class="text-lg font-semibold text-white mb-4">{{ t('settings.account') }}</h2>
+        <h2 class="text-lg font-semibold text-(--text-1) mb-4">{{ t('settings.account') }}</h2>
         <div class="space-y-3">
           <div>
-            <label class="block text-sm text-gray-400 mb-1">{{ t('auth.username') }}</label>
-            <p class="text-white">{{ auth.user?.username }}</p>
+            <label class="block text-sm text-(--text-2) mb-1">{{ t('auth.username') }}</label>
+            <p class="text-(--text-1)">{{ auth.user?.username }}</p>
           </div>
           <div>
-            <label class="block text-sm text-gray-400 mb-1">{{ t('auth.email') }}</label>
-            <p class="text-white">{{ auth.user?.email }}</p>
+            <label class="block text-sm text-(--text-2) mb-1">{{ t('auth.email') }}</label>
+            <p class="text-(--text-1)">{{ auth.user?.email }}</p>
           </div>
           <div>
-            <label class="block text-sm text-gray-400 mb-1">Role</label>
-            <p class="text-white">{{ auth.isSuperadmin ? 'Super Administrator' : 'User' }}</p>
+            <label class="block text-sm text-(--text-2) mb-1">Role</label>
+            <p class="text-(--text-1)">{{ auth.isSuperadmin ? 'Super Administrator' : 'User' }}</p>
           </div>
         </div>
       </div>
 
       <!-- Security — Two-factor authentication + active sessions -->
       <div class="card">
-        <h2 class="text-lg font-semibold text-white mb-1">{{ t('settings.security.title') }}</h2>
-        <p class="text-sm text-gray-500 mb-4">{{ t('settings.security.desc') }}</p>
+        <h2 class="text-lg font-semibold text-(--text-1) mb-1">{{ t('settings.security.title') }}</h2>
+        <p class="text-sm text-(--text-3) mb-4">{{ t('settings.security.desc') }}</p>
 
         <!-- 2FA status row -->
         <div class="flex items-center gap-2 mb-4">
           <span class="w-2 h-2 rounded-full flex-shrink-0"
-            :class="auth.user?.totp_enabled ? 'bg-emerald-400' : 'bg-gray-600'" />
-          <span class="text-sm" :class="auth.user?.totp_enabled ? 'text-emerald-400' : 'text-gray-500'">
+            :class="auth.user?.totp_enabled ? 'bg-(--up)' : 'bg-(--bg-surface-3)'" />
+          <span class="text-sm" :class="auth.user?.totp_enabled ? 'text-(--up)' : 'text-(--text-3)'">
             {{ auth.user?.totp_enabled ? t('settings.security.totp_on') : t('settings.security.totp_off') }}
           </span>
         </div>
 
-        <div v-if="totp.error" class="mb-3 text-sm text-red-400">{{ totp.error }}</div>
+        <div v-if="totp.error" class="mb-3 text-sm text-(--down)">{{ totp.error }}</div>
 
         <div class="flex gap-2 flex-wrap">
           <button v-if="!auth.user?.totp_enabled"
@@ -47,40 +47,40 @@
           </button>
           <button v-else
             @click="openDisable"
-            class="btn-ghost text-sm text-red-400">
+            class="btn-ghost text-sm text-(--down)">
             {{ t('settings.security.totp_disable') }}
           </button>
         </div>
 
         <!-- Active sessions sub-section -->
-        <div class="mt-6 pt-5 border-t border-gray-800">
-          <h3 class="text-sm font-semibold text-white mb-1">{{ t('settings.security.sessions_title') }}</h3>
-          <p class="text-xs text-gray-500 mb-3">{{ t('settings.security.sessions_desc') }}</p>
+        <div class="mt-6 pt-5 border-t border-(--border)">
+          <h3 class="text-sm font-semibold text-(--text-1) mb-1">{{ t('settings.security.sessions_title') }}</h3>
+          <p class="text-xs text-(--text-3) mb-3">{{ t('settings.security.sessions_desc') }}</p>
 
-          <div v-if="sessions.loading" class="text-sm text-gray-500">{{ t('common.loading') }}</div>
-          <div v-else-if="sessions.error" class="text-sm text-red-400">{{ sessions.error }}</div>
-          <div v-else-if="sessions.list.length === 0" class="text-sm text-gray-500">
+          <div v-if="sessions.loading" class="text-sm text-(--text-3)">{{ t('common.loading') }}</div>
+          <div v-else-if="sessions.error" class="text-sm text-(--down)">{{ sessions.error }}</div>
+          <div v-else-if="sessions.list.length === 0" class="text-sm text-(--text-3)">
             {{ t('settings.security.sessions_empty') }}
           </div>
           <ul v-else class="space-y-2">
             <li v-for="s in sessions.list" :key="s.id"
-              class="flex items-center justify-between gap-3 bg-gray-900/50 border border-gray-800 rounded-lg px-3 py-2">
+              class="flex items-center justify-between gap-3 bg-(--bg-surface-2) border border-(--border) rounded-lg px-3 py-2">
               <div class="min-w-0">
                 <div class="flex items-center gap-2">
-                  <Monitor :size="14" class="text-gray-400 flex-shrink-0" />
-                  <span class="text-sm text-gray-200 truncate">{{ s.ua || t('settings.security.session_unknown_ua') }}</span>
+                  <Monitor :size="14" class="text-(--text-2) flex-shrink-0" />
+                  <span class="text-sm text-(--text-1) truncate">{{ s.ua || t('settings.security.session_unknown_ua') }}</span>
                   <span v-if="s.current"
-                    class="text-[10px] uppercase tracking-wide bg-emerald-500/15 text-emerald-400 px-1.5 py-0.5 rounded">
+                    class="text-[10px] uppercase tracking-wide bg-[color-mix(in_srgb,var(--up)_15%,transparent)] text-(--up) px-1.5 py-0.5 rounded">
                     {{ t('settings.security.session_current') }}
                   </span>
                 </div>
-                <div class="text-xs text-gray-500 mt-0.5">
+                <div class="text-xs text-(--text-3) mt-0.5">
                   {{ s.ip || '—' }} · {{ fmtDate(s.created_at) }}
                 </div>
               </div>
               <button v-if="!s.current"
                 @click="revokeSession(s.id)"
-                class="btn-ghost text-xs text-red-400 flex-shrink-0">
+                class="btn-ghost text-xs text-(--down) flex-shrink-0">
                 {{ t('settings.security.session_revoke') }}
               </button>
             </li>
@@ -96,10 +96,10 @@
 
       <!-- Preferences (T1-13) -->
       <div class="card">
-        <h2 class="text-lg font-semibold text-white mb-1">{{ t('settings.preferences_title') }}</h2>
-        <p class="text-sm text-gray-500 mb-4">{{ t('settings.preferences_desc') }}</p>
+        <h2 class="text-lg font-semibold text-(--text-1) mb-1">{{ t('settings.preferences_title') }}</h2>
+        <p class="text-sm text-(--text-3) mb-4">{{ t('settings.preferences_desc') }}</p>
 
-        <label class="block text-sm text-gray-400 mb-1" for="tz-select">
+        <label class="block text-sm text-(--text-2) mb-1" for="tz-select">
           {{ t('settings.timezone_label') }}
         </label>
         <select
@@ -113,29 +113,29 @@
           <option value="">{{ t('settings.timezone_auto', { tz: browserTz }) }}</option>
           <option v-for="tz in commonTimezones" :key="tz" :value="tz">{{ tz }}</option>
         </select>
-        <p class="text-xs text-gray-500 mt-1.5">
+        <p class="text-xs text-(--text-3) mt-1.5">
           {{ t('settings.timezone_current') }}
-          <span class="text-gray-300 font-mono">{{ activeTz }}</span>
+          <span class="text-(--text-2) font-mono">{{ activeTz }}</span>
           · {{ t('settings.timezone_now') }}
-          <span class="text-gray-300 font-mono">{{ tzPreview }}</span>
+          <span class="text-(--text-2) font-mono">{{ tzPreview }}</span>
         </p>
-        <p v-if="tzSaveError" id="tz-save-error" class="text-xs text-red-400 mt-1">{{ tzSaveError }}</p>
+        <p v-if="tzSaveError" id="tz-save-error" class="text-xs text-(--down) mt-1">{{ tzSaveError }}</p>
       </div>
 
       <!-- Mobile push notifications (Capacitor / FCM) -->
       <div v-if="mobilePush.isAvailable" class="card">
-        <h2 class="text-lg font-semibold text-white mb-1">{{ t('settings.mobile_push_title') }}</h2>
-        <p class="text-sm text-gray-500 mb-4">{{ t('settings.mobile_push_desc') }}</p>
+        <h2 class="text-lg font-semibold text-(--text-1) mb-1">{{ t('settings.mobile_push_title') }}</h2>
+        <p class="text-sm text-(--text-3) mb-4">{{ t('settings.mobile_push_desc') }}</p>
 
         <div class="flex items-center gap-2 mb-4">
           <span class="w-2 h-2 rounded-full flex-shrink-0"
-            :class="mobilePush.registered ? 'bg-emerald-400' : 'bg-gray-600'" />
-          <span class="text-sm" :class="mobilePush.registered ? 'text-emerald-400' : 'text-gray-500'">
+            :class="mobilePush.registered ? 'bg-(--up)' : 'bg-(--bg-surface-3)'" />
+          <span class="text-sm" :class="mobilePush.registered ? 'text-(--up)' : 'text-(--text-3)'">
             {{ mobilePush.registered ? t('settings.mobile_push_on') : t('settings.mobile_push_off') }}
           </span>
         </div>
 
-        <div v-if="mobilePush.error" class="mb-3 text-sm text-red-400">
+        <div v-if="mobilePush.error" class="mb-3 text-sm text-(--down)">
           {{ mobilePush.error }}
         </div>
 
@@ -149,7 +149,7 @@
           <button v-else
             @click="disableMobilePush"
             :disabled="mobilePush.loading"
-            class="btn-ghost text-sm text-red-400">
+            class="btn-ghost text-sm text-(--down)">
             {{ t('settings.mobile_push_disable') }}
           </button>
         </div>
@@ -157,25 +157,25 @@
 
       <!-- Web push notifications (browser only) -->
       <div v-if="!mobilePush.isAvailable" class="card">
-        <h2 class="text-lg font-semibold text-white mb-1">{{ t('settings.push_title') }}</h2>
-        <p class="text-sm text-gray-500 mb-4">{{ t('settings.push_desc') }}</p>
+        <h2 class="text-lg font-semibold text-(--text-1) mb-1">{{ t('settings.push_title') }}</h2>
+        <p class="text-sm text-(--text-3) mb-4">{{ t('settings.push_desc') }}</p>
 
-        <div v-if="!push.isSupported" class="text-sm text-amber-400">
+        <div v-if="!push.isSupported" class="text-sm text-(--warn)">
           {{ t('settings.push_not_supported') }}
         </div>
-        <div v-else-if="!push.serverEnabled" class="text-sm text-gray-500">
+        <div v-else-if="!push.serverEnabled" class="text-sm text-(--text-3)">
           {{ t('settings.push_not_configured') }}
         </div>
         <template v-else>
           <div class="flex items-center gap-2 mb-4">
             <span class="w-2 h-2 rounded-full flex-shrink-0"
-              :class="push.isSubscribed ? 'bg-emerald-400' : 'bg-gray-600'" />
-            <span class="text-sm" :class="push.isSubscribed ? 'text-emerald-400' : 'text-gray-500'">
+              :class="push.isSubscribed ? 'bg-(--up)' : 'bg-(--bg-surface-3)'" />
+            <span class="text-sm" :class="push.isSubscribed ? 'text-(--up)' : 'text-(--text-3)'">
               {{ push.isSubscribed ? t('settings.push_subscribed') : t('settings.push_not_subscribed') }}
             </span>
           </div>
 
-          <div v-if="push.error" class="mb-3 text-sm text-red-400">
+          <div v-if="push.error" class="mb-3 text-sm text-(--down)">
             {{ push.error === 'permission_denied' ? t('settings.push_permission_denied') : push.error }}
           </div>
 
@@ -190,7 +190,7 @@
               <button @click="push.sendTest()" class="btn-secondary text-sm">
                 {{ t('settings.push_test') }}
               </button>
-              <button @click="push.unsubscribe()" :disabled="push.loading" class="btn-ghost text-sm text-red-400">
+              <button @click="push.unsubscribe()" :disabled="push.loading" class="btn-ghost text-sm text-(--down)">
                 {{ t('settings.push_unsubscribe') }}
               </button>
             </template>
@@ -200,18 +200,18 @@
 
       <!-- Biometric unlock (Capacitor native only) -->
       <div v-if="biometric.isAvailable" class="card">
-        <h2 class="text-lg font-semibold text-white mb-1">{{ t('settings.biometric_title') }}</h2>
-        <p class="text-sm text-gray-500 mb-4">{{ t('settings.biometric_desc') }}</p>
+        <h2 class="text-lg font-semibold text-(--text-1) mb-1">{{ t('settings.biometric_title') }}</h2>
+        <p class="text-sm text-(--text-3) mb-4">{{ t('settings.biometric_desc') }}</p>
 
         <div class="flex items-center gap-2 mb-4">
           <span class="w-2 h-2 rounded-full flex-shrink-0"
-            :class="biometric.enabled ? 'bg-emerald-400' : 'bg-gray-600'" />
-          <span class="text-sm" :class="biometric.enabled ? 'text-emerald-400' : 'text-gray-500'">
+            :class="biometric.enabled ? 'bg-(--up)' : 'bg-(--bg-surface-3)'" />
+          <span class="text-sm" :class="biometric.enabled ? 'text-(--up)' : 'text-(--text-3)'">
             {{ biometric.enabled ? t('settings.biometric_on') : t('settings.biometric_off') }}
           </span>
         </div>
 
-        <div v-if="biometric.error" class="mb-3 text-sm text-red-400">
+        <div v-if="biometric.error" class="mb-3 text-sm text-(--down)">
           {{ biometric.error }}
         </div>
 
@@ -225,7 +225,7 @@
           <button v-else
             @click="disableBiometricUnlock"
             :disabled="biometric.loading"
-            class="btn-ghost text-sm text-red-400">
+            class="btn-ghost text-sm text-(--down)">
             {{ t('settings.biometric_disable') }}
           </button>
         </div>
@@ -233,8 +233,8 @@
 
       <!-- Browser Extension -->
       <div class="card">
-        <h2 class="text-lg font-semibold text-white mb-1">{{ t('settings.extension_title') }}</h2>
-        <p class="text-sm text-gray-500 mb-4">{{ t('settings.extension_desc') }}</p>
+        <h2 class="text-lg font-semibold text-(--text-1) mb-1">{{ t('settings.extension_title') }}</h2>
+        <p class="text-sm text-(--text-3) mb-4">{{ t('settings.extension_desc') }}</p>
 
         <div class="flex gap-2 flex-wrap mb-4">
           <button @click="downloadExtension" :disabled="extensionLoading" class="btn-primary text-sm">
@@ -242,8 +242,8 @@
           </button>
         </div>
 
-        <details class="text-sm text-gray-400">
-          <summary class="cursor-pointer text-gray-300 hover:text-white mb-2 select-none">
+        <details class="text-sm text-(--text-2)">
+          <summary class="cursor-pointer text-(--text-2) hover:text-(--text-1) mb-2 select-none">
             {{ t('settings.extension_install_title') }}
           </summary>
           <ol class="list-decimal list-inside space-y-1 ml-1 mb-3">
@@ -267,8 +267,8 @@
             </li>
             <li>{{ t('settings.extension_install_step6') }}</li>
           </ol>
-          <p class="text-xs text-gray-500">
-            <strong class="text-gray-400">{{ t('settings.extension_features_title') }}:</strong>
+          <p class="text-xs text-(--text-3)">
+            <strong class="text-(--text-2)">{{ t('settings.extension_features_title') }}:</strong>
             {{ t('settings.extension_features') }}
           </p>
         </details>
@@ -276,8 +276,8 @@
 
       <!-- About -->
       <div class="card">
-        <h2 class="text-lg font-semibold text-white mb-4">About</h2>
-        <div class="space-y-2 text-sm text-gray-400">
+        <h2 class="text-lg font-semibold text-(--text-1) mb-4">About</h2>
+        <div class="space-y-2 text-sm text-(--text-2)">
           <p>WhatIsUp v{{ APP_VERSION }}</p>
           <p>Web monitoring platform with multi-probe geographic correlation</p>
         </div>
@@ -294,22 +294,22 @@
         <img :src="totp.qrDataUrl" alt="TOTP QR code"
           class="rounded-lg bg-white p-2" width="192" height="192" />
       </div>
-      <div v-else-if="totp.otpauthUrl" class="mb-3 text-sm text-amber-300">
+      <div v-else-if="totp.otpauthUrl" class="mb-3 text-sm text-(--warn)">
         {{ t('settings.security.setup_qr_fallback') }}
-        <a :href="totp.otpauthUrl" class="text-blue-400 break-all underline">{{ totp.otpauthUrl }}</a>
+        <a :href="totp.otpauthUrl" class="text-(--accent) break-all underline">{{ totp.otpauthUrl }}</a>
       </div>
 
-      <p class="text-xs text-gray-500 mb-1">{{ t('settings.security.setup_manual') }}</p>
-      <code class="block w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-green-300 font-mono break-all mb-4">
+      <p class="text-xs text-(--text-3) mb-1">{{ t('settings.security.setup_manual') }}</p>
+      <code class="block w-full bg-(--bg-surface-2) border border-(--border) rounded-lg px-3 py-2 text-sm text-(--up) font-mono break-all mb-4">
         {{ totp.secret }}
       </code>
 
-      <label class="block text-sm text-gray-400 mb-1">{{ t('settings.security.setup_code_label') }}</label>
+      <label class="block text-sm text-(--text-2) mb-1">{{ t('settings.security.setup_code_label') }}</label>
       <input v-model="totp.code" class="input w-full" placeholder="123456"
         inputmode="numeric" autocomplete="one-time-code"
         @keydown.enter="confirmEnable" />
 
-      <div v-if="totp.enableError" class="mt-2 text-sm text-red-400">{{ totp.enableError }}</div>
+      <div v-if="totp.enableError" class="mt-2 text-sm text-(--down)">{{ totp.enableError }}</div>
 
       <template #footer>
         <button class="btn-secondary ml-auto" @click="closeTotpSetup">{{ t('common.cancel') }}</button>
@@ -326,17 +326,17 @@
       @close="recoveryCodes = []">
       <template #header>
         <div class="flex items-center gap-3">
-          <CheckCircle class="w-6 h-6 text-green-400 flex-shrink-0" />
-          <h2 class="text-lg font-semibold text-white">{{ t('settings.security.recovery_title') }}</h2>
+          <CheckCircle class="w-6 h-6 text-(--up) flex-shrink-0" />
+          <h2 class="text-lg font-semibold text-(--text-1)">{{ t('settings.security.recovery_title') }}</h2>
         </div>
       </template>
-      <p class="text-sm text-amber-300 mb-3">{{ t('settings.security.recovery_warning') }}</p>
+      <p class="text-sm text-(--warn) mb-3">{{ t('settings.security.recovery_warning') }}</p>
 
       <div class="relative">
-        <ul class="grid grid-cols-2 gap-2 bg-gray-900 border border-gray-700 rounded-lg p-3 pr-12">
-          <li v-for="c in recoveryCodes" :key="c" class="text-sm text-green-300 font-mono">{{ c }}</li>
+        <ul class="grid grid-cols-2 gap-2 bg-(--bg-surface-2) border border-(--border) rounded-lg p-3 pr-12">
+          <li v-for="c in recoveryCodes" :key="c" class="text-sm text-(--up) font-mono">{{ c }}</li>
         </ul>
-        <button class="absolute right-2 top-2 text-gray-400 hover:text-white transition-colors"
+        <button class="absolute right-2 top-2 text-(--text-2) hover:text-(--text-1) transition-colors"
           :title="t('common.copy')" :aria-label="t('common.copy')" @click="copyRecoveryCodes">
           <Copy class="w-4 h-4" />
         </button>
@@ -353,19 +353,19 @@
       :title="t('settings.security.disable_title')"
       :message="t('settings.security.disable_desc')"
       @close="disable.open = false">
-      <label class="block text-sm text-gray-400 mb-1">{{ t('auth.password') }}</label>
+      <label class="block text-sm text-(--text-2) mb-1">{{ t('auth.password') }}</label>
       <input v-model="disable.password" type="password" class="input w-full mb-3"
         autocomplete="current-password" />
 
-      <label class="block text-sm text-gray-400 mb-1">{{ t('settings.security.setup_code_label') }}</label>
+      <label class="block text-sm text-(--text-2) mb-1">{{ t('settings.security.setup_code_label') }}</label>
       <input v-model="disable.code" class="input w-full" placeholder="123456"
         inputmode="text" autocomplete="one-time-code" @keydown.enter="confirmDisable" />
 
-      <div v-if="disable.error" class="mt-2 text-sm text-red-400">{{ disable.error }}</div>
+      <div v-if="disable.error" class="mt-2 text-sm text-(--down)">{{ disable.error }}</div>
 
       <template #footer>
         <button class="btn-secondary ml-auto" @click="disable.open = false">{{ t('common.cancel') }}</button>
-        <button class="btn-primary text-red-100 !bg-red-600 hover:!bg-red-700"
+        <button class="btn-danger"
           :disabled="!disable.password || !disable.code.trim() || disable.loading" @click="confirmDisable">
           <Loader2 v-if="disable.loading" class="w-4 h-4 mr-2 animate-spin" />
           {{ t('settings.security.disable_confirm') }}

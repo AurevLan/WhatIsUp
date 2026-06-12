@@ -3,12 +3,12 @@
 
       <form @submit.prevent="handleSubmit" class="space-y-4">
         <div>
-          <label class="block text-sm font-medium text-gray-300 mb-1">Name *</label>
+          <label class="block text-sm font-medium text-(--text-2) mb-1">Name *</label>
           <input v-model="form.name" class="input w-full" placeholder="My Email Channel" required />
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-300 mb-1">Type *</label>
+          <label class="block text-sm font-medium text-(--text-2) mb-1">Type *</label>
           <select v-model="form.type" class="input w-full" required>
             <option value="">Select type...</option>
             <option value="email">📧 Email</option>
@@ -27,7 +27,7 @@
         <!-- Email config -->
         <div v-if="form.type === 'email'" class="space-y-3">
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">Recipients (comma-separated) *</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">Recipients (comma-separated) *</label>
             <input v-model="emailTo" class="input w-full" placeholder="alert@example.com, ops@example.com" required />
           </div>
         </div>
@@ -35,87 +35,87 @@
         <!-- Webhook config -->
         <div v-if="form.type === 'webhook'" class="space-y-3">
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">URL *</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">URL *</label>
             <input v-model="webhookUrl" class="input w-full" placeholder="https://hooks.slack.com/..." type="url" required />
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">Secret (for HMAC signature)</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">Secret (for HMAC signature)</label>
             <input v-model="webhookSecret" class="input w-full" placeholder="Optional secret" />
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">{{ t('alerts.webhook_template') }}</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('alerts.webhook_template') }}</label>
             <textarea
               v-model="webhookTemplate"
               class="input w-full font-mono text-xs"
               rows="5"
               :placeholder="t('alerts.webhook_template_placeholder')"
             ></textarea>
-            <p class="text-xs text-gray-500 mt-1">{{ t('alerts.webhook_template_hint') }}</p>
+            <p class="text-xs text-(--text-3) mt-1">{{ t('alerts.webhook_template_hint') }}</p>
           </div>
         </div>
 
         <!-- Slack config -->
         <div v-if="form.type === 'slack'" class="space-y-3">
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">Webhook URL *</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">Webhook URL *</label>
             <input v-model="slackWebhookUrl" class="input w-full" placeholder="https://hooks.slack.com/services/..." type="url" required />
-            <p class="text-xs text-gray-500 mt-1">Create an Incoming Webhook in your Slack workspace.</p>
+            <p class="text-xs text-(--text-3) mt-1">Create an Incoming Webhook in your Slack workspace.</p>
           </div>
         </div>
 
         <!-- Discord config -->
         <div v-if="form.type === 'discord'" class="space-y-3">
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">Webhook URL *</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">Webhook URL *</label>
             <input v-model="discordWebhookUrl" class="input w-full" placeholder="https://discord.com/api/webhooks/..." type="url" required />
-            <p class="text-xs text-gray-500 mt-1">Server Settings → Integrations → Webhooks → New Webhook.</p>
+            <p class="text-xs text-(--text-3) mt-1">Server Settings → Integrations → Webhooks → New Webhook.</p>
           </div>
         </div>
 
         <!-- Mattermost config -->
         <div v-if="form.type === 'mattermost'" class="space-y-3">
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">Webhook URL *</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">Webhook URL *</label>
             <input v-model="mattermostWebhookUrl" class="input w-full" placeholder="https://mattermost.example.com/hooks/..." type="url" required />
-            <p class="text-xs text-gray-500 mt-1">System Console → Integrations → Incoming Webhooks.</p>
+            <p class="text-xs text-(--text-3) mt-1">System Console → Integrations → Incoming Webhooks.</p>
           </div>
         </div>
 
         <!-- Teams config -->
         <div v-if="form.type === 'teams'" class="space-y-3">
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">Webhook URL *</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">Webhook URL *</label>
             <input v-model="teamsWebhookUrl" class="input w-full" placeholder="https://prod-XX.westus.logic.azure.com/..." type="url" required />
-            <p class="text-xs text-gray-500 mt-1">Power Automate workflow with HTTP trigger → "Post adaptive card in a chat or channel". Legacy Office 365 connectors also work.</p>
+            <p class="text-xs text-(--text-3) mt-1">Power Automate workflow with HTTP trigger → "Post adaptive card in a chat or channel". Legacy Office 365 connectors also work.</p>
           </div>
         </div>
 
         <!-- Telegram config -->
         <div v-if="form.type === 'telegram'" class="space-y-3">
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">Bot Token *</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">Bot Token *</label>
             <div class="flex gap-2">
               <input v-model="telegramToken" class="input flex-1" placeholder="1234567890:ABC..." required />
               <button
                 type="button"
                 @click="resolveTelegram"
                 :disabled="!telegramToken || telegramResolving"
-                class="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg whitespace-nowrap"
+                class="btn-primary text-sm whitespace-nowrap"
               >
                 {{ telegramResolving ? '…' : 'Fetch chat ID' }}
               </button>
             </div>
-            <p class="text-xs text-gray-500 mt-1">Send any message to your bot first, then click "Fetch chat ID".</p>
+            <p class="text-xs text-(--text-3) mt-1">Send any message to your bot first, then click "Fetch chat ID".</p>
           </div>
-          <div v-if="telegramChatName" class="flex items-center gap-2 bg-green-900/30 border border-green-700/50 rounded-lg px-3 py-2 text-sm text-green-300">
+          <div v-if="telegramChatName" class="flex items-center gap-2 bg-[color-mix(in_srgb,var(--up)_10%,transparent)] border border-[color-mix(in_srgb,var(--up)_25%,transparent)] rounded-lg px-3 py-2 text-sm text-(--up)">
             <span>✅</span>
             <span>Connected to <strong>{{ telegramChatName }}</strong> (ID: {{ telegramChatId }})</span>
           </div>
-          <div v-if="telegramResolveError" class="bg-red-900/40 border border-red-700 rounded-lg px-3 py-2 text-sm text-red-300">
+          <div v-if="telegramResolveError" class="bg-[color-mix(in_srgb,var(--down)_10%,transparent)] border border-[color-mix(in_srgb,var(--down)_30%,transparent)] rounded-lg px-3 py-2 text-sm text-(--down)">
             {{ telegramResolveError }}
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">Chat ID *</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">Chat ID *</label>
             <input v-model="telegramChatId" class="input w-full" placeholder="Auto-filled after fetch" required />
           </div>
         </div>
@@ -123,12 +123,12 @@
         <!-- PagerDuty config -->
         <div v-if="form.type === 'pagerduty'" class="space-y-3">
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">Integration Key (Routing Key) *</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">Integration Key (Routing Key) *</label>
             <input v-model="pdIntegrationKey" class="input w-full" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" required />
-            <p class="text-xs text-gray-500 mt-1">Find this key in your PagerDuty service (Events API v2).</p>
+            <p class="text-xs text-(--text-3) mt-1">Find this key in your PagerDuty service (Events API v2).</p>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">Severity</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">Severity</label>
             <select v-model="pdSeverity" class="input w-full">
               <option value="critical">critical</option>
               <option value="error">error</option>
@@ -141,19 +141,19 @@
         <!-- Opsgenie config -->
         <div v-if="form.type === 'opsgenie'" class="space-y-3">
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">API Key *</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">API Key *</label>
             <input v-model="opsApiKey" class="input w-full" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" required />
-            <p class="text-xs text-gray-500 mt-1">Opsgenie API key (team settings).</p>
+            <p class="text-xs text-(--text-3) mt-1">Opsgenie API key (team settings).</p>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">Region</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">Region</label>
             <select v-model="opsRegion" class="input w-full">
               <option value="us">US (api.opsgenie.com)</option>
               <option value="eu">EU (api.eu.opsgenie.com)</option>
             </select>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">Priority</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">Priority</label>
             <select v-model="opsPriority" class="input w-full">
               <option value="P1">P1 — Critical</option>
               <option value="P2">P2 — High</option>
@@ -167,22 +167,22 @@
         <!-- Signal config -->
         <div v-if="form.type === 'signal'" class="space-y-3">
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">Signal REST API URL *</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">Signal REST API URL *</label>
             <input v-model="signalApiUrl" class="input w-full" placeholder="https://signal-api.example.com" type="url" required />
-            <p class="text-xs text-gray-500 mt-1">URL of your signal-cli REST API instance.</p>
+            <p class="text-xs text-(--text-3) mt-1">URL of your signal-cli REST API instance.</p>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">Sender Number *</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">Sender Number *</label>
             <input v-model="signalSenderNumber" class="input w-full" placeholder="+33612345678" required />
-            <p class="text-xs text-gray-500 mt-1">Phone number registered in signal-cli (E.164 format).</p>
+            <p class="text-xs text-(--text-3) mt-1">Phone number registered in signal-cli (E.164 format).</p>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">Recipients (comma-separated) *</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">Recipients (comma-separated) *</label>
             <input v-model="signalRecipients" class="input w-full" placeholder="+33612345678, +33698765432" required />
           </div>
         </div>
 
-        <div v-if="error" class="bg-red-900/40 border border-red-700 rounded p-3 text-sm text-red-300">
+        <div v-if="error" class="bg-[color-mix(in_srgb,var(--down)_10%,transparent)] border border-[color-mix(in_srgb,var(--down)_30%,transparent)] rounded p-3 text-sm text-(--down)">
           {{ error }}
         </div>
 

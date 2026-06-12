@@ -1,8 +1,8 @@
 <template>
   <div class="page-body">
     <div class="mb-8">
-      <h1 class="text-2xl font-bold text-white">{{ t('audit.title') }}</h1>
-      <p class="text-gray-400 mt-1">{{ t('audit.subtitle') }}</p>
+      <h1 class="font-display text-2xl font-bold text-(--text-1)">{{ t('audit.title') }}</h1>
+      <p class="text-(--text-2) mt-1">{{ t('audit.subtitle') }}</p>
     </div>
 
     <!-- Filters -->
@@ -16,7 +16,7 @@
     </div>
 
     <!-- Error banner -->
-    <div v-if="errorMsg" class="mb-4 px-4 py-3 rounded-lg bg-red-900/50 border border-red-700 text-red-300 text-sm">
+    <div v-if="errorMsg" class="mb-4 px-4 py-3 rounded-lg bg-[color-mix(in_srgb,var(--down)_15%,transparent)] border border-[color-mix(in_srgb,var(--down)_35%,transparent)] text-(--down) text-sm">
       {{ errorMsg }}
     </div>
 
@@ -38,23 +38,23 @@
         </thead>
         <tbody>
           <tr v-for="entry in logs" :key="entry.id"
-            class="border-b border-gray-800/50 hover:bg-gray-800/30 cursor-pointer"
+            class="border-b border-(--border) hover:bg-(--bg-surface-2) cursor-pointer"
             @click="selected = selected?.id === entry.id ? null : entry">
-            <td class="px-4 py-3 text-gray-400 whitespace-nowrap">{{ formatDt(entry.timestamp) }}</td>
+            <td class="px-4 py-3 text-(--text-2) whitespace-nowrap">{{ formatDt(entry.timestamp) }}</td>
             <td class="px-4 py-3">
               <span class="px-2 py-0.5 rounded text-xs font-mono"
                 :class="actionClass(entry.action)">
                 {{ entry.action }}
               </span>
             </td>
-            <td class="px-4 py-3 text-gray-300">
+            <td class="px-4 py-3 text-(--text-2)">
               {{ entry.object_name || entry.object_id || '—' }}
-              <span class="text-gray-600 text-xs ml-1">{{ entry.object_type }}</span>
+              <span class="text-(--text-3) text-xs ml-1">{{ entry.object_type }}</span>
             </td>
-            <td class="px-4 py-3 text-gray-400">{{ entry.user_email || 'system' }}</td>
+            <td class="px-4 py-3 text-(--text-2)">{{ entry.user_email || 'system' }}</td>
           </tr>
           <tr v-if="logs.length === 0">
-            <td colspan="4" class="px-4 py-12 text-center text-gray-500">{{ t('audit.empty') }}</td>
+            <td colspan="4" class="px-4 py-12 text-center text-(--text-3)">{{ t('audit.empty') }}</td>
           </tr>
         </tbody>
       </table>
@@ -62,15 +62,15 @@
 
     <!-- Diff panel -->
     <div v-if="selected?.diff" class="mt-4 card">
-      <h2 class="text-sm font-semibold text-gray-300 mb-3">{{ t('audit.changes') }}</h2>
+      <h2 class="text-sm font-semibold text-(--text-2) mb-3">{{ t('audit.changes') }}</h2>
       <div class="grid grid-cols-2 gap-4">
         <div>
-          <div class="text-xs text-gray-500 mb-1">{{ t('audit.before') }}</div>
-          <pre class="text-xs text-gray-400 bg-gray-800 rounded p-3 overflow-auto max-h-64">{{ JSON.stringify(selected.diff.before, null, 2) }}</pre>
+          <div class="text-xs text-(--text-3) mb-1">{{ t('audit.before') }}</div>
+          <pre class="text-xs text-(--text-2) bg-(--bg-surface-2) rounded p-3 overflow-auto max-h-64">{{ JSON.stringify(selected.diff.before, null, 2) }}</pre>
         </div>
         <div>
-          <div class="text-xs text-gray-500 mb-1">{{ t('audit.after') }}</div>
-          <pre class="text-xs text-gray-300 bg-gray-800 rounded p-3 overflow-auto max-h-64">{{ JSON.stringify(selected.diff.after, null, 2) }}</pre>
+          <div class="text-xs text-(--text-3) mb-1">{{ t('audit.after') }}</div>
+          <pre class="text-xs text-(--text-2) bg-(--bg-surface-2) rounded p-3 overflow-auto max-h-64">{{ JSON.stringify(selected.diff.after, null, 2) }}</pre>
         </div>
       </div>
     </div>
@@ -102,9 +102,9 @@ function formatDt(dt) {
 }
 
 function actionClass(action) {
-  if (action.endsWith('.delete')) return 'bg-red-900/50 text-red-400'
-  if (action.endsWith('.create') || action.endsWith('.register')) return 'bg-emerald-900/50 text-emerald-400'
-  return 'bg-blue-900/50 text-blue-400'
+  if (action.endsWith('.delete')) return 'bg-[color-mix(in_srgb,var(--down)_15%,transparent)] text-(--down)'
+  if (action.endsWith('.create') || action.endsWith('.register')) return 'bg-[color-mix(in_srgb,var(--up)_15%,transparent)] text-(--up)'
+  return 'bg-(--accent-glow) text-(--accent)'
 }
 
 function showError(msg) {

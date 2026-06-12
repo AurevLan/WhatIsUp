@@ -2,26 +2,26 @@
   <BaseModal title="New Group" @close="$emit('close')">
       <form @submit.prevent="handleSubmit" class="space-y-4">
         <div>
-          <label class="block text-sm font-medium text-gray-300 mb-1">Name *</label>
+          <label class="block text-sm font-medium text-(--text-2) mb-1">Name *</label>
           <input v-model="form.name" class="input w-full" placeholder="My Services" required />
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-300 mb-1">Description</label>
+          <label class="block text-sm font-medium text-(--text-2) mb-1">Description</label>
           <input v-model="form.description" class="input w-full" placeholder="Optional description" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-300 mb-1">
+          <label class="block text-sm font-medium text-(--text-2) mb-1">
             Public slug
-            <span class="text-gray-500 font-normal">(for status page URL)</span>
+            <span class="text-(--text-3) font-normal">(for status page URL)</span>
           </label>
           <div class="flex items-center gap-2">
-            <span class="text-gray-500 text-sm">/status/</span>
+            <span class="text-(--text-3) text-sm">/status/</span>
             <input v-model="form.public_slug" class="input flex-1" placeholder="my-services"
               pattern="[a-z0-9-]+" />
           </div>
         </div>
 
-        <div v-if="error" class="bg-red-900/40 border border-red-700 rounded p-3 text-sm text-red-300">
+        <div v-if="error" class="bg-[color-mix(in_srgb,var(--down)_12%,transparent)] border border-[color-mix(in_srgb,var(--down)_30%,transparent)] rounded p-3 text-sm text-(--down)">
           {{ error }}
         </div>
 

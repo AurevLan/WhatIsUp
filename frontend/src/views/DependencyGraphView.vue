@@ -1,7 +1,7 @@
 <template>
   <div class="graph-view">
     <div class="graph-view__header">
-      <h1 class="graph-view__title">{{ t('graph.title') }}</h1>
+      <h1 class="graph-view__title font-display">{{ t('graph.title') }}</h1>
     </div>
     <div class="graph-view__canvas">
       <DependencyGraph />

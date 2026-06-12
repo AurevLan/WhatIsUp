@@ -2,14 +2,14 @@
   <!-- Annotations -->
   <div class="card mb-6">
     <div class="flex items-center justify-between mb-4">
-      <h2 class="text-sm font-semibold text-gray-300">{{ t('monitor_detail.annotations') }}</h2>
+      <h2 class="text-sm font-semibold text-(--text-2)">{{ t('monitor_detail.annotations') }}</h2>
       <button @click="state.showForm.value = !state.showForm.value"
         class="btn-ghost text-xs flex items-center gap-1">
         <span>+</span> {{ t('monitor_detail.add_annotation') }}
       </button>
     </div>
 
-    <div v-if="state.showForm.value" class="flex flex-wrap gap-3 mb-4 p-3 bg-gray-800/40 rounded-lg border border-gray-700">
+    <div v-if="state.showForm.value" class="flex flex-wrap gap-3 mb-4 p-3 bg-(--bg-surface-2) rounded-lg border border-(--border)">
       <input v-model="state.newAnnotation.value.annotated_at" type="datetime-local"
         class="input text-xs flex-shrink-0" />
       <input v-model="state.newAnnotation.value.content" class="input text-xs flex-1 min-w-48"
@@ -20,23 +20,23 @@
 
     <div v-if="state.annotations.value.length" class="space-y-1.5">
       <div v-for="a in state.annotations.value" :key="a.id"
-        class="flex items-center gap-3 py-2 px-3 rounded-lg bg-gray-800/30 group">
-        <span class="w-0.5 h-5 bg-indigo-500 rounded-full flex-shrink-0" />
+        class="flex items-center gap-3 py-2 px-3 rounded-lg bg-(--bg-surface-2) group">
+        <span class="w-0.5 h-5 bg-(--accent) rounded-full flex-shrink-0" />
         <div class="flex-1 min-w-0">
-          <p class="text-sm text-gray-200">{{ a.content }}</p>
-          <p class="text-xs text-gray-500 mt-0.5">
+          <p class="text-sm text-(--text-1)">{{ a.content }}</p>
+          <p class="text-xs text-(--text-3) mt-0.5">
             {{ fmtDateTime(a.annotated_at) }}
-            <span v-if="a.created_by" class="ml-2 text-gray-600">· {{ a.created_by }}</span>
+            <span v-if="a.created_by" class="ml-2 text-(--text-3)">· {{ a.created_by }}</span>
           </p>
         </div>
         <button @click="state.remove(a.id)"
-          class="opacity-0 group-hover:opacity-100 text-xs text-red-500 hover:text-red-400 transition-opacity px-1"
+          class="opacity-0 group-hover:opacity-100 text-xs text-(--down) transition-opacity px-1"
           :aria-label="t('common.delete')">
           ✕
         </button>
       </div>
     </div>
-    <p v-else class="text-gray-600 text-sm text-center py-4">
+    <p v-else class="text-(--text-3) text-sm text-center py-4">
       No annotations — mark your deployments and interventions here
     </p>
   </div>

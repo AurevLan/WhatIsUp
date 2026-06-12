@@ -1,6 +1,6 @@
 <template>
   <div class="p-8">
-    <h1 class="text-2xl font-bold text-white mb-8">{{ t('alerts.title') }}</h1>
+    <h1 class="font-display text-2xl font-bold text-(--text-1) mb-8">{{ t('alerts.title') }}</h1>
 
     <!-- Skeleton loading -->
     <div v-if="loading" class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
@@ -31,7 +31,7 @@
       <!-- Alert Channels -->
       <div>
         <div class="flex items-center justify-between mb-4">
-          <h2 class="text-lg font-semibold text-white">{{ t('alerts.channels') }}</h2>
+          <h2 class="text-lg font-semibold text-(--text-1)">{{ t('alerts.channels') }}</h2>
           <button @click="showAddChannel = true" class="text-sm btn-primary">+ {{ t('alerts.add_channel') }}</button>
         </div>
         <div class="space-y-3">
@@ -42,12 +42,12 @@
                 {{ channelIcon(channel.type).emoji }}
               </div>
               <div class="flex-1 min-w-0">
-                <p class="font-medium text-white truncate">{{ channel.name }}</p>
-                <p class="text-xs text-gray-500 capitalize">{{ channel.type }}</p>
+                <p class="font-medium text-(--text-1) truncate">{{ channel.name }}</p>
+                <p class="text-xs text-(--text-3) capitalize">{{ channel.type }}</p>
               </div>
               <!-- Last activity badge -->
               <div v-if="lastActivityByChannel[channel.id]" class="text-right flex-shrink-0 hidden sm:block">
-                <span class="text-xs" :class="lastActivityByChannel[channel.id].status === 'sent' ? 'text-emerald-500' : 'text-red-400'">
+                <span class="text-xs" :class="lastActivityByChannel[channel.id].status === 'sent' ? 'text-(--up)' : 'text-(--down)'">
                   {{ lastActivityByChannel[channel.id].status === 'sent' ? '✓' : '✗' }}
                   {{ formatRelative(lastActivityByChannel[channel.id].sent_at) }}
                 </span>
@@ -56,15 +56,15 @@
               <button
                 @click="testChannel(channel)"
                 :disabled="testingChannel === channel.id"
-                class="text-xs px-2 py-1 rounded-lg border border-gray-700 text-gray-400 hover:border-blue-500 hover:text-blue-400 transition-colors flex-shrink-0 disabled:opacity-50"
+                class="text-xs px-2 py-1 rounded-lg border border-(--border) text-(--text-2) hover:border-(--accent-border) hover:text-(--accent) transition-colors flex-shrink-0 disabled:opacity-50"
               >
                 {{ testingChannel === channel.id ? t('alerts.test_channel_running') : t('alerts.test_channel') }}
               </button>
-              <button @click="confirmDeleteChannel(channel)" class="text-gray-600 hover:text-red-400 transition-colors flex-shrink-0" :aria-label="t('common.delete')">✕</button>
+              <button @click="confirmDeleteChannel(channel)" class="text-(--text-3) hover:text-(--down) transition-colors flex-shrink-0" :aria-label="t('common.delete')">✕</button>
             </div>
             <!-- Test result inline -->
             <div v-if="testResults[channel.id]" class="mt-2 text-xs px-3 py-1.5 rounded-lg"
-              :class="testResults[channel.id].success ? 'bg-emerald-900/30 text-emerald-400 border border-emerald-800' : 'bg-red-900/30 text-red-400 border border-red-800'">
+              :class="testResults[channel.id].success ? 'bg-[color-mix(in_srgb,var(--up)_15%,transparent)] text-(--up) border border-[color-mix(in_srgb,var(--up)_35%,transparent)]' : 'bg-[color-mix(in_srgb,var(--down)_15%,transparent)] text-(--down) border border-[color-mix(in_srgb,var(--down)_35%,transparent)]'">
               {{ testResults[channel.id].success ? t('alerts.test_channel_success') : t('alerts.test_channel_failed') }}
               — {{ testResults[channel.id].detail }}
             </div>
@@ -85,13 +85,13 @@
       <!-- Recent Alert Events -->
       <div>
         <div class="flex items-center justify-between mb-4">
-          <h2 class="text-lg font-semibold text-white">{{ t('alerts.recent_events') }}</h2>
+          <h2 class="text-lg font-semibold text-(--text-1)">{{ t('alerts.recent_events') }}</h2>
           <!-- Filter tabs -->
-          <div class="flex gap-1 bg-gray-800 rounded-lg p-0.5">
+          <div class="flex gap-1 bg-(--bg-surface-2) rounded-lg p-0.5">
             <button v-for="f in eventFilters" :key="f.value"
               @click="eventsFilter = f.value"
               class="text-xs px-2.5 py-1 rounded-md transition-colors"
-              :class="eventsFilter === f.value ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-300'">
+              :class="eventsFilter === f.value ? 'bg-(--bg-surface-2) text-(--text-1)' : 'text-(--text-3) hover:text-(--text-1)'">
               {{ f.label }}
             </button>
           </div>
@@ -100,18 +100,18 @@
           <div v-for="event in filteredEvents" :key="event.id" class="card py-2.5">
             <div class="flex items-center gap-3">
               <span class="text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0"
-                :class="event.status === 'sent' ? 'bg-emerald-900/50 text-emerald-400' : 'bg-red-900/50 text-red-400'">
+                :class="event.status === 'sent' ? 'bg-[color-mix(in_srgb,var(--up)_15%,transparent)] text-(--up)' : 'bg-[color-mix(in_srgb,var(--down)_15%,transparent)] text-(--down)'">
                 {{ event.status }}
               </span>
-              <span class="text-xs text-gray-400 flex-shrink-0">{{ formatDate(event.sent_at) }}</span>
-              <span class="text-xs text-gray-500 truncate font-mono">{{ channelName(event.channel_id) }}</span>
+              <span class="text-xs text-(--text-2) flex-shrink-0">{{ formatDate(event.sent_at) }}</span>
+              <span class="text-xs text-(--text-3) truncate font-mono">{{ channelName(event.channel_id) }}</span>
             </div>
             <div class="flex items-center gap-2 mt-1">
-              <p v-if="event.monitor_name" class="text-xs text-gray-300 font-medium truncate">
+              <p v-if="event.monitor_name" class="text-xs text-(--text-2) font-medium truncate">
                 {{ event.monitor_name }}
               </p>
-              <p v-else class="text-xs text-gray-600 font-mono">Incident {{ event.incident_id.slice(0, 8) }}…</p>
-              <span v-if="event.response_body && event.response_body !== 'null'" class="text-xs text-gray-600 truncate">
+              <p v-else class="text-xs text-(--text-3) font-mono">Incident {{ event.incident_id.slice(0, 8) }}…</p>
+              <span v-if="event.response_body && event.response_body !== 'null'" class="text-xs text-(--text-3) truncate">
                 · {{ event.response_body }}
               </span>
             </div>
@@ -130,13 +130,13 @@
 
     <!-- Threshold suggestions -->
     <div v-if="thresholdSuggestions.length > 0" class="mb-8">
-      <h2 class="text-lg font-semibold text-white mb-3">{{ t('alerts.suggestions_title') }}</h2>
+      <h2 class="text-lg font-semibold text-(--text-1) mb-3">{{ t('alerts.suggestions_title') }}</h2>
       <div class="space-y-2">
         <div v-for="s in thresholdSuggestions" :key="s.monitor_id"
           class="card flex items-center justify-between gap-4">
           <div class="flex-1 min-w-0">
-            <p class="text-sm text-white font-medium truncate">{{ s.monitor_name }}</p>
-            <p class="text-xs text-gray-500">
+            <p class="text-sm text-(--text-1) font-medium truncate">{{ s.monitor_name }}</p>
+            <p class="text-xs text-(--text-3)">
               p95 = {{ s.p95_ms }}ms · {{ t('alerts.suggested_threshold', { ms: s.suggested_threshold_ms }) }}
             </p>
           </div>
@@ -145,7 +145,7 @@
             :disabled="applyingSuggestion === s.monitor_id"
             class="btn-primary text-xs whitespace-nowrap disabled:opacity-50"
           >{{ t('alerts.apply_suggestion') }}</button>
-          <button @click="dismissSuggestion(s)" class="text-gray-600 hover:text-gray-400 text-xs" :aria-label="t('common.dismiss')">✕</button>
+          <button @click="dismissSuggestion(s)" class="text-(--text-3) hover:text-(--text-2) text-xs" :aria-label="t('common.dismiss')">✕</button>
         </div>
       </div>
     </div>
@@ -153,16 +153,16 @@
     <!-- Alert Rules -->
     <div>
       <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-semibold text-white">{{ t('alerts.title') }}</h2>
+        <h2 class="text-lg font-semibold text-(--text-1)">{{ t('alerts.title') }}</h2>
         <button @click="openCreateRule" :disabled="!channels.length" class="text-sm btn-primary disabled:opacity-40 disabled:cursor-not-allowed">
           + {{ t('alerts.add_rule') }}
         </button>
       </div>
-      <p v-if="!channels.length" class="text-xs text-amber-400 mb-3">
+      <p v-if="!channels.length" class="text-xs text-(--warn) mb-3">
         ⚠ {{ t('alerts.create_channel_first') }}
       </p>
 
-      <div v-if="rules.length === 0 && channels.length" class="text-gray-500 text-sm text-center py-8">
+      <div v-if="rules.length === 0 && channels.length" class="text-(--text-3) text-sm text-center py-8">
         {{ t('alerts.no_rules') }}
       </div>
 
@@ -171,29 +171,29 @@
           <div class="flex items-start justify-between gap-4">
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-2 flex-wrap">
-                <span class="text-sm font-medium text-white">{{ targetName(rule) }}</span>
+                <span class="text-sm font-medium text-(--text-1)">{{ targetName(rule) }}</span>
                 <span class="text-xs px-2 py-0.5 rounded-full font-mono"
-                  :class="rule.monitor_id ? 'bg-blue-900/40 text-blue-300' : 'bg-purple-900/40 text-purple-300'">
+                  :class="rule.monitor_id ? 'bg-(--accent-glow) text-(--accent)' : 'bg-(--accent-glow) text-(--accent)'">
                   {{ rule.monitor_id ? t('alerts.scope_monitor') : t('alerts.scope_group') }}
                 </span>
-                <span v-if="!rule.enabled" class="text-xs px-2 py-0.5 rounded-full bg-gray-800 text-gray-500">
+                <span v-if="!rule.enabled" class="text-xs px-2 py-0.5 rounded-full bg-(--bg-surface-2) text-(--text-3)">
                   {{ t('alerts.rule_disabled') }}
                 </span>
               </div>
               <div class="mt-2 flex items-center gap-2 flex-wrap">
-                <span class="text-xs px-2 py-0.5 rounded-full bg-gray-800 text-gray-300 font-mono">
+                <span class="text-xs px-2 py-0.5 rounded-full bg-(--bg-surface-2) text-(--text-2) font-mono">
                   {{ conditionLabel(rule.condition) }}
                   <span v-if="rule.threshold_value != null">{{ conditionUnit(rule.condition, rule.threshold_value) }}</span>
                 </span>
-                <span v-if="rule.min_duration_seconds" class="text-xs text-gray-500">{{ t('alerts.rule_after_seconds', { n: rule.min_duration_seconds }) }}</span>
-                <span v-if="rule.renotify_after_minutes" class="text-xs text-gray-500">{{ t('alerts.rule_renotify_minutes', { n: rule.renotify_after_minutes }) }}</span>
-                <span v-if="rule.digest_minutes" class="text-xs text-blue-500">{{ t('alerts.rule_digest_minutes', { n: rule.digest_minutes }) }}</span>
-                <span v-if="rule.anomaly_zscore_threshold" class="text-xs text-purple-400">· z={{ rule.anomaly_zscore_threshold }}</span>
-                <span v-if="rule.schedule?.offhours_suppress" class="text-xs text-amber-400">{{ t('alerts.rule_business_hours') }}</span>
+                <span v-if="rule.min_duration_seconds" class="text-xs text-(--text-3)">{{ t('alerts.rule_after_seconds', { n: rule.min_duration_seconds }) }}</span>
+                <span v-if="rule.renotify_after_minutes" class="text-xs text-(--text-3)">{{ t('alerts.rule_renotify_minutes', { n: rule.renotify_after_minutes }) }}</span>
+                <span v-if="rule.digest_minutes" class="text-xs text-(--accent)">{{ t('alerts.rule_digest_minutes', { n: rule.digest_minutes }) }}</span>
+                <span v-if="rule.anomaly_zscore_threshold" class="text-xs text-(--accent)">· z={{ rule.anomaly_zscore_threshold }}</span>
+                <span v-if="rule.schedule?.offhours_suppress" class="text-xs text-(--warn)">{{ t('alerts.rule_business_hours') }}</span>
               </div>
               <div class="mt-2 flex items-center gap-1.5 flex-wrap">
                 <span v-for="ch in rule.channels" :key="ch.id"
-                  class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-gray-800 text-gray-300">
+                  class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-(--bg-surface-2) text-(--text-2)">
                   {{ channelIcon(ch.type).emoji }} {{ ch.name }}
                 </span>
               </div>
@@ -202,7 +202,7 @@
               <!-- Simulate -->
               <button @click="runSimulate(rule)"
                 :disabled="simulatingRule === rule.id"
-                class="text-xs px-2 py-1 rounded-lg border border-gray-700 text-gray-400 hover:border-purple-500 hover:text-purple-400 transition-colors disabled:opacity-50">
+                class="text-xs px-2 py-1 rounded-lg border border-(--border) text-(--text-2) hover:border-(--accent-border) hover:text-(--accent) transition-colors disabled:opacity-50">
                 {{ simulatingRule === rule.id ? t('alerts.simulate_running') : t('alerts.simulate') }}
               </button>
               <!-- Enable/disable toggle -->
@@ -211,25 +211,25 @@
                 :aria-label="rule.enabled ? t('alerts.rule_enabled') : t('alerts.rule_disabled')"
                 class="text-xs px-2 py-1 rounded-lg border transition-colors"
                 :class="rule.enabled
-                  ? 'border-emerald-700 text-emerald-500 hover:border-red-600 hover:text-red-400'
-                  : 'border-gray-700 text-gray-600 hover:border-emerald-700 hover:text-emerald-400'">
+                  ? 'border-[color-mix(in_srgb,var(--up)_35%,transparent)] text-(--up) hover:border-(--down) hover:text-(--down)'
+                  : 'border-(--border) text-(--text-3) hover:border-(--up) hover:text-(--up)'">
                 {{ rule.enabled ? '●' : '○' }}
               </button>
               <!-- Edit -->
               <button @click="openEditRule(rule)"
-                class="text-xs px-2 py-1 rounded-lg border border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white transition-colors">
+                class="text-xs px-2 py-1 rounded-lg border border-(--border) text-(--text-2) hover:border-(--border-hover) hover:text-(--text-1) transition-colors">
                 {{ t('common.edit') }}
               </button>
               <!-- Delete -->
-              <button @click="confirmDeleteRule(rule)" class="text-gray-600 hover:text-red-400 transition-colors" :aria-label="t('common.delete')">✕</button>
+              <button @click="confirmDeleteRule(rule)" class="text-(--text-3) hover:text-(--down) transition-colors" :aria-label="t('common.delete')">✕</button>
             </div>
           </div>
 
           <!-- Simulate result -->
           <div v-if="simulateResults[rule.id]" class="mt-3 text-xs px-3 py-2 rounded-lg border"
             :class="simulateResults[rule.id].would_fire
-              ? 'bg-red-900/20 border-red-800 text-red-300'
-              : 'bg-gray-800/60 border-gray-700 text-gray-400'">
+              ? 'bg-[color-mix(in_srgb,var(--down)_15%,transparent)] border-[color-mix(in_srgb,var(--down)_35%,transparent)] text-(--down)'
+              : 'bg-(--bg-surface-2) border-(--border) text-(--text-2)'">
             <span class="font-medium">
               {{ simulateResults[rule.id].would_fire ? t('alerts.simulate_would_fire') : t('alerts.simulate_would_not_fire') }}
             </span>
@@ -251,20 +251,20 @@
       <form @submit.prevent="saveRule" class="space-y-4">
           <!-- Target type (only for create) -->
           <div v-if="!editingRule">
-            <label class="block text-sm font-medium text-gray-300 mb-2">{{ t('alerts.target_label') }} *</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-2">{{ t('alerts.target_label') }} *</label>
             <div class="grid grid-cols-2 gap-2 mb-2">
               <button type="button" @click="ruleForm.target_type = 'monitor'; ruleForm.target_id = ''"
                 class="py-2 px-3 rounded-lg border text-sm font-medium transition-colors"
                 :class="ruleForm.target_type === 'monitor'
-                  ? 'bg-blue-600 border-blue-500 text-white'
-                  : 'border-gray-700 text-gray-400 hover:border-gray-600'">
+                  ? 'bg-(--accent-glow) border-(--accent-border) text-(--accent)'
+                  : 'border-(--border) text-(--text-2) hover:border-(--border-hover)'">
                 {{ t('alerts.target_monitor') }}
               </button>
               <button type="button" @click="ruleForm.target_type = 'group'; ruleForm.target_id = ''"
                 class="py-2 px-3 rounded-lg border text-sm font-medium transition-colors"
                 :class="ruleForm.target_type === 'group'
-                  ? 'bg-purple-600 border-purple-500 text-white'
-                  : 'border-gray-700 text-gray-400 hover:border-gray-600'">
+                  ? 'bg-(--accent-glow) border-(--accent-border) text-(--accent)'
+                  : 'border-(--border) text-(--text-2) hover:border-(--border-hover)'">
                 {{ t('alerts.target_group') }}
               </button>
             </div>
@@ -282,16 +282,16 @@
           </div>
           <!-- Show current target for edit -->
           <div v-else>
-            <label class="block text-sm font-medium text-gray-300 mb-1">{{ t('alerts.target_label') }}</label>
-            <p class="text-sm text-gray-400 px-3 py-2 bg-gray-800 rounded-lg">
+            <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('alerts.target_label') }}</label>
+            <p class="text-sm text-(--text-2) px-3 py-2 bg-(--bg-surface-2) rounded-lg">
               {{ targetName(editingRule) }}
-              <span class="text-gray-600 ml-2 text-xs">{{ t('alerts.target_locked') }}</span>
+              <span class="text-(--text-3) ml-2 text-xs">{{ t('alerts.target_locked') }}</span>
             </p>
           </div>
 
           <!-- Condition -->
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">{{ t('alerts.condition_label') }} *</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('alerts.condition_label') }} *</label>
             <select v-model="ruleForm.condition" class="input w-full" required>
               <option value="any_down">{{ t('alerts.cond_any_down') }}</option>
               <option value="all_down">{{ t('alerts.cond_all_down') }}</option>
@@ -304,91 +304,91 @@
           </div>
 
           <!-- Baseline factor -->
-          <div v-if="ruleForm.condition === 'response_time_above_baseline'" class="bg-blue-900/20 border border-blue-800/50 rounded-lg p-3 space-y-2">
-            <label class="block text-sm font-medium text-gray-300">
+          <div v-if="ruleForm.condition === 'response_time_above_baseline'" class="bg-(--accent-glow) border border-(--accent-border) rounded-lg p-3 space-y-2">
+            <label class="block text-sm font-medium text-(--text-2)">
               {{ t('alerts.baseline_factor_label') }}
-              <span class="text-gray-500 font-normal ml-1">{{ t('alerts.baseline_factor_hint') }}</span>
+              <span class="text-(--text-3) font-normal ml-1">{{ t('alerts.baseline_factor_hint') }}</span>
             </label>
             <input v-model.number="ruleForm.baseline_factor" class="input w-full" type="number" min="1.1" max="20" step="0.1" :placeholder="t('alerts.baseline_placeholder')" />
-            <p class="text-xs text-gray-500">{{ t('alerts.baseline_factor_help') }}</p>
+            <p class="text-xs text-(--text-3)">{{ t('alerts.baseline_factor_help') }}</p>
           </div>
 
           <!-- Anomaly z-score threshold -->
-          <div v-if="ruleForm.condition === 'anomaly_detection'" class="bg-purple-900/20 border border-purple-800/50 rounded-lg p-3 space-y-2">
-            <label class="block text-sm font-medium text-gray-300">
+          <div v-if="ruleForm.condition === 'anomaly_detection'" class="bg-(--accent-glow) border border-(--accent-border) rounded-lg p-3 space-y-2">
+            <label class="block text-sm font-medium text-(--text-2)">
               {{ t('alerts.zscore_label') }}
-              <span class="text-gray-500 font-normal ml-1">{{ t('alerts.zscore_hint') }}</span>
+              <span class="text-(--text-3) font-normal ml-1">{{ t('alerts.zscore_hint') }}</span>
             </label>
             <input v-model.number="ruleForm.anomaly_zscore_threshold" class="input w-full" type="number" min="1.0" max="10.0" step="0.1" placeholder="3.5" />
-            <p class="text-xs text-gray-500">{{ t('alerts.zscore_help') }}</p>
+            <p class="text-xs text-(--text-3)">{{ t('alerts.zscore_help') }}</p>
           </div>
 
           <!-- Schema drift info -->
-          <div v-if="ruleForm.condition === 'schema_drift'" class="bg-amber-900/20 border border-amber-800/50 rounded-lg p-3">
-            <p class="text-xs text-amber-400">{{ t('alerts.schema_drift_help') }}</p>
+          <div v-if="ruleForm.condition === 'schema_drift'" class="bg-[color-mix(in_srgb,var(--warn)_15%,transparent)] border border-[color-mix(in_srgb,var(--warn)_35%,transparent)] rounded-lg p-3">
+            <p class="text-xs text-(--warn)">{{ t('alerts.schema_drift_help') }}</p>
           </div>
 
           <!-- Threshold -->
           <div v-if="ruleForm.condition === 'response_time_above'">
-            <label class="block text-sm font-medium text-gray-300 mb-1">{{ t('alerts.threshold_ms_label') }} *</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('alerts.threshold_ms_label') }} *</label>
             <input v-model.number="ruleForm.threshold_value" class="input w-full" type="number" min="1" max="60000" :placeholder="t('alerts.threshold_placeholder')" required />
           </div>
 
           <!-- Min duration -->
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">
+            <label class="block text-sm font-medium text-(--text-2) mb-1">
               {{ t('alerts.min_duration_label') }}
-              <span class="text-gray-500 font-normal">{{ t('alerts.min_duration_hint') }}</span>
+              <span class="text-(--text-3) font-normal">{{ t('alerts.min_duration_hint') }}</span>
             </label>
             <input v-model.number="ruleForm.min_duration_seconds" class="input w-full" type="number" min="0" max="3600" />
           </div>
 
           <!-- Renotify -->
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">
+            <label class="block text-sm font-medium text-(--text-2) mb-1">
               {{ t('alerts.renotify_label') }}
-              <span class="text-gray-500 font-normal">{{ t('alerts.renotify_hint') }}</span>
+              <span class="text-(--text-3) font-normal">{{ t('alerts.renotify_hint') }}</span>
             </label>
             <input v-model.number="ruleForm.renotify_after_minutes" class="input w-full" type="number" min="1" max="10080" :placeholder="t('alerts.renotify_placeholder')" />
           </div>
 
           <!-- Digest -->
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">
+            <label class="block text-sm font-medium text-(--text-2) mb-1">
               {{ t('alerts.digest_label') }}
-              <span class="text-gray-500 font-normal">{{ t('alerts.digest_off_hint') }}</span>
+              <span class="text-(--text-3) font-normal">{{ t('alerts.digest_off_hint') }}</span>
             </label>
             <input v-model.number="ruleForm.digest_minutes" class="input w-full" type="number" min="0" max="1440" :placeholder="t('alerts.digest_placeholder')" />
           </div>
 
           <!-- Business Hours Schedule -->
-          <div class="border border-gray-700 rounded-lg overflow-hidden">
+          <div class="border border-(--border) rounded-lg overflow-hidden">
             <button
               type="button"
               @click="ruleForm.showSchedule = !ruleForm.showSchedule"
-              class="w-full flex items-center justify-between px-3 py-2.5 text-sm text-gray-300 hover:bg-gray-800 transition-colors"
+              class="w-full flex items-center justify-between px-3 py-2.5 text-sm text-(--text-2) hover:bg-(--bg-surface-2) transition-colors"
             >
               <span class="font-medium">{{ t('alerts.schedule_title') }}</span>
-              <span class="text-gray-500 text-xs">{{ ruleForm.showSchedule ? '▲' : '▼' }}</span>
+              <span class="text-(--text-3) text-xs">{{ ruleForm.showSchedule ? '▲' : '▼' }}</span>
             </button>
-            <div v-if="ruleForm.showSchedule" class="px-3 pb-3 space-y-3 border-t border-gray-700 pt-3">
-              <p class="text-xs text-gray-500">{{ t('alerts.schedule_help') }}</p>
+            <div v-if="ruleForm.showSchedule" class="px-3 pb-3 space-y-3 border-t border-(--border) pt-3">
+              <p class="text-xs text-(--text-3)">{{ t('alerts.schedule_help') }}</p>
 
               <div class="flex items-center gap-2">
                 <input type="checkbox" id="offhours-suppress" v-model="ruleForm.schedule.offhours_suppress" class="w-4 h-4" />
-                <label for="offhours-suppress" class="text-sm text-gray-300">{{ t('alerts.schedule_suppress_label') }}</label>
+                <label for="offhours-suppress" class="text-sm text-(--text-2)">{{ t('alerts.schedule_suppress_label') }}</label>
               </div>
 
               <div v-if="ruleForm.schedule.offhours_suppress" class="space-y-3">
                 <div>
-                  <label class="block text-xs text-gray-400 mb-1">{{ t('alerts.schedule_timezone') }}</label>
+                  <label class="block text-xs text-(--text-2) mb-1">{{ t('alerts.schedule_timezone') }}</label>
                   <select v-model="ruleForm.schedule.timezone" class="input w-full text-sm">
                     <option v-for="tz in commonTimezones" :key="tz" :value="tz">{{ tz }}</option>
                   </select>
                 </div>
 
                 <div>
-                  <label class="block text-xs text-gray-400 mb-1">{{ t('alerts.schedule_days') }}</label>
+                  <label class="block text-xs text-(--text-2) mb-1">{{ t('alerts.schedule_days') }}</label>
                   <div class="flex flex-wrap gap-1">
                     <button
                       v-for="(day, idx) in weekDays"
@@ -396,18 +396,18 @@
                       type="button"
                       @click="toggleDay(idx)"
                       class="px-2 py-0.5 rounded text-xs font-medium transition-colors"
-                      :class="ruleForm.schedule.days?.includes(idx) ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'"
+                      :class="ruleForm.schedule.days?.includes(idx) ? 'bg-(--accent-glow) text-(--accent)' : 'bg-(--bg-surface-2) text-(--text-2) hover:bg-(--bg-surface-3)'"
                     >{{ day }}</button>
                   </div>
                 </div>
 
                 <div class="grid grid-cols-2 gap-2">
                   <div>
-                    <label class="block text-xs text-gray-400 mb-1">{{ t('alerts.schedule_start') }}</label>
+                    <label class="block text-xs text-(--text-2) mb-1">{{ t('alerts.schedule_start') }}</label>
                     <input v-model="ruleForm.schedule.start" type="time" class="input w-full text-sm" />
                   </div>
                   <div>
-                    <label class="block text-xs text-gray-400 mb-1">{{ t('alerts.schedule_end') }}</label>
+                    <label class="block text-xs text-(--text-2) mb-1">{{ t('alerts.schedule_end') }}</label>
                     <input v-model="ruleForm.schedule.end" type="time" class="input w-full text-sm" />
                   </div>
                 </div>
@@ -417,31 +417,31 @@
 
           <!-- Channels -->
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-2">{{ t('alerts.channels_label') }} *</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-2">{{ t('alerts.channels_label') }} *</label>
             <div class="space-y-2">
               <label v-for="ch in channels" :key="ch.id" class="flex items-center gap-3 cursor-pointer">
                 <input type="checkbox" :value="ch.id" v-model="ruleForm.channel_ids" class="w-4 h-4" />
-                <span class="text-sm text-gray-300">
+                <span class="text-sm text-(--text-2)">
                   {{ channelIcon(ch.type).emoji }} {{ ch.name }}
-                  <span class="text-gray-500 text-xs capitalize">({{ ch.type }})</span>
+                  <span class="text-(--text-3) text-xs capitalize">({{ ch.type }})</span>
                 </span>
               </label>
             </div>
           </div>
 
           <!-- Message preview -->
-          <div v-if="ruleForm.condition && ruleForm.channel_ids.length" class="bg-gray-800/60 border border-gray-700 rounded-lg p-3">
-            <p class="text-xs text-gray-500 mb-1.5 font-medium uppercase tracking-wide">{{ t('alerts.preview_title') }}</p>
-            <p class="text-xs text-gray-300 font-mono whitespace-pre-wrap">{{ messagePreview }}</p>
+          <div v-if="ruleForm.condition && ruleForm.channel_ids.length" class="bg-(--bg-surface-2) border border-(--border) rounded-lg p-3">
+            <p class="text-xs text-(--text-3) mb-1.5 font-medium uppercase tracking-wide">{{ t('alerts.preview_title') }}</p>
+            <p class="text-xs text-(--text-2) font-mono whitespace-pre-wrap">{{ messagePreview }}</p>
           </div>
 
-          <div v-if="ruleError" class="bg-red-900/40 border border-red-700 rounded p-3 text-sm text-red-300">
+          <div v-if="ruleError" class="bg-[color-mix(in_srgb,var(--down)_15%,transparent)] border border-[color-mix(in_srgb,var(--down)_35%,transparent)] rounded p-3 text-sm text-(--down)">
             {{ ruleError }}
           </div>
 
           <div class="flex gap-3 pt-2">
             <button type="button" @click="closeRuleModal"
-              class="flex-1 px-4 py-2 border border-gray-700 text-gray-300 rounded-lg hover:bg-gray-800">
+              class="flex-1 px-4 py-2 border border-(--border) text-(--text-2) rounded-lg hover:bg-(--bg-surface-2)">
               {{ t('common.cancel') }}
             </button>
             <button type="submit"
@@ -462,10 +462,10 @@
       :message="t('alerts.confirm_delete_detail')"
       @close="confirmModal = null">
       <template #footer>
-        <button @click="confirmModal = null" class="flex-1 px-4 py-2 border border-gray-700 text-gray-300 rounded-lg hover:bg-gray-800">
+        <button @click="confirmModal = null" class="flex-1 px-4 py-2 border border-(--border) text-(--text-2) rounded-lg hover:bg-(--bg-surface-2)">
           {{ t('common.cancel') }}
         </button>
-        <button @click="confirmModal.action(); confirmModal = null" class="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg">
+        <button @click="confirmModal.action(); confirmModal = null" class="flex-1 px-4 py-2 bg-(--down) hover:brightness-110 text-white rounded-lg">
           {{ t('common.delete') }}
         </button>
       </template>
@@ -624,14 +624,14 @@ const messagePreview = computed(() => {
 
 function channelIcon(type) {
   const map = {
-    email:     { emoji: '📧', bg: 'bg-blue-900/50' },
-    webhook:   { emoji: '🔗', bg: 'bg-purple-900/50' },
-    telegram:  { emoji: '✈️', bg: 'bg-sky-900/50' },
-    slack:     { emoji: '💬', bg: 'bg-emerald-900/50' },
-    pagerduty: { emoji: '🔔', bg: 'bg-green-900/50' },
-    opsgenie:  { emoji: '🚨', bg: 'bg-orange-900/50' },
+    email:     { emoji: '📧', bg: 'bg-(--accent-glow)' },
+    webhook:   { emoji: '🔗', bg: 'bg-(--accent-glow)' },
+    telegram:  { emoji: '✈️', bg: 'bg-(--accent-glow)' },
+    slack:     { emoji: '💬', bg: 'bg-[color-mix(in_srgb,var(--up)_15%,transparent)]' },
+    pagerduty: { emoji: '🔔', bg: 'bg-[color-mix(in_srgb,var(--up)_15%,transparent)]' },
+    opsgenie:  { emoji: '🚨', bg: 'bg-[color-mix(in_srgb,var(--warn)_15%,transparent)]' },
   }
-  return map[type] || { emoji: '🔔', bg: 'bg-gray-800' }
+  return map[type] || { emoji: '🔔', bg: 'bg-(--bg-surface-2)' }
 }
 
 function channelName(channelId) {

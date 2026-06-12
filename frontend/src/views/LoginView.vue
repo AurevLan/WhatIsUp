@@ -11,7 +11,7 @@
         <div class="login__logo">
           <Activity :size="24" color="white" :stroke-width="2.5" />
         </div>
-        <h1 class="login__title">WhatIsUp</h1>
+        <h1 class="login__title font-display">WhatIsUp</h1>
         <p class="login__sub">{{ t('auth.subtitle') }}</p>
       </div>
 
@@ -247,7 +247,7 @@ function cancelMfa() {
   border-radius: 1rem;
   display: flex; align-items: center; justify-content: center;
   margin: 0 auto 1rem;
-  box-shadow: 0 8px 24px rgba(59,130,246,.35);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 .login__title { font-size: 1.375rem; font-weight: 700; color: var(--text-1); margin: 0 0 0.375rem; }
 .login__sub { font-size: 0.8125rem; color: var(--text-3); margin: 0; }
@@ -264,8 +264,8 @@ function cancelMfa() {
 
 .login__error {
   display: flex; align-items: flex-start; gap: 0.5rem;
-  background: rgba(239,68,68,.1);
-  border: 1px solid rgba(239,68,68,.2);
+  background: color-mix(in srgb, var(--down) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--down) 20%, transparent);
   border-radius: var(--radius-sm);
   padding: 0.75rem;
   margin-bottom: 1.125rem;
@@ -284,10 +284,10 @@ function cancelMfa() {
   border-radius: var(--radius-sm);
   border: none;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(37,99,235,.4);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 40%, transparent);
   transition: opacity .15s, box-shadow .15s;
 }
-.login__submit:hover { box-shadow: 0 6px 20px rgba(37,99,235,.5); }
+.login__submit:hover { box-shadow: 0 6px 20px color-mix(in srgb, var(--accent) 50%, transparent); }
 .login__submit:active { transform: translateY(1px); }
 .login__submit:focus-visible { box-shadow: var(--focus-ring); }
 
@@ -317,7 +317,7 @@ function cancelMfa() {
 .login__sso-btn:hover { border-color: var(--border-hover); color: var(--text-1); }
 
 .login__mfa-head { text-align: center; margin-bottom: 1.25rem; }
-.login__mfa-icon { color: var(--brand, #3b82f6); margin: 0 auto 0.5rem; display: block; }
+.login__mfa-icon { color: var(--accent); margin: 0 auto 0.5rem; display: block; }
 .login__mfa-title { font-size: 1rem; font-weight: 600; color: var(--text-1); margin: 0 0 0.375rem; }
 .login__mfa-sub { font-size: 0.8125rem; color: var(--text-3); margin: 0; }
 .login__mfa-input {

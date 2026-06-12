@@ -1,29 +1,29 @@
 <template>
   <div class="card p-0 overflow-hidden">
     <!-- Header -->
-    <div class="flex items-center justify-between px-5 py-4 border-b border-gray-800/80">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-(--border)">
       <div class="flex items-center gap-2">
-        <Radio class="w-4 h-4 text-blue-400" />
-        <h2 class="text-sm font-semibold text-gray-100">{{ t('nav.probes') }}</h2>
-        <span class="text-xs text-gray-600 font-mono">({{ filteredProbes.length }}/{{ probes.length }})</span>
+        <Radio class="w-4 h-4 text-(--accent)" />
+        <h2 class="text-sm font-semibold text-(--text-1)">{{ t('nav.probes') }}</h2>
+        <span class="text-xs text-(--text-3) font-mono">({{ filteredProbes.length }}/{{ probes.length }})</span>
       </div>
-      <div class="flex items-center gap-3 text-xs text-gray-600">
-        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-400 inline-block" />≥ 99 %</span>
-        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-400 inline-block" />≥ 90 %</span>
-        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-red-500 inline-block" />&lt; 90 %</span>
-        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-gray-600 inline-block" />No data</span>
+      <div class="flex items-center gap-3 text-xs text-(--text-3)">
+        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-(--up) inline-block" />≥ 99 %</span>
+        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-(--warn) inline-block" />≥ 90 %</span>
+        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-(--down) inline-block" />&lt; 90 %</span>
+        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-(--text-3) inline-block" />No data</span>
       </div>
     </div>
 
     <!-- V2-02-06 — ASN filter chips (only visible when at least one probe has ASN data) -->
-    <div v-if="asnLegend.length > 1" class="px-5 py-2.5 border-b border-gray-800/80 flex items-center gap-2 flex-wrap">
-      <span class="text-[10px] uppercase tracking-wide text-gray-500 mr-1">{{ t('probes.filter_asn') }}</span>
+    <div v-if="asnLegend.length > 1" class="px-5 py-2.5 border-b border-(--border) flex items-center gap-2 flex-wrap">
+      <span class="text-[10px] uppercase tracking-wide text-(--text-3) mr-1">{{ t('probes.filter_asn') }}</span>
       <button
         type="button"
         class="px-2 py-0.5 rounded-full text-[11px] font-medium border transition-colors"
         :class="asnFilter === null
-          ? 'bg-gray-700 text-gray-100 border-gray-600'
-          : 'bg-transparent text-gray-500 border-gray-800 hover:text-gray-300'"
+          ? 'bg-(--bg-surface-3) text-(--text-1) border-(--border-hover)'
+          : 'bg-transparent text-(--text-3) border-(--border) hover:text-(--text-2)'"
         @click="asnFilter = null"
       >{{ t('probes.filter_all') }}</button>
       <button
@@ -50,31 +50,31 @@
     <div ref="mapEl" style="height: 280px;" class="w-full" />
 
     <!-- Probe list (all probes, compact) -->
-    <div class="border-t border-gray-800/80 divide-y divide-gray-800/60">
+    <div class="border-t border-(--border) divide-y divide-(--border)">
       <div v-if="loading" class="p-4 flex gap-3">
-        <div v-for="i in 2" :key="i" class="h-9 flex-1 rounded-lg bg-gray-800/50 animate-pulse" />
+        <div v-for="i in 2" :key="i" class="h-9 flex-1 rounded-lg bg-(--bg-surface-2) animate-pulse" />
       </div>
-      <div v-else-if="filteredProbes.length === 0" class="py-6 text-center text-xs text-gray-600">
+      <div v-else-if="filteredProbes.length === 0" class="py-6 text-center text-xs text-(--text-3)">
         {{ t('probes.no_probes') }}
       </div>
       <template v-else>
         <div v-for="probe in filteredProbes" :key="probe.id"
-          class="flex items-center gap-3 px-5 py-2.5 hover:bg-white/[.02] transition-colors">
+          class="flex items-center gap-3 px-5 py-2.5 hover:bg-(--bg-surface-2) transition-colors">
           <!-- Status dot -->
           <span class="w-2 h-2 rounded-full flex-shrink-0" :class="dotClass(probe)" />
 
           <!-- Name + location -->
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium text-gray-200 truncate flex items-center gap-1.5">
+            <p class="text-sm font-medium text-(--text-1) truncate flex items-center gap-1.5">
               {{ probe.name }}
               <span
                 v-if="hasProxyDivergence(probe)"
                 class="text-[9px] px-1.5 py-0.5 rounded font-bold border"
-                style="background:rgba(251,191,36,.12);color:#fbbf24;border-color:rgba(251,191,36,.3);"
+                style="background:color-mix(in srgb, var(--warn) 12%, transparent);color:var(--warn);border-color:color-mix(in srgb, var(--warn) 30%, transparent);"
                 :title="t('probes.proxy_detected_tip', { observed: probe.public_ip, reported: probe.self_reported_ip })"
               >NAT/VPN</span>
             </p>
-            <p class="text-xs text-gray-600 truncate">
+            <p class="text-xs text-(--text-3) truncate">
               {{ probe.location_name }}
               <span v-if="probe.asn" class="ml-1 inline-flex items-center gap-1 align-middle">
                 <span class="w-1.5 h-1.5 rounded-full inline-block" :style="`background:${colorForAsn(probe.asn)}`" />
@@ -86,8 +86,8 @@
           <!-- Network badge -->
           <span class="text-[10px] px-1.5 py-0.5 rounded border flex-shrink-0"
             :class="probe.network_type === 'internal'
-              ? 'bg-purple-500/10 text-purple-400 border-purple-500/20'
-              : 'bg-blue-500/10 text-blue-400 border-blue-500/20'">
+              ? 'bg-(--bg-surface-2) text-(--text-2) border-(--border)'
+              : 'bg-(--accent-glow) text-(--accent) border-(--accent-border)'">
             {{ probe.network_type === 'internal' ? t('probes.internal') : t('probes.external') }}
           </span>
 
@@ -96,7 +96,7 @@
             <p class="text-sm font-bold" :class="uptimeColorClass(probe.uptime_24h)">
               {{ probe.uptime_24h != null ? probe.uptime_24h.toFixed(1) + '%' : '—' }}
             </p>
-            <p class="text-[10px] text-gray-600">
+            <p class="text-[10px] text-(--text-3)">
               {{ probe.check_count_24h > 0 ? probe.check_count_24h + ' checks' : 'no data' }}
             </p>
           </div>
@@ -104,8 +104,8 @@
           <!-- Online indicator -->
           <span class="text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0"
             :class="isOnline(probe)
-              ? 'bg-emerald-900/40 text-emerald-400'
-              : probe.is_active ? 'bg-red-900/30 text-red-400' : 'bg-gray-800 text-gray-500'">
+              ? 'bg-[color-mix(in_srgb,var(--up)_12%,transparent)] text-(--up)'
+              : probe.is_active ? 'bg-[color-mix(in_srgb,var(--down)_12%,transparent)] text-(--down)' : 'bg-(--bg-surface-2) text-(--text-3)'">
             {{ !probe.is_active ? 'inactive' : isOnline(probe) ? 'online' : 'offline' }}
           </span>
         </div>
@@ -139,20 +139,20 @@ function isOnline(probe) {
 }
 
 function dotClass(probe) {
-  if (!probe.is_active) return 'bg-gray-600'
+  if (!probe.is_active) return 'bg-(--text-3)'
   const u = probe.uptime_24h
-  if (!isOnline(probe))  return 'bg-gray-500'
-  if (u == null)         return 'bg-gray-500'
-  if (u >= 99)           return 'bg-emerald-400'
-  if (u >= 90)           return 'bg-amber-400'
-  return 'bg-red-500'
+  if (!isOnline(probe))  return 'bg-(--text-3)'
+  if (u == null)         return 'bg-(--text-3)'
+  if (u >= 99)           return 'bg-(--up)'
+  if (u >= 90)           return 'bg-(--warn)'
+  return 'bg-(--down)'
 }
 
 function uptimeColorClass(u) {
-  if (u == null) return 'text-gray-500'
-  if (u >= 99)   return 'text-emerald-400'
-  if (u >= 90)   return 'text-amber-400'
-  return 'text-red-400'
+  if (u == null) return 'text-(--text-3)'
+  if (u >= 99)   return 'text-(--up)'
+  if (u >= 90)   return 'text-(--warn)'
+  return 'text-(--down)'
 }
 
 function statusFill(probe) {
@@ -349,13 +349,13 @@ watch([probes, asnFilter], () => {
 
 <style>
 .probe-popup .leaflet-popup-content-wrapper {
-  background: #0f172a;
-  border: 1px solid #1e293b;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
   border-radius: 8px;
-  color: #e2e8f0;
+  color: var(--text-1);
   box-shadow: 0 4px 24px rgba(0,0,0,.6);
 }
 .probe-popup .leaflet-popup-tip {
-  background: #1e293b;
+  background: var(--bg-surface);
 }
 </style>

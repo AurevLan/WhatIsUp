@@ -2,11 +2,11 @@
   <!-- No alert rules banner -->
   <div
     v-if="state.rulesLoaded.value && state.rules.value.length === 0"
-    class="mb-4 flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-amber-800/40 bg-amber-900/20"
+    class="mb-4 flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-[color-mix(in_srgb,var(--warn)_25%,transparent)] bg-[color-mix(in_srgb,var(--warn)_10%,transparent)]"
   >
     <div class="flex items-center gap-2">
-      <span class="text-amber-400 text-lg">⚠</span>
-      <span class="text-sm text-amber-300">{{ t('monitors.alert_setup.no_rules_banner') }}</span>
+      <span class="text-(--warn) text-lg">⚠</span>
+      <span class="text-sm text-(--warn)">{{ t('monitors.alert_setup.no_rules_banner') }}</span>
     </div>
     <button
       @click="state.showAutoModal.value = true"
@@ -18,7 +18,7 @@
   <BaseModal :model-value="state.showAutoModal.value"
     :title="t('monitors.alert_setup.modal_title')"
     @update:model-value="state.showAutoModal.value = $event">
-    <div v-if="state.autoChannels.value.length === 0" class="text-sm text-gray-400 mb-4">
+    <div v-if="state.autoChannels.value.length === 0" class="text-sm text-(--text-2) mb-4">
       {{ t('monitors.alert_setup.no_channels') }}
     </div>
     <div v-else class="space-y-2 mb-4">
@@ -26,17 +26,17 @@
         v-for="ch in state.autoChannels.value" :key="ch.id"
         class="flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors"
         :class="state.autoSelectedChannels.value.includes(ch.id)
-          ? 'border-blue-600/60 bg-blue-950/30'
-          : 'border-gray-800 hover:border-gray-700'"
+          ? 'border-(--accent-border) bg-(--accent-glow)'
+          : 'border-(--border) hover:border-(--border-hover)'"
       >
         <input type="checkbox" :value="ch.id" v-model="state.autoSelectedChannels.value"
-          class="rounded bg-gray-800 border-gray-600 text-blue-500" />
-        <span class="text-sm text-gray-300">{{ ch.name }}</span>
-        <span class="text-xs text-gray-600 ml-auto">{{ ch.type }}</span>
+          class="rounded bg-(--bg-surface-2) border-(--border) text-(--accent)" />
+        <span class="text-sm text-(--text-2)">{{ ch.name }}</span>
+        <span class="text-xs text-(--text-3) ml-auto">{{ ch.type }}</span>
       </label>
     </div>
     <template #footer>
-      <button @click="state.showAutoModal.value = false" class="flex-1 px-4 py-2 border border-gray-700 text-gray-300 rounded-lg hover:bg-gray-800">
+      <button @click="state.showAutoModal.value = false" class="flex-1 px-4 py-2 border border-(--border) text-(--text-2) rounded-lg hover:bg-(--bg-surface-2)">
         {{ t('common.cancel') }}
       </button>
       <button @click="state.createAutoRules" :disabled="state.autoSelectedChannels.value.length === 0 || state.autoCreating.value"

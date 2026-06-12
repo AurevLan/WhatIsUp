@@ -6,14 +6,14 @@
   >
         <form @submit.prevent="submitCreateTeam" class="space-y-4">
           <div>
-            <label class="block text-sm text-gray-400 mb-1">{{ t('admin.label_team_name') }}</label>
+            <label class="block text-sm text-(--text-2) mb-1">{{ t('admin.label_team_name') }}</label>
             <input v-model="teamCreateForm.name" type="text" class="input w-full" required maxlength="200" />
           </div>
           <div>
-            <label class="block text-sm text-gray-400 mb-1">{{ t('admin.label_slug') }}</label>
+            <label class="block text-sm text-(--text-2) mb-1">{{ t('admin.label_slug') }}</label>
             <input v-model="teamCreateForm.slug" type="text" class="input w-full" :placeholder="t('admin.placeholder_slug')" pattern="^[a-z0-9][a-z0-9-]*$" />
           </div>
-          <div v-if="teamError" class="text-red-400 text-sm">{{ teamError }}</div>
+          <div v-if="teamError" class="text-(--down) text-sm">{{ teamError }}</div>
           <div class="flex justify-end gap-3 pt-2">
             <button type="button" @click="close" class="btn-secondary">{{ t('common.cancel') }}</button>
             <button type="submit" class="btn-primary" :disabled="submitting">{{ submitting ? t('admin.creating') : t('admin.create_btn') }}</button>

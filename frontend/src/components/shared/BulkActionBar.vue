@@ -34,13 +34,13 @@ defineEmits(['clear'])
   gap: 0.5rem;
   padding: 0.65rem 0.75rem;
   border-radius: 0.75rem;
-  background: rgba(30, 64, 175, 0.18);
-  border: 1px solid rgba(96, 165, 250, 0.40);
+  background: var(--accent-glow);
+  border: 1px solid var(--accent-border);
 }
 .bulk-bar__count {
   font-size: 0.78rem;
   font-weight: 600;
-  color: #93c5fd;
+  color: var(--accent);
   margin-right: 0.25rem;
 }
 .bulk-bar__clear {
@@ -53,7 +53,7 @@ defineEmits(['clear'])
   padding: 0.25rem 0.5rem;
   border-radius: 0.375rem;
 }
-.bulk-bar__clear:hover { color: var(--text-1); background: rgba(255,255,255,0.05); }
+.bulk-bar__clear:hover { color: var(--text-1); background: color-mix(in srgb, var(--text-1) 6%, transparent); }
 
 .bulk-bar-enter-active, .bulk-bar-leave-active { transition: opacity 0.15s, transform 0.15s; }
 .bulk-bar-enter-from, .bulk-bar-leave-to { opacity: 0; transform: translateY(-4px); }

@@ -20,7 +20,7 @@
       <!-- ── Step 1: type ──────────────────────────────────────────── -->
       <section v-show="step === 1" class="space-y-4">
         <div>
-          <label class="block text-sm font-medium text-gray-300 mb-2">
+          <label class="block text-sm font-medium text-(--text-2) mb-2">
             {{ t('create_monitor.check_type') }}
           </label>
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -35,18 +35,18 @@
             >
               <div class="text-2xl mb-1">{{ ct.icon }}</div>
               <div class="text-sm font-semibold">{{ ct.label }}</div>
-              <div class="text-xs text-gray-500 mt-1">{{ ct.description }}</div>
+              <div class="text-xs text-(--text-3) mt-1">{{ ct.description }}</div>
               <div v-if="ct.advanced" class="wizard__type-card-advanced-hint">
                 ↗ {{ t('wizard.opens_advanced') }}
               </div>
             </button>
           </div>
-          <p v-if="!form.check_type" class="text-xs text-gray-500 mt-2">
+          <p v-if="!form.check_type" class="text-xs text-(--text-3) mt-2">
             {{ t('wizard.pick_type_hint') }}
           </p>
           <button
             type="button"
-            class="mt-3 text-xs text-blue-400 hover:text-blue-300 underline"
+            class="mt-3 text-xs text-(--accent) underline"
             @click="$emit('switch-advanced')"
           >
             {{ t('wizard.advanced_link') }}
@@ -57,46 +57,46 @@
       <!-- ── Step 2: target ───────────────────────────────────────── -->
       <section v-show="step === 2" class="space-y-4">
         <div>
-          <label class="block text-sm font-medium text-gray-300 mb-1">{{ t('common.name') }} *</label>
+          <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('common.name') }} *</label>
           <input v-model="form.name" class="input w-full" :placeholder="currentType?.namePlaceholder" required />
         </div>
 
         <div v-if="form.check_type === 'http'">
-          <label class="block text-sm font-medium text-gray-300 mb-1">{{ t('create_monitor.url') }} *</label>
+          <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('create_monitor.url') }} *</label>
           <input v-model="form.url" type="url" class="input w-full" placeholder="https://example.com/health" />
         </div>
 
         <div v-else-if="form.check_type === 'tcp'" class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">{{ t('create_monitor.host') }} *</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('create_monitor.host') }} *</label>
             <input v-model="form.url" class="input w-full" placeholder="db.example.com" />
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">{{ t('create_monitor.port') }} *</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('create_monitor.port') }} *</label>
             <input v-model.number="form.tcp_port" type="number" min="1" max="65535" class="input w-full" placeholder="5432" />
           </div>
         </div>
 
         <div v-else-if="form.check_type === 'dns'">
-          <label class="block text-sm font-medium text-gray-300 mb-1">{{ t('create_monitor.dns_hostname') }} *</label>
+          <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('create_monitor.dns_hostname') }} *</label>
           <input v-model="form.url" class="input w-full" placeholder="example.com" />
         </div>
 
         <div v-else-if="form.check_type === 'heartbeat'" class="space-y-2">
-          <label class="block text-sm font-medium text-gray-300 mb-1">{{ t('create_monitor.heartbeat_slug') }} *</label>
+          <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('create_monitor.heartbeat_slug') }} *</label>
           <input v-model="form.heartbeat_slug" class="input w-full" pattern="[a-z0-9\-]+" placeholder="cron-backup" />
-          <p class="text-xs text-gray-500">
+          <p class="text-xs text-(--text-3)">
             {{ t('create_monitor.heartbeat_slug_hint') }}
           </p>
         </div>
 
         <div v-if="['http', 'tcp', 'dns'].includes(form.check_type)" class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-xs text-gray-400 mb-1">{{ t('create_monitor.interval') }}</label>
+            <label class="block text-xs text-(--text-2) mb-1">{{ t('create_monitor.interval') }}</label>
             <input v-model.number="form.interval_seconds" type="number" min="30" class="input w-full" />
           </div>
           <div>
-            <label class="block text-xs text-gray-400 mb-1">{{ t('create_monitor.timeout') }}</label>
+            <label class="block text-xs text-(--text-2) mb-1">{{ t('create_monitor.timeout') }}</label>
             <input v-model.number="form.timeout_seconds" type="number" min="1" max="60" class="input w-full" />
           </div>
         </div>
@@ -104,24 +104,24 @@
 
       <!-- ── Step 3: notifications + review ───────────────────────── -->
       <section v-show="step === 3" class="space-y-4">
-        <h3 class="text-sm font-medium text-white">{{ t('wizard.review_title') }}</h3>
-        <div class="rounded-lg border border-gray-800 p-3 text-xs text-gray-300 space-y-1">
-          <p><span class="text-gray-500">{{ t('common.name') }}:</span> {{ form.name || '—' }}</p>
-          <p><span class="text-gray-500">{{ t('create_monitor.check_type') }}:</span> {{ currentType?.label }}</p>
+        <h3 class="text-sm font-medium text-(--text-1)">{{ t('wizard.review_title') }}</h3>
+        <div class="rounded-lg border border-(--border) p-3 text-xs text-(--text-2) space-y-1">
+          <p><span class="text-(--text-3)">{{ t('common.name') }}:</span> {{ form.name || '—' }}</p>
+          <p><span class="text-(--text-3)">{{ t('create_monitor.check_type') }}:</span> {{ currentType?.label }}</p>
           <p v-if="form.check_type === 'tcp'">
-            <span class="text-gray-500">{{ t('create_monitor.host') }}:</span> {{ form.url }}:{{ form.tcp_port }}
+            <span class="text-(--text-3)">{{ t('create_monitor.host') }}:</span> {{ form.url }}:{{ form.tcp_port }}
           </p>
           <p v-else-if="form.check_type === 'heartbeat'">
-            <span class="text-gray-500">slug:</span> {{ form.heartbeat_slug }}
+            <span class="text-(--text-3)">slug:</span> {{ form.heartbeat_slug }}
           </p>
           <p v-else>
-            <span class="text-gray-500">target:</span> {{ form.url }}
+            <span class="text-(--text-3)">target:</span> {{ form.url }}
           </p>
         </div>
 
         <div>
-          <h3 class="text-sm font-medium text-white mb-2">{{ t('monitors.alert_setup.title') }}</h3>
-          <div v-if="alertChannels.length === 0" class="text-xs text-amber-400 bg-amber-900/20 border border-amber-800/40 rounded-lg px-3 py-2">
+          <h3 class="text-sm font-medium text-(--text-1) mb-2">{{ t('monitors.alert_setup.title') }}</h3>
+          <div v-if="alertChannels.length === 0" class="text-xs text-(--warn) bg-[color-mix(in_srgb,var(--warn)_10%,transparent)] border border-[color-mix(in_srgb,var(--warn)_25%,transparent)] rounded-lg px-3 py-2">
             {{ t('monitors.alert_setup.no_channels') }}
           </div>
           <div v-else class="space-y-1.5">
@@ -129,18 +129,18 @@
               v-for="ch in alertChannels" :key="ch.id"
               class="flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors"
               :class="selectedChannelIds.includes(ch.id)
-                ? 'border-blue-600/60 bg-blue-950/30'
-                : 'border-gray-800 hover:border-gray-700'"
+                ? 'border-(--accent-border) bg-(--accent-glow)'
+                : 'border-(--border) hover:border-(--border-hover)'"
             >
               <input type="checkbox" :value="ch.id" v-model="selectedChannelIds"
-                class="rounded bg-gray-800 border-gray-600 text-blue-500" />
-              <span class="text-sm text-gray-300">{{ ch.name }}</span>
-              <span class="text-xs text-gray-600 ml-auto">{{ ch.type }}</span>
+                class="rounded bg-(--bg-surface-2) border-(--border) text-(--accent)" />
+              <span class="text-sm text-(--text-2)">{{ ch.name }}</span>
+              <span class="text-xs text-(--text-3) ml-auto">{{ ch.type }}</span>
             </label>
           </div>
         </div>
 
-        <div v-if="error" class="bg-red-900/40 border border-red-700 rounded p-3 text-xs text-red-300">
+        <div v-if="error" class="bg-[color-mix(in_srgb,var(--down)_12%,transparent)] border border-[color-mix(in_srgb,var(--down)_30%,transparent)] rounded p-3 text-xs text-(--down)">
           {{ error }}
         </div>
       </section>
@@ -332,14 +332,14 @@ async function submit() {
   color: var(--text-1);
 }
 .wizard__step--current .wizard__step-num {
-  background: rgba(59, 130, 246, 0.18);
-  border-color: rgba(96, 165, 250, 0.6);
-  color: #93c5fd;
+  background: var(--accent-glow);
+  border-color: var(--accent-border);
+  color: var(--accent);
 }
 .wizard__step--done .wizard__step-num {
-  background: rgba(16, 185, 129, 0.15);
-  border-color: rgba(16, 185, 129, 0.4);
-  color: #6ee7b7;
+  background: color-mix(in srgb, var(--up) 15%, transparent);
+  border-color: color-mix(in srgb, var(--up) 40%, transparent);
+  color: var(--up);
 }
 
 .wizard__body {
@@ -359,8 +359,8 @@ async function submit() {
 }
 .wizard__type-card:hover { border-color: var(--text-3); }
 .wizard__type-card--selected {
-  border-color: rgba(96, 165, 250, 0.7);
-  background: rgba(59, 130, 246, 0.10);
+  border-color: var(--accent-border);
+  background: var(--accent-glow);
   color: var(--text-1);
 }
 .wizard__type-card--advanced {
@@ -369,7 +369,7 @@ async function submit() {
 .wizard__type-card-advanced-hint {
   margin-top: 0.35rem;
   font-size: 0.65rem;
-  color: rgba(96, 165, 250, 0.85);
+  color: var(--accent);
 }
 
 @media (max-width: 640px) {

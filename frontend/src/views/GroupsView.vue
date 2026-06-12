@@ -2,7 +2,7 @@
   <div class="page-body">
     <div class="flex items-center justify-between mb-8">
       <div>
-        <h1 class="text-2xl font-bold" style="color:var(--text-1)">{{ t('nav.groups') }}</h1>
+        <h1 class="font-display text-2xl font-bold" style="color:var(--text-1)">{{ t('nav.groups') }}</h1>
         <p class="mt-1 text-sm" style="color:var(--text-3)">{{ t('groups.subtitle') }}</p>
       </div>
       <button @click="showCreate = true" class="btn-primary">+ {{ t('groups.create') }}</button>
@@ -48,7 +48,7 @@
         </div>
         <div class="mt-4 flex items-center gap-2 flex-wrap">
           <span v-for="tag in group.tags" :key="tag.id"
-            class="px-2 py-0.5 text-xs rounded-full bg-blue-900/50 text-blue-300"
+            class="px-2 py-0.5 text-xs rounded-full bg-(--accent-glow) text-(--accent)"
             :style="tag.color ? `background-color: ${tag.color}22; color: ${tag.color}` : ''">
             {{ tag.name }}
           </span>

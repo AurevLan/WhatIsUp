@@ -121,7 +121,7 @@ const monthLabels = computed(() => {
 
 <style scoped>
 .hmap-loading { padding: 4px 0; }
-.hmap-error { font-size: 11px; color: #f87171; padding: 8px 0; }
+.hmap-error { font-size: 11px; color: var(--down); padding: 8px 0; }
 
 .hmap { user-select: none; overflow-x: auto; padding-bottom: 4px; }
 
@@ -158,12 +158,12 @@ const monthLabels = computed(() => {
 }
 
 .hmap__cell--empty  { background: transparent; }
-.hmap__cell--none   { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.04); }
-.hmap__cell--up     { background: #22c55e; }
-.hmap__cell--high   { background: #86efac; }
-.hmap__cell--mid    { background: #fbbf24; }
-.hmap__cell--low    { background: #f97316; }
-.hmap__cell--down   { background: #ef4444; }
+.hmap__cell--none   { background: var(--bg-surface-2); border: 1px solid var(--border); }
+.hmap__cell--up     { background: var(--up); }
+.hmap__cell--high   { background: color-mix(in srgb, var(--up) 50%, var(--bg-surface)); }
+.hmap__cell--mid    { background: var(--warn); }
+.hmap__cell--low    { background: color-mix(in srgb, var(--down) 60%, var(--warn)); }
+.hmap__cell--down   { background: var(--down); }
 
 .hmap__legend {
   display: flex;

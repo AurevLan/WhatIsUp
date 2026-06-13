@@ -233,12 +233,12 @@ const probes = ref([])
 const OFFLINE_MS = 5 * 60 * 1000
 const offlineProbes = computed(() =>
   probes.value.filter(p => {
-    if (!p.is_enabled) return false
+    if (!p.is_active) return false
     if (!p.last_seen_at) return true
     return Date.now() - new Date(p.last_seen_at).getTime() > OFFLINE_MS
   })
 )
-const probesOnline = computed(() => probes.value.filter(p => p.is_enabled).length - offlineProbes.value.length)
+const probesOnline = computed(() => probes.value.filter(p => p.is_active).length - offlineProbes.value.length)
 
 function probeLastSeen(p) {
   if (!p.last_seen_at) return t('common.never')

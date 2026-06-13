@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.13.0](https://github.com/AurevLan/WhatIsUp/compare/v1.12.0...v1.13.0) (2026-06-13)
+
+
+### Added
+
+* **frontend:** V-2 — tokenize all views and components for dual-theme VELOURS ([e71de8d](https://github.com/AurevLan/WhatIsUp/commit/e71de8d089437f52e3de1131d488f3ebef6385f5))
+* **frontend:** V-3 — theme-aware runtime colors, error token, favicon, counters ([a9d8eaf](https://github.com/AurevLan/WhatIsUp/commit/a9d8eafcac43836a8473a8e823c5f4fce44b45d1))
+* **frontend:** VELOURS design system foundation + dashboard ([8952c8b](https://github.com/AurevLan/WhatIsUp/commit/8952c8b8cdaef3eeba657107f65c4df694efd7cc))
+
+
+### Fixed
+
+* **a11y:** axe-core CI gate, per-route titles and navigation focus ([21a63da](https://github.com/AurevLan/WhatIsUp/commit/21a63dafbcbacf0b6101836b2beb3d29ca394ab2))
+* **a11y:** icon-button labels, form error wiring, live regions, AA contrast ([0d78e7d](https://github.com/AurevLan/WhatIsUp/commit/0d78e7d0ac6e00c83e87cfd2068b254b97da3b49))
+* **a11y:** migrate all hand-rolled modal overlays to BaseModal ([b963f74](https://github.com/AurevLan/WhatIsUp/commit/b963f74a3c6ff59e665691e31f5fe8f11d471155))
+
+
+### Docs
+
+* **features:** amend for v1.12.0 — 2FA TOTP + active sessions ([d68d147](https://github.com/AurevLan/WhatIsUp/commit/d68d1475ec22cd0c3a5d0a1c5d5effcdacc8f736))
+
 ## [1.12.0](https://github.com/AurevLan/WhatIsUp/compare/v1.11.1...v1.12.0) (2026-06-12)
 
 

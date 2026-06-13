@@ -1,7 +1,7 @@
 # WhatIsUp — Inventaire des Fonctionnalités
 
 > **Source de vérité** des features livrées. À amender à chaque release.
-> Référence : **v1.12.0** (2026-06-12) — inclut Health Engine V2 (M0-M5, en prod sur 17/17 monitors depuis 2026-05-06) et 2FA TOTP + sessions actives.
+> Référence : **v1.13.0** (2026-06-13) — inclut le design system VELOURS + l'accessibilité (gates CI), la 2FA TOTP + sessions actives (v1.12) et le Health Engine V2 (M0-M5, en prod sur 17/17 monitors depuis 2026-05-06).
 > Pour la chronologie détaillée, voir `CHANGELOG.md`. Chantiers en cours / planifiés : `plan_roadmap_v2.md`, `plan_audit_followup.md`, `plan_v2_global_health.md`.
 
 **Légende** : ✅ livré · 🔬 livré + tests automatisés · 🚧 partiel (voir notes).
@@ -230,6 +230,20 @@
 ### Temps réel
 - ✅ WebSocket dashboard avec auth par message (jamais query param)
 - ✅ Per-IP connection limit pré-auth + ping interval 30 s + auto-reconnect backoff exponentiel
+
+### Design system « VELOURS » (v1.13)
+- 🔬 **Deux thèmes tokenisés de bout en bout** : sombre « encre » (bruns chauds, texte ivoire) + clair « ivoire », via CSS custom properties (`style.css`) — toggle `data-theme` topbar persisté. Plus aucune couleur Tailwind/hex en dur dans les vues/composants (~2 300 occurrences converties, garde par le gate axe)
+- ✅ Typo display **Fraunces** (variable roman+italique, latin+latin-ext) **auto-hébergée** `public/fonts/` (licence OFL, zéro CDN) — hero, h1, gros chiffres (`.font-display`) ; corps Plus Jakarta Sans, données JetBrains Mono tabulaire
+- ✅ Accents sémantiques : or (`--accent`), sauge (`--up`), terracotta (`--down`), orange brûlé (`--error`) — **tous AA ≥ 4.5:1 dans les deux thèmes, ratios calculés par script et documentés dans style.css**
+- ✅ **Dashboard éditorial** : hero verdict Fraunces (« Tout est *opérationnel.* » / « N services *en difficulté.* »), ruban de stats display cliquables avec compteurs animés (sautés sous `prefers-reduced-motion`), grille services à sparklines SVG, incidents/sondes offline en rangées flottantes, entrée en cascade
+- ✅ Couleurs **runtime JS thémées** (`lib/themeColors.js` : `cssVar`/`withAlpha`) : ApexCharts, marqueurs/popups Leaflet, graphe de dépendances SVG suivent le thème actif ; palette probes 8 teintes chaudes ; filtre de tuiles limité au fond de carte
+- ✅ Favicon SVG (barres d'uptime sauge/or sur encre) + fallback .ico ; matière : cartes 18 px, ombres douces double-couche, hover lift
+
+### Accessibilité (v1.13 — gates CI permanents)
+- 🔬 **Gate axe-core en CI** (`tests/a11y.test.js`) : échec sur toute violation critical/serious dans les 7 vues principales
+- 🔬 **Garde-fou modales** (`tests/a11yModals.test.js`) : tout overlay `fixed inset-0` hors allowlist = suite rouge ; **25 dialogues via `BaseModal`** (focus trap, `role=dialog`/`aria-modal`, Escape, restitution du focus)
+- ✅ `document.title` par route + focus reset sur `#main-content` à chaque navigation SPA ; skip-link i18n ; `<html lang>` synchronisé
+- ✅ Boutons icône labelisés (58), formulaires `aria-invalid`/`aria-describedby`, hiérarchie h1/h2, live regions (toasts erreur `role=alert`, WS/bulk `aria-live=polite`), contrastes AA sur les deux thèmes
 
 ### Visualisations
 - ✅ Sparklines (LATERAL JOIN, ~2000× plus rapide qu'un window function — `services/stats.py`)
@@ -563,7 +577,7 @@
 | Incidents | 10 axes (+playback +diagnostic engine) | `incident.py`, `correlation.py`, `anomaly.py`, `diagnostics.py`, `incident_diagnostic.py` |
 | Alerting | 13 axes (+silences +network suppress +matrix preview) | `alert.py`, `alerts.py`, `silences.py`, `services/channels/*.py` (11 canaux) |
 | Status pages | 4 axes | `public.py`, `PublicPageView.vue` |
-| Dashboard UX | 13 axes | `ws.py`, `stats.py`, components shared/* + monitors/* |
+| Dashboard UX | 15 axes (+design system VELOURS +a11y gates) | `ws.py`, `stats.py`, `style.css`, `lib/themeColors.js`, components shared/* + monitors/* |
 | Maintenance | 4 axes | `maintenance.py` × 2 |
 | Audit/Compliance | 5 axes | `audit_log.py`, `retention.py`, `reports.py` |
 | Infra | 8 axes | `docker-compose.yml`, Dockerfiles, deploy.sh |
@@ -596,4 +610,4 @@
 > 4. Si la PR introduit un nouveau type de check ou canal → reporter dans §2 ou §5.
 > 5. Si la PR touche le Health Engine ou les V2-02 → reporter dans §16 ou §17.
 
-*Dernière revue exhaustive : 2026-05-10 (v1.8.0 + Health Engine V2). Dernier amendement : 2026-06-12 (v1.12.0 — 2FA TOTP + sessions actives).*
+*Dernière revue exhaustive : 2026-05-10 (v1.8.0 + Health Engine V2). Dernier amendement : 2026-06-13 (v1.13.0 — design system VELOURS + accessibilité).*

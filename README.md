@@ -126,17 +126,23 @@ See the full [CHANGELOG](CHANGELOG.md#110---2026-04-14) for the complete list, i
 
 ## Screenshots
 
-| Dashboard | Monitor detail |
-|-----------|---------------|
-| ![Dashboard](docs/screenshots/dashboard.svg) | ![Monitor detail](docs/screenshots/monitor-detail.svg) |
+> Real captures of the VELOURS design system (v1.13) — dark *encre* and light *ivoire* themes.
 
-| Monitors list | Probe map |
-|--------------|-----------|
-| ![Monitors](docs/screenshots/monitors-view.svg) | ![Probes](docs/screenshots/probes-map.svg) |
+| Dashboard (dark) | Dashboard (light) |
+|------------------|-------------------|
+| ![Dashboard, dark theme](docs/screenshots/dashboard.png) | ![Dashboard, light theme](docs/screenshots/dashboard-light.png) |
 
-| Public status page | Scenario builder |
-|-------------------|-----------------|
-| ![Status page](docs/screenshots/public-status.svg) | ![Scenario](docs/screenshots/scenario-builder.svg) |
+| Monitor detail | Monitors list |
+|----------------|---------------|
+| ![Monitor detail](docs/screenshots/monitor-detail.png) | ![Monitors](docs/screenshots/monitors-view.png) |
+
+| Probes | Public status page |
+|--------|--------------------|
+| ![Probes](docs/screenshots/probes-view.png) | ![Status page](docs/screenshots/public-status.png) |
+
+| Scenario builder | |
+|------------------|--|
+| ![Scenario](docs/screenshots/scenario-builder.svg) | |
 
 | Alert matrix v2 | Alerting templates |
 |-----------------|-------------------|

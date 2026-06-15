@@ -9,18 +9,18 @@
         <div class="flex items-center gap-2">
           <button
             v-if="!editing"
-            class="btn-secondary text-xs"
+            class="btn-secondary btn-sm"
             @click="$emit('start-edit')"
           >
             ✎ {{ t('common.edit') }}
           </button>
           <template v-else>
-            <button class="btn-secondary text-xs" @click="$emit('cancel-edit')">
+            <button class="btn-secondary btn-sm" @click="$emit('cancel-edit')">
               {{ t('common.cancel') }}
             </button>
             <button
               :disabled="saving"
-              class="btn-primary text-xs disabled:opacity-50"
+              class="btn-primary btn-sm disabled:opacity-50"
               @click="$emit('save')"
             >
               {{ saving ? t('common.loading') : t('common.save') }}

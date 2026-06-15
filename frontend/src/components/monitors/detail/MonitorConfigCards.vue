@@ -45,8 +45,8 @@
           <p v-else class="text-xs text-(--text-3) italic">No baseline set — next successful check will auto-set it</p>
         </div>
         <div class="flex gap-2 flex-shrink-0">
-          <button @click="patch.acceptSchemaBaseline" class="btn-primary text-xs">Accept latest</button>
-          <button @click="patch.resetSchemaBaseline" :disabled="!monitor.schema_baseline" class="btn-ghost text-xs text-(--down) disabled:opacity-50">Reset</button>
+          <button @click="patch.acceptSchemaBaseline" class="btn-primary btn-sm">Accept latest</button>
+          <button @click="patch.resetSchemaBaseline" :disabled="!monitor.schema_baseline" class="btn-ghost btn-sm text-(--down) disabled:opacity-50">Reset</button>
         </div>
       </div>
     </template>
@@ -87,7 +87,7 @@
         <label class="text-xs text-(--text-3) block mb-1">{{ t('monitors.composite.weight') }}</label>
         <input v-model.number="deps.newMember.value.weight" type="number" min="1" max="100" class="input w-full text-sm" />
       </div>
-      <button @click="deps.addCompositeMember" :disabled="!deps.newMember.value.monitor_id" class="btn-primary text-sm h-9 disabled:opacity-50" :aria-label="t('common.add')">+</button>
+      <button @click="deps.addCompositeMember" :disabled="!deps.newMember.value.monitor_id" class="btn-primary disabled:opacity-50" :aria-label="t('common.add')">+</button>
     </div>
   </div>
 

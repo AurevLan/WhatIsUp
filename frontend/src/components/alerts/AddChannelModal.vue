@@ -100,7 +100,7 @@
                 type="button"
                 @click="resolveTelegram"
                 :disabled="!telegramToken || telegramResolving"
-                class="btn-primary text-sm whitespace-nowrap"
+                class="btn-primary whitespace-nowrap"
               >
                 {{ telegramResolving ? '…' : 'Fetch chat ID' }}
               </button>

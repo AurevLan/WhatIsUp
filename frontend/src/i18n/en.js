@@ -162,6 +162,8 @@ export default {
   status: {
     up: 'Up',
     down: 'Down',
+    timeout: 'Timeout',
+    error: 'Error',
     pending: 'Pending',
     paused: 'Paused',
     degraded: 'Degraded',

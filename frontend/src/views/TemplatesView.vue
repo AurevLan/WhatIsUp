@@ -69,7 +69,7 @@
 
         <button
           @click="openApply(tpl)"
-          class="btn-primary text-sm mt-auto"
+          class="btn-primary mt-auto"
         >
           {{ t('templates.apply') }}
         </button>

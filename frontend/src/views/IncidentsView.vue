@@ -51,7 +51,7 @@
 
     <!-- Bulk action bar (T1-12) -->
     <BulkActionBar :count="selectedIds.size" @clear="clearSelection">
-      <button @click="bulkAck" class="btn-primary text-xs px-3 py-1.5 flex items-center gap-1.5">
+      <button @click="bulkAck" class="btn-primary btn-sm flex items-center gap-1.5">
         <CheckCircle class="w-3.5 h-3.5" /> {{ t('incidents.bulk_ack') }}
       </button>
     </BulkActionBar>
@@ -120,8 +120,8 @@
                     @click.stop
                     @change="toggleSelect(inc.id)"
                   />
-                  <button v-if="!inc.is_resolved && !inc.acked_at" class="ack-btn" :title="t('incidents.acknowledge')" :aria-label="t('incidents.acknowledge')" @click.prevent="ack(inc)"><CheckCircle :size="16" /></button>
-                  <button v-else-if="!inc.is_resolved && inc.acked_at" class="ack-btn ack-btn--active" :title="t('incidents.unacknowledge')" :aria-label="t('incidents.unacknowledge')" @click.prevent="unack(inc)"><CheckCircle :size="16" /></button>
+                  <button v-if="!inc.is_resolved && !inc.acked_at" class="btn-icon" :title="t('incidents.acknowledge')" :aria-label="t('incidents.acknowledge')" @click.prevent="ack(inc)"><CheckCircle :size="16" /></button>
+                  <button v-else-if="!inc.is_resolved && inc.acked_at" class="btn-icon btn-icon--active" :title="t('incidents.unacknowledge')" :aria-label="t('incidents.unacknowledge')" @click.prevent="unack(inc)"><CheckCircle :size="16" /></button>
                 </span>
               </div>
             </div>
@@ -154,25 +154,25 @@
                 />
                 <button
                   v-if="hasRunbook(item)"
-                  class="ack-btn"
+                  class="btn-icon"
                   :title="t('runbook.show_hide')"
                   :aria-label="t('runbook.show_hide')"
                   @click.prevent="toggleRunbook(item.id)"
                 >📖</button>
                 <button
-                  class="ack-btn"
+                  class="btn-icon"
                   :title="t('incidents.playback_title')"
                   :aria-label="t('incidents.playback_title')"
                   @click.prevent="togglePlayback(item.id)"
                 ><MapPin :size="16" /></button>
                 <button
-                  class="ack-btn"
+                  class="btn-icon"
                   :title="t('incidents.diagnostic_title')"
                   :aria-label="t('incidents.diagnostic_title')"
                   @click.prevent="toggleDiagnostic(item.id)"
                 ><Activity :size="16" /></button>
-                <button v-if="!item.is_resolved && !item.acked_at" class="ack-btn" :title="t('incidents.acknowledge')" :aria-label="t('incidents.acknowledge')" @click.prevent="ack(item)"><CheckCircle :size="16" /></button>
-                <button v-else-if="!item.is_resolved && item.acked_at" class="ack-btn ack-btn--active" :title="t('incidents.unacknowledge')" :aria-label="t('incidents.unacknowledge')" @click.prevent="unack(item)"><CheckCircle :size="16" /></button>
+                <button v-if="!item.is_resolved && !item.acked_at" class="btn-icon" :title="t('incidents.acknowledge')" :aria-label="t('incidents.acknowledge')" @click.prevent="ack(item)"><CheckCircle :size="16" /></button>
+                <button v-else-if="!item.is_resolved && item.acked_at" class="btn-icon btn-icon--active" :title="t('incidents.unacknowledge')" :aria-label="t('incidents.unacknowledge')" @click.prevent="unack(item)"><CheckCircle :size="16" /></button>
               </span>
             </div>
             <div v-if="hasRunbook(item) && expandedRunbooks[item.id]"
@@ -501,24 +501,6 @@ async function unack(inc) {
 
 .filter-group { display: flex; gap: 4px; }
 
-.filter-btn {
-  padding: 4px 12px;
-  border-radius: 6px;
-  font-size: .75rem;
-  font-weight: 500;
-  border: 1px solid var(--border);
-  background: none;
-  color: var(--text-3);
-  cursor: pointer;
-  transition: all .15s;
-  font-family: inherit;
-}
-.filter-btn:hover { border-color: var(--border-hover); color: var(--text-2); }
-.filter-btn--active {
-  background: var(--bg-surface-2);
-  border-color: var(--border-hover);
-  color: var(--text-1);
-}
 
 /* Table rows */
 .inc-row {
@@ -646,26 +628,7 @@ async function unack(inc) {
   border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
 }
 
-/* Ack button */
-.ack-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: none;
-  color: var(--text-3);
-  cursor: pointer;
-  transition: all .15s;
-}
-.ack-btn:hover { border-color: var(--border-hover); color: var(--text-2); }
-.ack-btn--active { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, transparent); }
-@media (max-width: 640px) {
-  .ack-btn { width: 44px; height: 44px; -webkit-tap-highlight-color: transparent; }
-  .ack-btn svg { width: 20px; height: 20px; }
-}
+/* Boutons d'action (ack/playback/diagnostic) → .btn-icon global (taille + tactile gérés) */
 
 /* ── Correlated group row ─────────────────────────────────────────────────── */
 .inc-group {

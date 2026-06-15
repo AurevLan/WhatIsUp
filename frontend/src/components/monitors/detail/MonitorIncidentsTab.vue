@@ -132,7 +132,7 @@
           </div>
           <button
             v-if="state.selectedIncident.value.resolved_at"
-            class="btn-ghost text-xs flex-shrink-0 flex items-center gap-1.5"
+            class="btn-ghost btn-sm flex-shrink-0 flex items-center gap-1.5"
             @click="state.openPostmortem(state.selectedIncident.value)"
           >
             📋 {{ t('monitor_detail.postmortem') }}
@@ -192,7 +192,7 @@
               {{ t('monitor_detail.update_public') }}
             </label>
             <button
-              class="btn-primary text-xs flex-shrink-0"
+              class="btn-primary btn-sm flex-shrink-0"
               @click="state.postIncidentUpdate(state.selectedIncident.value.id)"
             >{{ t('monitor_detail.update_post') }}</button>
           </div>
@@ -231,13 +231,13 @@
           </div>
           <button
             v-if="inc.resolved_at"
-            class="btn-ghost text-xs flex-shrink-0 flex items-center gap-1.5"
+            class="btn-ghost btn-sm flex-shrink-0 flex items-center gap-1.5"
             @click="state.openPostmortem(inc)"
           >
             📋 {{ t('monitor_detail.postmortem') }}
           </button>
           <button
-            class="btn-ghost text-xs flex-shrink-0 flex items-center gap-1"
+            class="btn-ghost btn-sm flex-shrink-0 flex items-center gap-1"
             @click="state.toggleIncidentUpdates(inc.id)"
           >
             📝 {{ t('monitor_detail.updates') }}
@@ -297,7 +297,7 @@
                 {{ t('monitor_detail.update_public') }}
               </label>
               <button
-                class="btn-primary text-xs flex-shrink-0"
+                class="btn-primary btn-sm flex-shrink-0"
                 @click="state.postIncidentUpdate(inc.id)"
               >{{ t('monitor_detail.update_post') }}</button>
             </div>
@@ -317,7 +317,7 @@
     <pre v-else class="text-xs text-(--text-2) font-mono whitespace-pre-wrap leading-relaxed">{{ state.postmortem.value.content }}</pre>
     <template #footer>
       <button
-        class="btn-primary text-xs flex items-center gap-1.5 ml-auto"
+        class="btn-primary btn-sm flex items-center gap-1.5 ml-auto"
         @click="state.downloadPostmortem"
       >
         ⬇️ {{ t('monitor_detail.download_postmortem') }}
@@ -341,7 +341,7 @@
       </div>
       <button
         :disabled="!state.slaFrom.value || state.slaLoading.value"
-        class="btn-primary text-xs h-9 flex items-center gap-2 disabled:opacity-50"
+        class="btn-primary btn-sm flex items-center gap-2 disabled:opacity-50"
         @click="state.downloadSlaReport"
       >
         <span v-if="state.slaLoading.value" class="animate-spin">⏳</span>

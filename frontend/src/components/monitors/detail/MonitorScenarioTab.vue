@@ -36,21 +36,21 @@
     <!-- Edit / Duplicate / Maintenance links -->
     <div class="flex items-center justify-end gap-2 mb-3">
       <button
-        class="btn-secondary text-xs flex items-center gap-1.5"
+        class="btn-secondary btn-sm flex items-center gap-1.5"
         :title="t('monitors.duplicate')"
         @click="$emit('duplicate')"
       >
         <Copy class="w-3.5 h-3.5" /> {{ t('monitors.duplicate') }}
       </button>
       <button
-        class="btn-secondary text-xs flex items-center gap-1.5"
+        class="btn-secondary btn-sm flex items-center gap-1.5"
         :title="t('maintenance.schedule_maintenance')"
         @click="$emit('schedule-maintenance')"
       >
         <CalendarClock class="w-3.5 h-3.5" /> {{ t('maintenance.schedule_maintenance') }}
       </button>
       <button
-        class="btn-secondary text-xs flex items-center gap-1.5"
+        class="btn-secondary btn-sm flex items-center gap-1.5"
         :title="t('monitor_detail.edit')"
         @click="$emit('edit-monitor')"
       >
@@ -64,7 +64,7 @@
         <h2 class="text-sm font-semibold text-(--text-2)">{{ t('monitor_detail.recent_checks') }}</h2>
         <button
           :disabled="testing"
-          class="btn-primary text-xs flex items-center gap-2 disabled:opacity-50"
+          class="btn-primary btn-sm flex items-center gap-2 disabled:opacity-50"
           @click="$emit('trigger-check')"
         >
           <template v-if="testing">

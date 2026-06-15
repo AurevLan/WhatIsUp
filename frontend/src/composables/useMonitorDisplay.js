@@ -1,22 +1,18 @@
-import { useI18n } from 'vue-i18n'
-
-const statusCfg = {
-  up:      { dot: 'bg-emerald-500', badge: 'badge-up',      label: 'Up' },
-  down:    { dot: 'bg-red-500',     badge: 'badge-down',    label: 'Down' },
-  timeout: { dot: 'bg-amber-500',   badge: 'badge-timeout', label: 'Timeout' },
-  error:   { dot: 'bg-orange-500',  badge: 'badge-error',   label: 'Error' },
+// Status dots, tokenized (VELOURS). Badge + label now live in <StatusBadge>.
+const statusDot = {
+  up:      'bg-(--up)',
+  down:    'bg-(--down)',
+  timeout: 'bg-(--warn)',
+  error:   'bg-(--error)',
 }
 
 /**
- * Pure row-display helpers for the monitor list (status badge/dot/label,
- * target formatting, uptime / response-time colors).
+ * Pure row-display helpers for the monitor list (status dot, target
+ * formatting, uptime / response-time colors). The status pill itself is
+ * rendered by <StatusBadge>.
  */
 export function useMonitorDisplay() {
-  const { t } = useI18n()
-
-  function dotClass(s)    { return statusCfg[s]?.dot   ?? 'bg-gray-600' }
-  function badgeClass(s)  { return statusCfg[s]?.badge  ?? 'badge-unknown' }
-  function statusLabel(s) { return statusCfg[s]?.label  ?? t('status.no_data') }
+  function dotClass(s) { return statusDot[s] ?? 'bg-(--text-3)' }
 
   function formatTarget(monitor) {
     const raw = monitor.url?.replace(/^https?:\/\//, '') || ''
@@ -45,5 +41,5 @@ export function useMonitorDisplay() {
     return 'text-gray-600'
   }
 
-  return { dotClass, badgeClass, statusLabel, formatTarget, uptimeColor, responseTimeColor }
+  return { dotClass, formatTarget, uptimeColor, responseTimeColor }
 }

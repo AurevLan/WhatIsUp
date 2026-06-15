@@ -22,7 +22,7 @@
           {{ state.sloData.value ? state.sloData.value.status.toUpperCase() : '…' }}
         </span>
         <button
-          class="btn-ghost text-xs"
+          class="btn-ghost btn-sm"
           @click="state.sloEditing.value = !state.sloEditing.value"
         >
           ⚙ {{ t('monitor_detail.slo_configure') }}
@@ -119,10 +119,10 @@
           placeholder="30"
         />
       </div>
-      <button class="btn-primary text-xs h-9 px-4" @click="state.saveSlo">
+      <button class="btn-primary btn-sm" @click="state.saveSlo">
         {{ t('monitor_detail.slo_save') }}
       </button>
-      <button class="btn-ghost text-xs h-9 px-3" @click="state.sloEditing.value = false">
+      <button class="btn-ghost btn-sm" @click="state.sloEditing.value = false">
         {{ t('common.cancel') }}
       </button>
     </div>
@@ -205,7 +205,7 @@
         <h3 class="text-xs font-semibold text-(--text-2) uppercase">
           {{ t('monitor_detail.health_engine_rules') }}
         </h3>
-        <button class="btn-ghost text-xs flex items-center gap-1" @click="state.openSloEditor()">
+        <button class="btn-ghost btn-sm flex items-center gap-1" @click="state.openSloEditor()">
           <span>+</span> {{ t('monitor_detail.health_engine_add_rule') }}
         </button>
       </div>
@@ -338,12 +338,12 @@
         </div>
         <template #footer>
           <button
-            class="btn-ghost text-xs ml-auto"
+            class="btn-ghost btn-sm ml-auto"
             @click="state.sloEditor.value.open = false"
           >{{ t('common.cancel') }}</button>
           <button
             :disabled="state.sloEditor.value.saving"
-            class="btn-primary text-xs"
+            class="btn-primary btn-sm"
             @click="state.saveSloRule"
           >
             {{ state.sloEditor.value.saving ? '…' : t('common.save') }}

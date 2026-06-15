@@ -32,7 +32,7 @@
       <div>
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-lg font-semibold text-(--text-1)">{{ t('alerts.channels') }}</h2>
-          <button @click="showAddChannel = true" class="text-sm btn-primary">+ {{ t('alerts.add_channel') }}</button>
+          <button @click="showAddChannel = true" class="btn-primary">+ {{ t('alerts.add_channel') }}</button>
         </div>
         <div class="space-y-3">
           <div v-for="(channel, idx) in channels" :key="channel.id" class="card stagger-item" :style="{ animationDelay: idx * 50 + 'ms' }">
@@ -143,7 +143,7 @@
           <button
             @click="applySuggestion(s)"
             :disabled="applyingSuggestion === s.monitor_id"
-            class="btn-primary text-xs whitespace-nowrap disabled:opacity-50"
+            class="btn-primary btn-sm whitespace-nowrap disabled:opacity-50"
           >{{ t('alerts.apply_suggestion') }}</button>
           <button @click="dismissSuggestion(s)" class="text-(--text-3) hover:text-(--text-2) text-xs" :aria-label="t('common.dismiss')">✕</button>
         </div>
@@ -154,7 +154,7 @@
     <div>
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-lg font-semibold text-(--text-1)">{{ t('alerts.title') }}</h2>
-        <button @click="openCreateRule" :disabled="!channels.length" class="text-sm btn-primary disabled:opacity-40 disabled:cursor-not-allowed">
+        <button @click="openCreateRule" :disabled="!channels.length" class="btn-primary disabled:opacity-40 disabled:cursor-not-allowed">
           + {{ t('alerts.add_rule') }}
         </button>
       </div>

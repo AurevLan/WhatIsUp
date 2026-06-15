@@ -9,7 +9,7 @@
       <div class="flex items-center gap-2">
         <button
           @click="calendarView = !calendarView"
-          class="btn-secondary text-xs flex items-center gap-1.5"
+          class="btn-secondary btn-sm flex items-center gap-1.5"
           :class="calendarView ? 'ring-1 ring-(color:--accent-border)' : ''"
         >
           <CalendarDays :size="14" />

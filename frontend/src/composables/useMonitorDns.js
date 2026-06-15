@@ -8,7 +8,6 @@
 
 import { computed, ref } from 'vue'
 import { monitorsApi } from '../api/monitors'
-import { useToast } from './useToast'
 import { useDetectionAlertBridge } from './useDetectionAlertBridge'
 
 function normalizeDnsValue(vals) {
@@ -23,8 +22,6 @@ function dnsValueStr(r) {
 }
 
 export function useMonitorDns(monitorRef, resultsRef) {
-  const { error: toastError } = useToast()
-
   // ── Changelog (chronological diff over loaded results)
   // results are DESC (newest first) — compare chronologically (reversed)
   const changelog = computed(() => {

@@ -13,10 +13,10 @@
 
     <!-- Barre d'actions contextuelles (bulk) -->
     <BulkActionBar :count="selectedIds.size" @clear="clearSelection">
-      <button @click="bulkEnable" class="btn-primary text-xs px-3 py-1.5 flex items-center gap-1.5">
+      <button @click="bulkEnable" class="btn-primary btn-sm flex items-center gap-1.5">
         <Play class="w-3.5 h-3.5" /> {{ t('monitors.bulk_enable') }}
       </button>
-      <button @click="bulkPause" class="btn-secondary text-xs flex items-center gap-1.5">
+      <button @click="bulkPause" class="btn-secondary btn-sm flex items-center gap-1.5">
         <Pause class="w-3.5 h-3.5" /> {{ t('monitors.bulk_pause') }}
       </button>
 
@@ -45,10 +45,10 @@
         <option v-for="tag in availableTags" :key="tag.id" :value="tag.id">{{ tag.name }}</option>
       </select>
 
-      <button @click="bulkExportCsv" class="btn-secondary text-xs flex items-center gap-1">
+      <button @click="bulkExportCsv" class="btn-secondary btn-sm flex items-center gap-1">
         <Download class="w-3.5 h-3.5" /> {{ t('monitors.bulk_export') }}
       </button>
-      <button @click="confirmBulkDelete" class="btn-danger text-xs flex items-center gap-1.5">
+      <button @click="confirmBulkDelete" class="btn-danger btn-sm flex items-center gap-1.5">
         <Trash2 class="w-3.5 h-3.5" /> {{ t('monitors.bulk_delete') }}
       </button>
     </BulkActionBar>
@@ -75,16 +75,16 @@
             <LayoutGrid class="w-4 h-4" />
           </button>
         </div>
-        <button @click="exportMonitors" class="btn-secondary h-8 text-xs flex items-center gap-1">
+        <button @click="exportMonitors" class="btn-secondary btn-sm flex items-center gap-1">
           <Download class="w-4 h-4" />
           {{ t('monitors.export_json') }}
         </button>
-        <button @click="triggerImport" class="btn-secondary h-8 text-xs flex items-center gap-1">
+        <button @click="triggerImport" class="btn-secondary btn-sm flex items-center gap-1">
           <Upload class="w-4 h-4" />
           {{ t('monitors.import_json') }}
         </button>
         <input ref="importFileInput" type="file" accept=".json" class="hidden" :aria-label="t('monitors.import_json')" @change="handleImportFile" />
-        <button @click="showCreate = true" class="btn-primary h-8 text-xs">
+        <button @click="showCreate = true" class="btn-primary btn-sm">
           <Plus class="w-4 h-4" />
           {{ t('monitors.add') }}
         </button>
@@ -167,9 +167,7 @@
                 <span class="uppercase mr-1.5">{{ monitor.check_type }}</span>· {{ formatTarget(monitor) }}
               </p>
             </div>
-            <span :class="badgeClass(monitor._lastStatus)" class="flex-shrink-0">
-              {{ statusLabel(monitor._lastStatus) }}
-            </span>
+            <StatusBadge :status="monitor._lastStatus" :dot="false" class="flex-shrink-0" />
           </div>
           <div class="flex items-center justify-between mt-3 text-xs">
             <div>
@@ -237,10 +235,7 @@
 
             <!-- Status -->
             <td class="td pl-2">
-              <span :class="badgeClass(monitor._lastStatus)">
-                <span class="w-1.5 h-1.5 rounded-full" :class="dotClass(monitor._lastStatus)" />
-                {{ statusLabel(monitor._lastStatus) }}
-              </span>
+              <StatusBadge :status="monitor._lastStatus" />
             </td>
 
             <!-- Name -->
@@ -323,7 +318,7 @@
 
       <!-- Pagination (list mode) -->
       <div v-if="totalPages > 1" class="flex items-center justify-center gap-1 mt-3 px-4 pb-3">
-        <button @click="currentPage--" :disabled="currentPage === 1" class="btn-ghost text-xs disabled:opacity-30 px-1.5" :aria-label="t('common.prev_page')">←</button>
+        <button @click="currentPage--" :disabled="currentPage === 1" class="btn-ghost btn-sm disabled:opacity-30" :aria-label="t('common.prev_page')">←</button>
         <template v-for="p in pageNumbers" :key="p">
           <span v-if="p === '...'" class="text-xs px-1" style="color:var(--text-3)">...</span>
           <button v-else @click="currentPage = p"
@@ -333,7 +328,7 @@
             {{ p }}
           </button>
         </template>
-        <button @click="currentPage++" :disabled="currentPage === totalPages" class="btn-ghost text-xs disabled:opacity-30 px-1.5" :aria-label="t('common.next_page')">→</button>
+        <button @click="currentPage++" :disabled="currentPage === totalPages" class="btn-ghost btn-sm disabled:opacity-30" :aria-label="t('common.next_page')">→</button>
       </div>
     </div>
 
@@ -443,7 +438,7 @@
 
       <!-- Pagination (board mode) -->
       <div v-if="totalPages > 1" class="flex items-center justify-center gap-1 mt-3">
-        <button @click="currentPage--" :disabled="currentPage === 1" class="btn-ghost text-xs disabled:opacity-30 px-1.5" :aria-label="t('common.prev_page')">←</button>
+        <button @click="currentPage--" :disabled="currentPage === 1" class="btn-ghost btn-sm disabled:opacity-30" :aria-label="t('common.prev_page')">←</button>
         <template v-for="p in pageNumbers" :key="p">
           <span v-if="p === '...'" class="text-xs px-1" style="color:var(--text-3)">...</span>
           <button v-else @click="currentPage = p"
@@ -453,7 +448,7 @@
             {{ p }}
           </button>
         </template>
-        <button @click="currentPage++" :disabled="currentPage === totalPages" class="btn-ghost text-xs disabled:opacity-30 px-1.5" :aria-label="t('common.next_page')">→</button>
+        <button @click="currentPage++" :disabled="currentPage === totalPages" class="btn-ghost btn-sm disabled:opacity-30" :aria-label="t('common.next_page')">→</button>
       </div>
     </div>
 
@@ -489,6 +484,7 @@ import { useMonitorFilters } from '../composables/useMonitorFilters'
 import { useMonitorSelection } from '../composables/useMonitorSelection'
 import { useMonitorImportExport } from '../composables/useMonitorImportExport'
 import { useMonitorDisplay } from '../composables/useMonitorDisplay'
+import StatusBadge from '../components/shared/StatusBadge.vue'
 import CreateMonitorModal from '../components/monitors/CreateMonitorModal.vue'
 import CreateMonitorWizard from '../components/monitors/CreateMonitorWizard.vue'
 import EditMonitorModal from '../components/monitors/EditMonitorModal.vue'
@@ -541,7 +537,7 @@ const { importFileInput, exportMonitors, triggerImport, handleImportFile } =
   useMonitorImportExport()
 
 // ── Row display helpers (composable) ─────────────────────────────────────────
-const { dotClass, badgeClass, statusLabel, formatTarget, uptimeColor, responseTimeColor } =
+const { dotClass, formatTarget, uptimeColor, responseTimeColor } =
   useMonitorDisplay()
 
 // ── Keyboard shortcuts ─────────────────────────────────────────────────────────

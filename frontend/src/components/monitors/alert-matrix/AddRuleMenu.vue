@@ -57,18 +57,18 @@
       </div>
 
       <template #footer>
-        <button type="button" @click="selectAll" class="btn-ghost text-xs">
+        <button type="button" @click="selectAll" class="btn-ghost btn-sm">
           {{ allSelected ? t('alert_matrix.select_none') : t('alert_matrix.select_all') }}
         </button>
         <div class="flex-1" />
-        <button type="button" @click="close" class="btn-ghost text-xs">
+        <button type="button" @click="close" class="btn-ghost btn-sm">
           {{ t('common.cancel') }}
         </button>
         <button
           type="button"
           @click="confirm"
           :disabled="!selected.size"
-          class="btn-primary text-xs disabled:opacity-40"
+          class="btn-primary btn-sm disabled:opacity-40"
         >
           {{ t('alert_matrix.add_selected') }}
           <span v-if="selected.size" class="ml-1 opacity-80">({{ selected.size }})</span>

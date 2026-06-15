@@ -45,10 +45,27 @@
           <p v-else class="text-xs text-(--text-3) italic">No baseline set — next successful check will auto-set it</p>
         </div>
         <div class="flex gap-2 flex-shrink-0">
-          <button @click="patch.acceptSchemaBaseline" class="btn-primary text-xs">Accept latest</button>
-          <button @click="patch.resetSchemaBaseline" :disabled="!monitor.schema_baseline" class="btn-ghost text-xs text-(--down) disabled:opacity-50">Reset</button>
+          <button v-if="schemaAlert.wired.value !== true" @click="schemaAlert.offerAlert('schema_drift')" class="btn-secondary btn-sm">{{ t('detection_alert.cta') }}</button>
+          <button @click="patch.acceptSchemaBaseline" class="btn-primary btn-sm">Accept latest</button>
+          <button @click="patch.resetSchemaBaseline" :disabled="!monitor.schema_baseline" class="btn-ghost btn-sm text-(--down) disabled:opacity-50">Reset</button>
         </div>
       </div>
+
+      <!-- Detection ↔ notification state (B-3) -->
+      <p v-if="schemaAlert.wired.value !== null" class="text-xs mt-2" :class="schemaAlert.wired.value ? 'text-(--up)' : 'text-(--warn)'">
+        {{ schemaAlert.wired.value ? '✓ ' + t('detection_alert.wired') : '⚠ ' + t('detection_alert.unwired') }}
+      </p>
+
+      <DetectionAlertBridge
+        :open="schemaAlert.alertModal.value"
+        :channels="schemaAlert.alertChannels.value"
+        :channel-id="schemaAlert.alertChannelId.value"
+        :creating="schemaAlert.alertCreating.value"
+        @update:channel-id="schemaAlert.alertChannelId.value = $event"
+        @create="schemaAlert.createAlertRule"
+        @dismiss="schemaAlert.dismiss"
+        @close="schemaAlert.dismiss"
+      />
     </template>
     <template v-else>
       <p class="text-xs text-(--text-3)">Enable to automatically detect JSON response structure changes.</p>
@@ -87,7 +104,7 @@
         <label class="text-xs text-(--text-3) block mb-1">{{ t('monitors.composite.weight') }}</label>
         <input v-model.number="deps.newMember.value.weight" type="number" min="1" max="100" class="input w-full text-sm" />
       </div>
-      <button @click="deps.addCompositeMember" :disabled="!deps.newMember.value.monitor_id" class="btn-primary text-sm h-9 disabled:opacity-50" :aria-label="t('common.add')">+</button>
+      <button @click="deps.addCompositeMember" :disabled="!deps.newMember.value.monitor_id" class="btn-primary disabled:opacity-50" :aria-label="t('common.add')">+</button>
     </div>
   </div>
 
@@ -171,10 +188,12 @@
 </template>
 
 <script setup>
-import { computed, inject } from 'vue'
+import { computed, inject, toRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Shield, ShieldAlert, ShieldCheck } from 'lucide-vue-next'
 import { PatchStateKey, DependenciesStateKey } from './injectionKeys'
+import { useDetectionAlertBridge } from '../../../composables/useDetectionAlertBridge'
+import DetectionAlertBridge from '../../shared/DetectionAlertBridge.vue'
 
 const props = defineProps({
   monitor: { type: Object, required: true },
@@ -190,6 +209,17 @@ const props = defineProps({
 // Provided by MonitorDetailView (see injectionKeys.js for rationale).
 const patch = inject(PatchStateKey)
 const deps = inject(DependenciesStateKey)
+
+// Schema drift → notification bridge (same flow as DNS drift), so schema drift
+// isn't a detection that silently sends nothing.
+const schemaAlert = useDetectionAlertBridge(toRef(props, 'monitor'))
+
+// Check whether a schema_drift alert is already wired, to show the state indicator.
+watch(
+  () => props.monitor?.schema_drift_enabled && props.monitor?.id,
+  (ready) => { if (ready) schemaAlert.refreshWired('schema_drift') },
+  { immediate: true },
+)
 
 const { t } = useI18n()
 

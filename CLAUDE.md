@@ -148,6 +148,17 @@ setLocale('fr')            // persiste dans localStorage('whatisup_lang')
 - **Helpers globaux** : `.fab` (masqué ≥640px), overrides padding `< 640px` dans `style.css` (`## Responsive page content`).
 - Touch targets ≥ 44px en mobile (acquis A11Y-5) ; `prefers-reduced-motion` respecté (règle globale).
 
+## Design system — boutons & badges
+
+> Consolidation post-VELOURS (`plan_design_system.md`). Objectif : couche composants homogène par-dessus les tokens.
+
+**Boutons** — variantes × tailles, jamais de surcharge de taille en inline :
+- Variantes : `.btn-primary` · `.btn-secondary` · `.btn-ghost` · `.btn-danger` (définies dans `style.css`, couleurs **tokenisées** — `--accent` / `--down`, plus aucun hex codé en dur ; les 2 thèmes en découlent).
+- Tailles (modificateurs) : `.btn-sm` (≈28px) · défaut = md (≈32px, rien à ajouter) · `.btn-lg` (≈40px). **Ne pas** remettre `h-8`/`h-9`/`text-xs`/`px-* py-*` en inline sur un `.btn-*` → utiliser `.btn-sm`/`.btn-lg`.
+- Bouton-icône : `.btn-icon` (carré, ≥44px tactile mobile). Remplace les boutons-icône ad-hoc (`.ack-btn` etc.).
+
+**Badges de statut** : composant `<StatusBadge :status>` — ne pas réimplémenter `badgeClass`/`dotClass`/`statusLabel` en local.
+
 ## Processus de release (SemVer)
 
 ```bash

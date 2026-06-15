@@ -21,10 +21,10 @@
 
     <!-- Right: actions -->
     <div class="flex items-center gap-1 shrink-0">
-      <button @click="$emit('edit', w)" class="btn-ghost p-1.5 text-(--text-3) hover:text-(--text-1)" :title="t('common.edit')">
+      <button @click="$emit('edit', w)" class="btn-icon" :title="t('common.edit')">
         <Pencil :size="13" />
       </button>
-      <button @click="$emit('delete', w)" class="btn-ghost p-1.5" style="color:var(--down)" :title="t('common.delete')">
+      <button @click="$emit('delete', w)" class="btn-icon text-(--down)" :title="t('common.delete')">
         <Trash2 :size="13" />
       </button>
     </div>

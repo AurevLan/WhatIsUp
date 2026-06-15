@@ -7,7 +7,7 @@
             <input v-model="form.location_name" type="text" required
               class="input flex-1" :placeholder="t('probes.location_placeholder')" />
             <button type="button" @click="geocode" :disabled="geocoding || !form.location_name"
-              class="btn-secondary text-xs flex items-center gap-1.5 shrink-0">
+              class="btn-secondary btn-sm flex items-center gap-1.5 shrink-0">
               <span v-if="geocoding" class="animate-spin text-base">⏳</span>
               <span v-else>📍</span>
               {{ geocoding ? t('probes.locating') : t('probes.locate_btn') }}

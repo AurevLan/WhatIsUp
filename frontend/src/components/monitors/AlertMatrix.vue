@@ -14,7 +14,7 @@
         <button
           @click="save"
           :disabled="saving || !dirty"
-          class="btn-primary text-xs disabled:opacity-40"
+          class="btn-primary btn-sm disabled:opacity-40"
         >
           {{ saving ? t('common.loading') : t('alert_matrix.save') }}
         </button>

@@ -60,6 +60,9 @@
             class="inline-block h-4 w-4 mt-0.5 transform rounded-full bg-white transition-transform" />
         </button>
       </label>
+      <p v-if="monitor.dns_drift_alert && state.wired.value !== null" class="text-xs" :class="state.wired.value ? 'text-(--up)' : 'text-(--warn)'">
+        {{ state.wired.value ? '✓ ' + t('detection_alert.wired') : '⚠ ' + t('detection_alert.unwired') }}
+      </p>
       <label v-if="monitor.dns_drift_alert" class="flex items-center justify-between cursor-pointer gap-4">
         <div>
           <p class="text-sm text-(--text-2)">{{ t('monitors.dns_drift.split_horizon') }}</p>
@@ -92,11 +95,11 @@
           </div>
           <div class="flex gap-2 flex-shrink-0">
             <button @click="state.acceptBaseline" :disabled="state.baselineLoading.value"
-              class="btn-primary text-xs disabled:opacity-50">
+              class="btn-primary btn-sm disabled:opacity-50">
               {{ t('monitors.dns_drift.accept_baseline') }}
             </button>
             <button @click="state.resetBaseline('all')" :disabled="state.baselineLoading.value || !monitor.dns_baseline_ips"
-              class="btn-ghost text-xs text-(--down) disabled:opacity-50">
+              class="btn-ghost btn-sm text-(--down) disabled:opacity-50">
               {{ t('monitors.dns_drift.reset_baseline') }}
             </button>
           </div>
@@ -137,41 +140,33 @@
     </template>
   </div>
 
-  <!-- DNS drift alert suggestion modal -->
-  <BaseModal :model-value="state.alertModal.value"
-    :title="t('monitor_detail.dns_alert_title')"
-    @update:model-value="state.alertModal.value = $event">
-    <p class="text-sm text-(--text-2) mb-4">
+  <!-- DNS drift → alert suggestion (shared bridge) -->
+  <DetectionAlertBridge
+    :open="state.alertModal.value"
+    :channels="state.alertChannels.value"
+    :channel-id="state.alertChannelId.value"
+    :creating="state.alertCreating.value"
+    :dismiss-label="t('monitor_detail.dns_alert_disable')"
+    @update:channel-id="state.alertChannelId.value = $event"
+    @create="state.createAlertRule"
+    @dismiss="state.toggleSetting('dns_drift_alert'); state.alertModal.value = false"
+    @close="state.alertModal.value = false"
+  >
+    <template #description>
       <i18n-t keypath="monitor_detail.dns_alert_desc" tag="span">
         <template #code><code class="text-(--up)">any_down</code></template>
       </i18n-t>
-    </p>
-    <div class="mb-4">
-      <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('monitor_detail.dns_alert_channel') }}</label>
-      <select v-model="state.alertChannelId.value" class="input w-full">
-        <option v-for="ch in state.alertChannels.value" :key="ch.id" :value="ch.id">
-          {{ ch.name }} ({{ ch.type }})
-        </option>
-      </select>
-    </div>
-    <template #footer>
-      <button @click="state.toggleSetting('dns_drift_alert'); state.alertModal.value = false" class="flex-1 text-xs text-(--text-3) hover:text-(--text-1)">
-        {{ t('monitor_detail.dns_alert_disable') }}
-      </button>
-      <button @click="state.createAlertRule" :disabled="state.alertCreating.value || !state.alertChannelId.value" class="flex-1 btn-primary disabled:opacity-50">
-        {{ state.alertCreating.value ? t('monitor_detail.dns_alert_creating') : t('monitor_detail.dns_alert_create') }}
-      </button>
     </template>
-  </BaseModal>
+  </DetectionAlertBridge>
 </template>
 
 <script setup>
-import { inject } from 'vue'
+import { inject, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import BaseModal from '../../BaseModal.vue'
+import DetectionAlertBridge from '../../shared/DetectionAlertBridge.vue'
 import { DnsStateKey } from './injectionKeys'
 
-defineProps({
+const props = defineProps({
   monitor: { type: Object, required: true },
   formatTarget: { type: Function, required: true },
   formatDate: { type: Function, required: true },
@@ -185,4 +180,11 @@ defineProps({
 const state = inject(DnsStateKey)
 
 const { t } = useI18n()
+
+// Detection ↔ notification state indicator (B-3): is a down-alert wired?
+watch(
+  () => props.monitor?.dns_drift_alert && props.monitor?.id,
+  (ready) => { if (ready) state.refreshWired('any_down') },
+  { immediate: true },
+)
 </script>

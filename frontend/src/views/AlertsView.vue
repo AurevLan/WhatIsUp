@@ -32,7 +32,7 @@
       <div>
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-lg font-semibold text-(--text-1)">{{ t('alerts.channels') }}</h2>
-          <button @click="showAddChannel = true" class="text-sm btn-primary">+ {{ t('alerts.add_channel') }}</button>
+          <button @click="showAddChannel = true" class="btn-primary">+ {{ t('alerts.add_channel') }}</button>
         </div>
         <div class="space-y-3">
           <div v-for="(channel, idx) in channels" :key="channel.id" class="card stagger-item" :style="{ animationDelay: idx * 50 + 'ms' }">
@@ -143,7 +143,7 @@
           <button
             @click="applySuggestion(s)"
             :disabled="applyingSuggestion === s.monitor_id"
-            class="btn-primary text-xs whitespace-nowrap disabled:opacity-50"
+            class="btn-primary btn-sm whitespace-nowrap disabled:opacity-50"
           >{{ t('alerts.apply_suggestion') }}</button>
           <button @click="dismissSuggestion(s)" class="text-(--text-3) hover:text-(--text-2) text-xs" :aria-label="t('common.dismiss')">✕</button>
         </div>
@@ -154,7 +154,7 @@
     <div>
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-lg font-semibold text-(--text-1)">{{ t('alerts.title') }}</h2>
-        <button @click="openCreateRule" :disabled="!channels.length" class="text-sm btn-primary disabled:opacity-40 disabled:cursor-not-allowed">
+        <button @click="openCreateRule" :disabled="!channels.length" class="btn-primary disabled:opacity-40 disabled:cursor-not-allowed">
           + {{ t('alerts.add_rule') }}
         </button>
       </div>
@@ -323,9 +323,17 @@
             <p class="text-xs text-(--text-3)">{{ t('alerts.zscore_help') }}</p>
           </div>
 
-          <!-- Schema drift info -->
-          <div v-if="ruleForm.condition === 'schema_drift'" class="bg-[color-mix(in_srgb,var(--warn)_15%,transparent)] border border-[color-mix(in_srgb,var(--warn)_35%,transparent)] rounded-lg p-3">
+          <!-- Schema drift info + inverse bridge: a schema_drift rule does nothing
+               unless the monitor actually computes the fingerprint, so offer to
+               enable detection right here instead of a dead-end hint. -->
+          <div v-if="ruleForm.condition === 'schema_drift'" class="bg-[color-mix(in_srgb,var(--warn)_15%,transparent)] border border-[color-mix(in_srgb,var(--warn)_35%,transparent)] rounded-lg p-3 space-y-2">
             <p class="text-xs text-(--warn)">{{ t('alerts.schema_drift_help') }}</p>
+            <template v-if="ruleForm.target_type === 'monitor' && selectedMonitor">
+              <p v-if="selectedMonitor.schema_drift_enabled" class="text-xs text-(--up)">✓ {{ t('alerts.schema_drift_enabled_ok') }}</p>
+              <button v-else type="button" class="btn-secondary btn-sm" :disabled="enablingDrift" @click="enableSchemaDrift">
+                {{ enablingDrift ? t('common.loading') : t('alerts.schema_drift_enable_cta') }}
+              </button>
+            </template>
           </div>
 
           <!-- Threshold -->
@@ -500,6 +508,7 @@ const events = ref([])
 const rules = ref([])
 const allMonitors = ref([])
 const allGroups = ref([])
+const enablingDrift = ref(false)
 const showAddChannel = ref(false)
 const showRuleModal = ref(false)
 const editingRule = ref(null)
@@ -551,6 +560,28 @@ function dismissSuggestion(s) {
 const DEFAULT_SCHEDULE = { offhours_suppress: false, timezone: 'Europe/Paris', days: [0, 1, 2, 3, 4], start: '09:00', end: '18:00' }
 
 const ruleForm = ref(defaultRuleForm())
+
+// Inverse detection→alert bridge: the monitor selected for a schema_drift rule.
+const selectedMonitor = computed(() =>
+  ruleForm.value.target_type === 'monitor'
+    ? allMonitors.value.find((m) => m.id === ruleForm.value.target_id) || null
+    : null,
+)
+
+async function enableSchemaDrift() {
+  const m = selectedMonitor.value
+  if (!m) return
+  enablingDrift.value = true
+  try {
+    await monitorsApi.update(m.id, { schema_drift_enabled: true })
+    m.schema_drift_enabled = true
+    success(t('alerts.schema_drift_enabled_ok'))
+  } catch (e) {
+    toastError(e.response?.data?.detail || t('common.error'))
+  } finally {
+    enablingDrift.value = false
+  }
+}
 
 function defaultRuleForm() {
   return {

@@ -10,7 +10,7 @@
     </div>
     <button
       @click="state.showAutoModal.value = true"
-      class="btn-primary text-xs whitespace-nowrap"
+      class="btn-primary btn-sm whitespace-nowrap"
     >{{ t('monitors.alert_setup.setup_now') }}</button>
   </div>
 

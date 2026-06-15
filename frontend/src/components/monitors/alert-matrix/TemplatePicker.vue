@@ -70,14 +70,14 @@
 
       <template #footer>
         <div class="flex-1" />
-        <button type="button" @click="close" class="btn-ghost text-xs">
+        <button type="button" @click="close" class="btn-ghost btn-sm">
           {{ t('common.cancel') }}
         </button>
         <button
           type="button"
           @click="apply"
           :disabled="!selectedId"
-          class="btn-primary text-xs disabled:opacity-40"
+          class="btn-primary btn-sm disabled:opacity-40"
         >
           {{ t('alert_matrix.templates.apply') }}
         </button>

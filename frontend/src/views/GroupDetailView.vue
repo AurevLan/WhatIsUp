@@ -57,7 +57,7 @@
           <textarea v-model="customization.announcement_banner" class="input w-full" rows="2" :placeholder="t('groups.announcement_banner_hint')"></textarea>
         </div>
         <div class="flex justify-end">
-          <button @click="saveCustomization" :disabled="savingCustomization" class="btn-primary text-xs">
+          <button @click="saveCustomization" :disabled="savingCustomization" class="btn-primary btn-sm">
             {{ savingCustomization ? t('common.loading') : t('common.save') }}
           </button>
         </div>
@@ -83,7 +83,7 @@
           <p class="text-xs text-(--text-3) mt-1">{{ t('groups.report_emails_desc') }}</p>
         </div>
         <div class="flex justify-end">
-          <button @click="saveReportConfig" :disabled="savingReport" class="btn-primary text-xs">
+          <button @click="saveReportConfig" :disabled="savingReport" class="btn-primary btn-sm">
             {{ savingReport ? t('common.loading') : t('common.save') }}
           </button>
         </div>
@@ -94,7 +94,7 @@
     <div class="card mb-6">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-sm font-semibold text-(--text-2)">{{ t('group_detail.group_monitors') }}</h2>
-        <button @click="showAddMonitor = true" class="text-xs btn-primary">+ {{ t('group_detail.add_monitor') }}</button>
+        <button @click="showAddMonitor = true" class="btn-primary btn-sm">+ {{ t('group_detail.add_monitor') }}</button>
       </div>
 
       <div v-if="monitors.length === 0" class="text-center text-(--text-3) py-8 text-sm">

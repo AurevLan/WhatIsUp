@@ -24,8 +24,8 @@
         {{ t('tls_fleet.san_mismatch_only') }}
       </label>
       <div class="ml-auto flex gap-2">
-        <button @click="reload" class="btn-ghost text-sm">{{ t('common.refresh') }}</button>
-        <button @click="exportCsv" class="btn-primary text-sm">{{ t('tls_fleet.export_csv') }}</button>
+        <button @click="reload" class="btn-ghost">{{ t('common.refresh') }}</button>
+        <button @click="exportCsv" class="btn-primary">{{ t('tls_fleet.export_csv') }}</button>
       </div>
     </div>
 

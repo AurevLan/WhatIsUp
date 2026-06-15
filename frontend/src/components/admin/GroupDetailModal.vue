@@ -33,7 +33,7 @@
                 :value="probe.id"
               >{{ probe.name }} ({{ probe.location_name }})</option>
             </select>
-            <button @click="addProbeToDetailGroup" class="btn-primary text-sm" :disabled="!addProbeSelection || submitting">{{ t('admin.add_btn') }}</button>
+            <button @click="addProbeToDetailGroup" class="btn-primary" :disabled="!addProbeSelection || submitting">{{ t('admin.add_btn') }}</button>
           </div>
         </div>
 
@@ -65,7 +65,7 @@
                 :value="user.id"
               >{{ user.username }}</option>
             </select>
-            <button @click="grantUserToDetailGroup" class="btn-primary text-sm" :disabled="!addUserSelection || submitting">{{ t('admin.add_btn') }}</button>
+            <button @click="grantUserToDetailGroup" class="btn-primary" :disabled="!addUserSelection || submitting">{{ t('admin.add_btn') }}</button>
           </div>
         </div>
 

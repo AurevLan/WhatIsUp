@@ -347,7 +347,7 @@
       <!-- Visual step type palette -->
       <div class="mt-4 p-3 bg-(--bg-surface) rounded-xl border border-(--border)">
         <p class="text-xs text-(--text-3) font-medium mb-2">Add a step</p>
-        <div class="grid grid-cols-5 gap-2">
+        <div class="grid grid-cols-3 sm:grid-cols-5 gap-2">
           <button
             v-for="t in paletteTypes"
             :key="t.type"

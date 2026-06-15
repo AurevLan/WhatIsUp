@@ -34,7 +34,8 @@
       </div>
 
       <div class="card overflow-hidden">
-        <table class="w-full text-sm">
+        <div class="overflow-x-auto">
+        <table class="w-full text-sm min-w-[52rem]">
           <thead>
             <tr class="border-b border-(--border)">
               <th class="text-left px-4 py-3 text-(--text-2) font-medium">{{ t('admin.col_user') }}</th>
@@ -127,6 +128,7 @@
             </tr>
           </tbody>
         </table>
+        </div>
       </div>
     </div>
 
@@ -171,7 +173,8 @@
       </div>
 
       <div class="card overflow-hidden">
-        <table class="w-full text-sm">
+        <div class="overflow-x-auto">
+        <table class="w-full text-sm min-w-[48rem]">
           <thead>
             <tr class="border-b border-(--border)">
               <th class="text-left px-4 py-3 text-(--text-2) font-medium">{{ t('admin.col_owner') }}</th>
@@ -216,6 +219,7 @@
             </tr>
           </tbody>
         </table>
+        </div>
       </div>
     </div>
 

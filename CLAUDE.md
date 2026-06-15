@@ -139,8 +139,9 @@ setLocale('fr')            // persiste dans localStorage('whatisup_lang')
 
 - **Mobile-first** : la base CSS = mobile ; on élargit avec `md:`/`lg:`. Ne jamais régresser le rendu desktop.
 - **Shell déjà responsive** : `AppLayout` gère drawer off-canvas + hamburger + overlay + scroll-lock (`< 1024px`). Ne pas le retoucher.
-- **Tables → cartes** (pattern de référence : `MonitorsView.vue`) : dupliquer le contenu en deux blocs —
-  `<div class="md:hidden">` (cartes empilées, touch ≥44px) + `<table class="hidden md:table">` (tableau dense, colonnes dégressives via `hidden lg:table-cell` / `hidden sm:table-cell`). Pas de composant `ResponsiveTable` : c'est ce duo qui fait foi.
+- **Tables — deux tiers selon l'usage** :
+  - *Contenu primaire* (liste monitors) → **cartes ↔ tableau** (réf. `MonitorsView.vue`) : `<div class="md:hidden">` cartes empilées (touch ≥44px) + `<table class="hidden md:table">` colonnes dégressives (`hidden lg:table-cell` / `hidden sm:table-cell`). Pas de composant `ResponsiveTable` : ce duo fait foi.
+  - *Tables denses secondaires/admin* (6-7 colonnes techniques : `AuditView`, `AdminView`, `TlsFleetView`, `GroupDetailView`) → **scroll horizontal** : wrapper `<div class="overflow-x-auto">` + `min-w-[Nrem]` sur le `<table>`. Préserve toutes les colonnes sans dupliquer le markup ; acceptable car surfaces power-user.
 - **Grilles fluides sans breakpoint** : préférer `clamp()` pour la typo (cf. hero `DashboardView`) et `grid-template-columns: repeat(auto-fill, minmax(Npx, 1fr))` pour les grilles de cartes.
 - **Lignes en grille fixe** (cf. `IncidentsView .inc-row`) : reflow via `@media (max-width: 640px)` ; les colonnes d'actions multi-boutons passent en **ligne pleine largeur** (`grid-column: 1 / -1`) avec `flex-wrap`, jamais comprimées dans une piste étroite.
 - **Barres d'actions / filtres** : toujours `flex-wrap` (cf. `.filter-bar` global). Une rangée de boutons sans wrap déborde < 360px.

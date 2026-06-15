@@ -32,7 +32,8 @@
     <!-- Table -->
     <div v-if="loading" class="card text-sm text-(--text-3)">{{ t('common.loading') }}…</div>
     <div v-else-if="!items.length" class="card text-sm text-(--text-3)">{{ t('tls_fleet.empty') }}</div>
-    <table v-else class="w-full text-sm bg-(--bg-surface) border border-(--border) rounded">
+    <div v-else class="overflow-x-auto bg-(--bg-surface) border border-(--border) rounded">
+    <table class="w-full text-sm min-w-[44rem]">
       <thead class="text-xs text-(--text-3) uppercase">
         <tr>
           <th class="px-3 py-2 text-left">{{ t('tls_fleet.col_monitor') }}</th>
@@ -64,6 +65,7 @@
         </tr>
       </tbody>
     </table>
+    </div>
   </div>
 </template>
 

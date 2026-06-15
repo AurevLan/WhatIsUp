@@ -1,7 +1,7 @@
 # WhatIsUp — Inventaire des Fonctionnalités
 
 > **Source de vérité** des features livrées. À amender à chaque release.
-> Référence : **v1.13.0** (2026-06-13) — inclut le design system VELOURS + l'accessibilité (gates CI), la 2FA TOTP + sessions actives (v1.12) et le Health Engine V2 (M0-M5, en prod sur 17/17 monitors depuis 2026-05-06).
+> Référence : **v1.14.0** (2026-06-15) — consolidation du design system (échelle de tailles boutons + tokenisation complète, `<StatusBadge>`), pont détection→notification homogène, et responsive mobile. Socle : design system VELOURS + accessibilité gates CI (v1.13), 2FA TOTP + sessions actives (v1.12), Health Engine V2 (M0-M5, en prod sur 17/17 monitors depuis 2026-05-06).
 > Pour la chronologie détaillée, voir `CHANGELOG.md`. Chantiers en cours / planifiés : `plan_roadmap_v2.md`, `plan_audit_followup.md`, `plan_v2_global_health.md`.
 
 **Légende** : ✅ livré · 🔬 livré + tests automatisés · 🚧 partiel (voir notes).
@@ -188,6 +188,7 @@
 - ✅ `schedule` — TZ + jours + plage horaire + suppress offhours
 - ✅ Rate cap anti-storm : `storm_max_alerts` × `storm_window_seconds` → digest forcé
 - ✅ **Suppression sur partition réseau (V2-02-02)** — flag `AlertRule.suppress_on_network_partition` (opt-in). Si `true` et que l'incident a un `network_verdict ∈ {network_partition_asn, network_partition_geo}`, dispatch court-circuité dans `maybe_digest_or_dispatch`. Plus de page on-call sur des pannes opérateur. Évènement loggé `alert_suppressed_network_partition`.
+- 🔬 **Pont détection→notification (v1.14)** — une détection (DNS drift, schema drift) n'envoie rien seule ; à son activation, un pont unique (`DetectionAlertBridge.vue` + `useDetectionAlertBridge`, paramétré par condition) propose de câbler un canal et crée la règle. Lien inverse dans le formulaire d'alerte : choisir la condition `schema_drift` pour un monitor sans détection active = CTA qui l'active en place (plus de cul-de-sac). Indicateur d'état unifié sur les cartes DNS/schema : « notification câblée » / « aucune notification — détection seule ».
 
 ### UI Alert Matrix v2
 - ✅ Cards empilables par condition + chips canaux colorés (`alert-matrix/*.vue`)
@@ -238,6 +239,11 @@
 - ✅ **Dashboard éditorial** : hero verdict Fraunces (« Tout est *opérationnel.* » / « N services *en difficulté.* »), ruban de stats display cliquables avec compteurs animés (sautés sous `prefers-reduced-motion`), grille services à sparklines SVG, incidents/sondes offline en rangées flottantes, entrée en cascade
 - ✅ Couleurs **runtime JS thémées** (`lib/themeColors.js` : `cssVar`/`withAlpha`) : ApexCharts, marqueurs/popups Leaflet, graphe de dépendances SVG suivent le thème actif ; palette probes 8 teintes chaudes ; filtre de tuiles limité au fond de carte
 - ✅ Favicon SVG (barres d'uptime sauge/or sur encre) + fallback .ico ; matière : cartes 18 px, ombres douces double-couche, hover lift
+- ✅ **Consolidation composants (v1.14)** : échelle de tailles boutons unique (`.btn-sm` / md / `.btn-lg` + `.btn-icon`) au lieu des surcharges inline ad-hoc ; couleurs boutons **et** badges entièrement tokenisées (plus aucun hex en dur, dérivées des tokens dans les 2 thèmes) ; composant `<StatusBadge>` canonique à libellés i18n remplaçant les badges de statut dupliqués (corrige des libellés figés en anglais) ; suppression des classes-boutons mortes/concurrentes (`.ack-btn`, `.filter-btn`) et du code mort
+
+### Responsive / mobile (v1.14)
+- ✅ Shell `AppLayout` : drawer off-canvas + hamburger + overlay + scroll-lock (`< 1024px`)
+- ✅ Vues de contenu adaptées mobile-first : tables denses en scroll horizontal (`overflow-x-auto` + `min-w`), liste monitors en cartes empilées `< md`, grilles de formulaires/stats qui se replient, barres d'actions/filtres en `flex-wrap`, rangées d'incidents reflowées `< 640px` ; cible double navigateur + app native Android (Capacitor)
 
 ### Accessibilité (v1.13 — gates CI permanents)
 - 🔬 **Gate axe-core en CI** (`tests/a11y.test.js`) : échec sur toute violation critical/serious dans les 7 vues principales
@@ -575,9 +581,9 @@
 | Check types | 11 types | `probe/whatisup_probe/checkers/*.py` |
 | Probes | 9 axes (+ASN +outbound IP) | `probe.py`, `probes.py`, `probe_group.py`, `probe_enrichment.py`, `ProbeMap.vue` |
 | Incidents | 10 axes (+playback +diagnostic engine) | `incident.py`, `correlation.py`, `anomaly.py`, `diagnostics.py`, `incident_diagnostic.py` |
-| Alerting | 13 axes (+silences +network suppress +matrix preview) | `alert.py`, `alerts.py`, `silences.py`, `services/channels/*.py` (11 canaux) |
+| Alerting | 14 axes (+silences +network suppress +matrix preview +pont détection→alerte) | `alert.py`, `alerts.py`, `silences.py`, `useDetectionAlertBridge.js`, `services/channels/*.py` (11 canaux) |
 | Status pages | 4 axes | `public.py`, `PublicPageView.vue` |
-| Dashboard UX | 15 axes (+design system VELOURS +a11y gates) | `ws.py`, `stats.py`, `style.css`, `lib/themeColors.js`, components shared/* + monitors/* |
+| Dashboard UX | 17 axes (+design system VELOURS +a11y gates +consolidation composants +responsive mobile) | `ws.py`, `stats.py`, `style.css`, `lib/themeColors.js`, `StatusBadge.vue`, components shared/* + monitors/* |
 | Maintenance | 4 axes | `maintenance.py` × 2 |
 | Audit/Compliance | 5 axes | `audit_log.py`, `retention.py`, `reports.py` |
 | Infra | 8 axes | `docker-compose.yml`, Dockerfiles, deploy.sh |

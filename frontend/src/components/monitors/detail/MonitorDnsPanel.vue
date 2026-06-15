@@ -137,38 +137,30 @@
     </template>
   </div>
 
-  <!-- DNS drift alert suggestion modal -->
-  <BaseModal :model-value="state.alertModal.value"
-    :title="t('monitor_detail.dns_alert_title')"
-    @update:model-value="state.alertModal.value = $event">
-    <p class="text-sm text-(--text-2) mb-4">
+  <!-- DNS drift → alert suggestion (shared bridge) -->
+  <DetectionAlertBridge
+    :open="state.alertModal.value"
+    :channels="state.alertChannels.value"
+    :channel-id="state.alertChannelId.value"
+    :creating="state.alertCreating.value"
+    :dismiss-label="t('monitor_detail.dns_alert_disable')"
+    @update:channel-id="state.alertChannelId.value = $event"
+    @create="state.createAlertRule"
+    @dismiss="state.toggleSetting('dns_drift_alert'); state.alertModal.value = false"
+    @close="state.alertModal.value = false"
+  >
+    <template #description>
       <i18n-t keypath="monitor_detail.dns_alert_desc" tag="span">
         <template #code><code class="text-(--up)">any_down</code></template>
       </i18n-t>
-    </p>
-    <div class="mb-4">
-      <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('monitor_detail.dns_alert_channel') }}</label>
-      <select v-model="state.alertChannelId.value" class="input w-full">
-        <option v-for="ch in state.alertChannels.value" :key="ch.id" :value="ch.id">
-          {{ ch.name }} ({{ ch.type }})
-        </option>
-      </select>
-    </div>
-    <template #footer>
-      <button @click="state.toggleSetting('dns_drift_alert'); state.alertModal.value = false" class="flex-1 text-xs text-(--text-3) hover:text-(--text-1)">
-        {{ t('monitor_detail.dns_alert_disable') }}
-      </button>
-      <button @click="state.createAlertRule" :disabled="state.alertCreating.value || !state.alertChannelId.value" class="flex-1 btn-primary disabled:opacity-50">
-        {{ state.alertCreating.value ? t('monitor_detail.dns_alert_creating') : t('monitor_detail.dns_alert_create') }}
-      </button>
     </template>
-  </BaseModal>
+  </DetectionAlertBridge>
 </template>
 
 <script setup>
 import { inject } from 'vue'
 import { useI18n } from 'vue-i18n'
-import BaseModal from '../../BaseModal.vue'
+import DetectionAlertBridge from '../../shared/DetectionAlertBridge.vue'
 import { DnsStateKey } from './injectionKeys'
 
 defineProps({

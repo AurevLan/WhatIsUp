@@ -167,6 +167,15 @@ export default {
     online: 'En ligne',
     offline: 'Hors ligne',
   },
+  detection_alert: {
+    title: 'Être notifié ?',
+    desc: 'Cette détection est active, mais seule elle n’envoie aucune notification. Choisissez un canal pour créer une règle d’alerte.',
+    channel: 'Canal de notification',
+    create: 'Créer la règle d’alerte',
+    creating: 'Création…',
+    dismiss: 'Plus tard',
+    cta: 'Configurer la notification',
+  },
   dashboard: {
     title: 'Tableau de bord',
     subtitle: 'Vue en temps réel de vos services surveillés',

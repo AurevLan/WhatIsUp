@@ -7,9 +7,8 @@
 // and rolls back if the API call fails.
 
 import { computed, ref } from 'vue'
-import api from '../api/client'
 import { monitorsApi } from '../api/monitors'
-import { useToast } from './useToast'
+import { useDetectionAlertBridge } from './useDetectionAlertBridge'
 
 function normalizeDnsValue(vals) {
   if (!vals || !vals.length) return null
@@ -23,8 +22,6 @@ function dnsValueStr(r) {
 }
 
 export function useMonitorDns(monitorRef, resultsRef) {
-  const { error: toastError } = useToast()
-
   // ── Changelog (chronological diff over loaded results)
   // results are DESC (newest first) — compare chronologically (reversed)
   const changelog = computed(() => {
@@ -112,11 +109,11 @@ export function useMonitorDns(monitorRef, resultsRef) {
     }
   }
 
-  // ── Alert-suggestion modal (offered when enabling drift without rule)
-  const alertModal = ref(false)
-  const alertChannels = ref([])
-  const alertChannelId = ref('')
-  const alertCreating = ref(false)
+  // ── Alert-suggestion bridge (offered when enabling drift without a rule).
+  // Shared with other detections via useDetectionAlertBridge — DNS drift wires
+  // an `any_down` rule (a drift surfaces as the monitor going down).
+  const bridge = useDetectionAlertBridge(monitorRef)
+  const { alertModal, alertChannels, alertChannelId, alertCreating, createAlertRule } = bridge
 
   async function toggleSetting(field) {
     if (!monitorRef.value) return
@@ -128,49 +125,13 @@ export function useMonitorDns(monitorRef, resultsRef) {
       monitorRef.value[field] = !newVal
       return
     }
-    // When enabling dns_drift_alert or dns_split_enabled, check if an
-    // any_down rule already exists for this monitor. If not — and channels
-    // exist — open the suggestion modal.
+    // When enabling DNS drift alerting, nudge the user to wire a notification.
     if (
       (field === 'dns_drift_alert' || field === 'dns_split_enabled') &&
       newVal &&
       monitorRef.value.dns_drift_alert
     ) {
-      try {
-        const [chResp, rulesResp] = await Promise.all([
-          api.get('/alerts/channels'),
-          api.get('/alerts/rules'),
-        ])
-        const channels = chResp.data
-        const hasRule = rulesResp.data.some(
-          (r) => r.monitor_id === monitorRef.value.id && r.condition === 'any_down',
-        )
-        if (!hasRule && channels.length) {
-          alertChannels.value = channels
-          alertChannelId.value = channels[0].id
-          alertModal.value = true
-        }
-      } catch {
-        // Silent: modal simply doesn't appear if channels/rules can't be fetched.
-      }
-    }
-  }
-
-  async function createAlertRule() {
-    if (!alertChannelId.value || !monitorRef.value) return
-    alertCreating.value = true
-    try {
-      await api.post('/alerts/rules', {
-        monitor_id: monitorRef.value.id,
-        condition: 'any_down',
-        min_duration_seconds: 0,
-        channel_ids: [alertChannelId.value],
-      })
-      alertModal.value = false
-    } catch (e) {
-      toastError(e.response?.data?.detail || 'Erreur lors de la création de la règle')
-    } finally {
-      alertCreating.value = false
+      await bridge.offerAlert('any_down')
     }
   }
 

@@ -45,10 +45,22 @@
           <p v-else class="text-xs text-(--text-3) italic">No baseline set — next successful check will auto-set it</p>
         </div>
         <div class="flex gap-2 flex-shrink-0">
+          <button @click="schemaAlert.offerAlert('schema_drift')" class="btn-secondary btn-sm">{{ t('detection_alert.cta') }}</button>
           <button @click="patch.acceptSchemaBaseline" class="btn-primary btn-sm">Accept latest</button>
           <button @click="patch.resetSchemaBaseline" :disabled="!monitor.schema_baseline" class="btn-ghost btn-sm text-(--down) disabled:opacity-50">Reset</button>
         </div>
       </div>
+
+      <DetectionAlertBridge
+        :open="schemaAlert.alertModal.value"
+        :channels="schemaAlert.alertChannels.value"
+        :channel-id="schemaAlert.alertChannelId.value"
+        :creating="schemaAlert.alertCreating.value"
+        @update:channel-id="schemaAlert.alertChannelId.value = $event"
+        @create="schemaAlert.createAlertRule"
+        @dismiss="schemaAlert.dismiss"
+        @close="schemaAlert.dismiss"
+      />
     </template>
     <template v-else>
       <p class="text-xs text-(--text-3)">Enable to automatically detect JSON response structure changes.</p>
@@ -171,10 +183,12 @@
 </template>
 
 <script setup>
-import { computed, inject } from 'vue'
+import { computed, inject, toRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Shield, ShieldAlert, ShieldCheck } from 'lucide-vue-next'
 import { PatchStateKey, DependenciesStateKey } from './injectionKeys'
+import { useDetectionAlertBridge } from '../../../composables/useDetectionAlertBridge'
+import DetectionAlertBridge from '../../shared/DetectionAlertBridge.vue'
 
 const props = defineProps({
   monitor: { type: Object, required: true },
@@ -190,6 +204,10 @@ const props = defineProps({
 // Provided by MonitorDetailView (see injectionKeys.js for rationale).
 const patch = inject(PatchStateKey)
 const deps = inject(DependenciesStateKey)
+
+// Schema drift → notification bridge (same flow as DNS drift), so schema drift
+// isn't a detection that silently sends nothing.
+const schemaAlert = useDetectionAlertBridge(toRef(props, 'monitor'))
 
 const { t } = useI18n()
 

@@ -5,7 +5,7 @@
       <h2 class="text-sm font-semibold text-(--text-2)">{{ t('monitor_detail.custom_metrics') }}</h2>
       <button
         @click="state.showPushUrlModal.value = true"
-        class="btn-secondary text-xs"
+        class="btn-secondary btn-sm"
       >
         {{ t('monitor_detail.push_url') }}
       </button>

@@ -26,7 +26,7 @@
         <!-- Members section -->
         <div class="mb-4 flex items-center justify-between">
           <h3 class="text-sm font-medium text-(--text-2)">{{ t('admin.members_count', { n: teamMembers.length }) }}</h3>
-          <button @click="showTeamAddMember = !showTeamAddMember" class="btn-primary text-xs flex items-center gap-1 px-3 py-1.5">
+          <button @click="showTeamAddMember = !showTeamAddMember" class="btn-primary btn-sm flex items-center gap-1">
             <UserPlus class="w-3.5 h-3.5" /> {{ t('admin.add_member') }}
           </button>
         </div>
@@ -55,8 +55,8 @@
           </div>
           <div v-if="teamMemberError" class="text-(--down) text-xs">{{ teamMemberError }}</div>
           <div class="flex justify-end gap-2">
-            <button @click="showTeamAddMember = false" class="btn-secondary text-xs px-3 py-1">{{ t('common.cancel') }}</button>
-            <button @click="submitTeamAddMember" class="btn-primary text-xs px-3 py-1" :disabled="!teamAddMemberForm.user_id || submitting">{{ t('admin.add_btn') }}</button>
+            <button @click="showTeamAddMember = false" class="btn-secondary btn-sm">{{ t('common.cancel') }}</button>
+            <button @click="submitTeamAddMember" class="btn-primary btn-sm" :disabled="!teamAddMemberForm.user_id || submitting">{{ t('admin.add_btn') }}</button>
           </div>
         </div>
 

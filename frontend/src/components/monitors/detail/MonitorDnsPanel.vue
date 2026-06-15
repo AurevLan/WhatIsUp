@@ -92,11 +92,11 @@
           </div>
           <div class="flex gap-2 flex-shrink-0">
             <button @click="state.acceptBaseline" :disabled="state.baselineLoading.value"
-              class="btn-primary text-xs disabled:opacity-50">
+              class="btn-primary btn-sm disabled:opacity-50">
               {{ t('monitors.dns_drift.accept_baseline') }}
             </button>
             <button @click="state.resetBaseline('all')" :disabled="state.baselineLoading.value || !monitor.dns_baseline_ips"
-              class="btn-ghost text-xs text-(--down) disabled:opacity-50">
+              class="btn-ghost btn-sm text-(--down) disabled:opacity-50">
               {{ t('monitors.dns_drift.reset_baseline') }}
             </button>
           </div>

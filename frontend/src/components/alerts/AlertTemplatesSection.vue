@@ -5,7 +5,7 @@
         <h2 class="text-lg font-semibold text-(--text-1)">{{ t('alert_matrix.templates.section_title') }}</h2>
         <p class="text-xs text-(--text-3) mt-1">{{ t('alert_matrix.templates.section_hint') }}</p>
       </div>
-      <button @click="createNew" class="text-sm btn-primary">
+      <button @click="createNew" class="btn-primary">
         + {{ t('alert_matrix.templates.new') }}
       </button>
     </div>

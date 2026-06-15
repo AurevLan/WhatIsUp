@@ -4,7 +4,7 @@
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-sm font-semibold text-(--text-2)">{{ t('monitor_detail.annotations') }}</h2>
       <button @click="state.showForm.value = !state.showForm.value"
-        class="btn-ghost text-xs flex items-center gap-1">
+        class="btn-ghost btn-sm flex items-center gap-1">
         <span>+</span> {{ t('monitor_detail.add_annotation') }}
       </button>
     </div>
@@ -14,8 +14,8 @@
         class="input text-xs flex-shrink-0" />
       <input v-model="state.newAnnotation.value.content" class="input text-xs flex-1 min-w-48"
         :placeholder="t('monitor_detail.annotation_content')" @keydown.enter="state.add" />
-      <button @click="state.add" class="btn-primary text-xs px-3 h-9">{{ t('monitor_detail.add_annotation') }}</button>
-      <button @click="state.showForm.value = false" class="btn-ghost text-xs px-3 h-9">{{ t('common.cancel') }}</button>
+      <button @click="state.add" class="btn-primary btn-sm">{{ t('monitor_detail.add_annotation') }}</button>
+      <button @click="state.showForm.value = false" class="btn-ghost btn-sm">{{ t('common.cancel') }}</button>
     </div>
 
     <div v-if="state.annotations.value.length" class="space-y-1.5">

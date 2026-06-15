@@ -51,7 +51,7 @@
 
     <!-- Bulk action bar (T1-12) -->
     <BulkActionBar :count="selectedIds.size" @clear="clearSelection">
-      <button @click="bulkAck" class="btn-primary text-xs px-3 py-1.5 flex items-center gap-1.5">
+      <button @click="bulkAck" class="btn-primary btn-sm flex items-center gap-1.5">
         <CheckCircle class="w-3.5 h-3.5" /> {{ t('incidents.bulk_ack') }}
       </button>
     </BulkActionBar>

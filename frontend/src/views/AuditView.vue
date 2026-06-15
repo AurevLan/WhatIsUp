@@ -76,7 +76,7 @@
     </div>
 
     <!-- Load more -->
-    <button v-if="logs.length >= limit" @click="loadMore" class="mt-4 btn-secondary w-full text-sm">
+    <button v-if="logs.length >= limit" @click="loadMore" class="mt-4 btn-secondary w-full">
       {{ t('audit.load_more') }}
     </button>
   </div>

@@ -42,12 +42,12 @@
           <button v-if="!auth.user?.totp_enabled"
             @click="startTotpSetup"
             :disabled="totp.loading"
-            class="btn-primary text-sm">
+            class="btn-primary">
             {{ totp.loading ? t('common.loading') : t('settings.security.totp_enable') }}
           </button>
           <button v-else
             @click="openDisable"
-            class="btn-ghost text-sm text-(--down)">
+            class="btn-ghost text-(--down)">
             {{ t('settings.security.totp_disable') }}
           </button>
         </div>
@@ -80,7 +80,7 @@
               </div>
               <button v-if="!s.current"
                 @click="revokeSession(s.id)"
-                class="btn-ghost text-xs text-(--down) flex-shrink-0">
+                class="btn-ghost btn-sm text-(--down) flex-shrink-0">
                 {{ t('settings.security.session_revoke') }}
               </button>
             </li>
@@ -88,7 +88,7 @@
 
           <button v-if="sessions.list.length > 1"
             @click="revokeAllSessions"
-            class="btn-secondary text-sm mt-3">
+            class="btn-secondary mt-3">
             {{ t('settings.security.sessions_revoke_all') }}
           </button>
         </div>
@@ -143,13 +143,13 @@
           <button v-if="!mobilePush.registered"
             @click="enableMobilePush"
             :disabled="mobilePush.loading"
-            class="btn-primary text-sm">
+            class="btn-primary">
             {{ mobilePush.loading ? t('common.loading') : t('settings.mobile_push_enable') }}
           </button>
           <button v-else
             @click="disableMobilePush"
             :disabled="mobilePush.loading"
-            class="btn-ghost text-sm text-(--down)">
+            class="btn-ghost text-(--down)">
             {{ t('settings.mobile_push_disable') }}
           </button>
         </div>
@@ -183,14 +183,14 @@
             <button v-if="!push.isSubscribed"
               @click="push.subscribe()"
               :disabled="push.loading"
-              class="btn-primary text-sm">
+              class="btn-primary">
               {{ push.loading ? t('common.loading') : t('settings.push_subscribe') }}
             </button>
             <template v-else>
-              <button @click="push.sendTest()" class="btn-secondary text-sm">
+              <button @click="push.sendTest()" class="btn-secondary">
                 {{ t('settings.push_test') }}
               </button>
-              <button @click="push.unsubscribe()" :disabled="push.loading" class="btn-ghost text-sm text-(--down)">
+              <button @click="push.unsubscribe()" :disabled="push.loading" class="btn-ghost text-(--down)">
                 {{ t('settings.push_unsubscribe') }}
               </button>
             </template>
@@ -219,13 +219,13 @@
           <button v-if="!biometric.enabled"
             @click="enableBiometricUnlock"
             :disabled="biometric.loading"
-            class="btn-primary text-sm">
+            class="btn-primary">
             {{ biometric.loading ? t('common.loading') : t('settings.biometric_enable') }}
           </button>
           <button v-else
             @click="disableBiometricUnlock"
             :disabled="biometric.loading"
-            class="btn-ghost text-sm text-(--down)">
+            class="btn-ghost text-(--down)">
             {{ t('settings.biometric_disable') }}
           </button>
         </div>
@@ -237,7 +237,7 @@
         <p class="text-sm text-(--text-3) mb-4">{{ t('settings.extension_desc') }}</p>
 
         <div class="flex gap-2 flex-wrap mb-4">
-          <button @click="downloadExtension" :disabled="extensionLoading" class="btn-primary text-sm">
+          <button @click="downloadExtension" :disabled="extensionLoading" class="btn-primary">
             {{ extensionLoading ? t('settings.extension_downloading') : t('settings.extension_download') }}
           </button>
         </div>

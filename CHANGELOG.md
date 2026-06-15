@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.14.1](https://github.com/AurevLan/WhatIsUp/compare/v1.14.0...v1.14.1) (2026-06-15)
+
+
+### Docs
+
+* **features:** amend for v1.14.0 — design system consolidation + detection→alert bridge + responsive ([#197](https://github.com/AurevLan/WhatIsUp/issues/197)) ([66e4b66](https://github.com/AurevLan/WhatIsUp/commit/66e4b663f6d9425bc041230460ed332ac240bdf0))
+* **features:** drop dangling plan references ([#199](https://github.com/AurevLan/WhatIsUp/issues/199)) ([8a712d0](https://github.com/AurevLan/WhatIsUp/commit/8a712d06e94965456702cb4c27c5bf3c618a4fc5))
+
 ## [1.14.0](https://github.com/AurevLan/WhatIsUp/compare/v1.13.0...v1.14.0) (2026-06-15)
 
 

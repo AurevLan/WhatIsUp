@@ -175,6 +175,8 @@ export default {
     creating: 'Création…',
     dismiss: 'Plus tard',
     cta: 'Configurer la notification',
+    wired: 'Notification câblée',
+    unwired: 'Aucune notification — détection seule',
   },
   dashboard: {
     title: 'Tableau de bord',
@@ -737,6 +739,8 @@ export default {
     zscore_hint: '— sensibilité de la détection (1.0 = très sensible, 3.5 = standard)',
     zscore_help: "Déclenche une alerte si le temps de réponse s'écarte de plus de Z-sigma par rapport à la moyenne des 7 derniers jours.",
     schema_drift_help: "Déclenche une alerte quand la structure JSON de la réponse change par rapport au baseline. Activez d'abord la détection de dérive dans le moniteur.",
+    schema_drift_enable_cta: 'Activer la détection sur ce moniteur',
+    schema_drift_enabled_ok: 'La détection de dérive de schéma est active sur ce moniteur.',
     threshold_ms_label: 'Seuil (ms)',
     threshold_placeholder: 'ex : 2000',
     renotify_placeholder: 'ex : 60',

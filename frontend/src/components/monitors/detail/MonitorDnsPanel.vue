@@ -60,6 +60,9 @@
             class="inline-block h-4 w-4 mt-0.5 transform rounded-full bg-white transition-transform" />
         </button>
       </label>
+      <p v-if="monitor.dns_drift_alert && state.wired.value !== null" class="text-xs" :class="state.wired.value ? 'text-(--up)' : 'text-(--warn)'">
+        {{ state.wired.value ? '✓ ' + t('detection_alert.wired') : '⚠ ' + t('detection_alert.unwired') }}
+      </p>
       <label v-if="monitor.dns_drift_alert" class="flex items-center justify-between cursor-pointer gap-4">
         <div>
           <p class="text-sm text-(--text-2)">{{ t('monitors.dns_drift.split_horizon') }}</p>
@@ -158,12 +161,12 @@
 </template>
 
 <script setup>
-import { inject } from 'vue'
+import { inject, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import DetectionAlertBridge from '../../shared/DetectionAlertBridge.vue'
 import { DnsStateKey } from './injectionKeys'
 
-defineProps({
+const props = defineProps({
   monitor: { type: Object, required: true },
   formatTarget: { type: Function, required: true },
   formatDate: { type: Function, required: true },
@@ -177,4 +180,11 @@ defineProps({
 const state = inject(DnsStateKey)
 
 const { t } = useI18n()
+
+// Detection ↔ notification state indicator (B-3): is a down-alert wired?
+watch(
+  () => props.monitor?.dns_drift_alert && props.monitor?.id,
+  (ready) => { if (ready) state.refreshWired('any_down') },
+  { immediate: true },
+)
 </script>

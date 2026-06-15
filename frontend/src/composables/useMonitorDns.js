@@ -113,7 +113,7 @@ export function useMonitorDns(monitorRef, resultsRef) {
   // Shared with other detections via useDetectionAlertBridge — DNS drift wires
   // an `any_down` rule (a drift surfaces as the monitor going down).
   const bridge = useDetectionAlertBridge(monitorRef)
-  const { alertModal, alertChannels, alertChannelId, alertCreating, createAlertRule } = bridge
+  const { alertModal, alertChannels, alertChannelId, alertCreating, createAlertRule, wired, refreshWired } = bridge
 
   async function toggleSetting(field) {
     if (!monitorRef.value) return
@@ -153,5 +153,8 @@ export function useMonitorDns(monitorRef, resultsRef) {
     alertCreating,
     toggleSetting,
     createAlertRule,
+    // detection ↔ notification state (B-3)
+    wired,
+    refreshWired,
   }
 }

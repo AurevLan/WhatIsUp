@@ -63,4 +63,23 @@ describe('useDetectionAlertBridge', () => {
     })
     expect(b.alertModal.value).toBe(false)
   })
+
+  it('createAlertRule marks the detection as wired', async () => {
+    mockApi({ channels: [{ id: 'c1', name: 'Email', type: 'email' }], rules: [] })
+    const b = useDetectionAlertBridge(ref({ id: 'm1' }))
+    await b.offerAlert('schema_drift')
+    expect(b.wired.value).toBe(null)
+    await b.createAlertRule()
+    expect(b.wired.value).toBe(true)
+  })
+
+  it('refreshWired reflects whether a rule with the condition exists', async () => {
+    const b = useDetectionAlertBridge(ref({ id: 'm1' }))
+    mockApi({ rules: [{ monitor_id: 'm1', condition: 'schema_drift' }] })
+    await b.refreshWired('schema_drift')
+    expect(b.wired.value).toBe(true)
+    mockApi({ rules: [{ monitor_id: 'other', condition: 'schema_drift' }] })
+    await b.refreshWired('schema_drift')
+    expect(b.wired.value).toBe(false)
+  })
 })

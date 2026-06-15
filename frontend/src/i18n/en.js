@@ -171,6 +171,15 @@ export default {
     online: 'Online',
     offline: 'Offline',
   },
+  detection_alert: {
+    title: 'Get notified?',
+    desc: 'This detection is enabled, but on its own it sends no notification. Pick a channel to create an alert rule.',
+    channel: 'Notification channel',
+    create: 'Create the alert rule',
+    creating: 'Creating…',
+    dismiss: 'Not now',
+    cta: 'Set up notification',
+  },
 
   // Dashboard
   dashboard: {

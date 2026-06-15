@@ -9,8 +9,11 @@ name: Release Please
 #        - bump la version dans server/pyproject.toml, probe/pyproject.toml,
 #          frontend/package.json, frontend/package-lock.json
 #   2. Quand tu MERGES cette Release PR, release-please crée le tag `vX.Y.Z` et
-#      la GitHub Release. Le workflow `release.yml` existant (build & push GHCR)
-#      se déclenche alors automatiquement sur le tag.
+#      la GitHub Release, puis ce workflow **enchaîne directement** (via
+#      `workflow_call`, dans le même run) `release.yml` (build & push GHCR) et
+#      `mobile-release.yml` (APK signé attaché à la release). Le tag étant créé
+#      avec GITHUB_TOKEN, il ne déclenche PAS les `on: push: tags` — d'où le
+#      chaînage explicite ci-dessous plutôt qu'un dispatch manuel.
 #
 # Convention de commits attendue (Conventional Commits) :
 #   feat:        → bump MINOR  (nouvelle feature)
@@ -36,6 +39,9 @@ jobs:
   release-please:
     name: Open / update release PR
     runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
       - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7  # v5.0.0
         id: release
@@ -44,3 +50,28 @@ jobs:
           # (server / probe / frontend) — voir .release-please-config.json
           config-file: .release-please-config.json
           manifest-file: .release-please-manifest.json
+
+  # ── Quand une release vient d'être créée, publier les artefacts ────────────
+  # (le tag release-please ne déclenche pas les `on: push: tags`).
+  docker:
+    name: Docker images (GHCR)
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    permissions:
+      contents: write
+      packages: write
+    secrets: inherit
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.release-please.outputs.tag_name }}
+
+  mobile:
+    name: Android APK
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    permissions:
+      contents: write
+    secrets: inherit
+    uses: ./.github/workflows/mobile-release.yml
+    with:
+      tag: ${{ needs.release-please.outputs.tag_name }}

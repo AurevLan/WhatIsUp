@@ -129,15 +129,7 @@
               {{ m.url?.replace(/^https?:\/\//, '') }}
             </td>
             <td class="py-2">
-              <span class="text-xs font-medium px-2 py-0.5 rounded-full"
-                :class="{
-                  'bg-[color-mix(in_srgb,var(--up)_15%,transparent)] text-(--up)': m.last_status === 'up',
-                  'bg-[color-mix(in_srgb,var(--down)_15%,transparent)] text-(--down)': m.last_status === 'down',
-                  'bg-[color-mix(in_srgb,var(--warn)_15%,transparent)] text-(--warn)': m.last_status === 'timeout' || m.last_status === 'error',
-                  'bg-(--bg-surface-2) text-(--text-3)': !m.last_status,
-                }">
-                {{ m.last_status || t('status.no_data') }}
-              </span>
+              <StatusBadge :status="m.last_status" :dot="false" />
             </td>
             <td class="py-2 text-(--text-2) text-xs">
               {{ m.uptime_24h != null ? m.uptime_24h.toFixed(1) + '%' : '—' }}
@@ -186,6 +178,7 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { groupsApi, monitorsApi } from '../api/monitors'
 import BaseModal from '../components/BaseModal.vue'
+import StatusBadge from '../components/shared/StatusBadge.vue'
 
 const { t } = useI18n()
 const route = useRoute()

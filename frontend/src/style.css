@@ -116,16 +116,8 @@
   border-color: #6e5014;
   box-shadow: 0 2px 8px rgba(138,100,24,.3);
 }
-:root[data-theme="light"] .btn-danger {
-  background: rgba(168,73,47,.07);
-  color: #a8492f;
-  border-color: rgba(168,73,47,.22);
-}
-:root[data-theme="light"] .btn-danger:hover {
-  background: rgba(168,73,47,.13);
-  color: #8c3c26;
-  border-color: rgba(168,73,47,.38);
-}
+/* btn-danger : plus d'override clair — la base est désormais tokenisée sur --down
+   (terracotta thémé : #e8876b sombre / #a8492f clair). */
 
 /* Light table row hover */
 :root[data-theme="light"] tbody tr:hover td { background: rgba(0,0,0,.02); }
@@ -245,14 +237,14 @@
 
   .btn-primary {
     background: var(--accent-glow);
-    color: #e3bb66;
+    color: color-mix(in srgb, var(--accent) 80%, #fff);
     border-color: var(--accent-border);
   }
   .btn-primary:hover {
-    background: rgba(220,171,74,.24);
-    color: #f0d08c;
-    border-color: rgba(220,171,74,.55);
-    box-shadow: 0 0 0 1px rgba(220,171,74,.15), 0 4px 12px rgba(220,171,74,.12);
+    background: color-mix(in srgb, var(--accent) 24%, transparent);
+    color: color-mix(in srgb, var(--accent) 45%, #fff);
+    border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 15%, transparent), 0 4px 12px color-mix(in srgb, var(--accent) 12%, transparent);
   }
   .btn-primary:active { transform: translateY(1px); }
 
@@ -280,15 +272,40 @@
   }
 
   .btn-danger {
-    background: rgba(248,113,113,.08);
-    color: #fca5a5;
-    border-color: rgba(248,113,113,.2);
+    background: color-mix(in srgb, var(--down) 8%, transparent);
+    color: var(--down);
+    border-color: color-mix(in srgb, var(--down) 22%, transparent);
   }
   .btn-danger:hover {
-    background: rgba(248,113,113,.16);
-    color: #fecaca;
-    border-color: rgba(248,113,113,.35);
+    background: color-mix(in srgb, var(--down) 15%, transparent);
+    color: var(--down);
+    border-color: color-mix(in srgb, var(--down) 38%, transparent);
   }
+
+  /* ── Échelle de tailles — modificateurs à combiner avec .btn-* (défaut = md ≈ 32px) ── */
+  .btn-sm { padding: 0.25rem 0.55rem; font-size: 0.75rem; gap: 0.3rem; }
+  .btn-lg { padding: 0.55rem 1.1rem;  font-size: 0.9375rem; gap: 0.5rem; }
+
+  /* ── Bouton-icône carré (remplace les boutons-icône ad-hoc type .ack-btn) ── */
+  .btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border-radius: var(--radius-sm);
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-3);
+    cursor: pointer;
+    transition: all .18s ease;
+  }
+  .btn-icon:hover { background: var(--bg-surface-2); color: var(--text-2); border-color: var(--border); }
+  .btn-icon:focus-visible { box-shadow: var(--focus-ring); outline: none; }
+  .btn-icon:disabled { opacity: .45; cursor: not-allowed; pointer-events: none; }
+  /* Cible tactile ≥ 44px sur mobile (WCAG 2.5.8) */
+  @media (max-width: 640px) { .btn-icon { width: 2.75rem; height: 2.75rem; } }
 
   /* ── Inputs ── */
   .input {

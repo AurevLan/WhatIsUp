@@ -158,6 +158,8 @@ export default {
   status: {
     up: 'En ligne',
     down: 'Hors ligne',
+    timeout: 'Délai dépassé',
+    error: 'Erreur',
     pending: 'En attente',
     paused: 'En pause',
     degraded: 'Dégradé',

@@ -167,9 +167,7 @@
                 <span class="uppercase mr-1.5">{{ monitor.check_type }}</span>· {{ formatTarget(monitor) }}
               </p>
             </div>
-            <span :class="badgeClass(monitor._lastStatus)" class="flex-shrink-0">
-              {{ statusLabel(monitor._lastStatus) }}
-            </span>
+            <StatusBadge :status="monitor._lastStatus" :dot="false" class="flex-shrink-0" />
           </div>
           <div class="flex items-center justify-between mt-3 text-xs">
             <div>
@@ -237,10 +235,7 @@
 
             <!-- Status -->
             <td class="td pl-2">
-              <span :class="badgeClass(monitor._lastStatus)">
-                <span class="w-1.5 h-1.5 rounded-full" :class="dotClass(monitor._lastStatus)" />
-                {{ statusLabel(monitor._lastStatus) }}
-              </span>
+              <StatusBadge :status="monitor._lastStatus" />
             </td>
 
             <!-- Name -->
@@ -489,6 +484,7 @@ import { useMonitorFilters } from '../composables/useMonitorFilters'
 import { useMonitorSelection } from '../composables/useMonitorSelection'
 import { useMonitorImportExport } from '../composables/useMonitorImportExport'
 import { useMonitorDisplay } from '../composables/useMonitorDisplay'
+import StatusBadge from '../components/shared/StatusBadge.vue'
 import CreateMonitorModal from '../components/monitors/CreateMonitorModal.vue'
 import CreateMonitorWizard from '../components/monitors/CreateMonitorWizard.vue'
 import EditMonitorModal from '../components/monitors/EditMonitorModal.vue'
@@ -541,7 +537,7 @@ const { importFileInput, exportMonitors, triggerImport, handleImportFile } =
   useMonitorImportExport()
 
 // ── Row display helpers (composable) ─────────────────────────────────────────
-const { dotClass, badgeClass, statusLabel, formatTarget, uptimeColor, responseTimeColor } =
+const { dotClass, formatTarget, uptimeColor, responseTimeColor } =
   useMonitorDisplay()
 
 // ── Keyboard shortcuts ─────────────────────────────────────────────────────────

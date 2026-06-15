@@ -98,11 +98,8 @@
 }
 
 /* Light theme overrides for semi-transparent badge backgrounds */
-:root[data-theme="light"] .badge-up      { background: rgba(65,112,80,.09);  color: #386246; border-color: rgba(65,112,80,.22); }
-:root[data-theme="light"] .badge-down    { background: rgba(168,73,47,.09);  color: #97402a; border-color: rgba(168,73,47,.22); }
-:root[data-theme="light"] .badge-timeout { background: rgba(138,100,24,.10); color: #7c5a15; border-color: rgba(138,100,24,.24); }
-:root[data-theme="light"] .badge-error   { background: rgba(153,85,29,.09);  color: var(--error); border-color: rgba(153,85,29,.24); }
-:root[data-theme="light"] .badge-unknown { background: rgba(108,99,84,.10);  color: var(--text-3); border-color: rgba(108,99,84,.22); }
+/* badges de statut : plus d'override clair — la base `.badge-*` est tokenisée
+   (sur --up/--down/--warn/--error/--text-3, tous thémés). */
 
 /* Light button overrides */
 :root[data-theme="light"] .btn-primary {
@@ -354,11 +351,12 @@
     letter-spacing: .04em;
     text-transform: uppercase;
   }
-  .badge-up      { background: rgba(52,211,153,.1);  color: #6ee7b7; border: 1px solid rgba(52,211,153,.22); }
-  .badge-down    { background: rgba(248,113,113,.1); color: #fca5a5; border: 1px solid rgba(248,113,113,.22); }
-  .badge-timeout { background: rgba(251,191,36,.1);  color: #fde68a; border: 1px solid rgba(251,191,36,.22); }
-  .badge-error   { background: color-mix(in srgb, var(--error) 12%, transparent);  color: var(--error); border: 1px solid color-mix(in srgb, var(--error) 28%, transparent); }
-  .badge-unknown { background: rgba(77,96,112,.15);  color: var(--text-3); border: 1px solid rgba(77,96,112,.25); }
+  /* Badges de statut tokenisés (VELOURS) — couleurs thémées, les 2 thèmes en découlent */
+  .badge-up      { background: color-mix(in srgb, var(--up) 12%, transparent);     color: var(--up);     border: 1px solid color-mix(in srgb, var(--up) 28%, transparent); }
+  .badge-down    { background: color-mix(in srgb, var(--down) 12%, transparent);   color: var(--down);   border: 1px solid color-mix(in srgb, var(--down) 28%, transparent); }
+  .badge-timeout { background: color-mix(in srgb, var(--warn) 12%, transparent);   color: var(--warn);   border: 1px solid color-mix(in srgb, var(--warn) 28%, transparent); }
+  .badge-error   { background: color-mix(in srgb, var(--error) 12%, transparent);  color: var(--error);  border: 1px solid color-mix(in srgb, var(--error) 28%, transparent); }
+  .badge-unknown { background: color-mix(in srgb, var(--text-3) 14%, transparent); color: var(--text-3); border: 1px solid color-mix(in srgb, var(--text-3) 26%, transparent); }
 
   /* ── Table ── */
   .th { padding: 0 1rem 0.625rem 0; font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text-3); text-align: left; }

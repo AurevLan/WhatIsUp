@@ -323,9 +323,17 @@
             <p class="text-xs text-(--text-3)">{{ t('alerts.zscore_help') }}</p>
           </div>
 
-          <!-- Schema drift info -->
-          <div v-if="ruleForm.condition === 'schema_drift'" class="bg-[color-mix(in_srgb,var(--warn)_15%,transparent)] border border-[color-mix(in_srgb,var(--warn)_35%,transparent)] rounded-lg p-3">
+          <!-- Schema drift info + inverse bridge: a schema_drift rule does nothing
+               unless the monitor actually computes the fingerprint, so offer to
+               enable detection right here instead of a dead-end hint. -->
+          <div v-if="ruleForm.condition === 'schema_drift'" class="bg-[color-mix(in_srgb,var(--warn)_15%,transparent)] border border-[color-mix(in_srgb,var(--warn)_35%,transparent)] rounded-lg p-3 space-y-2">
             <p class="text-xs text-(--warn)">{{ t('alerts.schema_drift_help') }}</p>
+            <template v-if="ruleForm.target_type === 'monitor' && selectedMonitor">
+              <p v-if="selectedMonitor.schema_drift_enabled" class="text-xs text-(--up)">✓ {{ t('alerts.schema_drift_enabled_ok') }}</p>
+              <button v-else type="button" class="btn-secondary btn-sm" :disabled="enablingDrift" @click="enableSchemaDrift">
+                {{ enablingDrift ? t('common.loading') : t('alerts.schema_drift_enable_cta') }}
+              </button>
+            </template>
           </div>
 
           <!-- Threshold -->
@@ -500,6 +508,7 @@ const events = ref([])
 const rules = ref([])
 const allMonitors = ref([])
 const allGroups = ref([])
+const enablingDrift = ref(false)
 const showAddChannel = ref(false)
 const showRuleModal = ref(false)
 const editingRule = ref(null)
@@ -551,6 +560,28 @@ function dismissSuggestion(s) {
 const DEFAULT_SCHEDULE = { offhours_suppress: false, timezone: 'Europe/Paris', days: [0, 1, 2, 3, 4], start: '09:00', end: '18:00' }
 
 const ruleForm = ref(defaultRuleForm())
+
+// Inverse detection→alert bridge: the monitor selected for a schema_drift rule.
+const selectedMonitor = computed(() =>
+  ruleForm.value.target_type === 'monitor'
+    ? allMonitors.value.find((m) => m.id === ruleForm.value.target_id) || null
+    : null,
+)
+
+async function enableSchemaDrift() {
+  const m = selectedMonitor.value
+  if (!m) return
+  enablingDrift.value = true
+  try {
+    await monitorsApi.update(m.id, { schema_drift_enabled: true })
+    m.schema_drift_enabled = true
+    success(t('alerts.schema_drift_enabled_ok'))
+  } catch (e) {
+    toastError(e.response?.data?.detail || t('common.error'))
+  } finally {
+    enablingDrift.value = false
+  }
+}
 
 function defaultRuleForm() {
   return {

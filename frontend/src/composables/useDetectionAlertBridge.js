@@ -20,6 +20,21 @@ export function useDetectionAlertBridge(monitorRef) {
   const alertChannelId = ref('')
   const alertCreating = ref(false)
   const pendingCondition = ref(null)
+  // null = unknown, true/false = whether a rule with the watched condition exists.
+  const wired = ref(null)
+
+  // Persistent state indicator (B-3): is a rule for this condition already wired?
+  async function refreshWired(condition) {
+    if (!monitorRef.value) return
+    try {
+      const { data } = await api.get('/alerts/rules')
+      wired.value = data.some(
+        (r) => r.monitor_id === monitorRef.value.id && r.condition === condition,
+      )
+    } catch {
+      wired.value = null
+    }
+  }
 
   // Open the suggestion modal iff: no rule with this condition already exists
   // for the monitor AND at least one alert channel is configured. Silent on
@@ -56,6 +71,7 @@ export function useDetectionAlertBridge(monitorRef) {
         min_duration_seconds: 0,
         channel_ids: [alertChannelId.value],
       })
+      wired.value = true
       alertModal.value = false
     } catch (e) {
       toastError(e.response?.data?.detail || 'Error creating the alert rule')
@@ -74,8 +90,10 @@ export function useDetectionAlertBridge(monitorRef) {
     alertChannelId,
     alertCreating,
     pendingCondition,
+    wired,
     offerAlert,
     createAlertRule,
+    refreshWired,
     dismiss,
   }
 }

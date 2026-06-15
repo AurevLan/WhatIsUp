@@ -179,6 +179,8 @@ export default {
     creating: 'Creating…',
     dismiss: 'Not now',
     cta: 'Set up notification',
+    wired: 'Notification wired',
+    unwired: 'No notification — detection only',
   },
 
   // Dashboard
@@ -754,6 +756,8 @@ export default {
     zscore_hint: '— detection sensitivity (1.0 = very sensitive, 3.5 = standard)',
     zscore_help: 'Fires an alert when the response time deviates by more than Z sigma from the 7-day average.',
     schema_drift_help: 'Fires an alert when the JSON structure of the response changes compared to the baseline. Enable drift detection on the monitor first.',
+    schema_drift_enable_cta: 'Enable detection on this monitor',
+    schema_drift_enabled_ok: 'Schema drift detection is active on this monitor.',
     threshold_ms_label: 'Threshold (ms)',
     threshold_placeholder: 'e.g. 2000',
     renotify_placeholder: 'e.g. 60',

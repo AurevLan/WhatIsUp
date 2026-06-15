@@ -45,11 +45,16 @@
           <p v-else class="text-xs text-(--text-3) italic">No baseline set — next successful check will auto-set it</p>
         </div>
         <div class="flex gap-2 flex-shrink-0">
-          <button @click="schemaAlert.offerAlert('schema_drift')" class="btn-secondary btn-sm">{{ t('detection_alert.cta') }}</button>
+          <button v-if="schemaAlert.wired.value !== true" @click="schemaAlert.offerAlert('schema_drift')" class="btn-secondary btn-sm">{{ t('detection_alert.cta') }}</button>
           <button @click="patch.acceptSchemaBaseline" class="btn-primary btn-sm">Accept latest</button>
           <button @click="patch.resetSchemaBaseline" :disabled="!monitor.schema_baseline" class="btn-ghost btn-sm text-(--down) disabled:opacity-50">Reset</button>
         </div>
       </div>
+
+      <!-- Detection ↔ notification state (B-3) -->
+      <p v-if="schemaAlert.wired.value !== null" class="text-xs mt-2" :class="schemaAlert.wired.value ? 'text-(--up)' : 'text-(--warn)'">
+        {{ schemaAlert.wired.value ? '✓ ' + t('detection_alert.wired') : '⚠ ' + t('detection_alert.unwired') }}
+      </p>
 
       <DetectionAlertBridge
         :open="schemaAlert.alertModal.value"
@@ -183,7 +188,7 @@
 </template>
 
 <script setup>
-import { computed, inject, toRef } from 'vue'
+import { computed, inject, toRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Shield, ShieldAlert, ShieldCheck } from 'lucide-vue-next'
 import { PatchStateKey, DependenciesStateKey } from './injectionKeys'
@@ -208,6 +213,13 @@ const deps = inject(DependenciesStateKey)
 // Schema drift → notification bridge (same flow as DNS drift), so schema drift
 // isn't a detection that silently sends nothing.
 const schemaAlert = useDetectionAlertBridge(toRef(props, 'monitor'))
+
+// Check whether a schema_drift alert is already wired, to show the state indicator.
+watch(
+  () => props.monitor?.schema_drift_enabled && props.monitor?.id,
+  (ready) => { if (ready) schemaAlert.refreshWired('schema_drift') },
+  { immediate: true },
+)
 
 const { t } = useI18n()
 

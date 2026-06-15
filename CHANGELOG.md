@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.14.0](https://github.com/AurevLan/WhatIsUp/compare/v1.13.0...v1.14.0) (2026-06-15)
+
+
+### Added
+
+* **frontend:** axis B — inverse alert→detection CTA + detection state indicator ([#195](https://github.com/AurevLan/WhatIsUp/issues/195)) ([0a3df9a](https://github.com/AurevLan/WhatIsUp/commit/0a3df9a05fd06dc9af369e81ed7d8f505d03675c))
+* **frontend:** design system axis A (A-1→A-4) — buttons + status badges ([#192](https://github.com/AurevLan/WhatIsUp/issues/192)) ([c1d4820](https://github.com/AurevLan/WhatIsUp/commit/c1d48207ed7d3dc752a21b7f25678ae3ae2f9d8d))
+* **frontend:** design system axis B — detection→alert bridge (DNS + schema parity) ([#194](https://github.com/AurevLan/WhatIsUp/issues/194)) ([2a3ec15](https://github.com/AurevLan/WhatIsUp/commit/2a3ec156acd762bdab29927e03a61517a8e4657c))
+
+
+### Fixed
+
+* **deps:** bump form-data 4.0.6 + tar 7.5.16 (npm audit) ([#191](https://github.com/AurevLan/WhatIsUp/issues/191)) ([d37fb1d](https://github.com/AurevLan/WhatIsUp/commit/d37fb1d53692266a7a0a73d7433a7044dbf3f4f0))
+* **deps:** cap fastapi &lt;0.137 — _IncludedRouter breaks routing ([#189](https://github.com/AurevLan/WhatIsUp/issues/189)) ([2fe3be5](https://github.com/AurevLan/WhatIsUp/commit/2fe3be550280dcc89eb3d85d0d041774039e5725))
+* **frontend:** dashboard probe activity read the wrong field ([b8768a8](https://github.com/AurevLan/WhatIsUp/commit/b8768a836fef3c2886ee155c284411844bc8aadb))
+* **frontend:** responsive / mobile polish (R-1→R-4) ([#188](https://github.com/AurevLan/WhatIsUp/issues/188)) ([1b61071](https://github.com/AurevLan/WhatIsUp/commit/1b610718b26a99e3bb1a78d47d3e0bbd9fcd9365))
+
+
+### Changed
+
+* **frontend:** A-3 follow-up — GroupDetailView status pill → StatusBadge ([#196](https://github.com/AurevLan/WhatIsUp/issues/196)) ([72f13d9](https://github.com/AurevLan/WhatIsUp/commit/72f13d928f3e65376648bb7852e75d6961dfcacd))
+
+
+### Docs
+
+* **features:** amend for v1.13.0 — VELOURS design system + accessibility ([186157e](https://github.com/AurevLan/WhatIsUp/commit/186157e06fe4f4b5372e92717b8ee8a5df9630e6))
+* **readme:** real VELOURS screenshots (both themes) ([58577ae](https://github.com/AurevLan/WhatIsUp/commit/58577ae3b5bf53cb6c3eb9896b8540efef518937))
+
 ## [1.13.0](https://github.com/AurevLan/WhatIsUp/compare/v1.12.0...v1.13.0) (2026-06-13)
 
 

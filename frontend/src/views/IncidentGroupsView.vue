@@ -1,6 +1,6 @@
 <template>
   <div class="p-8">
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
       <div>
         <h1 class="font-display text-2xl font-bold text-(--text-1)">{{ t('incidentGroups.title') }}</h1>
         <p class="text-(--text-2) text-sm mt-1">{{ t('incidentGroups.subtitle') }}</p>
@@ -67,7 +67,7 @@
           >{{ t('incidentGroups.type_' + group.correlation_type) }}</span>
         </div>
 
-        <div class="grid grid-cols-2 gap-4 text-sm">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
           <div>
             <p class="text-(--text-3) text-xs mb-1">{{ t('incidentGroups.cause_probes') }}</p>
             <div class="flex flex-wrap gap-1">

@@ -133,6 +133,21 @@ setLocale('fr')            // persiste dans localStorage('whatisup_lang')
 - Fichiers de traduction : `frontend/src/i18n/en.js` et `fr.js`
 - Toute nouvelle string UI → ajouter dans `en.js` ET `fr.js`
 
+## Responsive (mobile-first) — conventions
+
+> Cible double : navigateur mobile **et** app native Android (Capacitor). Tailwind v4, breakpoints par défaut `sm:640 / md:768 / lg:1024 / xl:1280`. Suivi : `plan_responsive.md`.
+
+- **Mobile-first** : la base CSS = mobile ; on élargit avec `md:`/`lg:`. Ne jamais régresser le rendu desktop.
+- **Shell déjà responsive** : `AppLayout` gère drawer off-canvas + hamburger + overlay + scroll-lock (`< 1024px`). Ne pas le retoucher.
+- **Tables — deux tiers selon l'usage** :
+  - *Contenu primaire* (liste monitors) → **cartes ↔ tableau** (réf. `MonitorsView.vue`) : `<div class="md:hidden">` cartes empilées (touch ≥44px) + `<table class="hidden md:table">` colonnes dégressives (`hidden lg:table-cell` / `hidden sm:table-cell`). Pas de composant `ResponsiveTable` : ce duo fait foi.
+  - *Tables denses secondaires/admin* (6-7 colonnes techniques : `AuditView`, `AdminView`, `TlsFleetView`, `GroupDetailView`) → **scroll horizontal** : wrapper `<div class="overflow-x-auto">` + `min-w-[Nrem]` sur le `<table>`. Préserve toutes les colonnes sans dupliquer le markup ; acceptable car surfaces power-user.
+- **Grilles fluides sans breakpoint** : préférer `clamp()` pour la typo (cf. hero `DashboardView`) et `grid-template-columns: repeat(auto-fill, minmax(Npx, 1fr))` pour les grilles de cartes.
+- **Lignes en grille fixe** (cf. `IncidentsView .inc-row`) : reflow via `@media (max-width: 640px)` ; les colonnes d'actions multi-boutons passent en **ligne pleine largeur** (`grid-column: 1 / -1`) avec `flex-wrap`, jamais comprimées dans une piste étroite.
+- **Barres d'actions / filtres** : toujours `flex-wrap` (cf. `.filter-bar` global). Une rangée de boutons sans wrap déborde < 360px.
+- **Helpers globaux** : `.fab` (masqué ≥640px), overrides padding `< 640px` dans `style.css` (`## Responsive page content`).
+- Touch targets ≥ 44px en mobile (acquis A11Y-5) ; `prefers-reduced-motion` respecté (règle globale).
+
 ## Design system — boutons & badges
 
 > Consolidation post-VELOURS (`plan_design_system.md`). Objectif : couche composants homogène par-dessus les tokens.
@@ -142,7 +157,7 @@ setLocale('fr')            // persiste dans localStorage('whatisup_lang')
 - Tailles (modificateurs) : `.btn-sm` (≈28px) · défaut = md (≈32px, rien à ajouter) · `.btn-lg` (≈40px). **Ne pas** remettre `h-8`/`h-9`/`text-xs`/`px-* py-*` en inline sur un `.btn-*` → utiliser `.btn-sm`/`.btn-lg`.
 - Bouton-icône : `.btn-icon` (carré, ≥44px tactile mobile). Remplace les boutons-icône ad-hoc (`.ack-btn` etc.).
 
-**Badges de statut** : composant `<StatusBadge :status>` (à venir A-3) — ne pas réimplémenter `badgeClass`/`dotClass`/`statusLabel` en local.
+**Badges de statut** : composant `<StatusBadge :status>` — ne pas réimplémenter `badgeClass`/`dotClass`/`statusLabel` en local.
 
 ## Processus de release (SemVer)
 

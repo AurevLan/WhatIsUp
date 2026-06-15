@@ -101,7 +101,8 @@
         {{ t('group_detail.no_monitors') }}
       </div>
 
-      <table v-else class="w-full text-sm">
+      <div v-else class="overflow-x-auto">
+      <table class="w-full text-sm min-w-[40rem]">
         <thead>
           <tr class="text-xs text-(--text-3) border-b border-(--border)">
             <th class="pb-2 text-left">{{ t('common.name') }}</th>
@@ -149,6 +150,7 @@
           </tr>
         </tbody>
       </table>
+      </div>
     </div>
 
     <!-- Error banner -->

@@ -345,7 +345,7 @@ async function finish() {
 
 .onboarding__presets {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
   gap: 0.75rem;
   width: 100%;
   margin-bottom: 1.25rem;

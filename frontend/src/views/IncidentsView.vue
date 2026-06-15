@@ -512,7 +512,7 @@ async function unack(inc) {
 }
 @media (max-width: 640px) {
   .inc-row {
-    grid-template-columns: auto 1fr 44px;
+    grid-template-columns: auto 1fr;
     gap: .625rem .75rem;
     padding: .875rem 1rem;
     min-height: 64px;
@@ -539,7 +539,18 @@ async function unack(inc) {
     color: var(--text-3);
   }
   .inc-col--status { grid-column: 1 / 2; grid-row: 1 / 3; align-self: center; }
-  .inc-col--actions { grid-column: 3 / 4; grid-row: 1 / 3; align-self: center; }
+  /* Standalone incidents carry up to 5 action buttons — give them their own
+     full-width row that wraps instead of cramming into a narrow track. */
+  .inc-col--actions {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    align-items: center;
+    gap: .5rem;
+    margin-top: .125rem;
+  }
 }
 
 .inc-row--head {

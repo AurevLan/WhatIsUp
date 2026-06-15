@@ -27,7 +27,8 @@
         <div v-for="i in 8" :key="i" class="skeleton h-10" style="border-radius:var(--radius-sm)" />
       </div>
 
-      <table v-else class="w-full text-sm">
+      <div v-else class="overflow-x-auto">
+      <table class="w-full text-sm min-w-[34rem]">
         <thead class="border-b" style="border-color:var(--border)">
           <tr class="text-left" style="color:var(--text-3)">
             <th class="px-4 py-3">{{ t('audit.col_timestamp') }}</th>
@@ -58,12 +59,13 @@
           </tr>
         </tbody>
       </table>
+      </div>
     </div>
 
     <!-- Diff panel -->
     <div v-if="selected?.diff" class="mt-4 card">
       <h2 class="text-sm font-semibold text-(--text-2) mb-3">{{ t('audit.changes') }}</h2>
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <div class="text-xs text-(--text-3) mb-1">{{ t('audit.before') }}</div>
           <pre class="text-xs text-(--text-2) bg-(--bg-surface-2) rounded p-3 overflow-auto max-h-64">{{ JSON.stringify(selected.diff.before, null, 2) }}</pre>

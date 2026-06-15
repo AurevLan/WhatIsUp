@@ -56,7 +56,7 @@
           </select>
         </label>
 
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <label class="block text-xs">
             <span class="text-(--text-2)">{{ t('silences.starts_at') }}</span>
             <input type="datetime-local" v-model="draft.starts_at" class="input mt-1" />

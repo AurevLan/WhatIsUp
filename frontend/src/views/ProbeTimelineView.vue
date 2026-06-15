@@ -1,6 +1,6 @@
 <template>
   <div class="page-body">
-    <div class="flex items-center gap-4 mb-6">
+    <div class="flex flex-wrap items-center gap-x-4 gap-y-2 mb-6">
       <nav class="breadcrumbs">
         <router-link to="/probes">{{ t('nav.probes') }}</router-link>
         <span class="breadcrumbs__sep">/</span>
@@ -56,7 +56,7 @@
         <div class="space-y-1">
           <div
             v-for="inc in m.incidents.slice(0, 5)" :key="inc.id + '-row'"
-            class="flex items-center gap-4 text-xs text-(--text-2)"
+            class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-(--text-2)"
           >
             <span
               class="w-2 h-2 rounded-full flex-shrink-0"

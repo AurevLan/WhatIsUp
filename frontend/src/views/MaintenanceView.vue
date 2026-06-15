@@ -188,7 +188,7 @@
         </div>
 
         <!-- Start / End pickers -->
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label class="text-sm text-(--text-2)">{{ t('maintenance.starts') }} <span class="text-(--down)">*</span></label>
             <input v-model="form.starts_at" type="datetime-local" class="input w-full mt-1" />

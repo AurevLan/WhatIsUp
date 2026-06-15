@@ -56,8 +56,8 @@
     <!-- Filter bar -->
     <div class="space-y-1.5 mb-4">
       <!-- Row 1: search + view toggle + add -->
-      <div class="flex gap-2 items-center">
-        <div class="relative flex-1">
+      <div class="flex flex-wrap gap-2 items-center">
+        <div class="relative flex-1 min-w-[12rem]">
           <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-(--text-3) pointer-events-none" />
           <input ref="searchInput" :value="searchInput_" @input="onSearchInput($event.target.value)" class="input pl-9 h-8 text-xs" :placeholder="t('common.search') + '…'" />
         </div>

@@ -42,7 +42,7 @@
             <h2 class="font-semibold" style="color:var(--text-1)">{{ group.name }}</h2>
             <p class="text-sm mt-1" style="color:var(--text-3)">{{ group.description || t('groups.no_description') }}</p>
           </div>
-          <button @click="deleteGroup(group)" class="btn-ghost btn-sm" style="color:var(--text-3)" :aria-label="t('common.delete')">
+          <button @click="deleteGroup(group)" class="btn-icon" :aria-label="t('common.delete')">
             <Trash2 :size="14" />
           </button>
         </div>

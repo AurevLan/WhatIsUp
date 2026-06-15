@@ -301,6 +301,7 @@
   .btn-icon:hover { background: var(--bg-surface-2); color: var(--text-2); border-color: var(--border); }
   .btn-icon:focus-visible { box-shadow: var(--focus-ring); outline: none; }
   .btn-icon:disabled { opacity: .45; cursor: not-allowed; pointer-events: none; }
+  .btn-icon--active { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, transparent); }
   /* Cible tactile ≥ 44px sur mobile (WCAG 2.5.8) */
   @media (max-width: 640px) { .btn-icon { width: 2.75rem; height: 2.75rem; } }
 

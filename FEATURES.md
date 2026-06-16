@@ -2,6 +2,7 @@
 
 > **Source de vérité** des features livrées. À amender à chaque release.
 > Référence : **v1.14.0** (2026-06-15) — consolidation du design system (échelle de tailles boutons + tokenisation complète, `<StatusBadge>`), pont détection→notification homogène, et responsive mobile. Socle : design system VELOURS + accessibilité gates CI (v1.13), 2FA TOTP + sessions actives (v1.12), Health Engine V2 (M0-M5, en prod sur 17/17 monitors depuis 2026-05-06).
+> Dernière release : **v1.14.2** (2026-06-16) — release de maintenance (bumps deps cryptography/redis/frontend + pin `tzlocal != 5.4.2`, wheel cassé en amont qui bloquait les tests probe). Première release publiée par le **chaînage CI 100 % automatique** (release-please → Docker GHCR + APK signé), sans dispatch manuel.
 > Pour la chronologie détaillée, voir `CHANGELOG.md`.
 
 **Légende** : ✅ livré · 🔬 livré + tests automatisés · 🚧 partiel (voir notes).
@@ -431,9 +432,9 @@
 | `ci.yml` | push/PR main | lint ruff + tests server (≥50%) + tests probe (≥35%) + Alembic up/down |
 | `codeql.yml` | push/PR + lundi 06h | CodeQL `security-extended` Python + JS/TS |
 | `security-audit.yml` | push/PR + lundi 08h | pip-audit (server+probe) + npm audit (frontend) |
-| `release.yml` | tag `v[0-9]+.[0-9]+.[0-9]+*` | CI gate → build & push GHCR (server+probe) → GitHub Release auto-extraite du CHANGELOG |
-| `mobile-release.yml` | push main + tag v* | Build APK debug ; release signée sur tag (keystore secrets) |
-| `release-please.yml` | push main | **(nouveau)** Auto-versioning + CHANGELOG + tag SemVer (conventional commits) |
+| `release.yml` | tag `v*` **+ `workflow_call`** | CI gate → build & push GHCR (server+probe) → GitHub Release auto-extraite du CHANGELOG |
+| `mobile-release.yml` | push main + tag v* **+ `workflow_call`** | Build APK debug ; release signée sur tag (keystore secrets) |
+| `release-please.yml` | push main | Auto-versioning + CHANGELOG + tag SemVer (conventional commits) ; sur `release_created`, **chaîne `release.yml` (Docker) + `mobile-release.yml` (APK signé)** via `workflow_call` → release publiée de bout en bout sans dispatch manuel (1er run réel : v1.14.2) |
 
 ### Tests
 - ✅ **Backend** : 677 tests pytest (auth, 2FA TOTP, sessions, monitors, probes, alerts, incidents, SLO, OIDC, maintenance, config, bulk, snooze, silences, ws)
@@ -444,6 +445,7 @@
 - ✅ Dependabot configuré (`.github/dependabot.yml`)
 - ✅ pip-audit + npm audit hebdomadaires
 - ✅ **pip-audit durci (v1.10.4, #168)** : `security-audit.yml` upgrade pip vers ≥26.1.2 avant l'audit pour patcher PYSEC-2026-196 (pip 26.1.1 de l'image runner) — fix réel plutôt que `--ignore-vuln`
+- ✅ **Garde-fou dérive de deps (v1.14.2, #202)** : pin `tzlocal != 5.4.2` (probe) — release amont publiée comme wheel cassé (`dist-info` sans module) qui cassait l'import apscheduler et toute la collecte des tests probe ; cap `fastapi < 0.137` (#189) toujours actif (`_IncludedRouter` casse le routing)
 - ✅ CodeQL `security-extended`
 
 ---
@@ -616,4 +618,4 @@
 > 4. Si la PR introduit un nouveau type de check ou canal → reporter dans §2 ou §5.
 > 5. Si la PR touche le Health Engine ou les V2-02 → reporter dans §16 ou §17.
 
-*Dernière revue exhaustive : 2026-05-10 (v1.8.0 + Health Engine V2). Dernier amendement : 2026-06-13 (v1.13.0 — design system VELOURS + accessibilité).*
+*Dernière revue exhaustive : 2026-05-10 (v1.8.0 + Health Engine V2). Dernier amendement : 2026-06-16 (v1.14.2 — maintenance deps + chaînage release CI automatique confirmé).*

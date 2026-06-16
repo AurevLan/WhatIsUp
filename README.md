@@ -9,17 +9,24 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/AurevLan/WhatIsUp/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/AurevLan/WhatIsUp/actions/workflows/ci.yml/badge.svg?branch=main"></a>
+  <a href="https://github.com/AurevLan/WhatIsUp/actions/workflows/codeql.yml"><img alt="CodeQL" src="https://github.com/AurevLan/WhatIsUp/actions/workflows/codeql.yml/badge.svg?branch=main"></a>
+  <a href="https://github.com/AurevLan/WhatIsUp/actions/workflows/plumber.yml"><img alt="Plumber compliance" src="https://github.com/AurevLan/WhatIsUp/actions/workflows/plumber.yml/badge.svg?branch=main"></a>
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg"></a>
   <img alt="Version" src="https://img.shields.io/badge/version-1.14.3"> <!-- x-release-please-version -->
-  <img alt="Python 3.14" src="https://img.shields.io/badge/Python-3.14-blue">
-  <img alt="Vue 3" src="https://img.shields.io/badge/Vue-3.5-42b883">
-  <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-0.125+-009688">
+</p>
+
+<p align="center">
+  <img alt="Python 3.12–3.14" src="https://img.shields.io/badge/Python-3.12%E2%80%933.14-blue">
+  <img alt="Vue 3.5" src="https://img.shields.io/badge/Vue-3.5-42b883">
+  <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-0.136-009688">
   <img alt="PostgreSQL 16" src="https://img.shields.io/badge/PostgreSQL-16-336791">
+  <img alt="Redis 7" src="https://img.shields.io/badge/Redis-7-DC382D">
 </p>
 
 <p align="center">
   <a href="#quick-start">Quick start</a> ·
-  <a href="#whats-new-in-18--v2">What's new in 1.8 + V2</a> ·
+  <a href="#whats-new-in-19--114">What's new</a> ·
   <a href="#why-whatisup">Why WhatIsUp</a> ·
   <a href="#features">Features</a> ·
   <a href="#architecture">Architecture</a> ·
@@ -37,6 +44,20 @@ There's no shortage of uptime tools. WhatIsUp focuses on three things most of th
 - 🎛 **Self-hosted, batteries included** — one `docker compose up`, no SaaS lock-in, no per-monitor pricing. Playwright scenarios, SSO/OIDC, teams & RBAC, IaC import/export, and a mobile app all ship in the box.
 
 It's built for teams who want Datadog-grade monitoring without Datadog-grade bills, and who'd rather own their data than rent it.
+
+---
+
+## What's new in 1.9 → 1.14
+
+The most recent release line focused on identity, design, accessibility, and supply-chain hardening — all backward-compatible.
+
+- 🔐 **2FA TOTP + active session management** (v1.12) — opt-in time-based one-time-password second factor (enrol via QR, recovery codes), plus a **Sessions** card in Settings: every refresh token carries `created_at` / user-agent / IP metadata, shown as a revocable session list ("this device" badge, per-row revoke, "log out everywhere").
+- 🎨 **VELOURS design system + accessibility gates** (v1.13) — full visual refresh on a tokenised two-theme foundation (dark *encre* / light *ivoire*, self-hosted Fraunces), ~2300 colour occurrences migrated to design tokens. Two permanent CI accessibility gates (axe audit + anti-artisanal-overlay) lock in `prefers-reduced-motion`, focus-trap and ARIA correctness.
+- 🧩 **Design-system consolidation + detection→alert bridge + responsive** (v1.14) — a single button scale (`.btn-sm/md/lg` + `.btn-icon`) and a canonical `<StatusBadge>` replace ad-hoc styling; a unified **detection→notification bridge** wires DNS-drift / schema-drift detections to alert channels with a consistent "wired / not wired" indicator; mobile-first responsive pass across the app (Capacitor Android build included).
+- 🛡 **CI/CD supply-chain hardening** (v1.14.x) — every GitHub Actions workflow is SHA-pinned and declares least-privilege `permissions`; a **[Plumber](https://getplumber.io) compliance gate** (score 100% / A) audits the pipeline on every PR and uploads findings to Code Scanning. `main` is ruleset-protected (PR required + Plumber / lint / server-tests must pass).
+- 🩹 **Dependency-drift guardrails** — `fastapi < 0.137` (the `_IncludedRouter` routing break) and `tzlocal != 5.4.2` (a broken upstream wheel) are pinned with CI in the loop.
+
+Older highlights (1.1 → 1.8 + the V2 Global Health Engine) are kept below for reference. Full per-version detail: [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
@@ -126,7 +147,7 @@ See the full [CHANGELOG](CHANGELOG.md#110---2026-04-14) for the complete list, i
 
 ## Screenshots
 
-> Real captures of the VELOURS design system (v1.13) — dark *encre* and light *ivoire* themes.
+> The first four pairs are **real captures** of the VELOURS design system (introduced v1.13, consolidated v1.14) — dark *encre* and light *ivoire* themes. The feature tiles further down (alert matrix, templates, tags & RBAC, scenario builder, extension) are **schematic mockups**.
 
 | Dashboard (dark) | Dashboard (light) |
 |------------------|-------------------|
@@ -199,7 +220,7 @@ See the full [CHANGELOG](CHANGELOG.md#110---2026-04-14) for the complete list, i
 - **Anomaly detection** — z-score against a 7-day rolling mean ± stddev, filtered to the same ±3 h window of the day so day/night traffic patterns are respected
 - **Tag-scoped alert rules (1.1)** — target a single rule at every monitor carrying a given tag via `AlertRule.tag_selector`
 - **Auto post-mortem** — Markdown report generated on incident resolution (timeline, alerts, metrics)
-- **Alert channels** — Email (SMTP), Webhook (HMAC-SHA256), Telegram Bot, Slack, PagerDuty, Opsgenie, [Signal](#signal-alerts), FCM (native mobile push)
+- **Alert channels** — 11 built-in: Email (SMTP), Webhook (HMAC-SHA256), Telegram Bot, Slack, Discord, Mattermost, Microsoft Teams (Adaptive Card), PagerDuty, Opsgenie, [Signal](#signal-alerts), FCM (native mobile push)
 - **Persistent digest** — digest scheduling stored in Redis; survives server restarts
 - **Maintenance windows** — suppress alerts during planned downtime; group-level suppression support
 
@@ -213,6 +234,7 @@ See the full [CHANGELOG](CHANGELOG.md#110---2026-04-14) for the complete list, i
 - **Monitor tags & tag-scoped RBAC (1.1)** — label monitors with free-form `key:value` tags (`env:prod`, `team:backend`, `tier:critical`); filter lists and dashboards by tag; grant users `view`/`edit`/`admin` access scoped to a tag via `UserTagPermission`; one alert rule can target every monitor carrying a given tag
 - **Teams & RBAC** — create teams, invite members with 4 roles (`owner` > `admin` > `editor` > `viewer`); monitors, groups, channels, and maintenance windows can be team-scoped; backward-compatible — single-user mode preserved when no teams are created
 - **SSO / OIDC** — OpenID Connect PKCE flow; link user accounts to any OIDC provider (Keycloak, Authentik, Auth0, Google…); optional auto-provisioning of new accounts on first login; configured entirely from the admin GUI (no restart required)
+- **2FA (TOTP) & active sessions** — opt-in time-based one-time-password second factor with QR enrolment and recovery codes; a Sessions card lists every active refresh token (device, IP, created-at) with per-row revoke and "log out everywhere"
 - **Admin panel** — dedicated UI for user management (`is_active`, `can_create_monitors`), probe group access control, all-monitors view, and live OIDC settings
 - **Probe groups** — admin-defined groups linking probes to users; regular users see only the probes assigned to their groups
 - **Network scope** — per-monitor `network_scope` field (`all` / `internal` / `external`); restricts which probe types run each check (e.g. internal-only services stay on LAN probes)
@@ -291,7 +313,7 @@ Install the extension from `extension/` by loading it as an unpacked extension i
 
 ```bash
 git clone https://github.com/AurevLan/WhatIsUp.git
-cd whatisup
+cd WhatIsUp
 
 # Start all services (PostgreSQL, Redis, API, frontend, local probe)
 docker compose up -d
@@ -391,10 +413,11 @@ Go to **Probes → Register probe** in the UI:
 docker run -d \
   --name whatisup-probe \
   --restart unless-stopped \
-  -e CENTRAL_URL=https://your-whatisup.example.com \
+  -e CENTRAL_API_URL=https://your-whatisup.example.com \
   -e PROBE_API_KEY=wiu_your_api_key_here \
+  -e PROBE_NAME="paris-dc1" \
   -e PROBE_LOCATION="Paris DC1" \
-  ghcr.io/your-org/whatisup-probe:latest
+  ghcr.io/aurevlan/whatisup-probe:latest
 ```
 
 Or with Docker Compose:
@@ -403,26 +426,28 @@ Or with Docker Compose:
 # docker-compose.probe.yml
 services:
   probe:
-    image: ghcr.io/your-org/whatisup-probe:latest
+    image: ghcr.io/aurevlan/whatisup-probe:latest
     restart: unless-stopped
     environment:
-      CENTRAL_URL: https://your-whatisup.example.com
+      CENTRAL_API_URL: https://your-whatisup.example.com
       PROBE_API_KEY: wiu_your_api_key_here
+      PROBE_NAME: "paris-dc1"
       PROBE_LOCATION: "Paris DC1"
       MAX_CONCURRENT_CHECKS: "10"
-      HEARTBEAT_INTERVAL: "15"
+      HEARTBEAT_INTERVAL: "30"
 ```
 
 ### Probe environment variables
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `CENTRAL_URL` | ✅ | — | WhatIsUp server base URL |
+| `CENTRAL_API_URL` | ✅ | `http://localhost:8000` | WhatIsUp server base URL |
 | `PROBE_API_KEY` | ✅ | — | API key from probe registration |
-| `PROBE_LOCATION` | — | `unknown` | Display name in the UI |
+| `PROBE_NAME` | — | `default-probe` | Probe name shown in the UI |
+| `PROBE_LOCATION` | — | `Unknown` | Human-readable location label |
 | `MAX_CONCURRENT_CHECKS` | — | `10` | Max parallel checks |
 | `MAX_CONCURRENT_SCENARIOS` | — | `2` | Max concurrent Playwright/Chromium instances (subset of `MAX_CONCURRENT_CHECKS`; reduce on low-memory machines) |
-| `HEARTBEAT_INTERVAL` | — | `15` | Seconds between server heartbeats |
+| `HEARTBEAT_INTERVAL` | — | `30` | Seconds between server heartbeats |
 
 ---
 
@@ -604,7 +629,7 @@ Tests also run inside Docker:
 ```bash
 docker compose run --rm --no-deps server pytest tests/
 docker compose run --rm --no-deps probe pytest tests/
-docker run --rm -v ./frontend:/app -w /app node:25-alpine npx vitest run
+docker run --rm -v ./frontend:/app -w /app node:22-alpine sh -c "npm ci && npx vitest run"
 ```
 
 ### Database migrations
@@ -657,7 +682,9 @@ bash deploy.sh
 
 ## Security
 
-- **JWT** — HS256, access 15 min + refresh 7 days, Redis-revocable
+- **JWT** — HS256, access 15 min + refresh 7 days, Redis-revocable; refresh tokens carry per-session metadata and are individually revocable
+- **2FA (TOTP)** — opt-in second factor (RFC 6238), recovery codes hashed at rest
+- **CI/CD supply chain** — every GitHub Actions workflow is SHA-pinned with least-privilege `permissions`; a [Plumber](https://getplumber.io) compliance gate (100% / A) runs on every PR (SARIF → Code Scanning); `main` is ruleset-protected (PR + required checks)
 - **OIDC / SSO** — PKCE authorization-code flow; `oidc_client_secret` encrypted at rest with Fernet; secret never returned by the API
 - **Probe auth** — `X-Probe-Api-Key` bcrypt 12 rounds + Redis cache 300 s
 - **WebSocket auth** — JSON message frame (`{"type":"auth","token":"…"}`), never URL parameter

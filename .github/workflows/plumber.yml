@@ -1,0 +1,37 @@
+name: Plumber compliance
+
+# Audits the GitHub Actions workflows for supply-chain hardening gaps
+# (SHA-pinned actions, least-privilege permissions, dangerous triggers,
+# mutable image tags, branch protection) against `.plumber.yaml`.
+# Findings are uploaded to Code Scanning (Security tab).
+#
+# Hard gate: the repo scores 100% / grade A at introduction (all actions
+# SHA-pinned, every workflow declares permissions, `main` is branch-protected),
+# so this runs as a blocking gate (`soft-fail: false`, threshold 100%). Any
+# regression — an unpinned action, a workflow missing a permissions block,
+# a dangerous trigger — fails the check. To temporarily downgrade to
+# report-only, set `soft-fail: "true"`.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  security-events: write   # upload SARIF to Code Scanning
+
+jobs:
+  plumber:
+    name: Plumber scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+      - uses: getplumber/plumber@4d73d009cd2d4c1762d8673331f30c8d0c82e4c8  # v0.3.60
+        with:
+          config-file: .plumber.yaml
+          threshold: "100"
+          score: "true"
+          upload-sarif: "true"
+          soft-fail: "false"   # blocking gate — see header note

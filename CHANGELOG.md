@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.14.3](https://github.com/AurevLan/WhatIsUp/compare/v1.14.2...v1.14.3) (2026-06-16)
+
+
+### Docs
+
+* **features:** amend for v1.14.2 — maintenance release + automated CI chaining ([#204](https://github.com/AurevLan/WhatIsUp/issues/204)) ([241536c](https://github.com/AurevLan/WhatIsUp/commit/241536c4b7e5032cc652327595ee7b76baafcc18))
+
 ## [1.14.2](https://github.com/AurevLan/WhatIsUp/compare/v1.14.1...v1.14.2) (2026-06-16)
 
 

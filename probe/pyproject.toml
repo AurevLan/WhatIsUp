@@ -23,6 +23,9 @@ dependencies = [
 
     # Scheduling
     "apscheduler>=3.11.0,<4",
+    # tzlocal is an apscheduler transitive dep; 5.4.2 ships a broken wheel
+    # (dist-info only, no module) → ModuleNotFoundError. Exclude it.
+    "tzlocal>=5.0,!=5.4.2",
 
     # Configuration
     "pydantic>=2.10.0,<3",

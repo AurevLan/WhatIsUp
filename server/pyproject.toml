@@ -29,7 +29,7 @@ dependencies = [
     # Cache / pub-sub
     # <8 : redis-py 8.0.0 force socket_timeout=5s sur les connexions pubsub
     # (le subscriber WS idle crashe toutes les 5s) et plafonne le pool à 100.
-    "redis[hiredis]>=5.2.0,<8",
+    "redis[hiredis]>=5.2.0,<9",
 
     # Configuration
     "pydantic>=2.12.5,<3",

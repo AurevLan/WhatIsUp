@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.14.2](https://github.com/AurevLan/WhatIsUp/compare/v1.14.1...v1.14.2) (2026-06-16)
+
+
+### Fixed
+
+* **deps:** pin tzlocal !=5.4.2 (broken upstream wheel) ([#202](https://github.com/AurevLan/WhatIsUp/issues/202)) ([0a44278](https://github.com/AurevLan/WhatIsUp/commit/0a44278abdc1cb77e6dccd7ab41924c9079eaac6))
+
 ## [1.14.1](https://github.com/AurevLan/WhatIsUp/compare/v1.14.0...v1.14.1) (2026-06-15)
 
 

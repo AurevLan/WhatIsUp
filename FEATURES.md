@@ -2,7 +2,7 @@
 
 > **Source de vérité** des features livrées. À amender à chaque release.
 > Référence : **v1.14.0** (2026-06-15) — consolidation du design system (échelle de tailles boutons + tokenisation complète, `<StatusBadge>`), pont détection→notification homogène, et responsive mobile. Socle : design system VELOURS + accessibilité gates CI (v1.13), 2FA TOTP + sessions actives (v1.12), Health Engine V2 (M0-M5, en prod sur 17/17 monitors depuis 2026-05-06).
-> Dernière release : **v1.14.2** (2026-06-16) — release de maintenance (bumps deps cryptography/redis/frontend + pin `tzlocal != 5.4.2`, wheel cassé en amont qui bloquait les tests probe). Première release publiée par le **chaînage CI 100 % automatique** (release-please → Docker GHCR + APK signé), sans dispatch manuel.
+> Dernière release : **v1.14.3** (2026-06-16) — release docs-only (cet amendement FEATURES.md), 2e passage confirmé du **chaînage CI 100 % automatique** (release-please → Docker GHCR + APK signé). Précédente : **v1.14.2** (2026-06-16) — maintenance (bumps deps cryptography/redis/frontend + pin `tzlocal != 5.4.2`, wheel cassé en amont qui bloquait les tests probe), 1er run du chaînage auto.
 > Pour la chronologie détaillée, voir `CHANGELOG.md`.
 
 **Légende** : ✅ livré · 🔬 livré + tests automatisés · 🚧 partiel (voir notes).
@@ -618,4 +618,4 @@
 > 4. Si la PR introduit un nouveau type de check ou canal → reporter dans §2 ou §5.
 > 5. Si la PR touche le Health Engine ou les V2-02 → reporter dans §16 ou §17.
 
-*Dernière revue exhaustive : 2026-05-10 (v1.8.0 + Health Engine V2). Dernier amendement : 2026-06-16 (v1.14.2 — maintenance deps + chaînage release CI automatique confirmé).*
+*Dernière revue exhaustive : 2026-05-10 (v1.8.0 + Health Engine V2). Dernier amendement : 2026-06-16 (v1.14.3 — footer/version bump ; v1.14.2 maintenance deps + chaînage release CI automatique confirmé sur 2 runs).*

@@ -1,0 +1,41 @@
+# Plumber CI/CD compliance policy — https://getplumber.io
+# Scans .github/workflows/* for supply-chain hardening gaps.
+# Run locally: plumber analyze   (CLI: https://getplumber.io/docs/cli)
+version: "2.0"
+
+github:
+  controls:
+    # Every external action must be pinned to a full commit SHA (no mutable tags).
+    # This repo already pins everything by SHA — keep it that way.
+    actionsMustBePinnedByCommitSha:
+      enabled: true
+      trustedOwners:
+        - actions
+        - github
+
+    # Every workflow must declare an explicit top-level `permissions:` block
+    # (least privilege); jobs elevate per-job only where required.
+    workflowsMustDeclarePermissions:
+      enabled: true
+
+    # Reject privilege-escalating triggers (pull_request_target, etc.).
+    workflowMustNotUseDangerousTriggers:
+      enabled: true
+
+    # No mutable container image tags (latest/dev) in workflows.
+    containerImageMustNotUseForbiddenTags:
+      enabled: true
+      tags:
+        - latest
+        - dev
+
+    # The default branch must be protected. NOTE: `main` is not protected yet —
+    # this control reports a finding until branch protection is enabled in
+    # repo settings. Surfaced via Code Scanning; non-blocking while soft-fail
+    # is on (see .github/workflows/plumber.yml).
+    branchMustBeProtected:
+      enabled: true
+      defaultMustBeProtected: true
+      namePatterns:
+        - main
+      allowForcePush: false

@@ -8,6 +8,10 @@ on:
   schedule:
     - cron: "0 8 * * 1"   # Every Monday at 08:00 UTC
 
+# Least-privilege default; audit jobs only read the repo.
+permissions:
+  contents: read
+
 jobs:
   pip-audit-server:
     name: pip-audit (server)

@@ -43,6 +43,10 @@ on:
         type: string
         default: ''
 
+# Least-privilege default; the `release` job elevates to contents: write per-job.
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest

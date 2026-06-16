@@ -29,6 +29,11 @@ on:
 env:
   RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 
+# Least-privilege default. Jobs that need more elevate per-job:
+# `docker` → packages: write, `github-release` → contents: write.
+permissions:
+  contents: read
+
 jobs:
   # ── Run CI checks before releasing ──────────────────────────────────────────
   ci-gate:

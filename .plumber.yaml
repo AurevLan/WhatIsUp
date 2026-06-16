@@ -29,10 +29,8 @@ github:
         - latest
         - dev
 
-    # The default branch must be protected. NOTE: `main` is not protected yet —
-    # this control reports a finding until branch protection is enabled in
-    # repo settings. Surfaced via Code Scanning; non-blocking while soft-fail
-    # is on (see .github/workflows/plumber.yml).
+    # The default branch must be protected. `main` is already branch-protected,
+    # so this control passes (100%); it guards against protection being removed.
     branchMustBeProtected:
       enabled: true
       defaultMustBeProtected: true

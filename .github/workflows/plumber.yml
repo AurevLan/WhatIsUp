@@ -5,9 +5,12 @@ name: Plumber compliance
 # mutable image tags, branch protection) against `.plumber.yaml`.
 # Findings are uploaded to Code Scanning (Security tab).
 #
-# Rollout: introduced in REPORT mode (`soft-fail: true`) so it never blocks
-# merges while findings are triaged. Once `main` is branch-protected and the
-# grade is green, flip `soft-fail` to "false" to make it a hard gate.
+# Hard gate: the repo scores 100% / grade A at introduction (all actions
+# SHA-pinned, every workflow declares permissions, `main` is branch-protected),
+# so this runs as a blocking gate (`soft-fail: false`, threshold 100%). Any
+# regression — an unpinned action, a workflow missing a permissions block,
+# a dangerous trigger — fails the check. To temporarily downgrade to
+# report-only, set `soft-fail: "true"`.
 
 on:
   push:
@@ -31,4 +34,4 @@ jobs:
           threshold: "100"
           score: "true"
           upload-sarif: "true"
-          soft-fail: "true"   # report-only for now; see header note
+          soft-fail: "false"   # blocking gate — see header note

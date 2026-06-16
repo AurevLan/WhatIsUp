@@ -432,7 +432,7 @@
 | `ci.yml` | push/PR main | lint ruff + tests server (≥50%) + tests probe (≥35%) + Alembic up/down |
 | `codeql.yml` | push/PR + lundi 06h | CodeQL `security-extended` Python + JS/TS |
 | `security-audit.yml` | push/PR + lundi 08h | pip-audit (server+probe) + npm audit (frontend) |
-| `plumber.yml` | push/PR main | Plumber — compliance des workflows GitHub Actions (SHA pinning, permissions, triggers, image tags, branch protection) → SARIF vers Code Scanning ; report-only (`soft-fail`) au départ |
+| `plumber.yml` | push/PR main | Plumber — compliance des workflows GitHub Actions (SHA pinning, permissions, triggers, image tags, branch protection) → SARIF vers Code Scanning ; **gate bloquant** (100% / A) |
 | `release.yml` | tag `v*` **+ `workflow_call`** | CI gate → build & push GHCR (server+probe) → GitHub Release auto-extraite du CHANGELOG |
 | `mobile-release.yml` | push main + tag v* **+ `workflow_call`** | Build APK debug ; release signée sur tag (keystore secrets) |
 | `release-please.yml` | push main | Auto-versioning + CHANGELOG + tag SemVer (conventional commits) ; sur `release_created`, **chaîne `release.yml` (Docker) + `mobile-release.yml` (APK signé)** via `workflow_call` → release publiée de bout en bout sans dispatch manuel (1er run réel : v1.14.2) |
@@ -447,7 +447,7 @@
 - ✅ pip-audit + npm audit hebdomadaires
 - ✅ **pip-audit durci (v1.10.4, #168)** : `security-audit.yml` upgrade pip vers ≥26.1.2 avant l'audit pour patcher PYSEC-2026-196 (pip 26.1.1 de l'image runner) — fix réel plutôt que `--ignore-vuln`
 - ✅ **Garde-fou dérive de deps (v1.14.2, #202)** : pin `tzlocal != 5.4.2` (probe) — release amont publiée comme wheel cassé (`dist-info` sans module) qui cassait l'import apscheduler et toute la collecte des tests probe ; cap `fastapi < 0.137` (#189) toujours actif (`_IncludedRouter` casse le routing)
-- ✅ **Plumber — compliance pipeline CI/CD** (`plumber.yml` + `.plumber.yaml`, OPA/Rego) : audit des workflows GitHub Actions (actions épinglées par SHA, permissions least-privilege déclarées, triggers non dangereux, pas de tags d'images mutables, protection de branche) → rapport noté + SARIF vers Code Scanning. Toutes les actions déjà SHA-pinned ; top-level `permissions: contents: read` ajouté à `release.yml`/`mobile-release.yml`/`security-audit.yml` (jobs élevés en per-job). Introduit en mode report (`soft-fail: true`) — passer à `false` une fois `main` protégée pour en faire un gate bloquant
+- ✅ **Plumber — compliance pipeline CI/CD** (`plumber.yml` + `.plumber.yaml`, OPA/Rego) : audit des workflows GitHub Actions (actions épinglées par SHA, permissions least-privilege déclarées, triggers non dangereux, pas de tags d'images mutables, protection de branche) → rapport noté + SARIF vers Code Scanning. **Score initial 100% / A** : toutes les actions déjà SHA-pinned, `main` protégée, et top-level `permissions: contents: read` ajouté à `release.yml`/`mobile-release.yml`/`security-audit.yml` pour atteindre 7/7 workflows avec permissions déclarées (jobs élevés en per-job). **Gate bloquant** (`soft-fail: false`, seuil 100%) : toute régression future (action non épinglée, workflow sans permissions, trigger dangereux) casse la CI. Binaire Plumber vérifié par attestation de provenance
 - ✅ CodeQL `security-extended`
 
 ---

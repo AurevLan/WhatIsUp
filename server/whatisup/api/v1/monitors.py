@@ -258,6 +258,10 @@ async def list_monitors(
         entry = latest_map.get(mid)
         if entry:
             status_val, checked_at = entry
+            # asyncpg returns tz-aware timestamps; SQLite (tests) returns naive —
+            # normalize before subtracting, matching slo.py / health.py.
+            if checked_at.tzinfo is None:
+                checked_at = checked_at.replace(tzinfo=UTC)
             age = (now - checked_at).total_seconds()
             threshold = max(300, m.interval_seconds * 3)
             d["last_status"] = status_val if age < threshold else None

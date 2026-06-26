@@ -40,6 +40,104 @@ async def test_list_monitors(client: AsyncClient, user_token: str) -> None:
 
 
 @pytest.mark.asyncio
+async def test_list_monitors_latest_row_per_monitor(
+    client: AsyncClient,
+    db_session,
+    user_token: str,
+    regular_user,
+) -> None:
+    """Regression guard for the GET /monitors/ unbounded-scan timeout (PR #218).
+
+    ``last_status`` / ``last_response_time_ms`` / ``sparkline`` must reflect the
+    single most-recent check result *per monitor*. The original code derived
+    these from a table-wide ``GROUP BY monitor_id`` over ``max(checked_at)`` —
+    a full scan that took ~8s twice on ~5M rows and tripped the 15s client
+    timeout. The fix replaces it with a per-monitor LATERAL ``ORDER BY
+    checked_at DESC LIMIT 1``. This test pins that the chosen row is genuinely
+    the latest one (not an older decoy) and never bleeds across monitors, so a
+    revert to the unbounded/incorrect query is caught.
+    """
+    from whatisup.models.monitor import Monitor
+    from whatisup.models.probe import Probe
+    from whatisup.models.result import CheckResult, CheckStatus
+
+    now = datetime.now(UTC)
+    older = now - timedelta(minutes=10)
+
+    mon_a = Monitor(name="latest-A", url="https://a.example.com", owner_id=regular_user.id)
+    mon_b = Monitor(name="latest-B", url="https://b.example.com", owner_id=regular_user.id)
+    probe = Probe(name="p-latest", location_name="LA", api_key_hash="x")
+    db_session.add_all([mon_a, mon_b, probe])
+    await db_session.flush()
+
+    db_session.add_all(
+        [
+            # Monitor A: an older DOWN/999ms decoy, then a recent UP/123ms result.
+            CheckResult(
+                monitor_id=mon_a.id,
+                probe_id=probe.id,
+                checked_at=older,
+                status=CheckStatus.down,
+                response_time_ms=999,
+            ),
+            CheckResult(
+                monitor_id=mon_a.id,
+                probe_id=probe.id,
+                checked_at=now,
+                status=CheckStatus.up,
+                response_time_ms=123,
+            ),
+            # Monitor B: latest is DOWN/456ms — must not pick up A's values.
+            CheckResult(
+                monitor_id=mon_b.id,
+                probe_id=probe.id,
+                checked_at=now,
+                status=CheckStatus.down,
+                response_time_ms=456,
+            ),
+        ]
+    )
+    await db_session.flush()
+
+    resp = await client.get(
+        "/api/v1/monitors/",
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert resp.status_code == 200
+    by_id = {m["id"]: m for m in resp.json()}
+
+    a = by_id[str(mon_a.id)]
+    assert a["last_status"] == "up", "latest row (UP) must win over the older DOWN decoy"
+    assert a["last_response_time_ms"] == 123.0, "RT must come from the latest row, not the decoy"
+    assert 999.0 in a["sparkline"] and 123.0 in a["sparkline"]
+
+    b = by_id[str(mon_b.id)]
+    assert b["last_status"] == "down", "monitor B status must not bleed from monitor A"
+    assert b["last_response_time_ms"] == 456.0
+
+
+def test_list_monitors_latest_query_is_bounded_not_full_scan() -> None:
+    """Static guard against reintroducing the unbounded-scan timeout (PR #218).
+
+    The functional test above can't catch the perf regression on SQLite: the
+    test branch deliberately keeps the ``max(checked_at)`` self-join, which is
+    *correct* on tiny data even though it full-scans on production volumes. So
+    we pin the production (PostgreSQL) path directly: the latest status / last
+    response time must be fetched with a per-monitor bounded LATERAL
+    ``ORDER BY checked_at DESC LIMIT 1``, not a table-wide ``GROUP BY``. Reverting
+    to the old aggregate removes this marker and fails the test.
+    """
+    import inspect
+
+    from whatisup.api.v1 import monitors
+
+    src = inspect.getsource(monitors.list_monitors)
+    # The non-sqlite branch builds the bounded per-monitor lateral.
+    assert 'lateral("latest_cr")' in src, "production latest-row path must use a LATERAL subquery"
+    assert ".limit(1)" in src, "the lateral must fetch a single (latest) row per monitor"
+
+
+@pytest.mark.asyncio
 async def test_get_monitor(client: AsyncClient, user_token: str) -> None:
     create = await client.post(
         "/api/v1/monitors/",

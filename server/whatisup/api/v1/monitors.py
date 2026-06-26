@@ -104,29 +104,69 @@ async def list_monitors(
 
     monitor_ids = [m.id for m in monitors]
 
-    # Latest status per monitor (one query — join on max checked_at)
-    max_ts_subq = (
-        select(
-            CheckResult.monitor_id,
-            func.max(CheckResult.checked_at).label("max_at"),
-        )
-        .where(CheckResult.monitor_id.in_(monitor_ids))
-        .group_by(CheckResult.monitor_id)
-        .subquery()
-    )
-    latest_rows = (
-        await db.execute(
-            select(CheckResult.monitor_id, CheckResult.status, CheckResult.checked_at).join(
-                max_ts_subq,
-                and_(
-                    CheckResult.monitor_id == max_ts_subq.c.monitor_id,
-                    CheckResult.checked_at == max_ts_subq.c.max_at,
-                ),
+    # Latest status + response time per monitor.
+    #
+    # A `GROUP BY monitor_id` over `max(checked_at)` forces a GroupAggregate over
+    # the WHOLE check_results table (~5M rows in production → ~8 s per call, and
+    # this ran twice). A LATERAL `ORDER BY checked_at DESC LIMIT 1` per monitor
+    # hits ix_check_results_monitor_checked once per monitor for a single row
+    # (sub-millisecond total) — same trick as the sparkline below.
+    if dialect_name(db) == "sqlite":
+        # SQLite LATERAL support is not uniformly available in test containers;
+        # keep the max-checked_at self-join (test tables are tiny).
+        max_ts_subq = (
+            select(
+                CheckResult.monitor_id,
+                func.max(CheckResult.checked_at).label("max_at"),
             )
+            .where(CheckResult.monitor_id.in_(monitor_ids))
+            .group_by(CheckResult.monitor_id)
+            .subquery()
         )
-    ).all()
+        latest_rows = (
+            await db.execute(
+                select(
+                    CheckResult.monitor_id,
+                    CheckResult.status,
+                    CheckResult.checked_at,
+                    CheckResult.response_time_ms,
+                ).join(
+                    max_ts_subq,
+                    and_(
+                        CheckResult.monitor_id == max_ts_subq.c.monitor_id,
+                        CheckResult.checked_at == max_ts_subq.c.max_at,
+                    ),
+                )
+            )
+        ).all()
+    else:
+        latest_lateral = (
+            select(
+                CheckResult.status,
+                CheckResult.checked_at,
+                CheckResult.response_time_ms,
+            )
+            .where(CheckResult.monitor_id == Monitor.id)
+            .order_by(CheckResult.checked_at.desc())
+            .limit(1)
+            .lateral("latest_cr")
+        )
+        latest_rows = (
+            await db.execute(
+                select(
+                    Monitor.id,
+                    latest_lateral.c.status,
+                    latest_lateral.c.checked_at,
+                    latest_lateral.c.response_time_ms,
+                )
+                .select_from(Monitor.__table__.join(latest_lateral, true()))
+                .where(Monitor.id.in_(monitor_ids))
+            )
+        ).all()
     # Map: monitor_id → (status_value, checked_at)
-    latest_map = {str(r.monitor_id): (r.status.value, r.checked_at) for r in latest_rows}
+    latest_map = {str(r[0]): (r[1].value, r[2]) for r in latest_rows}
+    # Last response time per monitor (same latest row)
+    rt_map = {str(r[0]): round(r[3], 1) for r in latest_rows if r[3] is not None}
 
     # Uptime 24h per monitor (multi-probe consensus, one query)
     cutoff = datetime.now(UTC) - timedelta(hours=24)
@@ -151,24 +191,6 @@ async def list_monitors(
         )
     ).all()
     p95_map = {str(r.monitor_id): round(r.p95, 1) for r in p95_rows if r.p95 is not None}
-
-    # Last response time per monitor (reuse latest result subquery)
-    rt_rows = (
-        await db.execute(
-            select(CheckResult.monitor_id, CheckResult.response_time_ms).join(
-                max_ts_subq,
-                and_(
-                    CheckResult.monitor_id == max_ts_subq.c.monitor_id,
-                    CheckResult.checked_at == max_ts_subq.c.max_at,
-                ),
-            )
-        )
-    ).all()
-    rt_map = {
-        str(r.monitor_id): round(r.response_time_ms, 1)
-        for r in rt_rows
-        if r.response_time_ms is not None
-    }
 
     # Sparkline: last 20 response_time_ms per monitor. A LATERAL join is orders
     # of magnitude faster than `row_number() OVER (PARTITION BY ...)` on a large

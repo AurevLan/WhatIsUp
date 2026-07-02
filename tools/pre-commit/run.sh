@@ -15,7 +15,12 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 IMAGE_TAG="whatisup-precommit"
 CONFIG_FILE="$REPO_ROOT/.pre-commit-config.yaml"
 DOCKERFILE="$REPO_ROOT/tools/pre-commit/Dockerfile"
-CACHE_DIR="$REPO_ROOT/.git/precommit-cache"
+# In a git worktree .git is a file, not a directory.
+# Use the common git dir so the precommit-cache lands in the main .git/.
+# We also need to bind-mount the common git dir into Docker so that git inside
+# the container can resolve the worktree's gitdir pointer (absolute host path).
+GIT_COMMON_DIR="$(git -C "$REPO_ROOT" rev-parse --git-common-dir)"
+CACHE_DIR="$GIT_COMMON_DIR/precommit-cache"
 
 # Tag = hash de la config + Dockerfile → rebuild auto à chaque évolution.
 CONFIG_HASH=$(sha256sum "$CONFIG_FILE" "$DOCKERFILE" | sha256sum | cut -c1-12)
@@ -42,12 +47,22 @@ fi
 USER_ID=$(id -u)
 GROUP_ID=$(id -g)
 
+# Extra mounts needed when running from a git worktree: the .git file inside
+# the worktree points to an absolute host path (the common git dir). That path
+# must be accessible at the same location inside the Docker container so that
+# git and pre-commit can resolve the repository.
+EXTRA_MOUNTS=()
+if [ -f "$REPO_ROOT/.git" ]; then
+    EXTRA_MOUNTS+=(--volume "$GIT_COMMON_DIR:$GIT_COMMON_DIR")
+fi
+
 # RUFF_CACHE_DIR + TMPDIR redirigés vers le cache → évite que ruff/bandit/etc. créent
 # des dossiers root-owned dans l'arbo du repo (ex: probe/.ruff_cache).
 exec docker run --rm \
     --user "${USER_ID}:${GROUP_ID}" \
     --volume "$REPO_ROOT:/repo" \
     --volume "$CACHE_DIR:/cache" \
+    "${EXTRA_MOUNTS[@]+"${EXTRA_MOUNTS[@]}"}" \
     --workdir /repo \
     --env HOME=/cache \
     --env PRE_COMMIT_HOME=/cache \

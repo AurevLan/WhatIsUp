@@ -18,7 +18,7 @@ DOCKERFILE="$REPO_ROOT/tools/pre-commit/Dockerfile"
 # In a git worktree, .git is a file (not a directory) pointing to the real git
 # store. Resolve the common git directory so the cache always lands in the main
 # .git/ regardless of whether we are in a worktree or the main working tree.
-GIT_COMMON="$(git -C "$REPO_ROOT" rev-parse --git-common-dir 2>/dev/null || echo "$REPO_ROOT/.git")"
+GIT_COMMON="$(git -C "$REPO_ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || echo "$REPO_ROOT/.git")"
 CACHE_DIR="$GIT_COMMON/precommit-cache"
 
 # When run from a worktree, .git is a pointer file whose target path is an
@@ -67,7 +67,7 @@ GROUP_ID=$(id -g)
 exec docker run --rm \
     --user "${USER_ID}:${GROUP_ID}" \
     --volume "$REPO_ROOT:$REPO_MOUNT_TARGET" \
-    "${EXTRA_DOCKER_OPTS[@]}" \
+    "${EXTRA_DOCKER_OPTS[@]+"${EXTRA_DOCKER_OPTS[@]}"}" \
     --volume "$CACHE_DIR:/cache" \
     --workdir "$REPO_MOUNT_TARGET" \
     --env HOME=/cache \

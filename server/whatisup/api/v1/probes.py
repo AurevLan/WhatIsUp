@@ -155,7 +155,7 @@ async def register_probe(
             status_code=status.HTTP_409_CONFLICT, detail="Probe name already exists"
         )
 
-    api_key = generate_probe_api_key()
+    api_key, api_key_prefix = generate_probe_api_key()
 
     probe = Probe(
         name=payload.name,
@@ -164,6 +164,7 @@ async def register_probe(
         longitude=payload.longitude,
         network_type=payload.network_type,
         api_key_hash=hash_api_key(api_key),
+        api_key_prefix=api_key_prefix,
     )
     db.add(probe)
     await db.flush()
@@ -549,8 +550,11 @@ async def rotate_probe_key(
     if probe is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Probe not found")
 
-    api_key = generate_probe_api_key()
+    api_key, api_key_prefix = generate_probe_api_key()
     probe.api_key_hash = hash_api_key(api_key)
+    # Populate the public prefix so this probe leaves the legacy scan set and
+    # authenticates via the fast indexed lookup from now on (migration path).
+    probe.api_key_prefix = api_key_prefix
 
     from whatisup.services.audit import log_action
 

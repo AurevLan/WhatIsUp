@@ -135,7 +135,7 @@ async function submitEdit() {
     const payload = { ...editForm.value }
     if (!payload.password) delete payload.password
     if (!payload.full_name) delete payload.full_name
-    await adminApi.updateUser(props.user.id, payload)
+    await adminApi.updateUser(props.user.id, payload, { skipErrorToast: true })
     emit('update:modelValue', false)
     emit('saved')
   } catch (e) {

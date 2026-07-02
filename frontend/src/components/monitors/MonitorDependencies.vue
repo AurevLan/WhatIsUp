@@ -95,7 +95,7 @@ async function addDep() {
     const res = await monitorsApi.addDependency(props.monitorId, {
       parent_id: selectedParentId.value,
       suppress_on_parent_down: suppressOnDown.value,
-    })
+    }, { skipErrorToast: true })
     dependencies.value.push(res.data)
     selectedParentId.value = ''
     successMsg.value = t('dependencies.added')
@@ -113,7 +113,7 @@ async function removeDep(dep) {
   errorMsg.value = ''
   successMsg.value = ''
   try {
-    await monitorsApi.removeDependency(props.monitorId, dep.id)
+    await monitorsApi.removeDependency(props.monitorId, dep.id, { skipErrorToast: true })
     dependencies.value = dependencies.value.filter((d) => d.id !== dep.id)
     successMsg.value = t('dependencies.removed')
   } catch {

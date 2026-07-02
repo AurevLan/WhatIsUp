@@ -732,7 +732,7 @@ async function testChannel(channel) {
   testingChannel.value = channel.id
   delete testResults.value[channel.id]
   try {
-    const resp = await api.post(`/alerts/channels/${channel.id}/test`)
+    const resp = await api.post(`/alerts/channels/${channel.id}/test`, undefined, { skipErrorToast: true })
     testResults.value = { ...testResults.value, [channel.id]: resp.data }
   } catch (err) {
     testResults.value = {
@@ -754,7 +754,7 @@ async function runSimulate(rule) {
   simulatingRule.value = rule.id
   delete simulateResults.value[rule.id]
   try {
-    const resp = await api.post(`/alerts/rules/${rule.id}/simulate`)
+    const resp = await api.post(`/alerts/rules/${rule.id}/simulate`, undefined, { skipErrorToast: true })
     simulateResults.value = { ...simulateResults.value, [rule.id]: resp.data }
   } catch (err) {
     simulateResults.value = {
@@ -821,7 +821,7 @@ async function saveRule() {
         baseline_factor: ruleForm.value.baseline_factor || undefined,
         schedule: schedulePayload,
       }
-      await api.patch(`/alerts/rules/${editingRule.value.id}`, payload)
+      await api.patch(`/alerts/rules/${editingRule.value.id}`, payload, { skipErrorToast: true })
     } else {
       const payload = {
         condition: ruleForm.value.condition,
@@ -839,7 +839,7 @@ async function saveRule() {
       if (ruleForm.value.digest_minutes) payload.digest_minutes = ruleForm.value.digest_minutes
       if (ruleForm.value.anomaly_zscore_threshold) payload.anomaly_zscore_threshold = ruleForm.value.anomaly_zscore_threshold
       if (ruleForm.value.baseline_factor) payload.baseline_factor = ruleForm.value.baseline_factor
-      await api.post('/alerts/rules', payload)
+      await api.post('/alerts/rules', payload, { skipErrorToast: true })
     }
     closeRuleModal()
     await loadData()

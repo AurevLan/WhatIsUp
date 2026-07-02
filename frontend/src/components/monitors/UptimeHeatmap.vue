@@ -47,7 +47,7 @@ const error = ref(null)
 
 onMounted(async () => {
   try {
-    const { data } = await api.get(`/monitors/${props.monitorId}/history`, { params: { days: 365 } })
+    const { data } = await api.get(`/monitors/${props.monitorId}/history`, { params: { days: 365 }, skipErrorToast: true })
     history.value = data
   } catch (e) {
     error.value = e?.response?.data?.detail ?? e?.message ?? 'Error loading history'

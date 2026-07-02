@@ -59,6 +59,10 @@ vi.mock('axios', () => {
       // axios.post() is called by the 401-refresh flow; make it reject so that
       // flow falls through and the original 401 error is re-thrown.
       post: vi.fn().mockRejectedValue(new Error('refresh failed')),
+      // Real axios.isCancel — the interceptor checks it directly. None of the
+      // errors built by mkError() are real axios Cancel instances, so this
+      // always returns false unless a test explicitly sets error.code.
+      isCancel: vi.fn(() => false),
     },
   }
 })
@@ -139,6 +143,22 @@ describe('api/client.js — global error toast interceptor', () => {
     expect(toastError).toHaveBeenCalledWith('errors.server')
   })
 
+  it('falls back to the generic server key when detail is a non-empty string but status is >= 500', async () => {
+    const { err } = getToastHandler()
+    const error = mkError({
+      response: { status: 502, data: { detail: 'upstream connect error' } },
+    })
+    await err(error).catch(() => {})
+    expect(toastError).toHaveBeenCalledWith('errors.server')
+  })
+
+  it('falls back to the generic key when detail is an empty string', async () => {
+    const { err } = getToastHandler()
+    const error = mkError({ response: { status: 400, data: { detail: '' } } })
+    await err(error).catch(() => {})
+    expect(toastError).toHaveBeenCalledWith('errors.request')
+  })
+
   it('shows a network error toast when there is no response', async () => {
     const { err } = getToastHandler()
     const error = mkError({ response: null, code: 'ERR_NETWORK' })
@@ -173,6 +193,24 @@ describe('api/client.js — global error toast interceptor', () => {
     })
     await err(error).catch(() => {})
     expect(toastError).toHaveBeenCalledOnce()
+  })
+
+  // ── Cancelled requests ───────────────────────────────────────────────────
+
+  it('skips the toast when the request was cancelled (error.code === ERR_CANCELED)', async () => {
+    const { err } = getToastHandler()
+    const error = mkError({ code: 'ERR_CANCELED', response: null })
+    await err(error).catch(() => {})
+    expect(toastError).not.toHaveBeenCalled()
+  })
+
+  it('skips the toast when axios.isCancel(error) is true', async () => {
+    const axios = (await import('axios')).default
+    axios.isCancel.mockReturnValueOnce(true)
+    const { err } = getToastHandler()
+    const error = mkError({ response: { status: 500, data: {} } })
+    await err(error).catch(() => {})
+    expect(toastError).not.toHaveBeenCalled()
   })
 
   // ── 401 handling ─────────────────────────────────────────────────────────

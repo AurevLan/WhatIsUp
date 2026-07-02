@@ -309,8 +309,8 @@ async function loadProbes() {
   try {
     // Superadmins get enriched stats (uptime 24h + live health); others get basic list
     const { data } = auth.isSuperadmin
-      ? await probesApi.stats()
-      : await probesApi.list()
+      ? await probesApi.stats({ skipErrorToast: true })
+      : await probesApi.list({ skipErrorToast: true })
     probes.value = data
   } catch (err) {
     showError(t('common.error'))

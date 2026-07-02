@@ -836,7 +836,7 @@ async function handleSubmit() {
   loading.value = true
   error.value = ''
   try {
-    await monitorStore.create(buildPayload())
+    await monitorStore.create(buildPayload(), { skipErrorToast: true })
     emit('created')
   } catch (err) {
     error.value = err.response?.data?.detail || 'Failed to create monitor'

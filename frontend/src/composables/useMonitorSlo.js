@@ -156,10 +156,10 @@ export function useMonitorSlo(monitorRef) {
     sloEditor.value.error = null
     try {
       if (sloEditor.value.rule) {
-        await updateSloRule(monitorRef.value.id, sloEditor.value.rule.id, payload)
+        await updateSloRule(monitorRef.value.id, sloEditor.value.rule.id, payload, { skipErrorToast: true })
       } else {
         payload.rule_type = f.rule_type
-        await createSloRule(monitorRef.value.id, payload)
+        await createSloRule(monitorRef.value.id, payload, { skipErrorToast: true })
       }
       sloEditor.value.open = false
       await loadHealthEngine(monitorRef.value.id)

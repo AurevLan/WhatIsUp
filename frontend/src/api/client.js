@@ -69,6 +69,7 @@ api.interceptors.response.use(
 // Show a global error toast for every failed request, unless:
 //   • the response status is 401 (handled above by the refresh / redirect flow)
 //   • the caller opted out with { skipErrorToast: true } in the axios config
+//   • the request was cancelled (axios.isCancel / ERR_CANCELED) — not a real error
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -76,12 +77,21 @@ api.interceptors.response.use(
 
     if (status === 401) return Promise.reject(error)
     if (error.config?.skipErrorToast) return Promise.reject(error)
+    if (
+      (typeof axios.isCancel === 'function' && axios.isCancel(error)) ||
+      error.code === 'ERR_CANCELED'
+    ) {
+      return Promise.reject(error)
+    }
 
     const t = i18n.global.t
     const detail = error.response?.data?.detail
     let msg
 
-    if (typeof detail === 'string' && detail.length <= 200) {
+    // Only surface the raw FastAPI detail for non-empty strings on < 500
+    // responses — 5xx bodies aren't meant for end users and fall back to the
+    // generic i18n key below.
+    if (typeof detail === 'string' && detail.length > 0 && detail.length <= 200 && status < 500) {
       msg = detail
     } else if (!error.response) {
       msg = error.code === 'ECONNABORTED' ? t('errors.timeout') : t('errors.network')

@@ -76,7 +76,7 @@ export const useWebPushStore = defineStore('webPush', () => {
         p256dh: subJson.keys.p256dh,
         auth: subJson.keys.auth,
         user_agent: navigator.userAgent.slice(0, 255),
-      })
+      }, { skipErrorToast: true })
       debugLog('[WebPush] Subscription registered on server')
       isSubscribed.value = true
     } catch (err) {
@@ -94,7 +94,7 @@ export const useWebPushStore = defineStore('webPush', () => {
       const reg = await navigator.serviceWorker.ready
       const pushSub = await reg.pushManager.getSubscription()
       if (pushSub) await pushSub.unsubscribe()
-      await webPushApi.unsubscribe()
+      await webPushApi.unsubscribe({ skipErrorToast: true })
       isSubscribed.value = false
     } catch (err) {
       error.value = err.message || 'unknown_error'

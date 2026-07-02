@@ -77,8 +77,8 @@ export const useMonitorStore = defineStore('monitors', () => {
     }
   }
 
-  async function create(payload) {
-    const { data } = await monitorsApi.create(payload)
+  async function create(payload, config = {}) {
+    const { data } = await monitorsApi.create(payload, config)
     monitors.value.unshift(enrich(data))
     return data
   }

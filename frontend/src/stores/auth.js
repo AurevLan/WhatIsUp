@@ -102,7 +102,7 @@ export const useAuthStore = defineStore('auth', () => {
     mfaToken.value = null
 
     const form = new URLSearchParams({ username: email, password })
-    const { data } = await api.post('/auth/login', form)
+    const { data } = await api.post('/auth/login', form, { skipErrorToast: true })
 
     // 2FA enabled → server withholds tokens and hands back a short-lived
     // mfa_token. Surface the challenge and let the view collect the code.
@@ -121,7 +121,7 @@ export const useAuthStore = defineStore('auth', () => {
     const { data } = await api.post('/auth/totp/verify', {
       mfa_token: mfaToken.value,
       code,
-    })
+    }, { skipErrorToast: true })
     await _establishSession(data)
     mfaPending.value = false
     mfaToken.value = null

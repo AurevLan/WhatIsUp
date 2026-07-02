@@ -223,7 +223,7 @@ async function submitTeamAddMember() {
   submitting.value = true
   teamMemberError.value = ''
   try {
-    await teamsApi.addMember(props.team.id, teamAddMemberForm.value)
+    await teamsApi.addMember(props.team.id, teamAddMemberForm.value, { skipErrorToast: true })
     teamAddMemberForm.value = { user_id: '', role: 'editor' }
     showTeamAddMember.value = false
     await loadTeamMembers(props.team.id)
@@ -291,7 +291,7 @@ async function submitEditTeam() {
   submitting.value = true
   teamError.value = ''
   try {
-    await teamsApi.update(props.team.id, teamEditForm.value)
+    await teamsApi.update(props.team.id, teamEditForm.value, { skipErrorToast: true })
     showEditTeamModal.value = false
     emit('renamed', teamEditForm.value.name)
     emit('changed')

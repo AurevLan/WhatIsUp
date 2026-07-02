@@ -46,7 +46,7 @@ watchEffect(async () => {
   loading.value = true
   error.value = null
   try {
-    const { data } = await incidentUpdatesApi.diagnostics(props.incidentId)
+    const { data } = await incidentUpdatesApi.diagnostics(props.incidentId, { skipErrorToast: true })
     items.value = Array.isArray(data) ? data : []
   } catch (err) {
     error.value = err?.response?.data?.detail || err.message || 'error'

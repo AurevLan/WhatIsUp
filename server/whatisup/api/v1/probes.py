@@ -466,6 +466,9 @@ async def update_probe(
     # The stale entry will be rejected on the next fast-path hit (probe not found / inactive)
     # and evicted automatically. The maximum stale window is the cache TTL (300 seconds).
     await db.flush()
+    from whatisup.services.audit import log_action
+
+    await log_action(db, "probe.update", "probe", probe.id, probe.name, None)
     logger.info("probe_updated", probe_id=str(probe.id))
     return probe
 

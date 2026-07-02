@@ -107,6 +107,17 @@ async def create_channel(
     )
     db.add(channel)
     await db.flush()
+    from whatisup.services.audit import log_action
+
+    await log_action(
+        db,
+        "alert_channel.create",
+        "alert_channel",
+        channel.id,
+        channel.name,
+        current_user,
+        diff={"type": channel.type.value if hasattr(channel.type, "value") else str(channel.type)},
+    )
     return channel
 
 
@@ -237,6 +248,16 @@ async def delete_channel(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Channel not found"
             ) from None
         raise
+    from whatisup.services.audit import log_action
+
+    await log_action(
+        db,
+        "alert_channel.delete",
+        "alert_channel",
+        channel.id,
+        channel.name,
+        current_user,
+    )
     await db.delete(channel)
 
 
@@ -315,6 +336,16 @@ async def create_rule(
     db.add(rule)
     await db.flush()
     await db.refresh(rule, ["channels"])
+    from whatisup.services.audit import log_action
+
+    await log_action(
+        db,
+        "alert_rule.create",
+        "alert_rule",
+        rule.id,
+        str(rule.condition),
+        current_user,
+    )
     return rule
 
 
@@ -379,6 +410,16 @@ async def update_rule(
 
     await db.flush()
     await db.refresh(rule, ["channels"])
+    from whatisup.services.audit import log_action
+
+    await log_action(
+        db,
+        "alert_rule.update",
+        "alert_rule",
+        rule.id,
+        str(rule.condition),
+        current_user,
+    )
     return rule
 
 
@@ -404,6 +445,16 @@ async def delete_rule(
     db: AsyncSession = Depends(get_db),
 ) -> None:
     rule = await _load_rule_for_owner(rule_id, current_user, db)
+    from whatisup.services.audit import log_action
+
+    await log_action(
+        db,
+        "alert_rule.delete",
+        "alert_rule",
+        rule.id,
+        str(rule.condition),
+        current_user,
+    )
     await db.delete(rule)
 
 

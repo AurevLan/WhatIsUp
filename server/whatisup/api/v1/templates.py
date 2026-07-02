@@ -92,6 +92,11 @@ async def create_template(
     db.add(template)
     await db.flush()
     await db.refresh(template)
+    from whatisup.services.audit import log_action
+
+    await log_action(
+        db, "template.create", "monitor_template", template.id, template.name, current_user
+    )
     return template
 
 
@@ -146,6 +151,11 @@ async def update_template(
 
     await db.flush()
     await db.refresh(template)
+    from whatisup.services.audit import log_action
+
+    await log_action(
+        db, "template.update", "monitor_template", template.id, template.name, current_user
+    )
     return template
 
 
@@ -168,6 +178,11 @@ async def delete_template(
     if template is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Template not found")
 
+    from whatisup.services.audit import log_action
+
+    await log_action(
+        db, "template.delete", "monitor_template", template.id, template.name, current_user
+    )
     await db.delete(template)
 
 

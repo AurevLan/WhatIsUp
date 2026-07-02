@@ -78,6 +78,7 @@
 | OWASP 2021 | Vecteur | Mitigation en place | Vérification |
 |---|---|---|---|
 | **A01 — Broken Access Control** | Cross-tenant leak | Ownership enforcement par JOIN, `require_superadmin`, RBAC teams + tags | Tests `test_*_ownership.py`, audit `delete_channel`/`list_events` |
+| **A01 — Broken Access Control** | Probe forge résultat cross-monitor | `POST /probes/results` : la sonde ne peut pousser un résultat que pour un monitor de son `network_scope` (scope `all` = servi par toutes) — sinon 403 ; idem `serves_monitor` sur `/probes/diagnostics` | `api/v1/probes.py`, `test_probe_trust.py` |
 | **A02 — Cryptographic Failures** | Secrets en clair | Fernet AES-128 sur tous secrets channels + OIDC + scenario, bcrypt 12-rounds, refresh tokens hashés SHA-256 | `core/security.py`, `_validate_production_settings()` |
 | **A03 — Injection** | SQL / cmd / XSS | SQLAlchemy ORM exclusif, Pydantic v2 `extra="forbid"`, Vue 3 auto-escape, pas de `v-html` non-safe | CodeQL `security-extended`, code review |
 | **A04 — Insecure Design** | Modèle d'accès | Threat model documenté (ce fichier), invite-only, escalade priv. silencieusement bloquée | Tests `test_me_update_*` |
@@ -455,9 +456,10 @@ Toute modification de cette table doit être reportée dans `FEATURES.md` §11.
 | `/auth/register` | POST | **5/min** | Anti enum + spam |
 | `/auth/refresh` | POST | **30/min** | Mobile + multi-tab |
 | `/auth/me` | PATCH | **30/min** | Self-update |
-| `/probes/heartbeat` | POST | **30/min** | Probe health beats |
-| `/probes/results` | POST | **60/min** | Probe results push (bursts ok) |
+| `/probes/heartbeat` | POST | **120/min** | Probe health beats |
+| `/probes/results` | POST | **600/min** | Probe results push (bursts ok) |
 | `/probes/register` | POST | **3/min** | Anti scan |
+| `/probes/{id}/rotate-key` | POST | **10/min** | Rotation clé — superadmin only |
 | `/monitors` | POST | **10/min** | Anti spam monitor |
 | `/monitors/{id}/trigger-check` | POST | **20/min** | Évite trigger storm |
 | `/config` | GET | **5/min** | Probe config pull |

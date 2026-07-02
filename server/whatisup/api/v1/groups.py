@@ -90,6 +90,9 @@ async def create_group(
     )
     db.add(group)
     await db.flush()
+    from whatisup.services.audit import log_action
+
+    await log_action(db, "group.create", "group", group.id, group.name, current_user)
     return group
 
 
@@ -127,6 +130,9 @@ async def update_group(
         group.tags = list(tags_result.scalars().all())
 
     await db.flush()
+    from whatisup.services.audit import log_action
+
+    await log_action(db, "group.update", "group", group.id, group.name, current_user)
     return group
 
 
@@ -139,6 +145,9 @@ async def delete_group(
     db: AsyncSession = Depends(get_db),
 ) -> None:
     group = await _get_group_or_404(group_id, current_user, db)
+    from whatisup.services.audit import log_action
+
+    await log_action(db, "group.delete", "group", group.id, group.name, current_user)
     await db.delete(group)
 
 

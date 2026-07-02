@@ -86,6 +86,11 @@ async def create_window(
     )
     db.add(window)
     await db.flush()
+    from whatisup.services.audit import log_action
+
+    await log_action(
+        db, "maintenance.create", "maintenance_window", window.id, window.name, current_user
+    )
     return window
 
 
@@ -103,6 +108,11 @@ async def delete_window(
     if window is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Window not found")
     await check_resource_access(window, current_user, db)
+    from whatisup.services.audit import log_action
+
+    await log_action(
+        db, "maintenance.delete", "maintenance_window", window.id, window.name, current_user
+    )
     await db.delete(window)
 
 
@@ -126,4 +136,9 @@ async def update_window(
     for field, value in payload.model_dump().items():
         setattr(window, field, value)
     await db.flush()
+    from whatisup.services.audit import log_action
+
+    await log_action(
+        db, "maintenance.update", "maintenance_window", window.id, window.name, current_user
+    )
     return window

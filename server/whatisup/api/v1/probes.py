@@ -453,19 +453,25 @@ async def update_probe(
     request: Request,
     probe_id: uuid.UUID,
     payload: ProbeUpdate,
-    _user: User = Depends(require_superadmin),
+    user: User = Depends(require_superadmin),
     db: AsyncSession = Depends(get_db),
 ) -> Probe:
     probe = (await db.execute(select(Probe).where(Probe.id == probe_id))).scalar_one_or_none()
     if probe is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Probe not found")
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    changes = payload.model_dump(exclude_unset=True)
+    for field, value in changes.items():
         setattr(probe, field, value)
     # NOTE (R-01): If is_active is being set to False, the Redis probe-auth cache entry for
     # this probe's API key cannot be invalidated precisely (we don't hold the raw key here).
     # The stale entry will be rejected on the next fast-path hit (probe not found / inactive)
     # and evicted automatically. The maximum stale window is the cache TTL (300 seconds).
     await db.flush()
+    from whatisup.services.audit import log_action
+
+    # ProbeUpdate (location_name/latitude/longitude/is_active/network_type) carries no
+    # Fernet-encrypted secret — safe to log verbatim as the diff.
+    await log_action(db, "probe.update", "probe", probe.id, probe.name, user, diff=changes)
     logger.info("probe_updated", probe_id=str(probe.id))
     return probe
 
@@ -475,7 +481,7 @@ async def update_probe(
 async def delete_probe(
     request: Request,
     probe_id: uuid.UUID,
-    _user: User = Depends(require_superadmin),
+    user: User = Depends(require_superadmin),
     db: AsyncSession = Depends(get_db),
 ) -> None:
     probe = (await db.execute(select(Probe).where(Probe.id == probe_id))).scalar_one_or_none()
@@ -483,7 +489,7 @@ async def delete_probe(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Probe not found")
     from whatisup.services.audit import log_action
 
-    await log_action(db, "probe.delete", "probe", probe.id, probe.name, None)
+    await log_action(db, "probe.delete", "probe", probe.id, probe.name, user)
     await db.delete(probe)
     # NOTE (R-01): The Redis probe-auth cache entry for this probe's API key cannot be
     # invalidated here (we don't hold the raw key). On the next fast-path hit the DB lookup

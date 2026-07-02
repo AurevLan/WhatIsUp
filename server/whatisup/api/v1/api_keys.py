@@ -93,7 +93,7 @@ async def create_api_key(
 
     from whatisup.services.audit import log_action
 
-    await log_action(db, "api_key.create", "api_key", row.id, payload.name, current_user.id)
+    await log_action(db, "api_key.create", "api_key", row.id, payload.name, current_user)
     logger.info("api_key_created", user_id=str(current_user.id), key_name=payload.name)
 
     return ApiKeyCreateResponse(
@@ -120,5 +120,5 @@ async def revoke_api_key(
 
     from whatisup.services.audit import log_action
 
-    await log_action(db, "api_key.revoke", "api_key", row.id, row.name, current_user.id)
+    await log_action(db, "api_key.revoke", "api_key", row.id, row.name, current_user)
     logger.info("api_key_revoked", user_id=str(current_user.id), key_id=str(key_id))

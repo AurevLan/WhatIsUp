@@ -33,6 +33,7 @@ sockets only — never to anonymous public status-page sockets.
 
 import asyncio
 import json
+import time
 import uuid
 
 import structlog
@@ -254,32 +255,63 @@ async def _refresh_public_scope(websocket: WebSocket, group_id: uuid.UUID) -> No
 
 
 async def _serve_keepalive(websocket: WebSocket, recompute) -> None:
-    """Keep-alive loop with time-driven scope refresh.
+    """Keep-alive loop with a sliding, frame-independent scope-refresh deadline.
 
-    Waits for an incoming frame (client keep-alive ping) but no longer than
-    ``SCOPE_REFRESH_SECONDS`` via ``asyncio.wait_for``. An arriving frame is
-    consumed and the wait restarts (pure keep-alive). On timeout the scope is
-    recomputed via *recompute* — an async callable that applies the new scope
-    itself (``manager.set_scope``) and owns its error handling: a transient
-    failure keeps the previous scope and is retried on the next window, while a
-    revoked/deleted user raises :class:`_ScopeRevoked` to end the loop.
+    A monotonic *deadline* is set ``SCOPE_REFRESH_SECONDS`` ahead. Each iteration
+    waits for an incoming frame (client keep-alive ping) but only for the
+    **remaining** slice of the current window — never a fresh full timeout. So:
 
-    Crucially the refresh is driven by the timeout, **not** by client frames, so
-    sockets that never send anything (anonymous public status pages) still track
-    scope changes. A real client disconnect surfaces as ``WebSocketDisconnect``
-    from ``receive_text`` and propagates to the caller for cleanup.
+    * a frame arriving mid-window is consumed (pure keep-alive) and the next wait
+      covers only what is left of the window, **not** a brand-new one;
+    * when the deadline passes — whether from ``asyncio.wait_for`` timing out on a
+      silent socket, or from a frame landing at/after the deadline (remaining ≤ 0)
+      — the scope is recomputed and a new deadline is armed.
+
+    This is the fix for finding F-1: the previous version restarted a *full*
+    ``SCOPE_REFRESH_SECONDS`` timeout on every frame, so a dashboard pinging
+    faster than the window (30 s ping < 60 s window) never hit the timeout and
+    never refreshed — the M-2 identity revalidation (deleted/deactivated user →
+    close 4001, demoted superadmin → reduced scope) was dead code for any live
+    tab. The refresh now tracks wall-clock elapsed time regardless of frame
+    traffic, so it still fires for chatty dashboards **and** for silent public
+    status-page sockets that never send anything.
+
+    *recompute* is an async callable that applies the new scope itself
+    (``manager.set_scope``) and owns its error handling: a transient failure keeps
+    the previous scope and is retried on the next window, while a revoked/deleted
+    user raises :class:`_ScopeRevoked` to end the loop. A real client disconnect
+    surfaces as ``WebSocketDisconnect`` from ``receive_text`` and propagates to the
+    caller for cleanup (never confused with a refresh timeout).
+
+    ``SCOPE_REFRESH_SECONDS`` is read from the module on each re-arm so tests can
+    monkeypatch it to a small value.
     """
+    deadline = time.monotonic() + SCOPE_REFRESH_SECONDS
     while True:
-        try:
-            await asyncio.wait_for(websocket.receive_text(), timeout=SCOPE_REFRESH_SECONDS)
-            # Frame arrived before the window elapsed → keep-alive only, keep waiting.
-            continue
-        except TimeoutError:
-            # No frame within the window → re-evaluate the scope.
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            # Deadline reached (a frame landed at/after it, or the window is tiny)
+            # → recompute immediately. Handled explicitly rather than passing a
+            # zero/negative timeout to ``wait_for`` (which cancels near-instantly
+            # and would spin the loop).
             try:
                 await recompute()
             except _ScopeRevoked:
                 return
+            deadline = time.monotonic() + SCOPE_REFRESH_SECONDS
+            continue
+        try:
+            await asyncio.wait_for(websocket.receive_text(), timeout=remaining)
+            # Frame arrived before the deadline → keep-alive only; loop back and
+            # wait out just the REMAINING slice of the current window.
+            continue
+        except TimeoutError:
+            # No frame within the window → re-evaluate the scope, re-arm.
+            try:
+                await recompute()
+            except _ScopeRevoked:
+                return
+            deadline = time.monotonic() + SCOPE_REFRESH_SECONDS
 
 
 async def _redis_subscriber() -> None:
@@ -406,8 +438,20 @@ async def websocket_public(websocket: WebSocket, slug: str) -> None:
         return
 
     group_id = group.id
-    async with _scope_session() as db:
-        scope = await _compute_public_scope(db, group_id)
+    # Compute the initial scope inside a guard: ``manager.connect`` already
+    # accepted the socket and took a per-IP slot, so a transient DB error here
+    # must not leave an UNAUTHED entry lingering in ``manager._connections`` —
+    # that would never decrement the per-IP counter and slowly exhaust the 10
+    # slots (worse behind a reverse-proxy where many visitors share one IP).
+    # Mirror the dashboard path: server-error close (1011) + manager cleanup.
+    try:
+        async with _scope_session() as db:
+            scope = await _compute_public_scope(db, group_id)
+    except Exception as exc:
+        logger.warning("ws_public_scope_error", error=str(exc))
+        await manager.disconnect(websocket)
+        await websocket.close(code=1011, reason="Server error")
+        return
     await manager.authorize(websocket, "public", scope)
 
     async def _recompute() -> None:

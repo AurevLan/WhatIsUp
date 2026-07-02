@@ -264,6 +264,42 @@ def test_ws_public_unknown_slug_closed(ws_client: TestClient, monkeypatch) -> No
     assert exc_info.value.code == 4004
 
 
+def test_ws_public_scope_error_closes_1011_and_frees_ip(ws_client: TestClient, monkeypatch) -> None:
+    """A transient failure computing the initial public scope must not leak a slot.
+
+    ``manager.connect`` has already accepted the socket and taken a per-IP slot
+    when the scope computation runs. If that raises and the route just fell
+    through (the pre-fix behaviour), an UNAUTHED entry would linger in
+    ``manager._connections`` and the per-IP counter would never be decremented —
+    progressively exhausting the 10 slots (worse behind a reverse-proxy). The
+    route must close 1011 (server error, not an auth refusal) and clean up the
+    manager, releasing the per-IP slot.
+    """
+    import uuid
+    from types import SimpleNamespace
+
+    import whatisup.api.v1.ws as ws_module
+
+    # Group lookup succeeds (returns a stub group); scope computation then blows up.
+    group = SimpleNamespace(id=uuid.uuid4(), public_slug="boom")
+    _fake_scope_session(monkeypatch, group)
+
+    async def _boom(_db, _group_id):
+        raise RuntimeError("transient DB error")
+
+    monkeypatch.setattr(ws_module, "_compute_public_scope", _boom)
+
+    ip_counts_before = dict(ws_module.manager._ip_counts)
+
+    with ws_client.websocket_connect("/ws/public/boom") as ws:
+        closed = ws.receive()
+        assert closed["type"] == "websocket.close"
+        assert closed["code"] == 1011
+
+    # Slot released: no lingering connection, per-IP counter back to its prior state.
+    assert ws_module.manager._ip_counts == ip_counts_before
+
+
 # ── Tenant scoping — ConnectionManager fan-out filter (finding audit M1) ───────
 
 
@@ -549,6 +585,46 @@ async def test_keepalive_refreshes_scope_on_server_timeout(monkeypatch) -> None:
     # …while one newly added to the group now does.
     await manager.broadcast({"type": "incident_opened", "monitor_id": "new-monitor"})
     pub.send_text.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_keepalive_refreshes_despite_frequent_client_pings(monkeypatch) -> None:
+    """Finding F-1: a chatty client must not starve the scope refresh.
+
+    Regression the deadline fix closes: the previous loop restarted a *full*
+    ``SCOPE_REFRESH_SECONDS`` timeout on every incoming frame, so a dashboard
+    pinging faster than the window (frontend pings every 30 s, window 60 s) never
+    hit the timeout and never recomputed — M-2 identity revalidation was dead
+    code for any live tab. Here the client pings every ~0.01 s under a 0.03 s
+    window; the recompute MUST still fire. On the pre-fix code this hangs (the
+    timeout never elapses) and the outer ``wait_for`` raises — i.e. it fails.
+    """
+    import whatisup.api.v1.ws as ws_module
+
+    monkeypatch.setattr(ws_module, "SCOPE_REFRESH_SECONDS", 0.03)
+
+    ws = _fake_ws()
+
+    # The client pings continuously, faster than the refresh window.
+    async def _fast_ping() -> str:
+        await asyncio.sleep(0.01)
+        return "ping"
+
+    ws.receive_text = _fast_ping
+
+    calls = 0
+
+    async def _recompute() -> None:
+        nonlocal calls
+        calls += 1
+        # End the loop as soon as the (frame-independent) deadline first fires.
+        raise _ScopeRevoked
+
+    # Comfortably longer than the 0.03 s window: on the fixed code the deadline
+    # fires within ~3 pings; on the old code it never does and this times out.
+    await asyncio.wait_for(_serve_keepalive(ws, _recompute), timeout=2.0)
+
+    assert calls >= 1
 
 
 @pytest.mark.asyncio

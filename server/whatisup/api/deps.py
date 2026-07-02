@@ -156,7 +156,7 @@ async def get_current_probe(
 ) -> Probe:
     """Authenticate a probe via its API key.
 
-    Fast path: SHA-256(key) → probe_id cached in Redis (TTL 300s).
+    Fast path: SHA-256(key) → probe_id cached in Redis (TTL 60s).
     Slow path (cache miss): full bcrypt scan, then populate cache.
     """
     if not x_probe_api_key.startswith("wiu_"):

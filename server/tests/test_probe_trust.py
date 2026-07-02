@@ -16,14 +16,19 @@ import pytest
 import pytest_asyncio
 from fakeredis.aioredis import FakeRedis
 from httpx import AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from whatisup.models.audit_log import AuditLog
 from whatisup.models.monitor import Monitor
 from whatisup.models.probe import NetworkType, Probe
 from whatisup.models.user import User
 
 _PROBE_KEY = "wiu_trust_probe_key_for_tests_only"
 _PROBE_HEADERS = {"X-Probe-Api-Key": _PROBE_KEY}
+
+_INTERNAL_PROBE_KEY = "wiu_trust_internal_probe_key_tests"
+_INTERNAL_PROBE_HEADERS = {"X-Probe-Api-Key": _INTERNAL_PROBE_KEY}
 
 
 @pytest_asyncio.fixture
@@ -35,6 +40,21 @@ async def external_probe(db_session: AsyncSession) -> Probe:
         location_name="Test DC",
         api_key_hash=key_hash,
         network_type=NetworkType.external,
+    )
+    db_session.add(probe)
+    await db_session.flush()
+    return probe
+
+
+@pytest_asyncio.fixture
+async def internal_probe(db_session: AsyncSession) -> Probe:
+    """Active internal probe with its own known API key (bcrypt rounds=4)."""
+    key_hash = bcrypt.hashpw(_INTERNAL_PROBE_KEY.encode(), bcrypt.gensalt(rounds=4)).decode()
+    probe = Probe(
+        name="trust-probe-internal",
+        location_name="Internal DC",
+        api_key_hash=key_hash,
+        network_type=NetworkType.internal,
     )
     db_session.add(probe)
     await db_session.flush()
@@ -54,12 +74,15 @@ async def monitor_owner(db_session: AsyncSession) -> User:
     return u
 
 
-async def _make_monitor(db_session: AsyncSession, owner: User, scope: str) -> Monitor:
+async def _make_monitor(
+    db_session: AsyncSession, owner: User, scope: str, check_type: str = "http"
+) -> Monitor:
     m = Monitor(
-        name=f"mon-{scope}",
+        name=f"mon-{scope}-{check_type}",
         url="http://example.com",
         owner_id=owner.id,
         network_scope=scope,
+        check_type=check_type,
     )
     db_session.add(m)
     await db_session.flush()
@@ -153,6 +176,42 @@ async def test_result_for_scope_all_is_accepted(
     assert resp.status_code == 202, resp.text
 
 
+@pytest.mark.asyncio
+async def test_forge_result_reverse_direction_is_forbidden(
+    client: AsyncClient, internal_probe: Probe, monitor_owner: User, db_session: AsyncSession
+) -> None:
+    """Internal probe forging a result for an external-scoped monitor → 403.
+
+    Guards the opposite scope direction from the primary forge test — a probe on
+    one network must not be able to report on a monitor pinned to the other.
+    """
+    monitor = await _make_monitor(db_session, monitor_owner, scope="external")
+    resp = await client.post(
+        "/api/v1/probes/results",
+        json=_result_body(monitor.id),
+        headers=_INTERNAL_PROBE_HEADERS,
+    )
+    assert resp.status_code == 403, resp.text
+    assert "network scope" in resp.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_forge_result_for_composite_monitor_is_forbidden(
+    client: AsyncClient, external_probe: Probe, monitor_owner: User, db_session: AsyncSession
+) -> None:
+    """Composite monitors are never distributed to probes → any result is a forge → 403.
+
+    Even with the permissive scope 'all', a composite monitor has no physical
+    check and is filtered out of the heartbeat config, so no legitimate probe
+    result exists for it.
+    """
+    monitor = await _make_monitor(db_session, monitor_owner, scope="all", check_type="composite")
+    resp = await client.post(
+        "/api/v1/probes/results", json=_result_body(monitor.id), headers=_PROBE_HEADERS
+    )
+    assert resp.status_code == 403, resp.text
+
+
 # ── H1 — probe API key rotation ───────────────────────────────────────────────
 
 
@@ -220,3 +279,31 @@ async def test_rotate_key_unknown_probe_404(client: AsyncClient, admin_token: st
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 404, resp.text
+
+
+@pytest.mark.asyncio
+async def test_rotate_key_writes_audit_row(
+    client: AsyncClient,
+    external_probe: Probe,
+    admin_user: User,
+    admin_token: str,
+    db_session: AsyncSession,
+) -> None:
+    """A successful rotation records a ``probe.rotate_key`` audit entry."""
+    resp = await client.post(
+        f"/api/v1/probes/{external_probe.id}/rotate-key",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200, resp.text
+
+    entry = (
+        await db_session.execute(
+            select(AuditLog).where(
+                AuditLog.action == "probe.rotate_key",
+                AuditLog.object_id == external_probe.id,
+            )
+        )
+    ).scalar_one()
+    assert entry.object_type == "probe"
+    assert entry.object_name == external_probe.name
+    assert entry.user_id == admin_user.id

@@ -194,10 +194,32 @@ async def get_current_probe(
         if verify_api_key(x_probe_api_key, probe.api_key_hash):
             # Cache the result (TTL 60s)
             await redis.setex(cache_key, 60, str(probe.id))
+            # Reverse index (probe_id → key digest) so key rotation / deactivation
+            # can evict the forward cache entry precisely without holding the raw key.
+            await redis.setex(f"whatisup:probe_auth_rev:{probe.id}", 60, digest)
             return probe
 
     logger.warning("probe_auth_failed", key_prefix=x_probe_api_key[:10])
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid probe API key")
+
+
+async def invalidate_probe_auth_cache(probe_id: uuid.UUID) -> None:
+    """Immediately evict the Redis probe-auth cache entry for a probe.
+
+    The forward cache maps ``SHA-256(raw_key)[:32] → probe_id`` and the raw key
+    is not available at rotation/deactivation time. We therefore keep a reverse
+    index (``probe_id → digest``) written whenever a key is cached, and use it
+    here to delete the forward entry. Without this the previous key would keep
+    authenticating on the fast path until the cache TTL expires.
+    """
+    from whatisup.core.redis import get_redis
+
+    redis = get_redis()
+    rev_key = f"whatisup:probe_auth_rev:{probe_id}"
+    digest = await redis.get(rev_key)
+    if digest:
+        await redis.delete(f"whatisup:probe_auth:{digest}")
+    await redis.delete(rev_key)
 
 
 # ── Team-aware access control ────────────────────────────────────────────────

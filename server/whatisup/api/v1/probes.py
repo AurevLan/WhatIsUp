@@ -8,7 +8,12 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, R
 from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from whatisup.api.deps import get_current_probe, get_current_user, require_superadmin
+from whatisup.api.deps import (
+    get_current_probe,
+    get_current_user,
+    invalidate_probe_auth_cache,
+    require_superadmin,
+)
 from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
 from whatisup.core.security import (
@@ -372,6 +377,27 @@ async def push_result(
             status_code=status.HTTP_404_NOT_FOUND, detail="Monitor not found or disabled"
         )
 
+    # H2 — bind the authenticated probe to the monitor it reports on.
+    # The heartbeat only hands a monitor's config to probes whose network_type
+    # matches the monitor's network_scope (or scope "all"), which is the sole
+    # probe↔monitor "assignment" the system models. A result for a monitor
+    # outside that scope means a compromised/misused key is forging data for an
+    # arbitrary monitor → reject. Scope "all" stays served by every probe, so
+    # unassigned monitors keep their permissive default. This check is O(1) on
+    # already-loaded rows — no extra DB/Redis round-trip on the hot path.
+    if monitor.network_scope != "all" and monitor.network_scope != probe.network_type:
+        logger.warning(
+            "probe_result_scope_rejected",
+            probe_id=str(probe.id),
+            monitor_id=str(monitor.id),
+            monitor_scope=monitor.network_scope,
+            probe_network_type=str(probe.network_type),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Probe network scope does not serve this monitor",
+        )
+
     result = CheckResult(
         monitor_id=payload.monitor_id,
         probe_id=probe.id,
@@ -490,6 +516,53 @@ async def delete_probe(
     # will return None and the stale cache entry will be evicted. The maximum stale window
     # is the cache TTL (300 seconds).
     logger.info("probe_deleted", probe_id=str(probe_id))
+
+
+@router.post("/{probe_id}/rotate-key", response_model=ProbeRegistered)
+@limiter.limit("10/minute")
+async def rotate_probe_key(
+    request: Request,
+    probe_id: uuid.UUID,
+    user: User = Depends(require_superadmin),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Rotate a probe's API key (H1).
+
+    Superadmin-only. Generates a fresh key, stores its bcrypt hash, and returns
+    the plaintext key **once** — it is never retrievable afterwards. The previous
+    key is invalidated immediately: its hash is overwritten AND the Redis
+    probe-auth cache entry is evicted, so the old key cannot keep authenticating
+    on the fast path during the cache TTL window. The probe must be re-enrolled
+    with the new key.
+    """
+    probe = (await db.execute(select(Probe).where(Probe.id == probe_id))).scalar_one_or_none()
+    if probe is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Probe not found")
+
+    api_key = generate_probe_api_key()
+    probe.api_key_hash = hash_api_key(api_key)
+    await db.flush()
+
+    # Evict the stale auth-cache entry so the OLD key stops working now.
+    await invalidate_probe_auth_cache(probe.id)
+
+    from whatisup.services.audit import log_action
+
+    await log_action(db, "probe.rotate_key", "probe", probe.id, probe.name, user)
+
+    logger.info("probe_key_rotated", probe_id=str(probe.id))
+
+    return {
+        "id": probe.id,
+        "name": probe.name,
+        "location_name": probe.location_name,
+        "latitude": probe.latitude,
+        "longitude": probe.longitude,
+        "is_active": probe.is_active,
+        "last_seen_at": probe.last_seen_at,
+        "network_type": probe.network_type,
+        "api_key": api_key,
+    }
 
 
 @router.get("/{probe_id}/incident-timeline")

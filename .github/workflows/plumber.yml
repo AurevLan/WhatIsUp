@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
-      - uses: getplumber/plumber@4d73d009cd2d4c1762d8673331f30c8d0c82e4c8  # v0.3.60
+      - uses: getplumber/plumber@a697e9c316b058d279861719c73b87093fb5a60f # v0.3.86
         with:
           config-file: .plumber.yaml
           threshold: "100"

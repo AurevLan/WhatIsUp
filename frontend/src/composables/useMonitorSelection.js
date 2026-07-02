@@ -14,7 +14,7 @@ import { useConfirm } from './useConfirm'
 export function useMonitorSelection(monitors, filteredMonitors) {
   const { t } = useI18n()
   const monitorStore = useMonitorStore()
-  const { success, error: toastError } = useToast()
+  const { success, error: toastError, action: toastAction } = useToast()
   const { confirm } = useConfirm()
 
   // ── Sélection bulk ──────────────────────────────────────────────────────────
@@ -111,6 +111,11 @@ export function useMonitorSelection(monitors, filteredMonitors) {
     monitorStore.fetchAll()
   }
 
+  // C4 (bilan 2026-07) — "Undo" toast instead of an immediate delete call.
+  // The API call is deferred until the toast's ~6s window elapses; clicking
+  // Undo restores the monitors locally and sends nothing to the server. This
+  // is intentionally NOT a server-side undo — the delete simply never fires
+  // if the user cancels in time, which is the safe way to implement it.
   async function confirmBulkDelete() {
     const count = selectedIds.value.size
     const ok = await confirm({
@@ -120,14 +125,35 @@ export function useMonitorSelection(monitors, filteredMonitors) {
     })
     if (!ok) return
     const ids = [...selectedIds.value]
-    // Optimistic update
+    // Snapshot the removed monitors (with their original position) so Undo
+    // can restore them locally without a server round-trip.
+    const removed = monitorStore.monitors
+      .map((m, idx) => ({ m, idx }))
+      .filter(({ m }) => ids.includes(m.id))
+
+    // Optimistic UI removal — the real delete is deferred to onExpire below.
     monitorStore.monitors = monitorStore.monitors.filter(m => !ids.includes(m.id))
-    try {
-      await monitorsApi.bulkAction({ ids, action: 'delete' }, { skipErrorToast: true })
-      success(t('monitors.bulk_success_deleted', { count }))
-    } catch { toastError(t('monitors.bulk_error')) }
     selectedIds.value = new Set()
-    monitorStore.fetchAll()
+
+    toastAction(t('monitors.bulk_deleted_pending', { count }), {
+      label: t('common.undo'),
+      duration: 6000,
+      onAction: () => {
+        const restored = [...monitorStore.monitors]
+        for (const { m, idx } of removed) {
+          restored.splice(Math.min(idx, restored.length), 0, m)
+        }
+        monitorStore.monitors = restored
+        success(t('monitors.bulk_delete_undone', { count }))
+      },
+      onExpire: async () => {
+        try {
+          await monitorsApi.bulkAction({ ids, action: 'delete' }, { skipErrorToast: true })
+          success(t('monitors.bulk_success_deleted', { count }))
+        } catch { toastError(t('monitors.bulk_error')) }
+        monitorStore.fetchAll()
+      },
+    })
   }
 
   function bulkExportCsv() {

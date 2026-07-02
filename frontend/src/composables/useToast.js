@@ -33,6 +33,42 @@ function removeToast(id) {
   }
 }
 
+// Toast with a single action button (e.g. "Undo") — used for the deferred
+// bulk-delete pattern (C4, bilan 2026-07): the caller defers its real side
+// effect (an API call) until the toast expires, and cancels it entirely if
+// the user clicks the action button in time.
+//
+// - Clicking the action button runs `onAction` and cancels `onExpire`.
+// - Letting the toast run its course (including dismissing it early by
+//   clicking elsewhere on the toast) still runs `onExpire` once the
+//   duration elapses — only the action button skips it. This keeps "do
+//   nothing" the safe default (the delete still happens, as advertised).
+// Deliberately bypasses the activeByMessage dedup map: each action toast
+// carries its own onAction/onExpire closures that must not be merged.
+function addActionToast(message, { label, onAction, onExpire, type = 'info', duration = 6000 } = {}) {
+  const id = ++nextId
+  const timeoutId = setTimeout(() => {
+    removeToast(id)
+    onExpire?.()
+  }, duration)
+  toasts.push({
+    id,
+    message,
+    type,
+    action: label
+      ? {
+          label,
+          run: () => {
+            clearTimeout(timeoutId)
+            removeToast(id)
+            onAction?.()
+          },
+        }
+      : null,
+  })
+  return id
+}
+
 export function useToast() {
   return {
     toasts,
@@ -40,6 +76,7 @@ export function useToast() {
     error:   (msg) => addToast(msg, 'error', 5000),
     info:    (msg) => addToast(msg, 'info', 3500),
     warning: (msg) => addToast(msg, 'warning', 4000),
+    action:  addActionToast,
     remove:  removeToast,
   }
 }

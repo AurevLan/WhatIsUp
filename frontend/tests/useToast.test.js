@@ -72,3 +72,70 @@ describe('composables/useToast — dedup', () => {
     expect(toasts.length).toBe(1)
   })
 })
+
+/**
+ * C4 (bilan 2026-07) — action() toast, used by the bulk-delete "Undo" flow.
+ * The real side effect must be safely deferrable: clicking the action button
+ * cancels onExpire entirely (no API call), while letting the toast run its
+ * course fires onExpire exactly once.
+ */
+describe('composables/useToast — action()', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    const { toasts, remove } = useToast()
+    for (const t of [...toasts]) remove(t.id)
+  })
+
+  afterEach(() => {
+    vi.clearAllTimers()
+    vi.useRealTimers()
+  })
+
+  it('exposes the action label on the toast entry', () => {
+    const { toasts, action } = useToast()
+    action('3 monitor(s) removed', { label: 'Undo', onAction: vi.fn(), onExpire: vi.fn() })
+    expect(toasts.length).toBe(1)
+    expect(toasts[0].action.label).toBe('Undo')
+  })
+
+  it('clicking the action runs onAction, removes the toast, and never calls onExpire', () => {
+    const onAction = vi.fn()
+    const onExpire = vi.fn()
+    const { toasts, action } = useToast()
+    action('3 monitor(s) removed', { label: 'Undo', onAction, onExpire, duration: 6000 })
+    toasts[0].action.run()
+    expect(onAction).toHaveBeenCalledTimes(1)
+    expect(toasts.length).toBe(0)
+    vi.advanceTimersByTime(10000)
+    expect(onExpire).not.toHaveBeenCalled()
+  })
+
+  it('letting the toast expire calls onExpire and never onAction', () => {
+    const onAction = vi.fn()
+    const onExpire = vi.fn()
+    const { toasts, action } = useToast()
+    action('3 monitor(s) removed', { label: 'Undo', onAction, onExpire, duration: 6000 })
+    vi.advanceTimersByTime(6000)
+    expect(onExpire).toHaveBeenCalledTimes(1)
+    expect(onAction).not.toHaveBeenCalled()
+    expect(toasts.length).toBe(0)
+  })
+
+  it('dismissing the toast early (not via the action button) still fires onExpire at the original deadline', () => {
+    const onExpire = vi.fn()
+    const { toasts, action, remove } = useToast()
+    action('3 monitor(s) removed', { label: 'Undo', onExpire, duration: 6000 })
+    const id = toasts[0].id
+    remove(id) // e.g. clicking the toast body, not the Undo button
+    expect(toasts.length).toBe(0)
+    vi.advanceTimersByTime(6000)
+    expect(onExpire).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not participate in the message-based dedup used by success/error/etc', () => {
+    const { toasts, action } = useToast()
+    action('Same message', { label: 'Undo', onExpire: vi.fn() })
+    action('Same message', { label: 'Undo', onExpire: vi.fn() })
+    expect(toasts.length).toBe(2)
+  })
+})

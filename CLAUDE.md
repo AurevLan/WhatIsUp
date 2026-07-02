@@ -184,7 +184,7 @@ Le workflow `.github/workflows/release.yml` fait automatiquement :
 
 ## Mobile (Capacitor / Android)
 
-App ID : `io.github.aurevlan.whatisup` (immuable, ne **jamais** changer après publication store). Capacitor 7 → exige **JDK 21** (déjà en place dans `mobile/Dockerfile` et le workflow CI).
+App ID : `io.github.aurevlan.whatisup` (immuable, ne **jamais** changer après publication store). Capacitor 8 → exige **JDK 21** (déjà en place dans `mobile/Dockerfile` et le workflow CI).
 
 ```bash
 # Premier setup (génère frontend/android/) — Docker, ne pollue pas l'hôte

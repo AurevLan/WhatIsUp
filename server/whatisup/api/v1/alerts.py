@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from whatisup.api.deps import (
+    assert_can_assign_team,
     build_access_filter,
     check_resource_access,
     get_current_user,
@@ -92,11 +93,15 @@ async def list_channels(
 
 
 @router.post("/channels", response_model=AlertChannelOut, status_code=status.HTTP_201_CREATED)
+@limiter.limit("30/minute")
 async def create_channel(
     payload: AlertChannelCreate,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> AlertChannel:
+    # SEC-A3: a user must not attach a channel to a team they cannot access.
+    await assert_can_assign_team(db, current_user, payload.team_id)
     channel = AlertChannel(
         owner_id=current_user.id,
         team_id=payload.team_id,

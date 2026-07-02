@@ -484,3 +484,96 @@ async def test_matrix_unknown_monitor_404(client: AsyncClient, user_token: str) 
         f"/api/v1/alerts/monitors/{_uuid.uuid4()}/matrix", headers=_auth(user_token)
     )
     assert resp.status_code == 404
+
+
+# ── SEC-A3: create_channel team_id guard ────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_create_channel_without_team_id_ok(client: AsyncClient, user_token: str) -> None:
+    """No team_id → always accepted."""
+    resp = await client.post(
+        "/api/v1/alerts/channels",
+        json={
+            "name": "No-team channel",
+            "type": "webhook",
+            "config": {"url": "https://h.example.com/1"},
+        },
+        headers=_auth(user_token),
+    )
+    assert resp.status_code == 201
+    assert resp.json()["team_id"] is None
+
+
+@pytest.mark.asyncio
+async def test_create_channel_with_own_team_id_ok(client: AsyncClient, user_token: str) -> None:
+    """team_id of a team the caller is an editor+ of → accepted."""
+    # Create a team — caller becomes owner (editor+)
+    team_resp = await client.post(
+        "/api/v1/teams/",
+        json={"name": "My Alert Team", "slug": "my-alert-team"},
+        headers=_auth(user_token),
+    )
+    assert team_resp.status_code == 201
+    team_id = team_resp.json()["id"]
+
+    resp = await client.post(
+        "/api/v1/alerts/channels",
+        json={
+            "name": "Team channel",
+            "type": "webhook",
+            "config": {"url": "https://h.example.com/2"},
+            "team_id": team_id,
+        },
+        headers=_auth(user_token),
+    )
+    assert resp.status_code == 201
+    assert resp.json()["team_id"] == team_id
+
+
+@pytest.mark.asyncio
+async def test_create_channel_with_foreign_team_id_rejected(
+    client: AsyncClient,
+    user_token: str,
+    db_session,
+) -> None:
+    """team_id of a team the caller is NOT a member of → 403."""
+    from whatisup.core.security import hash_password
+    from whatisup.models.team import Team, TeamMembership, TeamRole
+    from whatisup.models.user import User
+
+    # Create a second user who owns a team the caller is not part of
+    other_user = User(
+        email="other-owner@test.com",
+        username="other-owner",
+        hashed_password=hash_password("OtherPass1!"),
+        is_superadmin=False,
+        can_create_monitors=True,
+    )
+    db_session.add(other_user)
+    await db_session.flush()
+
+    other_team = Team(name="Other Team", slug="other-alert-team")
+    db_session.add(other_team)
+    await db_session.flush()
+
+    membership = TeamMembership(
+        user_id=other_user.id,
+        team_id=other_team.id,
+        role=TeamRole.owner,
+    )
+    db_session.add(membership)
+    await db_session.flush()
+
+    # Caller (user_token) is NOT a member of other_team → must be rejected
+    resp = await client.post(
+        "/api/v1/alerts/channels",
+        json={
+            "name": "Foreign team channel",
+            "type": "webhook",
+            "config": {"url": "https://h.example.com/3"},
+            "team_id": str(other_team.id),
+        },
+        headers=_auth(user_token),
+    )
+    assert resp.status_code == 403

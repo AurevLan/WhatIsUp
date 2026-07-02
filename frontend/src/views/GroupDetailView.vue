@@ -220,8 +220,8 @@ async function load() {
   const id = route.params.id
   try {
     const [groupResp, monitorsResp] = await Promise.all([
-      groupsApi.get(id),
-      monitorsApi.list({ group_id: id }),  // list_monitors enrichit last_status + uptime_24h
+      groupsApi.get(id, { skipErrorToast: true }),
+      monitorsApi.list({ group_id: id }, { skipErrorToast: true }),  // list_monitors enrichit last_status + uptime_24h
     ])
     group.value = groupResp.data
     monitors.value = monitorsResp.data
@@ -246,7 +246,7 @@ async function saveCustomization() {
       custom_logo_url: customization.custom_logo_url || null,
       accent_color: customization.accent_color || null,
       announcement_banner: customization.announcement_banner || null,
-    })
+    }, { skipErrorToast: true })
     group.value.custom_logo_url = customization.custom_logo_url || null
     group.value.accent_color = customization.accent_color || null
     group.value.announcement_banner = customization.announcement_banner || null
@@ -266,7 +266,7 @@ async function saveReportConfig() {
     await groupsApi.update(route.params.id, {
       report_schedule: reportConfig.report_schedule || null,
       report_emails: emails,
-    })
+    }, { skipErrorToast: true })
     group.value.report_schedule = reportConfig.report_schedule || null
     group.value.report_emails = emails
   } catch {
@@ -278,7 +278,7 @@ async function saveReportConfig() {
 
 async function removeFromGroup(monitor) {
   try {
-    await monitorsApi.update(monitor.id, { group_id: null })
+    await monitorsApi.update(monitor.id, { group_id: null }, { skipErrorToast: true })
     monitors.value = monitors.value.filter(m => m.id !== monitor.id)
   } catch {
     showError(t('group_detail.error_remove'))
@@ -288,7 +288,7 @@ async function removeFromGroup(monitor) {
 async function addMonitor() {
   if (!selectedMonitorId.value) return
   try {
-    await monitorsApi.update(selectedMonitorId.value, { group_id: route.params.id })
+    await monitorsApi.update(selectedMonitorId.value, { group_id: route.params.id }, { skipErrorToast: true })
     showAddMonitor.value = false
     selectedMonitorId.value = ''
     await load()

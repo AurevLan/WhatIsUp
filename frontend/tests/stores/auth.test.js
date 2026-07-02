@@ -65,7 +65,7 @@ describe('auth store', () => {
     expect(auth.user.email).toBe('a@b.c')
 
     // login uses x-www-form-urlencoded form for /auth/login
-    expect(apiPost).toHaveBeenCalledWith('/auth/login', expect.any(URLSearchParams))
+    expect(apiPost).toHaveBeenCalledWith('/auth/login', expect.any(URLSearchParams), { skipErrorToast: true })
   })
 
   it('isSuperadmin reflects the user payload flag', async () => {
@@ -175,7 +175,11 @@ describe('auth store', () => {
 
     await auth.verifyTotp('123456')
 
-    expect(apiPost).toHaveBeenLastCalledWith('/auth/totp/verify', { mfa_token: 'mfa-xyz', code: '123456' })
+    expect(apiPost).toHaveBeenLastCalledWith(
+      '/auth/totp/verify',
+      { mfa_token: 'mfa-xyz', code: '123456' },
+      { skipErrorToast: true },
+    )
     expect(localStorage.getItem('access_token')).toBe('a-token')
     expect(localStorage.getItem('refresh_token')).toBe('r-token')
     expect(auth.isAuthenticated).toBe(true)

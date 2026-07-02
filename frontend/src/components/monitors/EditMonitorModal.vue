@@ -778,7 +778,7 @@ async function handleSubmit() {
   loading.value = true
   error.value = ''
   try {
-    await monitorStore.update(props.monitor.id, buildPayload())
+    await monitorStore.update(props.monitor.id, buildPayload(), { skipErrorToast: true })
     emit('updated')
   } catch (err) {
     error.value = err.response?.data?.detail || 'Failed to update monitor'

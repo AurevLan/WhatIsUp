@@ -495,11 +495,11 @@ async function submitWindow() {
       suppress_alerts: form.value.suppress_alerts,
     }
     if (editingWindow.value) {
-      const { data } = await maintenanceApi.update(editingWindow.value.id, payload)
+      const { data } = await maintenanceApi.update(editingWindow.value.id, payload, { skipErrorToast: true })
       const idx = windows.value.findIndex(w => w.id === editingWindow.value.id)
       if (idx !== -1) windows.value[idx] = data
     } else {
-      const { data } = await maintenanceApi.create(payload)
+      const { data } = await maintenanceApi.create(payload, { skipErrorToast: true })
       windows.value.unshift(data)
     }
     showCreate.value = false
@@ -520,7 +520,7 @@ async function deleteWindow(w) {
   })
   if (!ok) return
   try {
-    await maintenanceApi.remove(w.id)
+    await maintenanceApi.remove(w.id, { skipErrorToast: true })
     windows.value = windows.value.filter(x => x.id !== w.id)
     success(t('common.success'))
   } catch (err) {

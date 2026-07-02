@@ -309,8 +309,8 @@ async function loadProbes() {
   try {
     // Superadmins get enriched stats (uptime 24h + live health); others get basic list
     const { data } = auth.isSuperadmin
-      ? await probesApi.stats()
-      : await probesApi.list()
+      ? await probesApi.stats({ skipErrorToast: true })
+      : await probesApi.list({ skipErrorToast: true })
     probes.value = data
   } catch (err) {
     showError(t('common.error'))
@@ -325,7 +325,7 @@ async function toggleActive(probe, isActive) {
   const ok = await confirm({ title: `${action} "${probe.name}" ?`, confirmLabel: action, danger: !isActive })
   if (!ok) return
   try {
-    const { data } = await probesApi.setActive(probe.id, isActive)
+    const { data } = await probesApi.setActive(probe.id, isActive, { skipErrorToast: true })
     const idx = probes.value.findIndex(p => p.id === probe.id)
     if (idx !== -1) probes.value[idx] = data
     success(`Sonde "${probe.name}" ${isActive ? 'activée' : 'désactivée'}`)
@@ -344,7 +344,7 @@ async function removeProbe(probe) {
   })
   if (!ok) return
   try {
-    await probesApi.remove(probe.id)
+    await probesApi.remove(probe.id, { skipErrorToast: true })
     probes.value = probes.value.filter(p => p.id !== probe.id)
     success(`Sonde "${probe.name}" supprimée`)
     refreshMap()

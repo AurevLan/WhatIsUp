@@ -130,11 +130,14 @@ describe('webPush store', () => {
     await store.init()
     await store.subscribe()
 
-    expect(apiSubscribe).toHaveBeenCalledWith(expect.objectContaining({
-      endpoint: 'https://fcm.example/sub',
-      p256dh: 'p256',
-      auth: 'authk',
-    }))
+    expect(apiSubscribe).toHaveBeenCalledWith(
+      expect.objectContaining({
+        endpoint: 'https://fcm.example/sub',
+        p256dh: 'p256',
+        auth: 'authk',
+      }),
+      { skipErrorToast: true },
+    )
     expect(store.isSubscribed).toBe(true)
     expect(store.error).toBe(null)
     expect(store.loading).toBe(false)

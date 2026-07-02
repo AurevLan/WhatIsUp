@@ -195,8 +195,11 @@ const filteredProbes = computed(() => {
 async function load() {
   loading.value = true
   try {
-    const { data } = await probesApi.stats()
+    const { data } = await probesApi.stats({ skipErrorToast: true })
     probes.value = data
+  } catch {
+    // Silent — this refreshes every 60s in the background; a global toast
+    // per failed tick would spam the user far worse than a stale map.
   } finally {
     loading.value = false
   }

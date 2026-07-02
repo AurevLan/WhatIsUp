@@ -47,7 +47,7 @@ describe('useIncidentPlayback', () => {
     const pb = useIncidentPlayback('inc-1')
     await pb.load()
 
-    expect(apiGet).toHaveBeenCalledWith('/incidents/inc-1/timeline')
+    expect(apiGet).toHaveBeenCalledWith('/incidents/inc-1/timeline', { skipErrorToast: true })
     expect(pb.timeline.value).toBe(fixture)
     expect(pb.durationMs.value).toBe(4 * 60 * 1000)  // 4 minutes between first and last point
   })

@@ -28,6 +28,14 @@ export default {
     teams: 'Équipes',
     graph: 'Graphe',
   },
+  // Toast d'erreur global (intercepteur axios dans api/client.js)
+  errors: {
+    network: 'Erreur réseau — vérifiez votre connexion',
+    timeout: 'La requête a expiré',
+    server:  'Erreur serveur',
+    request: 'Erreur de requête',
+  },
+
   common: {
     save: 'Enregistrer',
     cancel: 'Annuler',

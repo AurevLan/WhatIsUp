@@ -134,7 +134,7 @@ async function addProbeToDetailGroup() {
   submitting.value = true
   detailError.value = ''
   try {
-    const { data } = await adminApi.addProbesToGroup(detailGroup.value.id, [addProbeSelection.value])
+    const { data } = await adminApi.addProbesToGroup(detailGroup.value.id, [addProbeSelection.value], { skipErrorToast: true })
     detailGroup.value = { ...data, probe_ids: data.probe_ids, user_ids: data.user_ids }
     addProbeSelection.value = ''
     emit('changed')
@@ -149,7 +149,7 @@ async function removeProbeFromDetailGroup(probeId) {
   submitting.value = true
   detailError.value = ''
   try {
-    await adminApi.removeProbeFromGroup(detailGroup.value.id, probeId)
+    await adminApi.removeProbeFromGroup(detailGroup.value.id, probeId, { skipErrorToast: true })
     detailGroup.value.probe_ids = detailGroup.value.probe_ids.filter(id => id !== probeId)
     emit('changed')
   } catch (e) {
@@ -164,7 +164,7 @@ async function grantUserToDetailGroup() {
   submitting.value = true
   detailError.value = ''
   try {
-    const { data } = await adminApi.grantGroupAccess(detailGroup.value.id, [addUserSelection.value])
+    const { data } = await adminApi.grantGroupAccess(detailGroup.value.id, [addUserSelection.value], { skipErrorToast: true })
     detailGroup.value = { ...data, probe_ids: data.probe_ids, user_ids: data.user_ids }
     addUserSelection.value = ''
     emit('changed')
@@ -179,7 +179,7 @@ async function revokeUserFromDetailGroup(userId) {
   submitting.value = true
   detailError.value = ''
   try {
-    await adminApi.revokeGroupAccess(detailGroup.value.id, userId)
+    await adminApi.revokeGroupAccess(detailGroup.value.id, userId, { skipErrorToast: true })
     detailGroup.value.user_ids = detailGroup.value.user_ids.filter(id => id !== userId)
     emit('changed')
   } catch (e) {

@@ -236,7 +236,7 @@ async function resolveTelegram() {
   telegramResolveError.value = ''
   telegramChatName.value = ''
   try {
-    const { data } = await api.post('/alerts/telegram/resolve', { bot_token: telegramToken.value })
+    const { data } = await api.post('/alerts/telegram/resolve', { bot_token: telegramToken.value }, { skipErrorToast: true })
     telegramChatId.value = data.chat_id
     telegramChatName.value = data.chat_name
   } catch (err) {
@@ -281,7 +281,7 @@ async function handleSubmit() {
     if (form.value.type === 'webhook' && webhookTemplate.value) {
       payload.webhook_template = webhookTemplate.value
     }
-    await api.post('/alerts/channels', payload)
+    await api.post('/alerts/channels', payload, { skipErrorToast: true })
     emit('created')
   } catch (err) {
     error.value = err.response?.data?.detail || 'Failed to add channel'

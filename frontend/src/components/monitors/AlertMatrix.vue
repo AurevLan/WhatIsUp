@@ -146,7 +146,7 @@ async function save() {
         .filter(r => r.channel_ids.length > 0)
         .map(r => ({ ...r })),
     }
-    await api.put(`/alerts/monitors/${props.monitorId}/matrix`, payload)
+    await api.put(`/alerts/monitors/${props.monitorId}/matrix`, payload, { skipErrorToast: true })
     await load()
   } catch (e) {
     error.value = e?.response?.data?.detail ?? String(e)

@@ -39,7 +39,7 @@ export function useMonitorRunbook(monitorRef) {
     try {
       const { data } = await monitorsApi.update(monitorRef.value.id, {
         runbook_markdown: draft.value || null,
-      })
+      }, { skipErrorToast: true })
       monitorRef.value.runbook_markdown = data.runbook_markdown
       editing.value = false
       toastSuccess(t('runbook.saved'))

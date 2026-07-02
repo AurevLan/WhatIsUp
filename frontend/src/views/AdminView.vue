@@ -646,7 +646,7 @@ async function loadOidcSettings() {
   oidcLoading.value = true
   oidcError.value = ''
   try {
-    const { data } = await adminApi.getOidcSettings()
+    const { data } = await adminApi.getOidcSettings({ skipErrorToast: true })
     oidcSettings.value = data
     oidcForm.value = {
       oidc_enabled: data.oidc_enabled,
@@ -671,7 +671,7 @@ async function saveOidcSettings() {
   try {
     const payload = { ...oidcForm.value }
     if (!payload.oidc_client_secret) payload.oidc_client_secret = null
-    const { data } = await adminApi.updateOidcSettings(payload)
+    const { data } = await adminApi.updateOidcSettings(payload, { skipErrorToast: true })
     oidcSettings.value = data
     oidcForm.value.oidc_client_secret = ''
     oidcSuccess.value = true

@@ -372,7 +372,7 @@ async function togglePauseFromItem(item, e) {
   if (!item.raw) return
   const m = item.raw
   try {
-    await monitorStore.update(m.id, { enabled: !m.enabled })
+    await monitorStore.update(m.id, { enabled: !m.enabled }, { skipErrorToast: true })
     toastSuccess(m.enabled ? `Paused ${m.name}` : `Resumed ${m.name}`)
   } catch {
     toastError('Failed to update monitor')
@@ -383,7 +383,7 @@ async function ackIncidentFromItem(item, e) {
   e?.stopPropagation()
   if (!item.incidentId) return
   try {
-    await incidentUpdatesApi.ack(item.incidentId)
+    await incidentUpdatesApi.ack(item.incidentId, { skipErrorToast: true })
     toastSuccess(`Acknowledged ${item.name}`)
     close()
   } catch {

@@ -121,7 +121,7 @@ export function useMonitorIncidents(monitorRef, monitorIdRef) {
   async function loadIncidents() {
     incidentError.value = null
     try {
-      const { data } = await monitorsApi.incidents(monitorIdRef.value, { limit: 20 })
+      const { data } = await monitorsApi.incidents(monitorIdRef.value, { limit: 20 }, { skipErrorToast: true })
       incidents.value = data
       if (data.length) {
         const preferred = data.find((i) => !i.resolved_at) || data[0]
@@ -181,7 +181,7 @@ export function useMonitorIncidents(monitorRef, monitorIdRef) {
   async function openPostmortem(inc) {
     postmortem.value = { open: true, loading: true, content: '', incidentId: inc.id }
     try {
-      const { data } = await monitorsApi.getPostmortem(monitorIdRef.value, inc.id)
+      const { data } = await monitorsApi.getPostmortem(monitorIdRef.value, inc.id, { skipErrorToast: true })
       postmortem.value.content = data.content
     } catch (e) {
       postmortem.value.content = `Erreur lors de la génération du post-mortem : ${e.response?.data?.detail || e.message}`

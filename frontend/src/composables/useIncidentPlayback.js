@@ -21,7 +21,7 @@ export function useIncidentPlayback(incidentId) {
     loading.value = true
     error.value = null
     try {
-      const { data } = await api.get(`/incidents/${incidentId}/timeline`)
+      const { data } = await api.get(`/incidents/${incidentId}/timeline`, { skipErrorToast: true })
       timeline.value = data
       cursorMs.value = 0
     } catch (e) {

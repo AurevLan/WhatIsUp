@@ -129,7 +129,7 @@ async function save() {
       longitude: form.longitude !== '' && form.longitude !== null ? Number(form.longitude) : null,
       network_type: form.network_type,
     }
-    const { data } = await probesApi.update(props.probe.id, payload)
+    const { data } = await probesApi.update(props.probe.id, payload, { skipErrorToast: true })
     emit('updated', data)
   } catch (e) {
     error.value = e.response?.data?.detail ?? t('common.error')

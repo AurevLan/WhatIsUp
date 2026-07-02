@@ -51,7 +51,7 @@ async function handleSubmit() {
   try {
     const payload = { ...form.value }
     if (!payload.public_slug) delete payload.public_slug
-    await groupsApi.create(payload)
+    await groupsApi.create(payload, { skipErrorToast: true })
     emit('created')
   } catch (err) {
     error.value = err.response?.data?.detail || 'Failed to create group'

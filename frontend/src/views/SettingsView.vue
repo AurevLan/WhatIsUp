@@ -430,7 +430,7 @@ async function startTotpSetup() {
   totp.loading = true
   totp.error = ''
   try {
-    const { data } = await authApi.totpSetup()
+    const { data } = await authApi.totpSetup({ skipErrorToast: true })
     totp.secret = data.secret
     totp.otpauthUrl = data.otpauth_url
     totp.code = ''
@@ -463,7 +463,7 @@ async function confirmEnable() {
   totp.enabling = true
   totp.enableError = ''
   try {
-    const { data } = await authApi.totpEnable(totp.code.trim())
+    const { data } = await authApi.totpEnable(totp.code.trim(), { skipErrorToast: true })
     if (auth.user) auth.user.totp_enabled = true
     closeTotpSetup()
     recoveryCodes.value = data.recovery_codes || []
@@ -496,7 +496,7 @@ async function confirmDisable() {
   disable.loading = true
   disable.error = ''
   try {
-    await authApi.totpDisable(disable.password, disable.code.trim())
+    await authApi.totpDisable(disable.password, disable.code.trim(), { skipErrorToast: true })
     if (auth.user) auth.user.totp_enabled = false
     disable.open = false
     success(t('settings.security.totp_disabled_toast'))
@@ -516,7 +516,7 @@ async function loadSessions() {
   sessions.loading = true
   sessions.error = ''
   try {
-    const { data } = await authApi.sessionsList(refresh)
+    const { data } = await authApi.sessionsList(refresh, { skipErrorToast: true })
     sessions.list = data || []
   } catch (e) {
     sessions.error = e.response?.data?.detail || t('settings.security.sessions_error')
@@ -533,7 +533,7 @@ async function revokeSession(id) {
   })
   if (!ok) return
   try {
-    await authApi.sessionRevoke(id)
+    await authApi.sessionRevoke(id, { skipErrorToast: true })
     sessions.list = sessions.list.filter((s) => s.id !== id)
     success(t('settings.security.session_revoked_toast'))
   } catch (e) {
@@ -551,7 +551,7 @@ async function revokeAllSessions() {
   const refresh = localStorage.getItem('refresh_token')
   if (!refresh) return
   try {
-    await authApi.sessionsRevokeAll(refresh)
+    await authApi.sessionsRevokeAll(refresh, { skipErrorToast: true })
     await loadSessions()
     success(t('settings.security.sessions_revoked_all_toast'))
   } catch (e) {
@@ -590,7 +590,7 @@ const tzPreview = computed(() => tzFormat(new Date(), { hour: '2-digit', minute:
 async function saveTimezone() {
   tzSaveError.value = ''
   try {
-    const { data } = await api.patch('/auth/me', { timezone: tzPref.value || null })
+    const { data } = await api.patch('/auth/me', { timezone: tzPref.value || null }, { skipErrorToast: true })
     // Update the auth store so the rest of the app reacts immediately.
     if (auth.user) auth.user.timezone = data.timezone
   } catch (e) {

@@ -56,7 +56,7 @@ export function useMonitorDependencies(monitorRef) {
         monitor_id: newMember.value.monitor_id,
         role: newMember.value.role || null,
         weight: newMember.value.weight || 1,
-      })
+      }, { skipErrorToast: true })
       compositeMembers.value.push(data)
       newMember.value = { monitor_id: '', role: '', weight: 1 }
     } catch (e) {
@@ -67,7 +67,7 @@ export function useMonitorDependencies(monitorRef) {
   async function removeCompositeMember(memberId) {
     if (!monitorRef.value) return
     try {
-      await monitorsApi.removeCompositeMember(monitorRef.value.id, memberId)
+      await monitorsApi.removeCompositeMember(monitorRef.value.id, memberId, { skipErrorToast: true })
       compositeMembers.value = compositeMembers.value.filter((m) => m.id !== memberId)
     } catch (e) {
       toastError(e.response?.data?.detail || 'Error removing member')

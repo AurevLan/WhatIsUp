@@ -456,8 +456,8 @@ Toute modification de cette table doit être reportée dans `FEATURES.md` §11.
 | `/auth/register` | POST | **5/min** | Anti enum + spam |
 | `/auth/refresh` | POST | **30/min** | Mobile + multi-tab |
 | `/auth/me` | PATCH | **30/min** | Self-update |
-| `/probes/heartbeat` | POST | **30/min** | Probe health beats |
-| `/probes/results` | POST | **60/min** | Probe results push (bursts ok) |
+| `/probes/heartbeat` | POST | **120/min** | Probe health beats |
+| `/probes/results` | POST | **600/min** | Probe results push (bursts ok) |
 | `/probes/register` | POST | **3/min** | Anti scan |
 | `/probes/{id}/rotate-key` | POST | **10/min** | Rotation clé — superadmin only |
 | `/monitors` | POST | **10/min** | Anti spam monitor |

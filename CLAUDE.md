@@ -87,7 +87,7 @@ frontend/src/
 ```python
 get_current_user    # JWT obligatoire — utilisateur standard
 require_superadmin  # JWT + is_superadmin=True
-get_current_probe   # X-Probe-Api-Key (bcrypt + cache Redis SHA-256[:32], TTL 300s)
+get_current_probe   # X-Probe-Api-Key (bcrypt + cache Redis SHA-256[:32], TTL 60s)
 ```
 
 ## CheckType (monitor.check_type)

@@ -14,12 +14,17 @@ Every connection carries a **scope** decided at authentication time:
 ``broadcast`` filters every event by its ``monitor_id`` against the connection
 scope. The check is an in-memory set lookup — no DB hit on the hot path.
 
-Scope freshness: the scope is a snapshot taken at connect and lazily refreshed
-at most once per ``SCOPE_REFRESH_SECONDS`` when a keep-alive frame arrives
-(the frontend pings every 30 s). A refresh failure keeps the previous scope
-(fail-closed: a stale scope never *widens* silently beyond what it already
-allowed). A brand-new / newly-shared monitor thus becomes visible within one
-refresh window or on reconnect.
+Scope freshness: the scope is a snapshot taken at connect and refreshed on a
+wall-clock cadence of ``SCOPE_REFRESH_SECONDS``. The keep-alive loop waits for
+an incoming frame but no longer than that window (``asyncio.wait_for``); on
+timeout it recomputes the scope. This deliberately does **not** depend on the
+client sending anything — anonymous public status-page sockets never ping
+(``PublicPageView`` only listens), yet their scope still tracks group
+membership changes within one window. A transient refresh failure keeps the
+previous scope (fail-safe) and is retried on the next window. Dashboard
+refreshes also re-validate identity: a deleted/deactivated user is closed
+(4001) and a demoted superadmin loses the firehose — revocation within one
+window instead of surviving for the socket's whole lifetime.
 
 Events without a ``monitor_id`` (none exist today; reserved for future global
 announcements / probe-fleet events) are delivered to authenticated dashboard
@@ -28,7 +33,6 @@ sockets only — never to anonymous public status-page sockets.
 
 import asyncio
 import json
-import time
 import uuid
 
 import structlog
@@ -50,9 +54,11 @@ router = APIRouter(tags=["websocket"])
 REDIS_CHANNEL = "whatisup:events"
 MAX_CONNECTIONS_PER_IP = 10
 
-# Lazy scope refresh cadence (seconds). The frontend keep-alive pings every 30 s,
-# so a live dashboard scope is re-evaluated roughly this often without any extra
-# traffic. Kept off the broadcast hot path entirely.
+# Scope refresh cadence (seconds). The keep-alive loop waits at most this long
+# for a client frame (``asyncio.wait_for``); on timeout it recomputes the scope.
+# The refresh is therefore time-driven, independent of whether the client ever
+# sends anything, and stays off the broadcast hot path entirely. Patchable to a
+# small value in tests.
 SCOPE_REFRESH_SECONDS = 60
 
 # Scope sentinels ─────────────────────────────────────────────────────────────
@@ -60,6 +66,15 @@ SCOPE_REFRESH_SECONDS = 60
 UNAUTHED = object()
 # An authenticated superadmin dashboard → receives every event.
 SUPERADMIN_SCOPE = None
+
+
+class _ScopeRevoked(Exception):  # noqa: N818 — internal control-flow signal, not an error
+    """Raised inside a refresh callback when the connection must be torn down.
+
+    The keep-alive loop catches it and returns; the route's ``finally`` block
+    then disconnects the (already-closed) socket. Used when a dashboard user is
+    deleted or deactivated between connect and a scope refresh.
+    """
 
 
 class ConnectionManager:
@@ -196,23 +211,75 @@ async def _compute_public_scope(db: AsyncSession, group_id: uuid.UUID) -> set[st
     return {str(mid) for mid in rows}
 
 
-async def _serve_keepalive(websocket: WebSocket, recompute) -> None:
-    """Keep-alive loop with lazy scope refresh.
+async def _refresh_dashboard_scope(websocket: WebSocket, user_id: uuid.UUID) -> None:
+    """Recompute a dashboard connection's scope, re-validating the user identity.
 
-    Blocks on incoming frames (client pings); every ``SCOPE_REFRESH_SECONDS`` it
-    recomputes the scope via *recompute* (an async callable returning the new
-    scope). A refresh failure is swallowed — the previous scope stands.
+    The user is reloaded by id on a fresh short-lived session — the original
+    connect-time object is *never* reused, so ``is_superadmin`` / ``is_active``
+    can no longer go stale for the socket's lifetime. If the user has been
+    deleted or deactivated the socket is closed (4001) and :class:`_ScopeRevoked`
+    is raised to end the keep-alive loop (revocation within one refresh window).
+    superadmin / team membership are recomputed from the freshly-loaded row, so
+    a demoted superadmin's firehose collapses to its real scope. A transient DB
+    error keeps the previous scope (fail-safe) and is retried next window.
     """
-    last_refresh = time.monotonic()
+    try:
+        async with _scope_session() as db:
+            user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+            if user is None or not user.is_active:
+                await websocket.close(code=4001, reason="Unauthorized")
+                raise _ScopeRevoked
+            scope = await _compute_dashboard_scope(db, user)
+    except _ScopeRevoked:
+        raise
+    except Exception as exc:
+        logger.warning("ws_scope_refresh_failed", error=str(exc))
+        return
+    await manager.set_scope(websocket, scope)
+
+
+async def _refresh_public_scope(websocket: WebSocket, group_id: uuid.UUID) -> None:
+    """Recompute a public connection's scope from current group membership.
+
+    A transient DB error keeps the previous scope (fail-safe) and is retried on
+    the next refresh window.
+    """
+    try:
+        async with _scope_session() as db:
+            scope = await _compute_public_scope(db, group_id)
+    except Exception as exc:
+        logger.warning("ws_scope_refresh_failed", error=str(exc))
+        return
+    await manager.set_scope(websocket, scope)
+
+
+async def _serve_keepalive(websocket: WebSocket, recompute) -> None:
+    """Keep-alive loop with time-driven scope refresh.
+
+    Waits for an incoming frame (client keep-alive ping) but no longer than
+    ``SCOPE_REFRESH_SECONDS`` via ``asyncio.wait_for``. An arriving frame is
+    consumed and the wait restarts (pure keep-alive). On timeout the scope is
+    recomputed via *recompute* — an async callable that applies the new scope
+    itself (``manager.set_scope``) and owns its error handling: a transient
+    failure keeps the previous scope and is retried on the next window, while a
+    revoked/deleted user raises :class:`_ScopeRevoked` to end the loop.
+
+    Crucially the refresh is driven by the timeout, **not** by client frames, so
+    sockets that never send anything (anonymous public status pages) still track
+    scope changes. A real client disconnect surfaces as ``WebSocketDisconnect``
+    from ``receive_text`` and propagates to the caller for cleanup.
+    """
     while True:
-        await websocket.receive_text()
-        now = time.monotonic()
-        if now - last_refresh >= SCOPE_REFRESH_SECONDS:
-            last_refresh = now
+        try:
+            await asyncio.wait_for(websocket.receive_text(), timeout=SCOPE_REFRESH_SECONDS)
+            # Frame arrived before the window elapsed → keep-alive only, keep waiting.
+            continue
+        except TimeoutError:
+            # No frame within the window → re-evaluate the scope.
             try:
-                await manager.set_scope(websocket, await recompute())
-            except Exception as exc:
-                logger.warning("ws_scope_refresh_failed", error=str(exc))
+                await recompute()
+            except _ScopeRevoked:
+                return
 
 
 async def _redis_subscriber() -> None:
@@ -291,16 +358,19 @@ async def websocket_dashboard(websocket: WebSocket) -> None:
                 return
             scope = await _compute_dashboard_scope(db, user)
     except Exception as exc:
+        # Technical failure (transient DB error) computing the initial scope —
+        # NOT an auth refusal. Use a server-error code (1011) so the frontend
+        # reconnects; 4001 would be read as "token rejected" and disable
+        # auto-reconnect until a full reload (websocket.js).
         logger.warning("ws_dashboard_scope_error", error=str(exc))
         await manager.disconnect(websocket)
-        await websocket.close(code=4001, reason="Unauthorized")
+        await websocket.close(code=1011, reason="Server error")
         return
 
     await manager.authorize(websocket, "dashboard", scope)
 
-    async def _recompute() -> set[str] | None:
-        async with _scope_session() as db:
-            return await _compute_dashboard_scope(db, user)
+    async def _recompute() -> None:
+        await _refresh_dashboard_scope(websocket, user_id)
 
     try:
         await _serve_keepalive(websocket, _recompute)
@@ -340,9 +410,8 @@ async def websocket_public(websocket: WebSocket, slug: str) -> None:
         scope = await _compute_public_scope(db, group_id)
     await manager.authorize(websocket, "public", scope)
 
-    async def _recompute() -> set[str]:
-        async with _scope_session() as db:
-            return await _compute_public_scope(db, group_id)
+    async def _recompute() -> None:
+        await _refresh_public_scope(websocket, group_id)
 
     try:
         await _serve_keepalive(websocket, _recompute)

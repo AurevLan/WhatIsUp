@@ -21,6 +21,8 @@ from whatisup.api.v1.ws import (
     ConnectionManager,
     _compute_dashboard_scope,
     _compute_public_scope,
+    _ScopeRevoked,
+    _serve_keepalive,
 )
 from whatisup.core.database import get_db
 from whatisup.core.security import create_access_token, create_refresh_token
@@ -500,3 +502,132 @@ async def test_end_to_end_tenant_isolation(db_session: AsyncSession) -> None:
     sock_su.send_text.assert_awaited_once()
     sock_a.send_text.assert_not_called()
     sock_c.send_text.assert_not_called()
+
+
+# ── Time-driven scope refresh (findings M-1 / M-2) ─────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_keepalive_refreshes_scope_on_server_timeout(monkeypatch) -> None:
+    """A silent public socket (never pings) still refreshes its scope on timeout.
+
+    Finding M-1: the old loop only refreshed on an *incoming* frame, so public
+    status-page sockets (``PublicPageView`` never sends) never tracked group
+    changes. The refresh must be driven by the server-side timeout instead.
+    """
+    import whatisup.api.v1.ws as ws_module
+
+    # Short window so the wait_for times out quickly.
+    monkeypatch.setattr(ws_module, "SCOPE_REFRESH_SECONDS", 0.02)
+
+    manager = ConnectionManager()
+    pub = _fake_ws()
+    await manager.connect(pub, client_ip="1.1.1.1")
+    await manager.authorize(pub, "public", {"old-monitor"})
+
+    # The socket never sends a frame → receive_text blocks forever.
+    async def _never() -> str:
+        await asyncio.sleep(3600)
+        return ""
+
+    pub.receive_text = _never
+
+    # Group membership "changed": the recompute now yields a different set, then
+    # ends the loop so the test does not run forever.
+    async def _recompute() -> None:
+        await manager.set_scope(pub, {"new-monitor"})
+        raise _ScopeRevoked
+
+    await asyncio.wait_for(_serve_keepalive(pub, _recompute), timeout=2.0)
+
+    # Scope was refreshed by the timeout path (no client frame involved).
+    assert manager._connections[pub]["scope"] == {"new-monitor"}
+
+    # A monitor removed from the group no longer reaches the visitor…
+    await manager.broadcast({"type": "incident_opened", "monitor_id": "old-monitor"})
+    pub.send_text.assert_not_called()
+    # …while one newly added to the group now does.
+    await manager.broadcast({"type": "incident_opened", "monitor_id": "new-monitor"})
+    pub.send_text.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_refresh_closes_deactivated_user(monkeypatch) -> None:
+    """A user deactivated mid-socket is closed 4001 at the next refresh (M-2)."""
+    import uuid
+    from types import SimpleNamespace
+
+    import whatisup.api.v1.ws as ws_module
+
+    # User still exists but is_active flipped to False since connect.
+    user = SimpleNamespace(id=uuid.uuid4(), is_active=False, is_superadmin=False)
+    _fake_scope_session(monkeypatch, user)
+
+    ws = _fake_ws()
+    ws.close = AsyncMock()
+
+    with pytest.raises(_ScopeRevoked):
+        await ws_module._refresh_dashboard_scope(ws, user.id)
+
+    ws.close.assert_awaited_once()
+    assert ws.close.await_args.kwargs.get("code") == 4001
+
+
+@pytest.mark.asyncio
+async def test_refresh_closes_deleted_user(monkeypatch) -> None:
+    """A user deleted mid-socket (lookup → None) is closed 4001 at refresh (M-2)."""
+    import uuid
+
+    import whatisup.api.v1.ws as ws_module
+
+    _fake_scope_session(monkeypatch, None)  # user lookup → None
+
+    ws = _fake_ws()
+    ws.close = AsyncMock()
+
+    with pytest.raises(_ScopeRevoked):
+        await ws_module._refresh_dashboard_scope(ws, uuid.uuid4())
+
+    ws.close.assert_awaited_once()
+    assert ws.close.await_args.kwargs.get("code") == 4001
+
+
+@pytest.mark.asyncio
+async def test_refresh_demotes_superadmin(db_session: AsyncSession, monkeypatch) -> None:
+    """A superadmin demoted mid-socket loses the firehose at the next refresh (M-2).
+
+    The refresh reloads the User by id (never the stale connect-time object), so
+    ``is_superadmin`` is re-read: the scope collapses from SUPERADMIN_SCOPE to the
+    user's own monitors only.
+    """
+    from contextlib import asynccontextmanager
+
+    import whatisup.api.v1.ws as ws_module
+
+    @asynccontextmanager
+    async def _cm():
+        yield db_session
+
+    monkeypatch.setattr(ws_module, "_scope_session", _cm)
+
+    su = await _mk_user(db_session, "demote-su@ws.com", superadmin=True)
+    own = await _mk_monitor(db_session, su.id, "demote-own")
+    other_owner = await _mk_user(db_session, "demote-other@ws.com")
+    other = await _mk_monitor(db_session, other_owner.id, "demote-other-mon")
+
+    ws = _fake_ws()
+    await ws_module.manager.connect(ws, client_ip="9.9.9.9")
+    await ws_module.manager.authorize(ws, "dashboard", SUPERADMIN_SCOPE)
+    try:
+        assert ws_module.manager._connections[ws]["scope"] is SUPERADMIN_SCOPE
+
+        # Demote the superadmin and refresh.
+        su.is_superadmin = False
+        await db_session.flush()
+        await ws_module._refresh_dashboard_scope(ws, su.id)
+
+        new_scope = ws_module.manager._connections[ws]["scope"]
+        assert new_scope == {str(own.id)}
+        assert str(other.id) not in new_scope
+    finally:
+        await ws_module.manager.disconnect(ws)

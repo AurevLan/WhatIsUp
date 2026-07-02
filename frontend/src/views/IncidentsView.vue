@@ -62,10 +62,16 @@
         <div v-for="i in 8" :key="i" class="skeleton h-14 mb-2" />
       </div>
 
-      <div v-else-if="displayItems.length === 0" class="empty-state">
-        <div class="empty-state__icon"><AlertCircle :size="22" /></div>
-        <p class="empty-state__title">{{ t('incidents.no_incidents') }}</p>
-      </div>
+      <EmptyState
+        v-else-if="displayItems.length === 0"
+        :title="t('incidents.no_incidents')"
+        :text="hasActiveIncidentFilters ? t('empty.incidents_filtered_text') : t('empty.incidents_text')"
+        :cta-label="hasActiveIncidentFilters ? t('monitors.clear_filters') : ''"
+        :cta-icon="false"
+        @cta="resetFilters"
+      >
+        <template #icon><AlertCircle :size="22" /></template>
+      </EmptyState>
 
       <div v-else>
         <template v-for="item in displayItems" :key="item.key">
@@ -205,6 +211,7 @@ import { useToast } from '../composables/useToast'
 import { renderRunbookMarkdown } from '../lib/runbookMarkdown'
 import { useFilterPreset } from '../composables/useFilterPreset'
 import BulkActionBar from '../components/shared/BulkActionBar.vue'
+import EmptyState from '../components/shared/EmptyState.vue'
 import IncidentPlaybackMap from '../components/dashboard/IncidentPlaybackMap.vue'
 import IncidentDiagnosticPanel from '../components/incidents/IncidentDiagnosticPanel.vue'
 import { useDateFormat } from '../composables/useDateFormat'
@@ -235,6 +242,8 @@ const verdictFilter = computed({
   get: () => filters.verdict,
   set: (v) => { filters.verdict = v },
 })
+// Mirrors the condition that shows the "clear filters" chip above the list.
+const hasActiveIncidentFilters = computed(() => statusFilter.value !== 'all' || daysFilter.value !== 30)
 const expandedGroups = reactive({})
 const expandedRunbooks = reactive({})
 // V2-02-06 — incident-id → bool, toggles inline IncidentPlaybackMap below the row.

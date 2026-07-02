@@ -19,11 +19,18 @@ export function useMonitorFilters(monitors) {
   const { t } = useI18n()
 
   // Persisted filters (T1-11) — querystring + localStorage, shareable + F5-safe.
+  // sortKey/sortDir joined the same preset in C4 (bilan 2026-07) so the sort
+  // order survives a reload too. Migration is automatic: useFilterPreset only
+  // reads keys present in the stored/URL payload, so legacy presets saved
+  // before this change (missing sortKey/sortDir) silently fall back to the
+  // defaults below — no explicit migration code needed.
   const { state: monitorFilters, reset: resetMonitorFilters } = useFilterPreset('monitors', {
     q: '',
     status: '',
     type: '',
     group: '',
+    sortKey: 'status',
+    sortDir: 'asc',
   })
   const searchInput_  = ref(monitorFilters.q || '')
   const search        = computed({
@@ -77,9 +84,15 @@ export function useMonitorFilters(monitors) {
   // ── Pagination ─────────────────────────────────────────────────────────────
   const currentPage = ref(1)
 
-  // ── Sorting ────────────────────────────────────────────────────────────────
-  const sortKey = ref('status')
-  const sortDir = ref('asc')
+  // ── Sorting (persisted, C4) ────────────────────────────────────────────────
+  const sortKey = computed({
+    get: () => monitorFilters.sortKey,
+    set: (v) => { monitorFilters.sortKey = v },
+  })
+  const sortDir = computed({
+    get: () => monitorFilters.sortDir,
+    set: (v) => { monitorFilters.sortDir = v },
+  })
 
   function setSortKey(key) {
     if (sortKey.value === key) {

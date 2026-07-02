@@ -165,6 +165,7 @@ import { useHotkeys } from '../../composables/useHotkeys'
 import { setLocale, getLocale } from '../../i18n/index.js'
 import { APP_VERSION } from '../../lib/appVersion.js'
 import { setupForegroundListeners } from '../../lib/pushNotifications.js'
+import { setupBackButton, setupAppStateListeners } from '../../lib/nativeApp.js'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -201,6 +202,10 @@ onMounted(() => {
   window.addEventListener('keydown', onGlobalKeydown)
   // Wire push notification taps to deep-link into the relevant monitor (no-op on web).
   setupForegroundListeners(router)
+  // Android hardware back button: navigate back or exit (no-op on web).
+  setupBackButton(router)
+  // Suspend WebSocket in background, resume on foreground (no-op on web).
+  setupAppStateListeners(ws)
 })
 onUnmounted(() => {
   window.removeEventListener('keydown', onGlobalKeydown)

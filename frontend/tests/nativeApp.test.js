@@ -2,11 +2,19 @@
  * Tests for frontend/src/lib/nativeApp.js
  *
  * Covers: setupBackButton() back/exit routing, setupAppStateListeners()
- * WebSocket suspend on background / resume on foreground, and the isNative()
- * guard that makes every function a no-op on the web build.
+ * WebSocket suspend on background / resume on foreground, the isNative()
+ * guard that makes every function a no-op on the web build, and the
+ * "wired once" module flag that guards against duplicate listener
+ * registration (AppLayout remounts on every logout→login cycle since
+ * LoginView lives outside AppLayout).
  *
  * @capacitor/app and serverConfig are fully mocked — these tests run in Node
  * (jsdom) with no native platform present.
+ *
+ * The "wired once" flags live at module scope, so each test resets the
+ * module registry via vi.resetModules() and re-imports nativeApp.js fresh —
+ * otherwise state would leak across tests in this file (same pattern as
+ * pushNotifications.test.js).
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -46,6 +54,9 @@ function capturedHandler(eventName) {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  // The module-level "wired once" flags in nativeApp.js must not leak
+  // between tests — force a fresh module instance every time.
+  vi.resetModules()
   // Default: simulate native build
   isNativeMock.mockReturnValue(true)
 })
@@ -91,6 +102,24 @@ describe('setupBackButton', () => {
     const router = { back: vi.fn() }
     await setupBackButton(router)
     expect(mockAddListener).not.toHaveBeenCalled()
+  })
+
+  it('only wires the listener once across repeated calls (AppLayout remount guard)', async () => {
+    const { setupBackButton } = await import('../src/lib/nativeApp.js')
+    const router = { back: vi.fn() }
+
+    // Simulates AppLayout mounting more than once (e.g. a logout→login
+    // cycle, since LoginView lives outside AppLayout and remounts it).
+    await setupBackButton(router)
+    await setupBackButton(router)
+    await setupBackButton(router)
+
+    expect(mockAddListener).toHaveBeenCalledTimes(1)
+
+    // And the single wired handler still only fires once per back-press.
+    const handler = capturedHandler('backButton')
+    handler({ canGoBack: true })
+    expect(router.back).toHaveBeenCalledTimes(1)
   })
 })
 
@@ -148,5 +177,23 @@ describe('setupAppStateListeners — WebSocket suspend/resume', () => {
     const wsStore = { connect: vi.fn(), disconnect: vi.fn() }
     await setupAppStateListeners(wsStore)
     expect(mockAddListener).not.toHaveBeenCalled()
+  })
+
+  it('only wires the listener once across repeated calls (AppLayout remount guard)', async () => {
+    const { setupAppStateListeners } = await import('../src/lib/nativeApp.js')
+    const wsStore = { connect: vi.fn(), disconnect: vi.fn() }
+
+    // Simulates AppLayout mounting more than once (e.g. a logout→login
+    // cycle, since LoginView lives outside AppLayout and remounts it).
+    await setupAppStateListeners(wsStore)
+    await setupAppStateListeners(wsStore)
+    await setupAppStateListeners(wsStore)
+
+    expect(mockAddListener).toHaveBeenCalledTimes(1)
+
+    // And the single wired handler still only fires once per state change.
+    const handler = capturedHandler('appStateChange')
+    handler({ isActive: false })
+    expect(wsStore.disconnect).toHaveBeenCalledTimes(1)
   })
 })

@@ -260,10 +260,10 @@ async function saveTemplate() {
       monitor_config,
     }
     if (editingTemplate.value) {
-      await templatesApi.update(editingTemplate.value.id, payload)
+      await templatesApi.update(editingTemplate.value.id, payload, { skipErrorToast: true })
       success(t('templates.updated'))
     } else {
-      await templatesApi.create(payload)
+      await templatesApi.create(payload, { skipErrorToast: true })
       success(t('templates.created'))
     }
     closeModal()
@@ -282,7 +282,7 @@ async function deleteTemplate(tpl) {
   })
   if (!ok) return
   try {
-    await templatesApi.delete(tpl.id)
+    await templatesApi.delete(tpl.id, { skipErrorToast: true })
     templates.value = templates.value.filter((tp) => tp.id !== tpl.id)
     success(t('templates.deleted'))
   } catch {
@@ -307,7 +307,7 @@ async function doApply() {
       values: applyValues.value,
       name_override: applyNameOverride.value || null,
     }
-    const { data } = await templatesApi.apply(applyTemplate.value.id, payload)
+    const { data } = await templatesApi.apply(applyTemplate.value.id, payload, { skipErrorToast: true })
     success(t('templates.applied', { name: data.name }))
     applyTemplate.value = null
   } catch (e) {

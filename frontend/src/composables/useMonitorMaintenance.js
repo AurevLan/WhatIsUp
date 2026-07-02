@@ -61,7 +61,7 @@ export function useMonitorMaintenance(monitorRef) {
         starts_at: new Date(form.value.starts_at).toISOString(),
         ends_at: new Date(form.value.ends_at).toISOString(),
         suppress_alerts: form.value.suppress_alerts,
-      })
+      }, { skipErrorToast: true })
       showModal.value = false
       toastSuccess(t('common.success'))
     } catch (err) {

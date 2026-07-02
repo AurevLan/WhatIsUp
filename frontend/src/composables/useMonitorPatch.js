@@ -28,7 +28,7 @@ export function useMonitorPatch(monitorRef) {
   async function acceptSchemaBaseline() {
     if (!monitorRef.value) return
     try {
-      const { data } = await monitorsApi.acceptSchemaBaseline(monitorRef.value.id)
+      const { data } = await monitorsApi.acceptSchemaBaseline(monitorRef.value.id, { skipErrorToast: true })
       monitorRef.value.schema_baseline = data.baseline
       monitorRef.value.schema_baseline_updated_at = new Date().toISOString()
     } catch (e) {

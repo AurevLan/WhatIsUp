@@ -2,7 +2,7 @@ import api from './client'
 
 export const maintenanceApi = {
   list: () => api.get('/maintenance/'),
-  create: (data) => api.post('/maintenance/', data),
-  update: (id, data) => api.patch(`/maintenance/${id}`, data),
-  remove: (id) => api.delete(`/maintenance/${id}`),
+  create: (data, config = {}) => api.post('/maintenance/', data, config),
+  update: (id, data, config = {}) => api.patch(`/maintenance/${id}`, data, config),
+  remove: (id, config = {}) => api.delete(`/maintenance/${id}`, config),
 }

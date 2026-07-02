@@ -14,6 +14,6 @@ export const authApi = {
 
   // Active sessions
   sessionsList: (refresh_token) => api.post('/auth/sessions/list', { refresh_token }),
-  sessionRevoke: (id) => api.delete(`/auth/sessions/${id}`),
-  sessionsRevokeAll: (refresh_token) => api.post('/auth/sessions/revoke-all', { refresh_token }),
+  sessionRevoke: (id, config = {}) => api.delete(`/auth/sessions/${id}`, config),
+  sessionsRevokeAll: (refresh_token, config = {}) => api.post('/auth/sessions/revoke-all', { refresh_token }, config),
 }

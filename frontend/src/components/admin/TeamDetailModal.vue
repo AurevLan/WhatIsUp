@@ -237,7 +237,7 @@ async function submitTeamAddMember() {
 
 async function changeTeamMemberRole(member, newRole) {
   try {
-    await teamsApi.updateMember(props.team.id, member.user_id, { role: newRole })
+    await teamsApi.updateMember(props.team.id, member.user_id, { role: newRole }, { skipErrorToast: true })
     await loadTeamMembers(props.team.id)
     emit('changed')
   } catch (e) {
@@ -251,7 +251,7 @@ function confirmRemoveTeamMember(member) {
   teamDeleteTarget.value = member.username
   teamDeleteSuffix.value = t('admin.remove_member_suffix')
   pendingTeamDeleteAction = async () => {
-    await teamsApi.removeMember(props.team.id, member.user_id)
+    await teamsApi.removeMember(props.team.id, member.user_id, { skipErrorToast: true })
     await loadTeamMembers(props.team.id)
     emit('changed')
   }
@@ -263,7 +263,7 @@ function confirmDeleteTeam() {
   teamDeleteTarget.value = props.team.name
   teamDeleteSuffix.value = t('admin.delete_team_suffix')
   pendingTeamDeleteAction = async () => {
-    await teamsApi.delete(props.team.id)
+    await teamsApi.delete(props.team.id, { skipErrorToast: true })
     emit('deleted')
   }
   showTeamDeleteModal.value = true

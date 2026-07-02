@@ -1,19 +1,19 @@
 import api from './client'
 
 export const monitorsApi = {
-  list: (params = {}) => api.get('/monitors/', { params }),
+  list: (params = {}, config = {}) => api.get('/monitors/', { params, ...config }),
   get: (id) => api.get(`/monitors/${id}`),
   create: (data) => api.post('/monitors/', data),
-  update: (id, data) => api.patch(`/monitors/${id}`, data),
-  delete: (id) => api.delete(`/monitors/${id}`),
+  update: (id, data, config = {}) => api.patch(`/monitors/${id}`, data, config),
+  delete: (id, config = {}) => api.delete(`/monitors/${id}`, config),
   results: (id, params = {}) => api.get(`/monitors/${id}/results`, { params }),
   uptime: (id, periodHours = 24) => api.get(`/monitors/${id}/uptime`, { params: { period_hours: periodHours } }),
   incidents: (id, params = {}) => api.get(`/monitors/${id}/incidents`, { params }),
   probeStatus: (id) => api.get(`/monitors/${id}/probes`),
   percentiles: (id, params) => api.get(`/monitors/${id}/percentiles`, { params }),
-  bulkAction: (payload) => api.post('/monitors/bulk', payload),
-  exportAll: () => api.get('/monitors/export'),
-  importAll: (data) => api.post('/monitors/import', data),
+  bulkAction: (payload, config = {}) => api.post('/monitors/bulk', payload, config),
+  exportAll: (config = {}) => api.get('/monitors/export', config),
+  importAll: (data, config = {}) => api.post('/monitors/import', data, config),
   getPostmortem: (monitorId, incidentId) => api.get(`/monitors/${monitorId}/incidents/${incidentId}/postmortem`),
   // Dependency graph
   getDependencyGraph: () => api.get('/monitors/graph'),
@@ -25,13 +25,13 @@ export const monitorsApi = {
   acceptDnsBaseline: (id) => api.post(`/monitors/${id}/dns-baseline/accept`),
   resetDnsBaseline: (id, type = 'all') => api.delete(`/monitors/${id}/dns-baseline`, { params: { type } }),
   // Schema baseline
-  acceptSchemaBaseline: (id) => api.post(`/monitors/${id}/schema-baseline/accept`),
+  acceptSchemaBaseline: (id, config = {}) => api.post(`/monitors/${id}/schema-baseline/accept`, undefined, config),
   resetSchemaBaseline: (id) => api.delete(`/monitors/${id}/schema-baseline`),
   // Composite members
   listCompositeMembers: (id) => api.get(`/monitors/${id}/composite-members`),
-  addCompositeMember: (id, data) => api.post(`/monitors/${id}/composite-members`, data),
+  addCompositeMember: (id, data, config = {}) => api.post(`/monitors/${id}/composite-members`, data, config),
   updateCompositeMember: (id, memberId, data) => api.patch(`/monitors/${id}/composite-members/${memberId}`, data),
-  removeCompositeMember: (id, memberId) => api.delete(`/monitors/${id}/composite-members/${memberId}`),
+  removeCompositeMember: (id, memberId, config = {}) => api.delete(`/monitors/${id}/composite-members/${memberId}`, config),
 }
 
 export async function triggerCheck(monitorId) {
@@ -75,18 +75,18 @@ export async function getHealthState(monitorId) {
   return res.data
 }
 
-export async function createSloRule(monitorId, payload) {
-  const res = await api.post(`/monitors/${monitorId}/slo-rules`, payload)
+export async function createSloRule(monitorId, payload, config = {}) {
+  const res = await api.post(`/monitors/${monitorId}/slo-rules`, payload, config)
   return res.data
 }
 
-export async function updateSloRule(monitorId, ruleId, payload) {
-  const res = await api.patch(`/monitors/${monitorId}/slo-rules/${ruleId}`, payload)
+export async function updateSloRule(monitorId, ruleId, payload, config = {}) {
+  const res = await api.patch(`/monitors/${monitorId}/slo-rules/${ruleId}`, payload, config)
   return res.data
 }
 
-export async function deleteSloRule(monitorId, ruleId) {
-  await api.delete(`/monitors/${monitorId}/slo-rules/${ruleId}`)
+export async function deleteSloRule(monitorId, ruleId, config = {}) {
+  await api.delete(`/monitors/${monitorId}/slo-rules/${ruleId}`, config)
 }
 
 export const groupsApi = {

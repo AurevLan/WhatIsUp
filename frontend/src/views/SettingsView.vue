@@ -533,7 +533,7 @@ async function revokeSession(id) {
   })
   if (!ok) return
   try {
-    await authApi.sessionRevoke(id)
+    await authApi.sessionRevoke(id, { skipErrorToast: true })
     sessions.list = sessions.list.filter((s) => s.id !== id)
     success(t('settings.security.session_revoked_toast'))
   } catch (e) {
@@ -551,7 +551,7 @@ async function revokeAllSessions() {
   const refresh = localStorage.getItem('refresh_token')
   if (!refresh) return
   try {
-    await authApi.sessionsRevokeAll(refresh)
+    await authApi.sessionsRevokeAll(refresh, { skipErrorToast: true })
     await loadSessions()
     success(t('settings.security.sessions_revoked_all_toast'))
   } catch (e) {

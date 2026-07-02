@@ -1,6 +1,8 @@
 import axios from 'axios'
 import router from '../router'
 import { apiBaseUrl } from '../lib/serverConfig'
+import { i18n } from '../i18n'
+import { useToast } from '../composables/useToast'
 
 const api = axios.create({
   baseURL: apiBaseUrl(),
@@ -60,6 +62,36 @@ api.interceptors.response.use(
       localStorage.removeItem('refresh_token')
       router.push('/login')
     }
+    return Promise.reject(error)
+  }
+)
+
+// Show a global error toast for every failed request, unless:
+//   • the response status is 401 (handled above by the refresh / redirect flow)
+//   • the caller opted out with { skipErrorToast: true } in the axios config
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error.response?.status
+
+    if (status === 401) return Promise.reject(error)
+    if (error.config?.skipErrorToast) return Promise.reject(error)
+
+    const t = i18n.global.t
+    const detail = error.response?.data?.detail
+    let msg
+
+    if (typeof detail === 'string' && detail.length <= 200) {
+      msg = detail
+    } else if (!error.response) {
+      msg = error.code === 'ECONNABORTED' ? t('errors.timeout') : t('errors.network')
+    } else if (status >= 500) {
+      msg = t('errors.server')
+    } else {
+      msg = t('errors.request')
+    }
+
+    useToast().error(msg)
     return Promise.reject(error)
   }
 )

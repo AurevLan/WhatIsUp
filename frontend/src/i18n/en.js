@@ -30,6 +30,14 @@ export default {
     graph: 'Graph',
   },
 
+  // Global API error toasts (shown by the axios interceptor in api/client.js)
+  errors: {
+    network: 'Network error — check your connection',
+    timeout: 'Request timed out',
+    server:  'Server error',
+    request: 'Request error',
+  },
+
   // Common
   common: {
     save: 'Save',

@@ -542,7 +542,7 @@ async function applySuggestion(s) {
       threshold_value: s.suggested_threshold_ms,
       min_duration_seconds: 0,
       channel_ids: channels.value.map(c => c.id),
-    })
+    }, { skipErrorToast: true })
     thresholdSuggestions.value = thresholdSuggestions.value.filter(x => x.monitor_id !== s.monitor_id)
     await loadData()
     success(t('alerts.toast_rule_created_for', { name: s.monitor_name, ms: s.suggested_threshold_ms }))
@@ -573,7 +573,7 @@ async function enableSchemaDrift() {
   if (!m) return
   enablingDrift.value = true
   try {
-    await monitorsApi.update(m.id, { schema_drift_enabled: true })
+    await monitorsApi.update(m.id, { schema_drift_enabled: true }, { skipErrorToast: true })
     m.schema_drift_enabled = true
     success(t('alerts.schema_drift_enabled_ok'))
   } catch (e) {

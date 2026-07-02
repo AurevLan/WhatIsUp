@@ -69,7 +69,7 @@ export function useMonitorSelection(monitors, filteredMonitors) {
     if (!ids.length || !value) return
     const target_group_id = value === '__none__' ? null : value
     try {
-      await monitorsApi.bulkAction({ ids, action: 'set_group', target_group_id })
+      await monitorsApi.bulkAction({ ids, action: 'set_group', target_group_id }, { skipErrorToast: true })
       success(t('monitors.bulk_success_grouped', { count: ids.length }))
     } catch { toastError(t('monitors.bulk_error')) }
     clearSelection()
@@ -80,7 +80,7 @@ export function useMonitorSelection(monitors, filteredMonitors) {
     const ids = [...selectedIds.value]
     if (!ids.length || !tagId) return
     try {
-      await monitorsApi.bulkAction({ ids, action: 'add_tags', tag_ids: [tagId] })
+      await monitorsApi.bulkAction({ ids, action: 'add_tags', tag_ids: [tagId] }, { skipErrorToast: true })
       success(t('monitors.bulk_success_tagged', { count: ids.length }))
     } catch { toastError(t('monitors.bulk_error')) }
     clearSelection()
@@ -92,7 +92,7 @@ export function useMonitorSelection(monitors, filteredMonitors) {
     // Optimistic update
     monitorStore.monitors.forEach(m => { if (ids.includes(m.id)) m.enabled = true })
     try {
-      await monitorsApi.bulkAction({ ids, action: 'enable' })
+      await monitorsApi.bulkAction({ ids, action: 'enable' }, { skipErrorToast: true })
       success(t('monitors.bulk_success_enabled', { count: ids.length }))
     } catch { toastError(t('monitors.bulk_error')) }
     selectedIds.value = new Set()
@@ -104,7 +104,7 @@ export function useMonitorSelection(monitors, filteredMonitors) {
     // Optimistic update
     monitorStore.monitors.forEach(m => { if (ids.includes(m.id)) m.enabled = false })
     try {
-      await monitorsApi.bulkAction({ ids, action: 'pause' })
+      await monitorsApi.bulkAction({ ids, action: 'pause' }, { skipErrorToast: true })
       success(t('monitors.bulk_success_paused', { count: ids.length }))
     } catch { toastError(t('monitors.bulk_error')) }
     selectedIds.value = new Set()
@@ -123,7 +123,7 @@ export function useMonitorSelection(monitors, filteredMonitors) {
     // Optimistic update
     monitorStore.monitors = monitorStore.monitors.filter(m => !ids.includes(m.id))
     try {
-      await monitorsApi.bulkAction({ ids, action: 'delete' })
+      await monitorsApi.bulkAction({ ids, action: 'delete' }, { skipErrorToast: true })
       success(t('monitors.bulk_success_deleted', { count }))
     } catch { toastError(t('monitors.bulk_error')) }
     selectedIds.value = new Set()
@@ -158,7 +158,7 @@ export function useMonitorSelection(monitors, filteredMonitors) {
   // ── Per-row actions (share store/toast/confirm wiring with bulk) ───────────
   async function toggleEnabled(monitor) {
     try {
-      await monitorStore.update(monitor.id, { enabled: !monitor.enabled })
+      await monitorStore.update(monitor.id, { enabled: !monitor.enabled }, { skipErrorToast: true })
       success(t(monitor.enabled ? 'monitors.paused_success' : 'monitors.enabled_success', { name: monitor.name }))
     } catch { toastError(t('monitors.bulk_error')) }
   }
@@ -171,7 +171,7 @@ export function useMonitorSelection(monitors, filteredMonitors) {
     })
     if (!ok) return
     try {
-      await monitorStore.remove(monitor.id)
+      await monitorStore.remove(monitor.id, { skipErrorToast: true })
       success(t('monitors.deleted_success', { name: monitor.name }))
     } catch { toastError(t('monitors.bulk_error')) }
   }

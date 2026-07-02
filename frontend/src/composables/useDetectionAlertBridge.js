@@ -70,7 +70,7 @@ export function useDetectionAlertBridge(monitorRef) {
         condition: pendingCondition.value,
         min_duration_seconds: 0,
         channel_ids: [alertChannelId.value],
-      })
+      }, { skipErrorToast: true })
       wired.value = true
       alertModal.value = false
     } catch (e) {

@@ -83,15 +83,15 @@ export const useMonitorStore = defineStore('monitors', () => {
     return data
   }
 
-  async function update(id, payload) {
-    const { data } = await monitorsApi.update(id, payload)
+  async function update(id, payload, config = {}) {
+    const { data } = await monitorsApi.update(id, payload, config)
     const idx = monitors.value.findIndex(m => m.id === id)
     if (idx !== -1) monitors.value[idx] = enrich(data)
     return data
   }
 
-  async function remove(id) {
-    await monitorsApi.delete(id)
+  async function remove(id, config = {}) {
+    await monitorsApi.delete(id, config)
     monitors.value = monitors.value.filter(m => m.id !== id)
   }
 

@@ -1,8 +1,8 @@
 # WhatIsUp — Inventaire des Fonctionnalités
 
 > **Source de vérité** des features livrées. À amender à chaque release.
-> Référence : **v1.14.0** (2026-06-15) — consolidation du design system (échelle de tailles boutons + tokenisation complète, `<StatusBadge>`), pont détection→notification homogène, et responsive mobile. Socle : design system VELOURS + accessibilité gates CI (v1.13), 2FA TOTP + sessions actives (v1.12), Health Engine V2 (M0-M5, en prod sur 17/17 monitors depuis 2026-05-06).
-> Dernière release : **v1.14.3** (2026-06-16) — release docs-only (cet amendement FEATURES.md), 2e passage confirmé du **chaînage CI 100 % automatique** (release-please → Docker GHCR + APK signé). Précédente : **v1.14.2** (2026-06-16) — maintenance (bumps deps cryptography/redis/frontend + pin `tzlocal != 5.4.2`, wheel cassé en amont qui bloquait les tests probe), 1er run du chaînage auto.
+> Référence : **v1.15.0** (2026-07-03) — durcissement sécurité post-audit 2026-07 (WebSocket scopé par tenant, confiance probe scope-bindée + rotation de clé, couverture audit log des mutations de config), leader election Redis, logs JSON structurés + X-Request-ID, perf (auth probe par préfixe indexé, `GET /monitors/` 7869 → 0,6 ms) et quick wins UX (toast erreurs global, tri persistant, undo bulk delete) & mobile (back Android, WS en arrière-plan, POST_NOTIFICATIONS). Socle : design system consolidé + responsive (v1.14), VELOURS + a11y gates CI (v1.13), 2FA TOTP + sessions actives (v1.12), Health Engine V2 (M0-M5, en prod sur 17/17 monitors depuis 2026-05-06).
+> Dernière release : **v1.15.0** (2026-07-03). Précédente : **v1.14.3** (2026-06-16) — release docs-only, 2e passage confirmé du **chaînage CI 100 % automatique** (release-please → Docker GHCR + APK signé).
 > Pour la chronologie détaillée, voir `CHANGELOG.md`.
 
 **Légende** : ✅ livré · 🔬 livré + tests automatisés · 🚧 partiel (voir notes).
@@ -79,8 +79,8 @@
 
 ### API keys
 - ✅ Personal API keys utilisateur (`wiu_u_<32 chars>`, bcrypt, expiry, revoke, last_used_at, prefix)
-- ✅ Probe API keys (`wiu_<uuid>`, bcrypt 12-rounds, cache Redis SHA-256[:32] TTL 300 s)
-- ✅ Rotation `POST /probes/{id}/rotate-key` + blacklist Redis
+- 🔬 Probe API keys — format `wiu_<prefix>.<secret>` (v1.15) : préfixe non-secret 64 bits indexé en DB + bcrypt sur la clé entière → **1 seule vérification bcrypt** au lieu du scan O(n) de la flotte ; fallback legacy `wiu_<secret>` avec auto-cicatrisation vers le nouveau format ; cache Redis SHA-256[:32]
+- 🔬 Rotation `POST /probes/{id}/rotate-key` (v1.15, superadmin, 10/min, audit-loggé) — éviction immédiate du cache Redis via index inverse (l'ancienne clé cesse de fonctionner sans attendre le TTL)
 
 ---
 
@@ -117,7 +117,9 @@
 
 - ✅ Register `POST /api/v1/probes/register` — name unique + location + network_type + GPS
 - ✅ Geocoding via Nominatim (sans clé API)
-- ✅ Rotate key + blacklist
+- 🔬 **Rotation de clé** `POST /probes/{id}/rotate-key` (v1.15, superadmin) — nouvelle clé `wiu_<prefix>.<secret>`, éviction cache Redis immédiate (index inverse), audit-loggé
+- 🔬 **Auth par préfixe indexé** (v1.15) — le préfixe non-secret de la clé sélectionne la probe en DB → 1 bcrypt au lieu du scan O(n) de toutes les clés de la flotte ; fallback legacy + auto-cicatrisation
+- 🔬 **Confiance probe scope-bindée** (v1.15, audit H1/H2) — `POST /probes/results` rejette tout résultat pour un monitor hors du scope de la probe (`network_scope`, assignation) : une probe compromise ne peut plus forger des résultats arbitraires (`probe_result_scope_rejected` loggé)
 - ✅ `network_type ∈ {internal, external}` — séparation panne réseau corp vs internet
 - ✅ Probe groups admin → user (RBAC accès aux sondes)
 - ✅ Carte Leaflet temps réel (`ProbeMap.vue`) avec status 24 h
@@ -254,6 +256,7 @@
 
 ### Visualisations
 - ✅ Sparklines (LATERAL JOIN, ~2000× plus rapide qu'un window function — `services/stats.py`)
+- 🔬 **`GET /monitors/` en LATERAL** (v1.15) — dernière ligne CheckResult par monitor via LATERAL (suppression du double full-scan) : **7 869 ms → 0,6 ms** mesuré en prod
 - ✅ Heatmaps (`UptimeHeatmap.vue`)
 - ✅ Uptime bars 90 j (`UptimeHistoryBars.vue`)
 - ✅ Charts ApexCharts lazy-loaded (~400 KB hors bundle initial) : response time, availability, SLO burn, custom metrics
@@ -266,9 +269,12 @@
 - ✅ Hotkeys globaux : `g d/m/i/a/p/s` nav, `c` create, `/` palette, `?` cheatsheet (`useHotkeys.js`)
 - ✅ Modale cheatsheet (`HotkeysModal.vue`)
 - ✅ Skeleton loaders (`SkeletonBox/Text/Row.vue`) avec ARIA + `prefers-reduced-motion`
-- ✅ Empty states standardisés avec CTA + lien doc + bouton "rejouer le tour" (`EmptyState.vue` + `useTour.js`)
+- 🔬 Empty states standardisés avec CTA + lien doc + bouton "rejouer le tour" (`EmptyState.vue` + `useTour.js`) — **déployé sur 6 vues** (v1.15) avec distinction vide réel / vide filtré (CTA « effacer les filtres »)
 - ✅ Bulk actions monitors (move group, add tag, enable/pause/export/delete) + incidents (acknowledge all) (`BulkActionBar.vue`)
+- 🔬 **Undo bulk delete** (v1.15) — suppression différée 6 s derrière un toast « Annuler » (registre `pendingDeleteIds`) : plus de suppression de masse irréversible au mauvais clic
 - ✅ Filtres persistants (querystring + localStorage) — `useFilterPreset.js`
+- 🔬 **Tri persistant liste monitors** (v1.15) — preset de tri persisté localStorage + URL, restauré à chaque visite
+- 🔬 **Toast global d'erreurs API** (v1.15) — intercepteur axios : toute requête en échec affiche un toast (dédup anti-spam) au lieu d'échouer en silence ; opt-out par appel via `skipErrorToast`
 - ✅ **Badge + filtre verdict réseau (V2-02-02)** — sur `IncidentsView.vue`, badge contextuel coloré (Service/ASN/Géo) avec tooltip explicatif à côté du status badge ; chip de filtre par verdict (Tous / Service down / Partition ASN / Partition géo) appliqué client-side ; clés i18n EN+FR.
 - ✅ Wizard 3 étapes création monitor (`CreateMonitorWizard.vue`)
 
@@ -298,6 +304,7 @@
 
 - ✅ `AuditLog` immuable : timestamp, user_id, email, action, object_type/id/name, diff JSON, ip
 - ✅ Logging sur toute opération admin (CRUD monitor/probe/alert/team)
+- 🔬 **Couverture complète des mutations de config** (v1.15, audit 2026-07) — audit log sur channels/rules (×5), groups (×3), probe PATCH/delete (désormais attribués), maintenance (×3), templates (×3), alert matrix + auto-rules : plus aucune mutation de configuration sans trace
 - ✅ Index sur (timestamp, user_id, object_type+id)
 - ✅ `/api/v1/audit/` list endpoint
 - ✅ SLO target / window par monitor (`GET /monitors/{id}/slo`) + burn rate
@@ -324,7 +331,11 @@
 
 ### Observabilité
 - ✅ Prometheus exporter `/metrics` (`prometheus-fastapi-instrumentator`)
-- ✅ `structlog` JSON + request ID middleware
+- 🔬 **Logs JSON structurés en production** (v1.15) — `structlog` + bridge stdlib (uvicorn/sqlalchemy/apscheduler inclus, `uvicorn.run(log_config=None)`) : une seule ligne JSON par évènement, parsable par tout agrégateur ; format console lisible en dev
+- 🔬 **Middleware X-Request-ID** (v1.15) — réutilise l'en-tête entrant s'il est bien formé (validation `^[A-Za-z0-9._-]{1,128}$`), sinon UUID généré ; injecté dans tous les logs de la requête et écho dans la réponse **y compris sur les 500** ; exposé via CORS `expose_headers`
+
+### Haute disponibilité
+- 🔬 **Leader election Redis** (v1.15, `core/leader.py`) — lock `SET NX PX` + fencing token, renew 10 s / TTL 30 s : les **7 boucles de fond singleton** (retention, heartbeat, renotify, network verdict, ASN refresh, digest recovery…) ne tournent que sur le réplica leader → multi-réplicas serveur sans double-exécution ; **fail-open si Redis down** (mono-réplica inchangé)
 
 ### Outils
 - ✅ Script interactif `deploy.sh` (FR) — 3 modes (full / serveur seul / sonde distante), génération secrets, self-signed, prompts SMTP
@@ -358,11 +369,14 @@
 - ✅ WebSocket auth message uniquement (jamais URL)
 - ✅ Per-IP connection limit avant auth WS
 - ✅ Public slug WS validé pré-accept
+- 🔬 **Fan-out WebSocket scopé par tenant** (v1.15, audit M1) — le WS dashboard ne pousse que les évènements des monitors accessibles à l'utilisateur (`build_access_filter`), le WS public que ceux du groupe du slug ; scope rafraîchi périodiquement, **close 4001 si l'utilisateur est révoqué** en cours de session
 
 ### Autorisation
 - ✅ Ownership enforcement par JOIN sur tous endpoints mutants
 - ✅ Superadmin bypass explicite
 - ✅ `AlertRule` delete + `list_events` + `delete_channel` filtrent par owner
+- 🔬 **`create_channel` vérifie le `team_id`** (v1.15, audit) — `assert_can_assign_team` : impossible de rattacher un canal d'alerte à une équipe dont on n'est pas membre
+- 🔬 **Confiance probe scope-bindée** (v1.15, audit H1/H2) — résultats hors scope rejetés + rotation de clé superadmin avec éviction cache immédiate (détail §3)
 - ✅ Privilege escalation auto bloquée (`UserSelfUpdate` Pydantic n'expose pas `is_superadmin` / `can_create_monitors`)
 
 ### Validation entrée
@@ -395,8 +409,9 @@
 | `/auth/totp/*` (setup/enable/verify/disable) | 10/min |
 | `/auth/sessions/list` + DELETE | 30/min |
 | `/auth/sessions/revoke-all` | 10/min |
-| `/probes/heartbeat` | 30/min |
-| `/probes/results` | 60/min |
+| `/probes/heartbeat` | 120/min |
+| `/probes/results` | 600/min |
+| `/probes/{id}/rotate-key` | 10/min |
 | `/monitors` POST | 10/min |
 | `/config` | 5/min |
 | `/silences` | 20–60/min |
@@ -438,15 +453,15 @@
 | `release-please.yml` | push main | Auto-versioning + CHANGELOG + tag SemVer (conventional commits) ; sur `release_created`, **chaîne `release.yml` (Docker) + `mobile-release.yml` (APK signé)** via `workflow_call` → release publiée de bout en bout sans dispatch manuel (1er run réel : v1.14.2) |
 
 ### Tests
-- ✅ **Backend** : 677 tests pytest (auth, 2FA TOTP, sessions, monitors, probes, alerts, incidents, SLO, OIDC, maintenance, config, bulk, snooze, silences, ws)
-- ✅ **Frontend** : 265 tests vitest (composants, composables, stores, fuzzy, skeleton, empty states, hotkeys, push)
-- ✅ **Probe** : 143 tests (HTTP/TCP/DNS/SMTP/scenario + SSRF host validation + config + contrats heartbeat/perform_check)
+- ✅ **Backend** : ~745 tests pytest (auth, 2FA TOTP, sessions, monitors, probes, alerts, incidents, SLO, OIDC, maintenance, config, bulk, snooze, silences, ws, leader election, request-ID, audit coverage)
+- ✅ **Frontend** : ~346 tests vitest (composants, composables, stores, fuzzy, skeleton, empty states, hotkeys, push, toast erreurs, tri persistant, undo bulk)
+- ✅ **Probe** : ~145 tests (HTTP/TCP/DNS/SMTP/scenario + SSRF host validation + config + contrats heartbeat/perform_check)
 
 ### Supply chain
 - ✅ Dependabot configuré (`.github/dependabot.yml`)
 - ✅ pip-audit + npm audit hebdomadaires
 - ✅ **pip-audit durci (v1.10.4, #168)** : `security-audit.yml` upgrade pip vers ≥26.1.2 avant l'audit pour patcher PYSEC-2026-196 (pip 26.1.1 de l'image runner) — fix réel plutôt que `--ignore-vuln`
-- ✅ **Garde-fou dérive de deps (v1.14.2, #202)** : pin `tzlocal != 5.4.2` (probe) — release amont publiée comme wheel cassé (`dist-info` sans module) qui cassait l'import apscheduler et toute la collecte des tests probe ; cap `fastapi < 0.137` (#189) toujours actif (`_IncludedRouter` casse le routing)
+- ✅ **Garde-fou dérive de deps (v1.14.2, #202)** : pin `tzlocal != 5.4.2` (probe) — release amont publiée comme wheel cassé (`dist-info` sans module) qui cassait l'import apscheduler et toute la collecte des tests probe ; cap fastapi relevé à `< 0.140` en v1.15 (0.137-0.138 cassaient le routing via `_IncludedRouter`, corrigé en 0.139)
 - ✅ **Plumber — compliance pipeline CI/CD** (`plumber.yml` + `.plumber.yaml`, OPA/Rego) : audit des workflows GitHub Actions (actions épinglées par SHA, permissions least-privilege déclarées, triggers non dangereux, pas de tags d'images mutables, protection de branche) → rapport noté + SARIF vers Code Scanning. **Score initial 100% / A** : toutes les actions déjà SHA-pinned, `main` protégée, et top-level `permissions: contents: read` ajouté à `release.yml`/`mobile-release.yml`/`security-audit.yml` pour atteindre 7/7 workflows avec permissions déclarées (jobs élevés en per-job). **Gate bloquant** (`soft-fail: false`, seuil 100%) : toute régression future (action non épinglée, workflow sans permissions, trigger dangereux) casse la CI. Binaire Plumber vérifié par attestation de provenance
 - ✅ CodeQL `security-extended`
 
@@ -455,13 +470,16 @@
 ## 13. Mobile (Capacitor)
 
 - ✅ App ID immuable `io.github.aurevlan.whatisup` (interdit de changer post-publication)
-- ✅ Capacitor 7 + JDK 21 (Dockerfile + workflow)
+- ✅ Capacitor 8 + JDK 21 (Dockerfile + workflow)
 - ✅ Build via Docker (`mobile/build.sh init|sync|apk`) — ne pollue pas l'hôte
 - ✅ `ServerSetupView` au 1er lancement natif (URL backend, validation `/api/health`, persist localStorage)
 - ✅ Live reload device (`vite --host` + `capacitor.config.json: server.url`)
 - ✅ Biometric unlock — Face ID / Touch ID / BiometricPrompt (`@capgo/capacitor-native-biometric`)
 - ✅ Refresh token en secure storage (Keychain iOS / Keystore Android via `capacitor-secure-storage-plugin`)
 - ✅ FCM push avec actions inline (ack / snooze 1 h / snooze 4 h)
+- 🔬 **Bouton retour Android** (v1.15) — navigue dans l'historique de l'app au lieu de la quitter (quitte seulement depuis la racine)
+- 🔬 **WebSocket suspendu en arrière-plan** (v1.15) — `appStateChange` Capacitor : déconnexion propre en background, reconnexion au retour au premier plan (batterie/données)
+- 🔬 **Permission `POST_NOTIFICATIONS`** (v1.15) — demande runtime Android 13+ : les push FCM fonctionnent sur les Android récents
 - ✅ APK release signée via secrets keystore + version sync depuis `package.json` + `versionCode = github.run_number` (Play Store-compatible)
 - ✅ Graceful fallback si `GOOGLE_SERVICES_JSON_BASE64` absent
 
@@ -583,23 +601,23 @@
 |---|---|---|
 | Auth | 10 axes (+2FA TOTP +sessions actives) | `auth.py`, `totp.py`, `sessions.py`, `user.py`, `security.py`, `teams.py`, `tag.py`, `api_key.py` |
 | Check types | 11 types | `probe/whatisup_probe/checkers/*.py` |
-| Probes | 9 axes (+ASN +outbound IP) | `probe.py`, `probes.py`, `probe_group.py`, `probe_enrichment.py`, `ProbeMap.vue` |
+| Probes | 11 axes (+ASN +outbound IP +auth préfixe/rotation clé +scope-binding v1.15) | `probe.py`, `probes.py`, `probe_group.py`, `probe_enrichment.py`, `ProbeMap.vue` |
 | Incidents | 10 axes (+playback +diagnostic engine) | `incident.py`, `correlation.py`, `anomaly.py`, `diagnostics.py`, `incident_diagnostic.py` |
 | Alerting | 14 axes (+silences +network suppress +matrix preview +pont détection→alerte) | `alert.py`, `alerts.py`, `silences.py`, `useDetectionAlertBridge.js`, `services/channels/*.py` (11 canaux) |
 | Status pages | 4 axes | `public.py`, `PublicPageView.vue` |
-| Dashboard UX | 17 axes (+design system VELOURS +a11y gates +consolidation composants +responsive mobile) | `ws.py`, `stats.py`, `style.css`, `lib/themeColors.js`, `StatusBadge.vue`, components shared/* + monitors/* |
+| Dashboard UX | 18 axes (+design system VELOURS +a11y gates +consolidation composants +responsive mobile +quick wins v1.15 : toast erreurs, tri persistant, undo bulk, EmptyState ×6) | `ws.py`, `stats.py`, `style.css`, `lib/themeColors.js`, `StatusBadge.vue`, components shared/* + monitors/* |
 | Maintenance | 4 axes | `maintenance.py` × 2 |
-| Audit/Compliance | 5 axes | `audit_log.py`, `retention.py`, `reports.py` |
-| Infra | 8 axes | `docker-compose.yml`, Dockerfiles, deploy.sh |
-| Sécurité | 12 axes (+SC-07 distributed RL) | `security.py`, `middleware.py`, `_helpers.py`, `core/limiter.py` |
+| Audit/Compliance | 6 axes (+couverture complète mutations config v1.15) | `audit_log.py`, `retention.py`, `reports.py` |
+| Infra | 10 axes (+leader election +logs JSON/X-Request-ID v1.15) | `docker-compose.yml`, Dockerfiles, deploy.sh, `core/leader.py` |
+| Sécurité | 13 axes (+SC-07 distributed RL +WS tenant scoping v1.15) | `security.py`, `middleware.py`, `_helpers.py`, `core/limiter.py` |
 | CI/CD | 6 workflows + release-please | `.github/workflows/*.yml` |
-| Mobile | 6 axes | Capacitor 7, FCM, biometrics, mobile-release.yml |
+| Mobile | 7 axes (+quick wins Android v1.15 : back button, WS background, POST_NOTIFICATIONS) | Capacitor 8, FCM, biometrics, mobile-release.yml |
 | Extensions | 5 axes | extension/, config IaC, web_push, templates, prometheus |
 | i18n | 2 langues | i18n/{en,fr}.js (~1330 / 1298 clés) |
 | **Health Engine V2** | M0-M5 livrés (M6+ à venir) | `services/health.py`, `services/slo.py`, `monitor_health.py`, `core/percentile.py` |
 | **Réseau & Intelligence (V2-02)** | 8 axes (ASN, partition, TLS, BGP, DNS consistency, playback, NAT/VPN, fleet dashboard) | `services/network_verdict.py`, `services/probe_enrichment.py`, `api/v1/bgp.py`, `api/v1/tls_fleet.py` |
 
-**Stack** : Python 3.12 (FastAPI / SQLAlchemy 2 async / Alembic), Vue 3.5 (Pinia / Tailwind 4 / vue-i18n@9), Postgres 16, Redis 7, Nginx, Capacitor 7 (JDK 21), Docker Compose multi-stage.
+**Stack** : Python 3.12 (FastAPI / SQLAlchemy 2 async / Alembic), Vue 3.5 (Pinia / Tailwind 4 / vue-i18n@9), Postgres 16, Redis 7, Nginx, Capacitor 8 (JDK 21), Docker Compose multi-stage.
 
 **Volumétrie** (mise à jour 2026-05-10) :
 - ~28 modèles SQLAlchemy (+`monitor_health`, `silence`, `incident_diagnostic`, `alert_matrix_template`)
@@ -620,4 +638,4 @@
 > 4. Si la PR introduit un nouveau type de check ou canal → reporter dans §2 ou §5.
 > 5. Si la PR touche le Health Engine ou les V2-02 → reporter dans §16 ou §17.
 
-*Dernière revue exhaustive : 2026-05-10 (v1.8.0 + Health Engine V2). Dernier amendement : 2026-06-16 (v1.14.3 — footer/version bump ; v1.14.2 maintenance deps + chaînage release CI automatique confirmé sur 2 runs).*
+*Dernière revue exhaustive : 2026-05-10 (v1.8.0 + Health Engine V2). Dernier amendement : 2026-07-03 (v1.15.0 — vague sécurité post-audit 2026-07, leader election Redis, logs JSON structurés + X-Request-ID, perf auth probe / GET monitors, quick wins UX & mobile).*

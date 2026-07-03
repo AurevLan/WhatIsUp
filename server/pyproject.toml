@@ -13,10 +13,8 @@ authors = [{ name = "WhatIsUp Contributors" }]
 
 dependencies = [
     # Web framework
-    # <0.137 : FastAPI 0.137 introduit _IncludedRouter dans app.routes, que le
-    # routeur Starlette ne sait pas router (AttributeError: '_IncludedRouter'
-    # object has no attribute 'path') → casse toutes les requêtes. Repasser
-    # >=0.137 quand l'app sera adaptée au nouveau modèle d'inclusion de routes.
+    # 0.137-0.138 cassaient le routing (_IncludedRouter dans app.routes,
+    # AttributeError côté Starlette), corrigé en 0.139 ; borne haute prudente <0.140.
     "fastapi>=0.125.0,<0.140",
     "starlette>=0.49.1",
     "uvicorn[standard]>=0.32.0,<0.50",

@@ -36,7 +36,8 @@ _SHARED_PROCESSORS: list[structlog.types.Processor] = [
 def configure_logging(settings: Settings) -> None:
     """Configure structlog + stdlib logging for the whole process.
 
-    - Production (``settings.is_production``): single-line JSON to stdout,
+    - Production (``settings.is_production``): single-line JSON to stderr
+      (``logging.StreamHandler`` default — Docker captures both streams),
       suitable for log aggregators (ISO timestamps, level, logger name).
     - Anything else (dev/test): a human-readable, optionally colored console
       renderer.

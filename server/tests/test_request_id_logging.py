@@ -53,6 +53,38 @@ async def test_request_id_header_reused_when_present(client: AsyncClient) -> Non
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "malicious",
+    [
+        "x" * 129,  # too long (limit 128)
+        "id with spaces",  # forbidden charset
+        "evil;id=(injection)",  # forbidden charset
+        '{"json": "payload"}',  # forbidden charset
+    ],
+)
+async def test_request_id_invalid_client_value_is_never_echoed(
+    client: AsyncClient, malicious: str
+) -> None:
+    """Malformed client-supplied IDs are discarded, not echoed back.
+
+    A fresh uuid4 must be generated instead — the client value must appear
+    neither in the response header nor (via contextvars) in the logs.
+    """
+    resp = await client.get("/api/health", headers={REQUEST_ID_HEADER: malicious})
+    assert resp.status_code == 200
+    echoed = resp.headers.get(REQUEST_ID_HEADER)
+    assert echoed != malicious
+    assert str(uuid.UUID(echoed)) == echoed  # regenerated, valid uuid4
+
+
+@pytest.mark.asyncio
+async def test_request_id_max_valid_length_accepted(client: AsyncClient) -> None:
+    incoming = "A" * 128  # exactly at the limit, valid charset
+    resp = await client.get("/api/health", headers={REQUEST_ID_HEADER: incoming})
+    assert resp.headers.get(REQUEST_ID_HEADER) == incoming
+
+
+@pytest.mark.asyncio
 async def test_request_id_differs_across_requests_without_header(
     client: AsyncClient,
 ) -> None:
@@ -123,6 +155,47 @@ async def test_request_id_middleware_logs_and_reraises_on_unhandled_exception() 
         resp = await ac.get("/boom")
 
     assert resp.status_code == 500
+
+
+@pytest.mark.asyncio
+async def test_500_response_carries_request_id_header() -> None:
+    """Unhandled exceptions → generic JSON 500 *with* X-Request-ID.
+
+    The real app registers ``unhandled_exception_handler`` for ``Exception``,
+    so Starlette's ServerErrorMiddleware builds the 500 from it (header
+    included) instead of its bare plain-text response — the support-facing
+    correlation ID must survive the one path where users need it most.
+    """
+    from whatisup.main import app as real_app
+
+    async def _boom_route():
+        raise RuntimeError("boom")
+
+    real_app.add_api_route("/api/test-boom-500", _boom_route, methods=["GET"])
+    try:
+        transport = ASGITransport(app=real_app, raise_app_exceptions=False)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            resp = await ac.get("/api/test-boom-500", headers={REQUEST_ID_HEADER: "err-trace-42"})
+    finally:
+        real_app.router.routes[:] = [
+            r for r in real_app.router.routes if getattr(r, "path", None) != "/api/test-boom-500"
+        ]
+
+    assert resp.status_code == 500
+    assert resp.headers.get(REQUEST_ID_HEADER) == "err-trace-42"
+    assert resp.json() == {"detail": "Internal Server Error"}
+
+
+# ── CORS: X-Request-ID readable cross-origin ─────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_cors_exposes_request_id_header(client: AsyncClient) -> None:
+    """Cross-origin JS (browser/Capacitor) must be able to read the ID."""
+    resp = await client.get("/api/health", headers={"Origin": "capacitor://localhost"})
+    assert resp.status_code == 200
+    exposed = resp.headers.get("access-control-expose-headers", "")
+    assert "x-request-id" in exposed.lower()
 
 
 # ── configure_logging: JSON in prod, console elsewhere ──────────────────────
@@ -199,3 +272,69 @@ def test_configure_logging_respects_debug_level(restore_logging_config) -> None:
     settings = _make_settings(environment="development", debug=False)
     configure_logging(settings)
     assert logging.getLogger().level == logging.INFO
+
+
+# ── uvicorn log config: default clobbers ours, log_config=None must be used ──
+#
+# uvicorn.Config applies its default dictConfig when instantiated — i.e. AFTER
+# our module-level configure_logging() has run. Review M1: the `whatisup-server`
+# binary (Docker prod ENTRYPOINT) originally called uvicorn.run() without
+# log_config=None, so uvicorn re-attached a plain-text StreamHandler on
+# `uvicorn.access` (propagate=False) → double access line per request in prod
+# (JSON `request_handled` + plain text) and non-JSON uvicorn lifecycle logs.
+
+
+def test_uvicorn_default_log_config_reattaches_access_handler(restore_logging_config) -> None:
+    """Pin the bug that motivates log_config=None (empirically validated in review).
+
+    If this ever stops failing-the-old-way (i.e. uvicorn's default config no
+    longer re-attaches handlers), the log_config=None guard becomes optional.
+    """
+    import uvicorn
+
+    configure_logging(_make_settings())
+    access = logging.getLogger("uvicorn.access")
+    assert access.handlers == []
+    assert access.propagate is False
+
+    cfg = uvicorn.Config("whatisup.main:app", log_level="info")  # default log_config
+    cfg.configure_logging()
+
+    assert access.handlers, "uvicorn default dictConfig no longer re-attaches a handler?"
+    assert access.propagate is False  # plain-text handler, bypasses our JSON renderer
+
+
+def test_uvicorn_log_config_none_preserves_structlog_setup(restore_logging_config) -> None:
+    import uvicorn
+
+    configure_logging(_make_settings())
+    root_handler = logging.getLogger().handlers[0]
+
+    cfg = uvicorn.Config("whatisup.main:app", log_config=None, log_level="info")
+    cfg.configure_logging()
+
+    access = logging.getLogger("uvicorn.access")
+    assert access.handlers == []
+    assert access.propagate is False
+    assert logging.getLogger("uvicorn").handlers == []
+    assert logging.getLogger().handlers == [root_handler]  # ours, untouched
+
+
+def test_server_entrypoint_passes_log_config_none(monkeypatch) -> None:
+    """The `whatisup-server` binary must run uvicorn with log_config=None."""
+    import uvicorn
+
+    import whatisup.main as main_module
+
+    captured: dict = {}
+
+    def _fake_run(app, **kwargs):
+        captured["app"] = app
+        captured.update(kwargs)
+
+    monkeypatch.setattr(uvicorn, "run", _fake_run)
+    main_module.main()
+
+    assert captured["app"] == "whatisup.main:app"
+    assert "log_config" in captured, "uvicorn.run() called without log_config → default dictConfig"
+    assert captured["log_config"] is None

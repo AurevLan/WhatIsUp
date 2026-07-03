@@ -1,0 +1,4 @@
+JetBrains Mono — Copyright The JetBrains Mono Project Authors.
+Licensed under the SIL Open Font License, Version 1.1.
+Self-hosted woff2 (latin + latin-ext subsets) fetched from Google Fonts (v24).
+Full license: https://openfontlicense.org

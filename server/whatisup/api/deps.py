@@ -164,6 +164,9 @@ async def get_current_probe(
     - Legacy key ``wiu_<secret>`` (no prefix derivable) → fall back to the bcrypt
       scan, restricted to probes that have not yet migrated
       (``api_key_prefix IS NULL``). The scan set shrinks to zero as probes rotate.
+    - New-scheme key whose prefix matches no row (e.g. ``api_key_prefix`` wiped
+      by a downgrade/upgrade cycle) → same NULL-prefix scan; on bcrypt match the
+      prefix is re-populated (self-healing, no manual rotation needed).
 
     Both slow-path branches then populate the same forward cache + reverse index.
     """
@@ -209,12 +212,19 @@ async def get_current_probe(
         candidate = (
             await db.execute(select(Probe).where(Probe.api_key_prefix == prefix, Probe.is_active))
         ).scalar_one_or_none()
-        if candidate is not None and verify_api_key(x_probe_api_key, candidate.api_key_hash):
-            return await _accept(candidate)
-        logger.warning("probe_auth_failed", key_prefix=x_probe_api_key[:10])
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid probe API key"
-        )
+        if candidate is not None:
+            if verify_api_key(x_probe_api_key, candidate.api_key_hash):
+                return await _accept(candidate)
+            # Prefix resolved but secret wrong → hard reject, never fall back
+            # to the scan (exactly one bcrypt per attempt on this path).
+            logger.warning("probe_auth_failed", key_prefix=x_probe_api_key[:10])
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid probe API key"
+            )
+        # Prefix miss: ``api_key_prefix`` may have been wiped in DB (e.g. an
+        # alembic downgrade dropping the column, then upgrade recreating it
+        # NULL). Fall through to the NULL-prefix scan below and self-heal on
+        # match — free on a healthy fleet, where that scan set is empty.
 
     # Legacy slow path: bcrypt scan restricted to un-migrated probes (no prefix).
     probes = (
@@ -225,6 +235,12 @@ async def get_current_probe(
 
     for probe in probes:
         if verify_api_key(x_probe_api_key, probe.api_key_hash):
+            if prefix is not None:
+                # Self-heal: re-populate the wiped prefix so the next auth for
+                # this probe takes the indexed fast path again (same mechanics
+                # as the opportunistic migration performed on key rotation).
+                probe.api_key_prefix = prefix
+                await db.flush()
             return await _accept(probe)
 
     logger.warning("probe_auth_failed", key_prefix=x_probe_api_key[:10])

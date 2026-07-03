@@ -215,3 +215,105 @@ async def test_rotation_migrates_legacy_probe_to_fast_path(
     )
     assert new.status_code == 200, new.text
     assert count_bcrypt["n"] == 1
+
+
+# ── Review C2 follow-ups ──────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_known_prefix_wrong_secret_single_bcrypt_no_scan(
+    client: AsyncClient, db_session: AsyncSession, count_bcrypt: dict
+) -> None:
+    """Known prefix + wrong secret → hard 401 after exactly ONE bcrypt.
+
+    A resolved prefix whose bcrypt fails must NOT fall back to the legacy scan
+    (the decoy NULL-prefix probe would add a second bcrypt if it did).
+    """
+    _probe, key = await _make_newgen_probe(db_session, "ng-victim")
+    await _make_legacy_probe(db_session, "legacy-decoy", "wiu_decoysecretnodot")
+    forged = f"wiu_{extract_probe_key_prefix(key)}.definitelywrongsecret"
+
+    resp = await client.post(
+        "/api/v1/probes/heartbeat", json={}, headers={"X-Probe-Api-Key": forged}
+    )
+    assert resp.status_code == 401, resp.text
+    assert count_bcrypt["n"] == 1, "wrong secret on a known prefix must not trigger the scan"
+
+
+@pytest.mark.asyncio
+async def test_rotation_newgen_probe_old_prefix_stops_resolving(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    admin_token: str,
+    fake_redis: FakeRedis,
+    count_bcrypt: dict,
+) -> None:
+    """Rotating an already-new-gen probe: old prefix dead, new key on fast path."""
+    probe, old_key = await _make_newgen_probe(db_session, "ng-rotate")
+    old_prefix = probe.api_key_prefix
+    assert old_prefix is not None
+
+    rot = await client.post(
+        f"/api/v1/probes/{probe.id}/rotate-key",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert rot.status_code == 200, rot.text
+    new_key = rot.json()["api_key"]
+    new_prefix = extract_probe_key_prefix(new_key)
+    assert new_prefix is not None and new_prefix != old_prefix
+
+    refreshed = (await db_session.execute(select(Probe).where(Probe.id == probe.id))).scalar_one()
+    assert refreshed.api_key_prefix == new_prefix
+
+    # Old key: its prefix no longer resolves any row → 401 (empty scan set, 0 bcrypt).
+    count_bcrypt["n"] = 0
+    old = await client.post(
+        "/api/v1/probes/heartbeat", json={}, headers={"X-Probe-Api-Key": old_key}
+    )
+    assert old.status_code == 401, old.text
+    assert count_bcrypt["n"] == 0
+
+    # New key authenticates via the indexed fast path — single bcrypt.
+    new = await client.post(
+        "/api/v1/probes/heartbeat", json={}, headers={"X-Probe-Api-Key": new_key}
+    )
+    assert new.status_code == 200, new.text
+    assert count_bcrypt["n"] == 1
+
+
+@pytest.mark.asyncio
+async def test_inactive_newgen_probe_rejected(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """A deactivated new-gen probe must not authenticate (prefix lookup filters is_active)."""
+    probe, key = await _make_newgen_probe(db_session, "ng-disabled")
+    probe.is_active = False
+    await db_session.flush()
+
+    resp = await client.post("/api/v1/probes/heartbeat", json={}, headers={"X-Probe-Api-Key": key})
+    assert resp.status_code == 401, resp.text
+
+
+# ── M1: prefix wiped in DB (downgrade/upgrade) → scan fallback + self-heal ────
+
+
+@pytest.mark.asyncio
+async def test_null_prefix_fallback_self_heals(
+    client: AsyncClient, db_session: AsyncSession, count_bcrypt: dict
+) -> None:
+    """Valid new-gen key whose stored prefix was wiped (e.g. alembic downgrade
+    then upgrade recreating ``api_key_prefix`` NULL) → auth still succeeds via
+    the NULL-prefix scan, and the prefix is re-populated (self-healing).
+    """
+    probe, key = await _make_newgen_probe(db_session, "ng-wiped")
+    expected_prefix = probe.api_key_prefix
+    assert expected_prefix is not None
+    probe.api_key_prefix = None
+    await db_session.flush()
+
+    resp = await client.post("/api/v1/probes/heartbeat", json={}, headers={"X-Probe-Api-Key": key})
+    assert resp.status_code == 200, resp.text
+    assert count_bcrypt["n"] == 1  # sole NULL-prefix row in the scan set
+
+    refreshed = (await db_session.execute(select(Probe).where(Probe.id == probe.id))).scalar_one()
+    assert refreshed.api_key_prefix == expected_prefix, "prefix must be re-populated on auth"

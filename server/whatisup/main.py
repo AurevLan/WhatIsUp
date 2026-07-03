@@ -17,9 +17,20 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from whatisup.core.config import get_settings
 from whatisup.core.database import get_db as get_db_dep
 from whatisup.core.limiter import limiter
+from whatisup.core.logging import configure_logging
 from whatisup.core.metrics import track_background_task
-from whatisup.core.middleware import MaxRequestSizeMiddleware, SecurityHeadersMiddleware
+from whatisup.core.middleware import (
+    MaxRequestSizeMiddleware,
+    RequestIDMiddleware,
+    SecurityHeadersMiddleware,
+    unhandled_exception_handler,
+)
 from whatisup.core.redis import close_redis
+
+# Configure structlog (+ stdlib logging bridge) before anything logs a line —
+# every `structlog.get_logger(__name__)` call site across the codebase (lazy
+# proxies) picks this up automatically, no per-module change needed.
+configure_logging(get_settings())
 
 logger = structlog.get_logger(__name__)
 
@@ -84,6 +95,14 @@ async def _recover_digests_once(redis=None) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
+    # Re-assert our logging config: uvicorn applies its own dictConfig *after*
+    # this module was imported (uvicorn.Config.__init__), re-attaching a
+    # plain-text StreamHandler on `uvicorn.access` (propagate=False) and its
+    # own handlers on `uvicorn`/`uvicorn.error`. The `whatisup-server` binary
+    # passes `log_config=None` (see main() below), but anyone running
+    # `uvicorn whatisup.main:app` directly gets the default config — lifespan
+    # runs after uvicorn's logging setup, so this call always wins.
+    configure_logging(settings)
     logger.info("whatisup_starting", version=settings.app_version, env=settings.environment)
 
     # Singleton background loops are wrapped in a Redis leader lock so that when
@@ -240,6 +259,12 @@ def create_app() -> FastAPI:
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+    # Unhandled exceptions: Starlette's ServerErrorMiddleware uses this handler
+    # to build the 500 response (generic JSON + X-Request-ID header for support
+    # correlation), then still re-raises so the exception reaches the server
+    # logs / test client exactly as before.
+    app.add_exception_handler(Exception, unhandled_exception_handler)
+
     # Trust proxy headers from nginx — `trusted_hosts` expects client IPs (the
     # reverse proxy's IP), not CORS origin URLs. Passing a list like
     # ['https://whatisup.aurevan.com'] silently disables the middleware and
@@ -266,7 +291,17 @@ def create_app() -> FastAPI:
         allow_credentials=True,
         allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type", "X-Probe-Api-Key", "X-Api-Key"],
+        # Without this, cross-origin JS (browser dashboard on another origin,
+        # Capacitor app) cannot read the correlation ID to show it to support.
+        expose_headers=["X-Request-ID"],
     )
+
+    # Request ID — added last so it's the outermost middleware (Starlette
+    # wraps in reverse registration order): it runs before everything else on
+    # the way in, binding `request_id` into structlog's contextvars so every
+    # log line for this request carries it, and runs last on the way out so
+    # the response header always makes it through untouched.
+    app.add_middleware(RequestIDMiddleware)
 
     # Routers
     from whatisup.api.v1 import (
@@ -411,4 +446,13 @@ def main() -> None:
         port=8000,
         reload=settings.debug,
         log_level="info",
+        # CRITICAL: without this, uvicorn.Config applies its default dictConfig
+        # *after* our configure_logging() (module import above) and re-attaches
+        # a plain-text StreamHandler on `uvicorn.access` (propagate=False) →
+        # in production every request is logged twice (structured
+        # `request_handled` JSON + plain-text access line) and uvicorn
+        # lifecycle logs bypass the JSON renderer. `log_config=None` makes
+        # uvicorn leave logging configuration entirely to us (lifespan also
+        # re-asserts it as a second line of defence).
+        log_config=None,
     )

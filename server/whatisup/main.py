@@ -17,9 +17,19 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from whatisup.core.config import get_settings
 from whatisup.core.database import get_db as get_db_dep
 from whatisup.core.limiter import limiter
+from whatisup.core.logging import configure_logging
 from whatisup.core.metrics import track_background_task
-from whatisup.core.middleware import MaxRequestSizeMiddleware, SecurityHeadersMiddleware
+from whatisup.core.middleware import (
+    MaxRequestSizeMiddleware,
+    RequestIDMiddleware,
+    SecurityHeadersMiddleware,
+)
 from whatisup.core.redis import close_redis
+
+# Configure structlog (+ stdlib logging bridge) before anything logs a line —
+# every `structlog.get_logger(__name__)` call site across the codebase (lazy
+# proxies) picks this up automatically, no per-module change needed.
+configure_logging(get_settings())
 
 logger = structlog.get_logger(__name__)
 
@@ -271,6 +281,13 @@ def create_app() -> FastAPI:
         allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type", "X-Probe-Api-Key", "X-Api-Key"],
     )
+
+    # Request ID — added last so it's the outermost middleware (Starlette
+    # wraps in reverse registration order): it runs before everything else on
+    # the way in, binding `request_id` into structlog's contextvars so every
+    # log line for this request carries it, and runs last on the way out so
+    # the response header always makes it through untouched.
+    app.add_middleware(RequestIDMiddleware)
 
     # Routers
     from whatisup.api.v1 import (

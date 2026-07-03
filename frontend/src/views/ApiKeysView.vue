@@ -30,12 +30,15 @@
         </div>
       </div>
 
-      <div v-else-if="keys.length === 0" class="empty-state">
-        <div class="empty-state__icon"><KeyRound :size="22" /></div>
-        <p class="empty-state__title">{{ t('apiKeys.empty_title') }}</p>
-        <p class="empty-state__text">{{ t('apiKeys.empty') }}</p>
-        <button @click="showCreate = true" class="btn-primary mt-2">+ {{ t('apiKeys.new') }}</button>
-      </div>
+      <EmptyState
+        v-else-if="keys.length === 0"
+        :title="t('apiKeys.empty_title')"
+        :text="t('apiKeys.empty')"
+        :cta-label="t('apiKeys.new')"
+        @cta="showCreate = true"
+      >
+        <template #icon><KeyRound :size="22" /></template>
+      </EmptyState>
 
       <div
         v-for="k in keys"
@@ -167,6 +170,7 @@ import { useI18n } from 'vue-i18n'
 import { CheckCircle, Copy, KeyRound, Loader2, Plus, Trash2 } from 'lucide-vue-next'
 import { apiKeysApi } from '../api/apiKeys.js'
 import BaseModal from '../components/BaseModal.vue'
+import EmptyState from '../components/shared/EmptyState.vue'
 import { useToast } from '../composables/useToast'
 import { useConfirm } from '../composables/useConfirm'
 import { useDateFormat } from '../composables/useDateFormat'

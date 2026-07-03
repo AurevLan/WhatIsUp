@@ -31,7 +31,18 @@
 
     <!-- Table -->
     <div v-if="loading" class="card text-sm text-(--text-3)">{{ t('common.loading') }}…</div>
-    <div v-else-if="!items.length" class="card text-sm text-(--text-3)">{{ t('tls_fleet.empty') }}</div>
+    <div v-else-if="!items.length" class="card">
+      <EmptyState
+        :title="t('tls_fleet.empty')"
+        :text="hasActiveTlsFilters ? t('empty.tls_fleet_filtered_text') : t('empty.tls_fleet_text')"
+        :cta-label="hasActiveTlsFilters ? t('monitors.clear_filters') : ''"
+        :cta-icon="false"
+        inline
+        @cta="clearFilters"
+      >
+        <template #icon><Lock :size="22" /></template>
+      </EmptyState>
+    </div>
     <div v-else class="overflow-x-auto bg-(--bg-surface) border border-(--border) rounded">
     <table class="w-full text-sm min-w-[44rem]">
       <thead class="text-xs text-(--text-3) uppercase">
@@ -70,14 +81,25 @@
 </template>
 
 <script setup>
-import { ref, onMounted, reactive } from 'vue'
+import { ref, onMounted, reactive, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { Lock } from 'lucide-vue-next'
 import { tlsFleetApi } from '../api/tlsFleet'
+import EmptyState from '../components/shared/EmptyState.vue'
 
 const { t } = useI18n()
 const loading = ref(false)
 const items = ref([])
 const filters = reactive({ grade_below: '', expires_within_days: null, san_mismatch: false })
+const hasActiveTlsFilters = computed(() =>
+  !!filters.grade_below || !!filters.expires_within_days || filters.san_mismatch
+)
+function clearFilters() {
+  filters.grade_below = ''
+  filters.expires_within_days = null
+  filters.san_mismatch = false
+  reload()
+}
 
 const PALETTE = {
   'A+': 'bg-[color-mix(in_srgb,var(--up)_15%,transparent)] text-(--up)',

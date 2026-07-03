@@ -14,6 +14,13 @@
         >
           <span style="flex-shrink:0;font-size:16px;">{{ toastIcon(toast.type) }}</span>
           <span style="flex:1;">{{ toast.message }}</span>
+          <button
+            v-if="toast.action"
+            type="button"
+            class="btn-ghost btn-sm"
+            style="flex-shrink:0;"
+            @click.stop="toast.action.run()"
+          >{{ toast.action.label }}</button>
           <span style="flex-shrink:0;opacity:.5;font-size:16px;line-height:1;">×</span>
         </div>
       </TransitionGroup>

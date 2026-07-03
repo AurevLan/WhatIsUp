@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from whatisup.api.deps import (
+    assert_can_assign_team,
     build_access_filter,
     check_resource_access,
     get_current_user,
@@ -92,11 +93,15 @@ async def list_channels(
 
 
 @router.post("/channels", response_model=AlertChannelOut, status_code=status.HTTP_201_CREATED)
+@limiter.limit("30/minute")
 async def create_channel(
     payload: AlertChannelCreate,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> AlertChannel:
+    # SEC-A3: a user must not attach a channel to a team they cannot access.
+    await assert_can_assign_team(db, current_user, payload.team_id)
     channel = AlertChannel(
         owner_id=current_user.id,
         team_id=payload.team_id,
@@ -107,6 +112,17 @@ async def create_channel(
     )
     db.add(channel)
     await db.flush()
+    from whatisup.services.audit import log_action
+
+    await log_action(
+        db,
+        "alert_channel.create",
+        "alert_channel",
+        channel.id,
+        channel.name,
+        current_user,
+        diff={"type": channel.type.value if hasattr(channel.type, "value") else str(channel.type)},
+    )
     return channel
 
 
@@ -237,6 +253,16 @@ async def delete_channel(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Channel not found"
             ) from None
         raise
+    from whatisup.services.audit import log_action
+
+    await log_action(
+        db,
+        "alert_channel.delete",
+        "alert_channel",
+        channel.id,
+        channel.name,
+        current_user,
+    )
     await db.delete(channel)
 
 
@@ -315,6 +341,17 @@ async def create_rule(
     db.add(rule)
     await db.flush()
     await db.refresh(rule, ["channels"])
+    from whatisup.services.audit import log_action
+
+    await log_action(
+        db,
+        "alert_rule.create",
+        "alert_rule",
+        rule.id,
+        str(rule.condition),
+        current_user,
+        diff={"monitor_id": str(rule.monitor_id) if rule.monitor_id else None},
+    )
     return rule
 
 
@@ -379,6 +416,17 @@ async def update_rule(
 
     await db.flush()
     await db.refresh(rule, ["channels"])
+    from whatisup.services.audit import log_action
+
+    await log_action(
+        db,
+        "alert_rule.update",
+        "alert_rule",
+        rule.id,
+        str(rule.condition),
+        current_user,
+        diff={"monitor_id": str(rule.monitor_id) if rule.monitor_id else None},
+    )
     return rule
 
 
@@ -404,6 +452,17 @@ async def delete_rule(
     db: AsyncSession = Depends(get_db),
 ) -> None:
     rule = await _load_rule_for_owner(rule_id, current_user, db)
+    from whatisup.services.audit import log_action
+
+    await log_action(
+        db,
+        "alert_rule.delete",
+        "alert_rule",
+        rule.id,
+        str(rule.condition),
+        current_user,
+        diff={"monitor_id": str(rule.monitor_id) if rule.monitor_id else None},
+    )
     await db.delete(rule)
 
 
@@ -544,6 +603,21 @@ async def create_auto_rules(
         await db.flush()
         for rule in created:
             await db.refresh(rule, ["channels"])
+
+    from whatisup.services.audit import log_action
+
+    await log_action(
+        db,
+        "alert_rule.auto_create",
+        "monitor",
+        monitor_id,
+        monitor.name,
+        current_user,
+        diff={
+            "created": len(created),
+            "conditions": [str(r.condition) for r in created],
+        },
+    )
 
     return created
 
@@ -727,10 +801,12 @@ async def put_alert_matrix(
         r.condition: r for r in monitor.alert_rules
     }
 
-    for condition, rule in existing_by_condition.items():
-        if condition not in seen_conditions:
-            await db.delete(rule)
+    deleted_conditions = [c for c in existing_by_condition if c not in seen_conditions]
+    for condition in deleted_conditions:
+        await db.delete(existing_by_condition[condition])
 
+    created_conditions: list[AlertCondition] = []
+    updated_conditions: list[AlertCondition] = []
     kept: list[AlertRule] = []
     for row in payload.rows:
         rule = existing_by_condition.get(row.condition)
@@ -741,12 +817,38 @@ async def put_alert_matrix(
                 condition=row.condition,
             )
             db.add(rule)
+            created_conditions.append(row.condition)
+        else:
+            updated_conditions.append(row.condition)
         for field in _MATRIX_RULE_FIELDS:
             setattr(rule, field, getattr(row, field))
         rule.channels = [channels_by_id[cid] for cid in row.channel_ids]
         kept.append(rule)
 
     await db.flush()
+
+    from whatisup.services.audit import log_action
+
+    # Bulk endpoint (create + update + delete AlertRules in one shot) — a single
+    # synthetic trace per request is enough, matching the resource actually being
+    # edited (the monitor's alert matrix) rather than one entry per underlying rule.
+    await log_action(
+        db,
+        "alert_rule.matrix_update",
+        "monitor",
+        monitor_id,
+        monitor.name,
+        current_user,
+        diff={
+            "created": len(created_conditions),
+            "updated": len(updated_conditions),
+            "deleted": len(deleted_conditions),
+            "created_conditions": [str(c) for c in created_conditions],
+            "updated_conditions": [str(c) for c in updated_conditions],
+            "deleted_conditions": [str(c) for c in deleted_conditions],
+        },
+    )
+
     return AlertMatrixOut(monitor_id=monitor_id, rows=kept)
 
 

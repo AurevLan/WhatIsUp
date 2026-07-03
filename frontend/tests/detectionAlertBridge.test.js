@@ -60,7 +60,7 @@ describe('useDetectionAlertBridge', () => {
       condition: 'any_down',
       min_duration_seconds: 0,
       channel_ids: ['c1'],
-    })
+    }, { skipErrorToast: true })
     expect(b.alertModal.value).toBe(false)
   })
 

@@ -5,6 +5,27 @@ import { monitorsApi } from '../api/monitors'
 // Auto-clear flapping state after 10 minutes (matches default flap_window_minutes)
 const FLAP_TTL_MS = 10 * 60 * 1000
 
+// C4 (bilan 2026-07) — module-level registry of monitor ids that were
+// optimistically removed from the UI while their deferred bulk-delete Undo
+// toast (~6s window) is still open. `fetchAll` consults it so an interleaved
+// refresh (Dashboard navigation, Monitors re-mount…) doesn't resurrect rows
+// pending deletion — which would then be duplicated if the user clicks Undo.
+const pendingDeleteIds = new Set()
+
+export function markPendingDelete(ids) {
+  for (const id of ids) pendingDeleteIds.add(id)
+}
+
+export function unmarkPendingDelete(ids) {
+  for (const id of ids) pendingDeleteIds.delete(id)
+}
+
+// Test helper — the registry is module-level, so suites must be able to
+// reset it between cases.
+export function clearPendingDeletes() {
+  pendingDeleteIds.clear()
+}
+
 export const useMonitorStore = defineStore('monitors', () => {
   const flapTimers = {}
   const monitors = ref([])
@@ -71,27 +92,29 @@ export const useMonitorStore = defineStore('monitors', () => {
     loading.value = true
     try {
       const { data } = await monitorsApi.list(params)
-      monitors.value = data.map(enrich)
+      // Skip monitors whose deferred bulk-delete is still undoable (see
+      // pendingDeleteIds above) — the server still knows them, the UI must not.
+      monitors.value = data.filter(m => !pendingDeleteIds.has(m.id)).map(enrich)
     } finally {
       loading.value = false
     }
   }
 
-  async function create(payload) {
-    const { data } = await monitorsApi.create(payload)
+  async function create(payload, config = {}) {
+    const { data } = await monitorsApi.create(payload, config)
     monitors.value.unshift(enrich(data))
     return data
   }
 
-  async function update(id, payload) {
-    const { data } = await monitorsApi.update(id, payload)
+  async function update(id, payload, config = {}) {
+    const { data } = await monitorsApi.update(id, payload, config)
     const idx = monitors.value.findIndex(m => m.id === id)
     if (idx !== -1) monitors.value[idx] = enrich(data)
     return data
   }
 
-  async function remove(id) {
-    await monitorsApi.delete(id)
+  async function remove(id, config = {}) {
+    await monitorsApi.delete(id, config)
     monitors.value = monitors.value.filter(m => m.id !== id)
   }
 

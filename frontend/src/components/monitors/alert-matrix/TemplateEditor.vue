@@ -196,14 +196,14 @@ async function submit() {
         name: form.value.name,
         description: form.value.description || null,
         rows: cleaned,
-      })
+      }, { skipErrorToast: true })
     } else {
       await api.post('/alerts/matrix-templates', {
         name: form.value.name,
         description: form.value.description || null,
         check_type: form.value.check_type,
         rows: cleaned,
-      })
+      }, { skipErrorToast: true })
     }
     emit('saved')
     close()
@@ -218,7 +218,7 @@ async function remove() {
   if (!confirm(t('alert_matrix.templates.editor.confirm_delete'))) return
   saving.value = true
   try {
-    await api.delete(`/alerts/matrix-templates/${props.template.id}`)
+    await api.delete(`/alerts/matrix-templates/${props.template.id}`, { skipErrorToast: true })
     emit('saved')
     close()
   } catch (e) {

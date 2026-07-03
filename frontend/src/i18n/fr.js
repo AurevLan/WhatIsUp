@@ -28,6 +28,14 @@ export default {
     teams: 'Équipes',
     graph: 'Graphe',
   },
+  // Toast d'erreur global (intercepteur axios dans api/client.js)
+  errors: {
+    network: 'Erreur réseau — vérifiez votre connexion',
+    timeout: 'La requête a expiré',
+    server:  'Erreur serveur',
+    request: 'Erreur de requête',
+  },
+
   common: {
     save: 'Enregistrer',
     cancel: 'Annuler',
@@ -37,6 +45,7 @@ export default {
     close: 'Fermer',
     view: 'Voir',
     dismiss: 'Ignorer',
+    undo: 'Annuler',
     prev_page: 'Page précédente',
     next_page: 'Page suivante',
     confirm: 'Confirmer',
@@ -153,6 +162,14 @@ export default {
     alerts_events_text: 'Aucune alerte pour le moment. Dès qu\'une règle se déclenche, l\'historique apparaîtra ici.',
     probes_text: 'Les sondes exécutent les checks. Enregistrez-en une dans le cloud ou auto-hébergée via Docker.',
     maintenance_text: 'Planifiez une fenêtre de maintenance pour suspendre les alertes pendant un downtime prévu.',
+    incidents_text: 'Les incidents s\'ouvrent automatiquement quand un monitor tombe. Rien à voir ici — c\'est bon signe.',
+    incidents_filtered_text: 'Aucun incident ne correspond aux filtres actuels.',
+    audit_text: 'Chaque changement effectué dans WhatIsUp — par vous ou vos collègues — apparaîtra ici.',
+    audit_filtered_text: 'Aucune entrée du journal d\'audit ne correspond au filtre actuel.',
+    tls_fleet_text: 'Lancez un check sur un monitor HTTPS pour voir sa note TLS, son chiffrement et son expiration ici.',
+    tls_fleet_filtered_text: 'Aucun monitor ne correspond aux filtres actuels.',
+    incident_groups_text: 'Quand plusieurs incidents partagent une cause commune (même sonde, même infrastructure), WhatIsUp les regroupe ici.',
+    incident_groups_filtered_text: 'Aucun groupe d\'incidents ne correspond au filtre actuel.',
   },
 
   status: {
@@ -240,6 +257,8 @@ export default {
     bulk_success_enabled: '{count} moniteur(s) activé(s)',
     bulk_success_paused: '{count} moniteur(s) mis en pause',
     bulk_success_deleted: '{count} moniteur(s) supprimé(s)',
+    bulk_deleted_pending: '{count} moniteur(s) retiré(s)',
+    bulk_delete_undone: '{count} moniteur(s) restauré(s)',
     bulk_success_grouped: '{count} moniteur(s) déplacé(s)',
     bulk_success_tagged: '{count} moniteur(s) tagué(s)',
     bulk_move_group: 'Déplacer vers le groupe',

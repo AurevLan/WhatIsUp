@@ -1,8 +1,8 @@
 import api from './client'
 
 export const silencesApi = {
-  list: () => api.get('/silences/'),
-  create: (data) => api.post('/silences/', data),
+  list: (config = {}) => api.get('/silences/', config),
+  create: (data, config = {}) => api.post('/silences/', data, config),
   update: (id, data) => api.patch(`/silences/${id}`, data),
-  delete: (id) => api.delete(`/silences/${id}`),
+  delete: (id, config = {}) => api.delete(`/silences/${id}`, config),
 }

@@ -175,7 +175,10 @@ function scopeLabel(s) {
 async function load() {
   loading.value = true
   try {
-    const [s, m] = await Promise.all([silencesApi.list(), monitorsApi.list()])
+    const [s, m] = await Promise.all([
+      silencesApi.list({ skipErrorToast: true }),
+      monitorsApi.list({}, { skipErrorToast: true }),
+    ])
     silences.value = s.data
     monitors.value = m.data
   } catch {
@@ -199,7 +202,7 @@ async function save() {
       ends_at: new Date(draft.value.ends_at).toISOString(),
       reason: draft.value.reason || null,
     }
-    await silencesApi.create(payload)
+    await silencesApi.create(payload, { skipErrorToast: true })
     showCreate.value = false
     success(t('silences.create_success'))
     await load()
@@ -216,7 +219,7 @@ async function onDelete(s) {
   })
   if (!ok) return
   try {
-    await silencesApi.delete(s.id)
+    await silencesApi.delete(s.id, { skipErrorToast: true })
     success(t('silences.delete_success'))
     silences.value = silences.value.filter((x) => x.id !== s.id)
   } catch {

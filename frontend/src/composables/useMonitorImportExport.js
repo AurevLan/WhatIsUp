@@ -17,7 +17,7 @@ export function useMonitorImportExport() {
 
   async function exportMonitors() {
     try {
-      const { data } = await monitorsApi.exportAll()
+      const { data } = await monitorsApi.exportAll({ skipErrorToast: true })
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -45,7 +45,7 @@ export function useMonitorImportExport() {
         toastError(t('monitors.import_json_invalid'))
         return
       }
-      const { data: result } = await monitorsApi.importAll(data)
+      const { data: result } = await monitorsApi.importAll(data, { skipErrorToast: true })
       const parts = []
       if (result.imported > 0) parts.push(`${result.imported} imported`)
       if (result.updated > 0) parts.push(`${result.updated} updated`)

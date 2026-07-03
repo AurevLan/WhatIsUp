@@ -105,7 +105,7 @@ export function useMonitorSlo(monitorRef) {
   async function toggleHealthEngine(enabled) {
     if (!monitorRef.value) return
     try {
-      await monitorsApi.update(monitorRef.value.id, { health_engine_enabled: enabled })
+      await monitorsApi.update(monitorRef.value.id, { health_engine_enabled: enabled }, { skipErrorToast: true })
       monitorRef.value.health_engine_enabled = enabled
       toastSuccess(
         enabled
@@ -156,10 +156,10 @@ export function useMonitorSlo(monitorRef) {
     sloEditor.value.error = null
     try {
       if (sloEditor.value.rule) {
-        await updateSloRule(monitorRef.value.id, sloEditor.value.rule.id, payload)
+        await updateSloRule(monitorRef.value.id, sloEditor.value.rule.id, payload, { skipErrorToast: true })
       } else {
         payload.rule_type = f.rule_type
-        await createSloRule(monitorRef.value.id, payload)
+        await createSloRule(monitorRef.value.id, payload, { skipErrorToast: true })
       }
       sloEditor.value.open = false
       await loadHealthEngine(monitorRef.value.id)
@@ -173,7 +173,7 @@ export function useMonitorSlo(monitorRef) {
   async function toggleSloRule(rule) {
     if (!monitorRef.value) return
     try {
-      await updateSloRule(monitorRef.value.id, rule.id, { enabled: !rule.enabled })
+      await updateSloRule(monitorRef.value.id, rule.id, { enabled: !rule.enabled }, { skipErrorToast: true })
       await loadHealthEngine(monitorRef.value.id)
     } catch (err) {
       toastError(err?.response?.data?.detail || 'Update failed')
@@ -184,7 +184,7 @@ export function useMonitorSlo(monitorRef) {
     if (!monitorRef.value) return
     if (!confirm(t('monitor_detail.health_engine_confirm_delete'))) return
     try {
-      await deleteSloRule(monitorRef.value.id, rule.id)
+      await deleteSloRule(monitorRef.value.id, rule.id, { skipErrorToast: true })
       await loadHealthEngine(monitorRef.value.id)
     } catch (err) {
       toastError(err?.response?.data?.detail || 'Delete failed')

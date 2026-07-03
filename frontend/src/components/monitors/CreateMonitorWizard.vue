@@ -272,7 +272,7 @@ async function submit() {
   }
 
   try {
-    const created = await monitorStore.create(payload)
+    const created = await monitorStore.create(payload, { skipErrorToast: true })
     // Wire selected channels via auto-alert helper if any.
     if (selectedChannelIds.value.length && created?.id) {
       try {

@@ -70,7 +70,7 @@ export function useMonitorDns(monitorRef, resultsRef) {
     baselineLoading.value = true
     baselineMsg.value = ''
     try {
-      const { data } = await monitorsApi.acceptDnsBaseline(monitorRef.value.id)
+      const { data } = await monitorsApi.acceptDnsBaseline(monitorRef.value.id, { skipErrorToast: true })
       monitorRef.value.dns_baseline_ips = data.baseline
       baselineMsg.value = `Baseline updated: ${data.baseline.join(', ')}`
       setTimeout(() => {
@@ -88,7 +88,7 @@ export function useMonitorDns(monitorRef, resultsRef) {
     baselineLoading.value = true
     baselineMsg.value = ''
     try {
-      await monitorsApi.resetDnsBaseline(monitorRef.value.id, type)
+      await monitorsApi.resetDnsBaseline(monitorRef.value.id, type, { skipErrorToast: true })
       if (type === 'internal') {
         monitorRef.value.dns_baseline_ips_internal = null
       } else if (type === 'external') {

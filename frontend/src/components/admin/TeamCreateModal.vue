@@ -56,7 +56,7 @@ async function submitCreateTeam() {
   try {
     const payload = { ...teamCreateForm.value }
     if (!payload.slug) delete payload.slug
-    await teamsApi.create(payload)
+    await teamsApi.create(payload, { skipErrorToast: true })
     emit('update:modelValue', false)
     emit('saved')
   } catch (e) {

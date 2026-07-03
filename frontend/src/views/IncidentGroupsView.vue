@@ -21,7 +21,16 @@
 
     <div v-if="loading" class="text-(--text-2)">{{ t('common.loading') }}</div>
 
-    <p v-else-if="groups.length === 0" class="text-(--text-3)">{{ t('incidentGroups.empty') }}</p>
+    <EmptyState
+      v-else-if="groups.length === 0"
+      :title="t('incidentGroups.empty')"
+      :text="statusFilter !== 'all' ? t('empty.incident_groups_filtered_text') : t('empty.incident_groups_text')"
+      :cta-label="statusFilter !== 'all' ? t('monitors.clear_filters') : ''"
+      :cta-icon="false"
+      @cta="statusFilter = 'all'"
+    >
+      <template #icon><GitMerge :size="22" /></template>
+    </EmptyState>
 
     <div v-else class="space-y-4">
       <div
@@ -98,8 +107,10 @@
 <script setup>
 import { ref, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { GitMerge } from 'lucide-vue-next'
 import { incidentGroupsApi } from '../api/incidentGroups'
 import { useProbesStore } from '../stores/probes'
+import EmptyState from '../components/shared/EmptyState.vue'
 
 const { t } = useI18n()
 

@@ -113,7 +113,7 @@ async function submitCreate() {
     const payload = { ...createForm.value }
     if (!payload.username) delete payload.username
     if (!payload.full_name) delete payload.full_name
-    await adminApi.createUser(payload)
+    await adminApi.createUser(payload, { skipErrorToast: true })
     emit('update:modelValue', false)
     emit('saved')
   } catch (e) {

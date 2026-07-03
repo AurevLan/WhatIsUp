@@ -27,6 +27,17 @@
         <div v-for="i in 8" :key="i" class="skeleton h-10" style="border-radius:var(--radius-sm)" />
       </div>
 
+      <EmptyState
+        v-else-if="logs.length === 0"
+        :title="t('audit.empty')"
+        :text="filterType ? t('empty.audit_filtered_text') : t('empty.audit_text')"
+        :cta-label="filterType ? t('monitors.clear_filters') : ''"
+        :cta-icon="false"
+        @cta="filterType = ''; load()"
+      >
+        <template #icon><History :size="22" /></template>
+      </EmptyState>
+
       <div v-else class="overflow-x-auto">
       <table class="w-full text-sm min-w-[34rem]">
         <thead class="border-b" style="border-color:var(--border)">
@@ -53,9 +64,6 @@
               <span class="text-(--text-3) text-xs ml-1">{{ entry.object_type }}</span>
             </td>
             <td class="px-4 py-3 text-(--text-2)">{{ entry.user_email || 'system' }}</td>
-          </tr>
-          <tr v-if="logs.length === 0">
-            <td colspan="4" class="px-4 py-12 text-center text-(--text-3)">{{ t('audit.empty') }}</td>
           </tr>
         </tbody>
       </table>
@@ -87,7 +95,9 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { History } from 'lucide-vue-next'
 import api from '../api/client'
+import EmptyState from '../components/shared/EmptyState.vue'
 
 const { t } = useI18n()
 

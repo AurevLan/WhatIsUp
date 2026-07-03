@@ -53,12 +53,13 @@ async def init() -> None:
             ).scalar_one_or_none()
 
             if not existing:
-                api_key = generate_probe_api_key()
+                api_key, api_key_prefix = generate_probe_api_key()
                 db.add(
                     Probe(
                         name="Central-Probe",
                         location_name=os.getenv("PROBE_LOCATION", "Central Server"),
                         api_key_hash=hash_api_key(api_key),
+                        api_key_prefix=api_key_prefix,
                     )
                 )
                 await db.flush()

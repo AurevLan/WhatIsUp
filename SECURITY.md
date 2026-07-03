@@ -78,6 +78,7 @@
 | OWASP 2021 | Vecteur | Mitigation en place | Vérification |
 |---|---|---|---|
 | **A01 — Broken Access Control** | Cross-tenant leak | Ownership enforcement par JOIN, `require_superadmin`, RBAC teams + tags | Tests `test_*_ownership.py`, audit `delete_channel`/`list_events` |
+| **A01 — Broken Access Control** | Probe forge résultat cross-monitor | `POST /probes/results` : la sonde ne peut pousser un résultat que pour un monitor de son `network_scope` (scope `all` = servi par toutes) — sinon 403 ; idem `serves_monitor` sur `/probes/diagnostics` | `api/v1/probes.py`, `test_probe_trust.py` |
 | **A02 — Cryptographic Failures** | Secrets en clair | Fernet AES-128 sur tous secrets channels + OIDC + scenario, bcrypt 12-rounds, refresh tokens hashés SHA-256 | `core/security.py`, `_validate_production_settings()` |
 | **A03 — Injection** | SQL / cmd / XSS | SQLAlchemy ORM exclusif, Pydantic v2 `extra="forbid"`, Vue 3 auto-escape, pas de `v-html` non-safe | CodeQL `security-extended`, code review |
 | **A04 — Insecure Design** | Modèle d'accès | Threat model documenté (ce fichier), invite-only, escalade priv. silencieusement bloquée | Tests `test_me_update_*` |
@@ -259,7 +260,7 @@ SECRET_KEY=<256-bit hex>           # openssl rand -hex 32
 FERNET_KEY=<urlsafe-b64 32 bytes>  # python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 DATABASE_URL=postgresql+asyncpg://...
 ENVIRONMENT=production
-PROBE_API_KEY=wiu_<32 urlsafe>     # uniquement côté probe
+PROBE_API_KEY=wiu_<prefix>.<secret>  # uniquement côté probe (format émis à l'enrôlement)
 ```
 
 ### Variables fortement recommandées
@@ -282,6 +283,21 @@ VAPID_PUBLIC_KEY=...   VAPID_PRIVATE_KEY=...             # web push (opt-in)
 | DB password | Compromission ou 12 mois | `ALTER USER` + redéploiement | brève coupure |
 | OIDC client_secret | Selon politique IdP | UI Settings → OIDC | re-login users |
 | Android keystore | **JAMAIS** sans pré-publication majeure | rotation impossible post-Play Store | crash auto-update |
+
+#### Format de clé sonde & index par préfixe (auth O(1) bcrypt)
+
+Les clés sonde utilisent le format **`wiu_<prefix>.<secret>`** :
+
+- `<prefix>` = identifiant **non secret** (`secrets.token_urlsafe(8)`) stocké en clair dans la colonne indexée `probes.api_key_prefix` (unique). Il permet à `get_current_probe` de résoudre l'**unique** sonde candidate par index et de ne lancer **qu'une seule** vérification bcrypt — au lieu de scanner toute la flotte (ancien coût O(n) bcrypt par requête non cachée).
+- `<secret>` = `secrets.token_urlsafe(32)` (~256 bits). Le hash bcrypt couvre **toute** la clé (prefix + secret) : la connaissance du seul préfixe n'autorise rien. Le séparateur `.` est sans ambiguïté (`token_urlsafe` n'émet jamais de point).
+
+**Chemin de migration (rétrocompatible, sans re-hash de masse)** :
+
+1. Les sondes provisionnées avant ce schéma ont `api_key_prefix = NULL` et une clé legacy `wiu_<secret>` (sans point). Elles continuent de s'authentifier via un **scan bcrypt de repli**, désormais restreint aux seules lignes `api_key_prefix IS NULL` (les sondes migrées en sont exclues — un scan qui rétrécit à mesure que la flotte tourne, jusqu'à zéro).
+2. Une rotation (`POST /probes/{id}/rotate-key`) — ou tout ré-enrôlement — émet une clé au nouveau format et **remplit `api_key_prefix`** : la sonde bascule alors sur le fast path indexé (une seule bcrypt).
+3. Aucune action opérateur requise au-delà de la rotation normale de sécurité. Pour forcer la migration d'une flotte legacy, faire tourner les clés (rotation planifiée à 6 mois du tableau ci-dessus suffit).
+
+> **Limite connue (acceptée)** : sur le slow path nouvelle génération, une clé au préfixe inconnu est rejetée sans lancer de bcrypt (candidat introuvable), alors qu'un préfixe connu au secret invalide en lance une. Ce différentiel de timing ne révèle que l'existence d'un préfixe — un identifiant non secret qui n'autorise aucune authentification (schéma standard des clés API préfixées type GitHub/Stripe). Pas de bcrypt factice ajouté.
 
 ### Stockage local
 
@@ -433,7 +449,7 @@ add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment
 | TLS | TLS 1.2 minimum, 1.3 préféré | ciphers ANSSI | nginx |
 | HSTS | `max-age=31536000; includeSubDomains; preload` | n/a | nginx |
 | Webhook signature | HMAC-SHA256 | clé partagée | `hmac` |
-| Probe API key | bcrypt 12 rounds | 32-byte urlsafe random | `secrets` |
+| Probe API key | bcrypt 12 rounds | format `wiu_<prefix>.<secret>`, secret 32-byte urlsafe ; préfixe non secret indexé (`api_key_prefix`) → 1 bcrypt à l'auth, pas de scan O(n) | `secrets` |
 
 ### À éviter
 
@@ -455,9 +471,10 @@ Toute modification de cette table doit être reportée dans `FEATURES.md` §11.
 | `/auth/register` | POST | **5/min** | Anti enum + spam |
 | `/auth/refresh` | POST | **30/min** | Mobile + multi-tab |
 | `/auth/me` | PATCH | **30/min** | Self-update |
-| `/probes/heartbeat` | POST | **30/min** | Probe health beats |
-| `/probes/results` | POST | **60/min** | Probe results push (bursts ok) |
+| `/probes/heartbeat` | POST | **120/min** | Probe health beats |
+| `/probes/results` | POST | **600/min** | Probe results push (bursts ok) |
 | `/probes/register` | POST | **3/min** | Anti scan |
+| `/probes/{id}/rotate-key` | POST | **10/min** | Rotation clé — superadmin only |
 | `/monitors` | POST | **10/min** | Anti spam monitor |
 | `/monitors/{id}/trigger-check` | POST | **20/min** | Évite trigger storm |
 | `/config` | GET | **5/min** | Probe config pull |

@@ -20,12 +20,15 @@
       </div>
     </div>
 
-    <div v-else-if="templates.length === 0" class="empty-state">
-      <div class="empty-state__icon"><Copy :size="22" /></div>
-      <p class="empty-state__title">{{ t('templates.no_templates') }}</p>
-      <p class="empty-state__text">{{ t('templates.empty_desc') }}</p>
-      <button @click="showCreate = true" class="btn-primary mt-2">+ {{ t('templates.new') }}</button>
-    </div>
+    <EmptyState
+      v-else-if="templates.length === 0"
+      :title="t('templates.no_templates')"
+      :text="t('templates.empty_desc')"
+      :cta-label="t('templates.new')"
+      @cta="showCreate = true"
+    >
+      <template #icon><Copy :size="22" /></template>
+    </EmptyState>
 
     <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       <div
@@ -182,6 +185,7 @@ import { useI18n } from 'vue-i18n'
 import { Copy, Loader2 } from 'lucide-vue-next'
 import { templatesApi } from '../api/templates.js'
 import BaseModal from '../components/BaseModal.vue'
+import EmptyState from '../components/shared/EmptyState.vue'
 import { useToast } from '../composables/useToast'
 import { useConfirm } from '../composables/useConfirm'
 import { useAuthStore } from '../stores/auth'
@@ -260,10 +264,10 @@ async function saveTemplate() {
       monitor_config,
     }
     if (editingTemplate.value) {
-      await templatesApi.update(editingTemplate.value.id, payload)
+      await templatesApi.update(editingTemplate.value.id, payload, { skipErrorToast: true })
       success(t('templates.updated'))
     } else {
-      await templatesApi.create(payload)
+      await templatesApi.create(payload, { skipErrorToast: true })
       success(t('templates.created'))
     }
     closeModal()
@@ -282,7 +286,7 @@ async function deleteTemplate(tpl) {
   })
   if (!ok) return
   try {
-    await templatesApi.delete(tpl.id)
+    await templatesApi.delete(tpl.id, { skipErrorToast: true })
     templates.value = templates.value.filter((tp) => tp.id !== tpl.id)
     success(t('templates.deleted'))
   } catch {
@@ -307,7 +311,7 @@ async function doApply() {
       values: applyValues.value,
       name_override: applyNameOverride.value || null,
     }
-    const { data } = await templatesApi.apply(applyTemplate.value.id, payload)
+    const { data } = await templatesApi.apply(applyTemplate.value.id, payload, { skipErrorToast: true })
     success(t('templates.applied', { name: data.name }))
     applyTemplate.value = null
   } catch (e) {

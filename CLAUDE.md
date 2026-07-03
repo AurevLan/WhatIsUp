@@ -87,7 +87,7 @@ frontend/src/
 ```python
 get_current_user    # JWT obligatoire — utilisateur standard
 require_superadmin  # JWT + is_superadmin=True
-get_current_probe   # X-Probe-Api-Key (bcrypt + cache Redis SHA-256[:32], TTL 300s)
+get_current_probe   # X-Probe-Api-Key (bcrypt + cache Redis SHA-256[:32], TTL 60s)
 ```
 
 ## CheckType (monitor.check_type)
@@ -184,7 +184,7 @@ Le workflow `.github/workflows/release.yml` fait automatiquement :
 
 ## Mobile (Capacitor / Android)
 
-App ID : `io.github.aurevlan.whatisup` (immuable, ne **jamais** changer après publication store). Capacitor 7 → exige **JDK 21** (déjà en place dans `mobile/Dockerfile` et le workflow CI).
+App ID : `io.github.aurevlan.whatisup` (immuable, ne **jamais** changer après publication store). Capacitor 8 → exige **JDK 21** (déjà en place dans `mobile/Dockerfile` et le workflow CI).
 
 ```bash
 # Premier setup (génère frontend/android/) — Docker, ne pollue pas l'hôte

@@ -120,7 +120,7 @@ async function handleSubmit() {
   loading.value = true
   error.value = ''
   try {
-    const { data } = await probesApi.register(form.value)
+    const { data } = await probesApi.register(form.value, { skipErrorToast: true })
     emit('registered', data)
   } catch (err) {
     error.value = err.response?.data?.detail || t('common.error')

@@ -1,6 +1,6 @@
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useMonitorStore } from '../stores/monitors'
+import { useMonitorStore, markPendingDelete, unmarkPendingDelete } from '../stores/monitors'
 import { monitorsApi, groupsApi } from '../api/monitors'
 import api from '../api/client'
 import { useToast } from './useToast'
@@ -14,7 +14,7 @@ import { useConfirm } from './useConfirm'
 export function useMonitorSelection(monitors, filteredMonitors) {
   const { t } = useI18n()
   const monitorStore = useMonitorStore()
-  const { success, error: toastError } = useToast()
+  const { success, error: toastError, action: toastAction } = useToast()
   const { confirm } = useConfirm()
 
   // ── Sélection bulk ──────────────────────────────────────────────────────────
@@ -69,7 +69,7 @@ export function useMonitorSelection(monitors, filteredMonitors) {
     if (!ids.length || !value) return
     const target_group_id = value === '__none__' ? null : value
     try {
-      await monitorsApi.bulkAction({ ids, action: 'set_group', target_group_id })
+      await monitorsApi.bulkAction({ ids, action: 'set_group', target_group_id }, { skipErrorToast: true })
       success(t('monitors.bulk_success_grouped', { count: ids.length }))
     } catch { toastError(t('monitors.bulk_error')) }
     clearSelection()
@@ -80,7 +80,7 @@ export function useMonitorSelection(monitors, filteredMonitors) {
     const ids = [...selectedIds.value]
     if (!ids.length || !tagId) return
     try {
-      await monitorsApi.bulkAction({ ids, action: 'add_tags', tag_ids: [tagId] })
+      await monitorsApi.bulkAction({ ids, action: 'add_tags', tag_ids: [tagId] }, { skipErrorToast: true })
       success(t('monitors.bulk_success_tagged', { count: ids.length }))
     } catch { toastError(t('monitors.bulk_error')) }
     clearSelection()
@@ -92,7 +92,7 @@ export function useMonitorSelection(monitors, filteredMonitors) {
     // Optimistic update
     monitorStore.monitors.forEach(m => { if (ids.includes(m.id)) m.enabled = true })
     try {
-      await monitorsApi.bulkAction({ ids, action: 'enable' })
+      await monitorsApi.bulkAction({ ids, action: 'enable' }, { skipErrorToast: true })
       success(t('monitors.bulk_success_enabled', { count: ids.length }))
     } catch { toastError(t('monitors.bulk_error')) }
     selectedIds.value = new Set()
@@ -104,13 +104,18 @@ export function useMonitorSelection(monitors, filteredMonitors) {
     // Optimistic update
     monitorStore.monitors.forEach(m => { if (ids.includes(m.id)) m.enabled = false })
     try {
-      await monitorsApi.bulkAction({ ids, action: 'pause' })
+      await monitorsApi.bulkAction({ ids, action: 'pause' }, { skipErrorToast: true })
       success(t('monitors.bulk_success_paused', { count: ids.length }))
     } catch { toastError(t('monitors.bulk_error')) }
     selectedIds.value = new Set()
     monitorStore.fetchAll()
   }
 
+  // C4 (bilan 2026-07) — "Undo" toast instead of an immediate delete call.
+  // The API call is deferred until the toast's ~6s window elapses; clicking
+  // Undo restores the monitors locally and sends nothing to the server. This
+  // is intentionally NOT a server-side undo — the delete simply never fires
+  // if the user cancels in time, which is the safe way to implement it.
   async function confirmBulkDelete() {
     const count = selectedIds.value.size
     const ok = await confirm({
@@ -120,14 +125,48 @@ export function useMonitorSelection(monitors, filteredMonitors) {
     })
     if (!ok) return
     const ids = [...selectedIds.value]
-    // Optimistic update
+    // Snapshot the removed monitors (with their original position) so Undo
+    // can restore them locally without a server round-trip.
+    const removed = monitorStore.monitors
+      .map((m, idx) => ({ m, idx }))
+      .filter(({ m }) => ids.includes(m.id))
+
+    // Optimistic UI removal — the real delete is deferred to onExpire below.
+    // Register the ids as pending so an interleaved fetchAll (Dashboard
+    // navigation, Monitors re-mount…) doesn't resurrect them mid-window.
+    markPendingDelete(ids)
     monitorStore.monitors = monitorStore.monitors.filter(m => !ids.includes(m.id))
-    try {
-      await monitorsApi.bulkAction({ ids, action: 'delete' })
-      success(t('monitors.bulk_success_deleted', { count }))
-    } catch { toastError(t('monitors.bulk_error')) }
     selectedIds.value = new Set()
-    monitorStore.fetchAll()
+
+    toastAction(t('monitors.bulk_deleted_pending', { count }), {
+      label: t('common.undo'),
+      duration: 6000,
+      onAction: () => {
+        unmarkPendingDelete(ids)
+        const restored = [...monitorStore.monitors]
+        // Dedupe: only re-insert monitors not already present — a fetchAll
+        // or WS event during the window may have brought some of them back,
+        // and splicing a second copy would duplicate :key ids in the list.
+        const present = new Set(restored.map(m => m.id))
+        for (const { m, idx } of removed) {
+          if (present.has(m.id)) continue
+          restored.splice(Math.min(idx, restored.length), 0, m)
+        }
+        monitorStore.monitors = restored
+        success(t('monitors.bulk_delete_undone', { count }))
+      },
+      onExpire: async () => {
+        try {
+          await monitorsApi.bulkAction({ ids, action: 'delete' }, { skipErrorToast: true })
+          success(t('monitors.bulk_success_deleted', { count }))
+        } catch { toastError(t('monitors.bulk_error')) }
+        // Window is over either way — release the ids before refreshing so
+        // fetchAll reflects the server's actual state (deleted, or still
+        // there if the deferred call failed).
+        unmarkPendingDelete(ids)
+        monitorStore.fetchAll()
+      },
+    })
   }
 
   function bulkExportCsv() {
@@ -158,7 +197,7 @@ export function useMonitorSelection(monitors, filteredMonitors) {
   // ── Per-row actions (share store/toast/confirm wiring with bulk) ───────────
   async function toggleEnabled(monitor) {
     try {
-      await monitorStore.update(monitor.id, { enabled: !monitor.enabled })
+      await monitorStore.update(monitor.id, { enabled: !monitor.enabled }, { skipErrorToast: true })
       success(t(monitor.enabled ? 'monitors.paused_success' : 'monitors.enabled_success', { name: monitor.name }))
     } catch { toastError(t('monitors.bulk_error')) }
   }
@@ -171,7 +210,7 @@ export function useMonitorSelection(monitors, filteredMonitors) {
     })
     if (!ok) return
     try {
-      await monitorStore.remove(monitor.id)
+      await monitorStore.remove(monitor.id, { skipErrorToast: true })
       success(t('monitors.deleted_success', { name: monitor.name }))
     } catch { toastError(t('monitors.bulk_error')) }
   }

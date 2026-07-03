@@ -22,10 +22,10 @@ export function useMonitorTesting(monitorRef, monitorIdRef, resultsRef, chartWin
   let highlightTimeout = null
   let elapsedInterval = null
 
-  async function loadResults() {
+  async function loadResults(config = {}) {
     const id = monitorIdRef.value
     const since = new Date(Date.now() - chartWindowRef.value * 60 * 60 * 1000).toISOString()
-    const { data } = await monitorsApi.results(id, { limit: 2000, since })
+    const { data } = await monitorsApi.results(id, { limit: 2000, since }, config)
     // Only update ref when data actually changed to avoid spurious re-renders
     const latest = data[0]
     const current = resultsRef.value[0]
@@ -81,7 +81,7 @@ export function useMonitorTesting(monitorRef, monitorIdRef, resultsRef, chartWin
 
     testPollInterval = setInterval(async () => {
       try {
-        await loadResults()
+        await loadResults({ skipErrorToast: true })
         const fresh = resultsRef.value.find((r) => r.checked_at > clickedAt)
         if (fresh) {
           stopPolling()

@@ -84,7 +84,7 @@ async function submitCreateGroup() {
   try {
     const payload = { name: groupForm.value.name }
     if (groupForm.value.description) payload.description = groupForm.value.description
-    await adminApi.createProbeGroup(payload)
+    await adminApi.createProbeGroup(payload, { skipErrorToast: true })
     emit('update:modelValue', false)
     emit('saved')
   } catch (e) {
@@ -101,7 +101,7 @@ async function submitEditGroup() {
     const payload = {}
     if (groupForm.value.name) payload.name = groupForm.value.name
     if (groupForm.value.description !== undefined) payload.description = groupForm.value.description || null
-    await adminApi.updateProbeGroup(props.group.id, payload)
+    await adminApi.updateProbeGroup(props.group.id, payload, { skipErrorToast: true })
     emit('update:modelValue', false)
     emit('saved')
   } catch (e) {

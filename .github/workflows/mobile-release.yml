@@ -207,7 +207,7 @@ jobs:
             -Pandroid.injected.signing.key.password=$ANDROID_KEY_PASSWORD
 
       - name: Attach APK to GitHub release
-        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda  # v3
+        uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b  # v3
         with:
           tag_name: ${{ inputs.tag || github.ref_name }}
           files: frontend/android/app/build/outputs/apk/release/app-release.apk

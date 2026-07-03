@@ -1,6 +1,6 @@
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useMonitorStore } from '../stores/monitors'
+import { useMonitorStore, markPendingDelete, unmarkPendingDelete } from '../stores/monitors'
 import { monitorsApi, groupsApi } from '../api/monitors'
 import api from '../api/client'
 import { useToast } from './useToast'
@@ -132,6 +132,9 @@ export function useMonitorSelection(monitors, filteredMonitors) {
       .filter(({ m }) => ids.includes(m.id))
 
     // Optimistic UI removal — the real delete is deferred to onExpire below.
+    // Register the ids as pending so an interleaved fetchAll (Dashboard
+    // navigation, Monitors re-mount…) doesn't resurrect them mid-window.
+    markPendingDelete(ids)
     monitorStore.monitors = monitorStore.monitors.filter(m => !ids.includes(m.id))
     selectedIds.value = new Set()
 
@@ -139,8 +142,14 @@ export function useMonitorSelection(monitors, filteredMonitors) {
       label: t('common.undo'),
       duration: 6000,
       onAction: () => {
+        unmarkPendingDelete(ids)
         const restored = [...monitorStore.monitors]
+        // Dedupe: only re-insert monitors not already present — a fetchAll
+        // or WS event during the window may have brought some of them back,
+        // and splicing a second copy would duplicate :key ids in the list.
+        const present = new Set(restored.map(m => m.id))
         for (const { m, idx } of removed) {
+          if (present.has(m.id)) continue
           restored.splice(Math.min(idx, restored.length), 0, m)
         }
         monitorStore.monitors = restored
@@ -151,6 +160,10 @@ export function useMonitorSelection(monitors, filteredMonitors) {
           await monitorsApi.bulkAction({ ids, action: 'delete' }, { skipErrorToast: true })
           success(t('monitors.bulk_success_deleted', { count }))
         } catch { toastError(t('monitors.bulk_error')) }
+        // Window is over either way — release the ids before refreshing so
+        // fetchAll reflects the server's actual state (deleted, or still
+        // there if the deferred call failed).
+        unmarkPendingDelete(ids)
         monitorStore.fetchAll()
       },
     })

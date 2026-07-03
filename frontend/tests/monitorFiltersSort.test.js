@@ -100,6 +100,33 @@ describe('useMonitorFilters — sort persistence', () => {
     expect(stored.sortKey).toBe('uptime')
   })
 
+  it('clearFilters resets the filters but preserves the sort order (review C4)', async () => {
+    const { setSortKey, isSorted, sortIcon, filterStatus, search, searchInput_, clearFilters } =
+      useMonitorFilters(monitors())
+
+    setSortKey('name')
+    setSortKey('name') // flip asc → desc
+    const iconBefore = sortIcon('name')
+    filterStatus.value = 'down'
+    search.value = 'svc'
+
+    clearFilters()
+
+    // Filters are gone…
+    expect(filterStatus.value).toBe('')
+    expect(search.value).toBe('')
+    expect(searchInput_.value).toBe('')
+    // …but the sort (key AND direction) survives — sorting is not a filter.
+    expect(isSorted('name')).toBe(true)
+    expect(sortIcon('name')).toBe(iconBefore)
+
+    // The preserved sort is re-persisted for the next reload.
+    await waitDebounce()
+    const stored = JSON.parse(localStorage.getItem('whatisup_filter:monitors'))
+    expect(stored.sortKey).toBe('name')
+    expect(stored.sortDir).toBe('desc')
+  })
+
   it('filteredMonitors reflects the persisted sort order', () => {
     localStorage.setItem(
       'whatisup_filter:monitors',

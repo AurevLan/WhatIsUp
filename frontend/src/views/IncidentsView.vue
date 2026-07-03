@@ -41,7 +41,7 @@
         >{{ opt.label }}</button>
       </div>
       <button
-        v-if="statusFilter !== 'all' || daysFilter !== 30"
+        v-if="hasActiveIncidentFilters"
         class="filter-clear"
         @click="resetFilters"
       >
@@ -243,7 +243,9 @@ const verdictFilter = computed({
   set: (v) => { filters.verdict = v },
 })
 // Mirrors the condition that shows the "clear filters" chip above the list.
-const hasActiveIncidentFilters = computed(() => statusFilter.value !== 'all' || daysFilter.value !== 30)
+const hasActiveIncidentFilters = computed(() =>
+  statusFilter.value !== 'all' || daysFilter.value !== 30 || verdictFilter.value !== 'all'
+)
 const expandedGroups = reactive({})
 const expandedRunbooks = reactive({})
 // V2-02-06 — incident-id → bool, toggles inline IncidentPlaybackMap below the row.

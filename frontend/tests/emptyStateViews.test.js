@@ -83,3 +83,33 @@ describe('EmptyState rollout — views render the real component when empty', ()
     wrapper.unmount()
   })
 })
+
+describe('IncidentsView — verdict filter counts as an active filter (review C4)', () => {
+  it('verdict != all with zero results shows the filtered EmptyState + clear CTA, and the CTA resets it', async () => {
+    // Persisted preset: only the verdict filter deviates from the defaults.
+    localStorage.setItem(
+      'whatisup_filter:incidents',
+      JSON.stringify({ status: 'all', days: 30, verdict: 'service_down' }),
+    )
+    try {
+      const wrapper = await mountView(IncidentsView)
+
+      // Filtered empty variant, not the "nothing to see" one.
+      expect(wrapper.text()).toContain(en.empty.incidents_filtered_text)
+      expect(wrapper.text()).not.toContain(en.empty.incidents_text)
+      const cta = wrapper.find('.empty-state__actions button')
+      expect(cta.exists()).toBe(true)
+      expect(cta.text()).toContain(en.monitors.clear_filters)
+
+      // The clear CTA must reset the verdict back to 'all' too.
+      await cta.trigger('click')
+      await flush()
+      expect(wrapper.text()).toContain(en.empty.incidents_text)
+      expect(wrapper.find('.empty-state__actions button').exists()).toBe(false)
+
+      wrapper.unmount()
+    } finally {
+      localStorage.removeItem('whatisup_filter:incidents')
+    }
+  })
+})

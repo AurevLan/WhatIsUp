@@ -77,7 +77,13 @@ export function useMonitorFilters(monitors) {
   )
 
   function clearFilters() {
+    // sortKey/sortDir live in the same preset for persistence purposes, but
+    // the sort order is NOT a filter — "clear filters" must not reset it.
+    const keepSortKey = monitorFilters.sortKey
+    const keepSortDir = monitorFilters.sortDir
     resetMonitorFilters()
+    monitorFilters.sortKey = keepSortKey
+    monitorFilters.sortDir = keepSortDir
     searchInput_.value = ''
   }
 

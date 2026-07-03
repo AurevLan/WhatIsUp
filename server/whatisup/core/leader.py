@@ -29,7 +29,7 @@ import asyncio
 import uuid
 
 import structlog
-from redis.exceptions import RedisError
+from redis.exceptions import RedisError, WatchError
 
 from whatisup.core.redis import get_redis
 
@@ -121,6 +121,18 @@ class LeaderLock:
             self._start_renewer()
             return True
 
+        if not acquired:
+            # NX refused, but the live key may be our *own* lease — e.g. the
+            # renewer crashed leaving our token behind. Confirm and extend
+            # atomically (_renew is WATCH-guarded, so a concurrent takeover
+            # between GET and the extension is detected, not clobbered).
+            try:
+                current = await self.redis.get(self.key)
+            except RedisError:
+                current = None
+            if current == self.token:
+                acquired = await self._renew()
+
         if acquired:
             self._is_leader = True
             self._start_renewer()
@@ -147,7 +159,9 @@ class LeaderLock:
         """Atomically extend the lease iff we still own it.
 
         Uses an optimistic WATCH/MULTI transaction (fakeredis and real Redis both
-        support it, unlike server-side Lua). Fails open on Redis errors.
+        support it, unlike server-side Lua). Fails open on Redis *outages* only;
+        a WATCH invalidation means the key changed hands and is a legitimate
+        loss of leadership, never a reason to fail open.
         """
         try:
             async with self.redis.pipeline(transaction=True) as pipe:
@@ -162,6 +176,13 @@ class LeaderLock:
                 await pipe.execute()
                 self._degraded = False
                 return True
+        except WatchError:
+            # The key expired or was taken over between GET and EXEC — Redis is
+            # healthy, we simply lost the lock. Must NOT be treated as an
+            # outage (WatchError subclasses RedisError): failing open here
+            # would keep two leaders running.
+            self._degraded = False
+            return False
         except RedisError as exc:
             self._on_redis_down("renew", exc)
             return True
@@ -189,6 +210,10 @@ class LeaderLock:
                 pipe.multi()
                 pipe.delete(self.key)
                 await pipe.execute()
+        except WatchError:
+            # Key changed hands between GET and EXEC — it is no longer ours,
+            # so there is nothing to delete. Not an outage, stay silent.
+            return
         except RedisError as exc:
             # TTL will reclaim the key; nothing else to do.
             logger.warning(
@@ -226,6 +251,10 @@ async def run_leader_loop(
     preserved. On every iteration leadership is (re)checked before doing work,
     and the lock is released cleanly on cancellation (shutdown).
 
+    Caveat: leadership is only checked *before* each iteration — losing the
+    lock mid-iteration does not cancel the in-flight ``work()``, so one
+    iteration may briefly overlap with the new leader (no DB-side fencing).
+
     :param work: zero-arg coroutine function performing one iteration.
     :param interval: seconds between iterations — a float or a zero-arg callable
         returning a float (evaluated each iteration, for cron-like schedules).
@@ -238,7 +267,18 @@ async def run_leader_loop(
         if initial_delay:
             await asyncio.sleep(initial_delay)
         while True:
-            await lock.try_acquire()
+            try:
+                await lock.try_acquire()
+            except Exception as exc:
+                # try_acquire handles RedisError itself (fail open); anything
+                # else is unexpected — log and keep the loop alive rather than
+                # letting the background task die silently.
+                logger.error(
+                    "leader_acquire_error",
+                    task=task_name,
+                    error_type=type(exc).__name__,
+                    error=str(exc),
+                )
             if lock.is_leader:
                 try:
                     async with track_background_task(task_name):
@@ -252,4 +292,13 @@ async def run_leader_loop(
             sleep_for = interval() if callable(interval) else interval
             await asyncio.sleep(sleep_for)
     finally:
-        await lock.release()
+        # Best effort — release() swallows WatchError/RedisError itself, but a
+        # shutdown must never be broken by an unexpected release failure.
+        try:
+            await lock.release()
+        except Exception as exc:
+            logger.warning(
+                "leader_release_error",
+                task=task_name,
+                error_type=type(exc).__name__,
+            )

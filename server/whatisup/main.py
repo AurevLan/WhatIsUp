@@ -58,6 +58,29 @@ async def _retention_job() -> None:
         await lock.release()
 
 
+async def _recover_digests_once(redis=None) -> None:
+    """One-shot at startup: flush digest windows persisted in DB during downtime.
+
+    Gated by a leader lock held for the duration of the run — the recovery does
+    SELECT-then-delete without any DB-level lock, so two replicas booting in
+    parallel could otherwise double-send the same stale digests. Fails open if
+    Redis is down, consistent with the other leader-gated tasks (worst case a
+    duplicate digest, never a dropped one).
+    """
+    from whatisup.core.leader import LeaderLock
+
+    lock = LeaderLock("digest_recovery", redis=redis)
+    try:
+        if await lock.try_acquire():
+            from whatisup.services.alert import recover_digest_windows
+
+            await recover_digest_windows()
+    except Exception as exc:
+        logger.error("digest_recovery_error", error=str(exc))
+    finally:
+        await lock.release()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
@@ -97,13 +120,9 @@ async def lifespan(app: FastAPI):
         run_leader_loop("renotify_checker", _renotify_work, interval=60)
     )
 
-    # Recover any digest windows lost during Redis downtime
-    try:
-        from whatisup.services.alert import recover_digest_windows
-
-        await recover_digest_windows()
-    except Exception as exc:
-        logger.error("digest_recovery_error", error=str(exc))
+    # Recover any digest windows lost during Redis downtime (leader-gated
+    # one-shot — see _recover_digests_once).
+    await _recover_digests_once()
 
     # Digest flusher (every 30s) — survives restarts via Redis sorted set
     async def _digest_flusher_work():

@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.15.0](https://github.com/AurevLan/WhatIsUp/compare/v1.14.3...v1.15.0) (2026-07-03)
+
+
+### Added
+
+* **mobile:** Android back button, background WS suspension, POST_NOTIFICATIONS (B2) ([#227](https://github.com/AurevLan/WhatIsUp/issues/227)) ([745d4f2](https://github.com/AurevLan/WhatIsUp/commit/745d4f20de857c0a1a01193f690423b59287ecdd))
+* **ops:** leader election for singleton background loops (C1) ([#231](https://github.com/AurevLan/WhatIsUp/issues/231)) ([e7c9a18](https://github.com/AurevLan/WhatIsUp/commit/e7c9a1878a34d23bbd822049c32b854fd4c7055c))
+* **ops:** structured JSON logging with request-ID correlation (C3) ([#233](https://github.com/AurevLan/WhatIsUp/issues/233)) ([cf3d9d8](https://github.com/AurevLan/WhatIsUp/commit/cf3d9d80c11b02c9385e0c732fcc5be9a87bbaf9))
+* **ux:** persistent sort, undo bulk delete, EmptyState rollout (C4) ([#234](https://github.com/AurevLan/WhatIsUp/issues/234)) ([5a96ebc](https://github.com/AurevLan/WhatIsUp/commit/5a96ebcc2e852439e354385ed857fcfa47303bb7))
+
+
+### Fixed
+
+* **frontend:** global API error toast — no more silent request failures (A1) ([#226](https://github.com/AurevLan/WhatIsUp/issues/226)) ([42efef4](https://github.com/AurevLan/WhatIsUp/commit/42efef43ab801dca5b22cc1de8631dd7ebd54a4b))
+* **security:** complete audit log coverage for config mutations (audit M3) ([#223](https://github.com/AurevLan/WhatIsUp/issues/223)) ([bb9aeed](https://github.com/AurevLan/WhatIsUp/commit/bb9aeeded930e077068e02be8db3fb63628b72b7))
+* **security:** harden probe trust — scope-bind results + key rotation (audit H1/H2) ([#224](https://github.com/AurevLan/WhatIsUp/issues/224)) ([ffc3deb](https://github.com/AurevLan/WhatIsUp/commit/ffc3debe80c1d1f733c75622add43a642e57e033))
+* **security:** reject create_channel when team_id is not the caller's team (A3) ([#222](https://github.com/AurevLan/WhatIsUp/issues/222)) ([61a156e](https://github.com/AurevLan/WhatIsUp/commit/61a156ef5f575cbd48d6d83da7e355b74567ce74))
+* **security:** scope WebSocket fan-out per tenant (audit M1) ([#225](https://github.com/AurevLan/WhatIsUp/issues/225)) ([222f96c](https://github.com/AurevLan/WhatIsUp/commit/222f96c2b27eea50202864fd89b7ce00caf1442f))
+
+
+### Performance
+
+* **monitors:** fix 15s timeout on GET /monitors/ — LATERAL latest row ([#218](https://github.com/AurevLan/WhatIsUp/issues/218)) ([6d4e012](https://github.com/AurevLan/WhatIsUp/commit/6d4e012a0a8504bef8edcd6cfefbb453b4c0e3fa))
+* **probe-auth:** prefix-indexed key lookup — one bcrypt instead of O(n) scan (C2) ([#232](https://github.com/AurevLan/WhatIsUp/issues/232)) ([720e389](https://github.com/AurevLan/WhatIsUp/commit/720e3895ae478f4f5a31d721338bf8408e5c3ae6))
+
+
+### Docs
+
+* **features:** bump version footer for v1.14.3 ([#206](https://github.com/AurevLan/WhatIsUp/issues/206)) ([3e0d0aa](https://github.com/AurevLan/WhatIsUp/commit/3e0d0aa36f62e427e9bb3dee225ce9b6e54641a6))
+* **readme:** refresh for v1.14 — badges, recent releases, probe env fixes ([#210](https://github.com/AurevLan/WhatIsUp/issues/210)) ([720d967](https://github.com/AurevLan/WhatIsUp/commit/720d9677adfe922ed4f4b021383fde658a0fd19b))
+
 ## [1.14.3](https://github.com/AurevLan/WhatIsUp/compare/v1.14.2...v1.14.3) (2026-06-16)
 
 

@@ -20,12 +20,15 @@
       </div>
     </div>
 
-    <div v-else-if="templates.length === 0" class="empty-state">
-      <div class="empty-state__icon"><Copy :size="22" /></div>
-      <p class="empty-state__title">{{ t('templates.no_templates') }}</p>
-      <p class="empty-state__text">{{ t('templates.empty_desc') }}</p>
-      <button @click="showCreate = true" class="btn-primary mt-2">+ {{ t('templates.new') }}</button>
-    </div>
+    <EmptyState
+      v-else-if="templates.length === 0"
+      :title="t('templates.no_templates')"
+      :text="t('templates.empty_desc')"
+      :cta-label="t('templates.new')"
+      @cta="showCreate = true"
+    >
+      <template #icon><Copy :size="22" /></template>
+    </EmptyState>
 
     <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       <div
@@ -182,6 +185,7 @@ import { useI18n } from 'vue-i18n'
 import { Copy, Loader2 } from 'lucide-vue-next'
 import { templatesApi } from '../api/templates.js'
 import BaseModal from '../components/BaseModal.vue'
+import EmptyState from '../components/shared/EmptyState.vue'
 import { useToast } from '../composables/useToast'
 import { useConfirm } from '../composables/useConfirm'
 import { useAuthStore } from '../stores/auth'

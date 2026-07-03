@@ -8,7 +8,7 @@ import structlog
 from fastapi import Depends, Header, HTTPException, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt.exceptions import InvalidTokenError
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.core.database import get_db
@@ -239,8 +239,13 @@ async def get_current_probe(
                 # Self-heal: re-populate the wiped prefix so the next auth for
                 # this probe takes the indexed fast path again (same mechanics
                 # as the opportunistic migration performed on key rotation).
-                probe.api_key_prefix = prefix
-                await db.flush()
+                # Guarded on IS NULL: a concurrent rotation committing a new
+                # prefix mid-flight must not be clobbered by this stale value.
+                await db.execute(
+                    update(Probe)
+                    .where(Probe.id == probe.id, Probe.api_key_prefix.is_(None))
+                    .values(api_key_prefix=prefix)
+                )
             return await _accept(probe)
 
     logger.warning("probe_auth_failed", key_prefix=x_probe_api_key[:10])

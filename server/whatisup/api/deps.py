@@ -8,12 +8,12 @@ import structlog
 from fastapi import Depends, Header, HTTPException, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt.exceptions import InvalidTokenError
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.core.database import get_db
 from whatisup.core.metrics import observe_auth_cache
-from whatisup.core.security import decode_token, verify_api_key
+from whatisup.core.security import decode_token, extract_probe_key_prefix, verify_api_key
 from whatisup.models.api_key import UserApiKey
 from whatisup.models.probe import Probe
 from whatisup.models.team import TeamMembership, TeamRole
@@ -157,7 +157,18 @@ async def get_current_probe(
     """Authenticate a probe via its API key.
 
     Fast path: SHA-256(key) → probe_id cached in Redis (TTL 60s).
-    Slow path (cache miss): full bcrypt scan, then populate cache.
+    Slow path (cache miss):
+
+    - New-scheme key ``wiu_<prefix>.<secret>`` → resolve the single candidate by
+      its indexed public prefix and run exactly ONE bcrypt verification.
+    - Legacy key ``wiu_<secret>`` (no prefix derivable) → fall back to the bcrypt
+      scan, restricted to probes that have not yet migrated
+      (``api_key_prefix IS NULL``). The scan set shrinks to zero as probes rotate.
+    - New-scheme key whose prefix matches no row (e.g. ``api_key_prefix`` wiped
+      by a downgrade/upgrade cycle) → same NULL-prefix scan; on bcrypt match the
+      prefix is re-populated (self-healing, no manual rotation needed).
+
+    Both slow-path branches then populate the same forward cache + reverse index.
     """
     if not x_probe_api_key.startswith("wiu_"):
         raise HTTPException(
@@ -187,17 +198,55 @@ async def get_current_probe(
         await redis.delete(cache_key)
     observe_auth_cache("probe_api_key", hit=False)
 
-    # Slow path: full bcrypt scan
-    probes = (await db.execute(select(Probe).where(Probe.is_active))).scalars().all()
+    async def _accept(probe: Probe) -> Probe:
+        # Cache the result (TTL 60s) + reverse index (probe_id → key digest) so key
+        # rotation / deactivation can evict the forward entry precisely without
+        # holding the raw key.
+        await redis.setex(cache_key, 60, str(probe.id))
+        await redis.setex(f"whatisup:probe_auth_rev:{probe.id}", 60, digest)
+        return probe
+
+    # New-scheme slow path: indexed prefix lookup → at most one candidate, one bcrypt.
+    prefix = extract_probe_key_prefix(x_probe_api_key)
+    if prefix is not None:
+        candidate = (
+            await db.execute(select(Probe).where(Probe.api_key_prefix == prefix, Probe.is_active))
+        ).scalar_one_or_none()
+        if candidate is not None:
+            if verify_api_key(x_probe_api_key, candidate.api_key_hash):
+                return await _accept(candidate)
+            # Prefix resolved but secret wrong → hard reject, never fall back
+            # to the scan (exactly one bcrypt per attempt on this path).
+            logger.warning("probe_auth_failed", key_prefix=x_probe_api_key[:10])
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid probe API key"
+            )
+        # Prefix miss: ``api_key_prefix`` may have been wiped in DB (e.g. an
+        # alembic downgrade dropping the column, then upgrade recreating it
+        # NULL). Fall through to the NULL-prefix scan below and self-heal on
+        # match — free on a healthy fleet, where that scan set is empty.
+
+    # Legacy slow path: bcrypt scan restricted to un-migrated probes (no prefix).
+    probes = (
+        (await db.execute(select(Probe).where(Probe.is_active, Probe.api_key_prefix.is_(None))))
+        .scalars()
+        .all()
+    )
 
     for probe in probes:
         if verify_api_key(x_probe_api_key, probe.api_key_hash):
-            # Cache the result (TTL 60s)
-            await redis.setex(cache_key, 60, str(probe.id))
-            # Reverse index (probe_id → key digest) so key rotation / deactivation
-            # can evict the forward cache entry precisely without holding the raw key.
-            await redis.setex(f"whatisup:probe_auth_rev:{probe.id}", 60, digest)
-            return probe
+            if prefix is not None:
+                # Self-heal: re-populate the wiped prefix so the next auth for
+                # this probe takes the indexed fast path again (same mechanics
+                # as the opportunistic migration performed on key rotation).
+                # Guarded on IS NULL: a concurrent rotation committing a new
+                # prefix mid-flight must not be clobbered by this stale value.
+                await db.execute(
+                    update(Probe)
+                    .where(Probe.id == probe.id, Probe.api_key_prefix.is_(None))
+                    .values(api_key_prefix=prefix)
+                )
+            return await _accept(probe)
 
     logger.warning("probe_auth_failed", key_prefix=x_probe_api_key[:10])
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid probe API key")

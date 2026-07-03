@@ -29,6 +29,15 @@ class Probe(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     latitude: Mapped[float | None] = mapped_column(Double, nullable=True)
     longitude: Mapped[float | None] = mapped_column(Double, nullable=True)
     api_key_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    # Non-secret public prefix of the probe API key (``wiu_<prefix>.<secret>``).
+    # Indexed + unique so auth resolves the single candidate probe and runs ONE
+    # bcrypt verification instead of scanning the whole fleet. NULL for legacy
+    # probes provisioned before this scheme — they fall back to the bcrypt scan
+    # until their next key rotation, which populates this column. Storing the
+    # prefix in clear is safe: the bcrypt hash covers the whole key.
+    api_key_prefix: Mapped[str | None] = mapped_column(
+        String(32), nullable=True, unique=True, index=True
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     network_type: Mapped[NetworkType] = mapped_column(

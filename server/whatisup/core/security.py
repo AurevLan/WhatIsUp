@@ -136,9 +136,53 @@ def decode_token(token: str, token_type: str = "access") -> dict:
 # ---------------------------------------------------------------------------
 
 
-def generate_probe_api_key() -> str:
-    """Generate a cryptographically secure probe API key (displayed once)."""
-    return f"wiu_{secrets.token_urlsafe(32)}"
+# Probe API key scheme.
+#
+# New format: ``wiu_<prefix>.<secret>`` where ``<prefix>`` is a NON-SECRET
+# identifier stored in clear (indexed column ``probes.api_key_prefix``) so the
+# auth path can look up the single candidate probe and run exactly ONE bcrypt
+# verification — instead of scanning the whole fleet (O(n) bcrypt).
+#
+# The ``.`` separator is unambiguous: ``secrets.token_urlsafe`` only emits chars
+# from ``[A-Za-z0-9_-]`` and never a dot, so a legacy key (``wiu_<secret>``) can
+# never contain one. Detecting a ``.`` therefore reliably distinguishes a
+# new-scheme key from a pre-migration legacy key.
+#
+# Security: possession of ``<prefix>`` alone grants nothing — the bcrypt hash
+# covers the WHOLE key (prefix + secret), and the secret keeps ~256 bits of
+# entropy. The prefix only narrows the candidate lookup.
+_PROBE_KEY_SCHEME = "wiu_"
+_PROBE_KEY_SEP = "."
+
+
+def generate_probe_api_key() -> tuple[str, str]:
+    """Generate a probe API key (displayed once) and its public prefix.
+
+    Returns ``(full_key, prefix)``:
+
+    - ``full_key`` = ``wiu_<prefix>.<secret>`` — handed to the probe once.
+    - ``prefix`` = the non-secret lookup identifier to persist in
+      ``probes.api_key_prefix`` (indexed) so auth avoids the O(n) bcrypt scan.
+    """
+    prefix = secrets.token_urlsafe(8)
+    secret = secrets.token_urlsafe(32)
+    return f"{_PROBE_KEY_SCHEME}{prefix}{_PROBE_KEY_SEP}{secret}", prefix
+
+
+def extract_probe_key_prefix(api_key: str) -> str | None:
+    """Return the public prefix embedded in a presented probe key.
+
+    Returns ``None`` for a **legacy** key (``wiu_<secret>`` with no ``.``
+    separator) — those have no derivable prefix and must fall back to the
+    bcrypt scan until the probe rotates to the new format.
+    """
+    if not api_key.startswith(_PROBE_KEY_SCHEME):
+        return None
+    rest = api_key[len(_PROBE_KEY_SCHEME) :]
+    prefix, sep, _secret = rest.partition(_PROBE_KEY_SEP)
+    if not sep or not prefix:
+        return None
+    return prefix
 
 
 def generate_user_api_key() -> str:

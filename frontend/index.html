@@ -9,9 +9,10 @@
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#3b82f6" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <!-- Polices auto-hébergées (cf. src/style.css @font-face) — aucune requête
+         CDN render-blocking. Preload du corps (Plus Jakarta Sans, latin) qui
+         est sur le chemin critique du premier rendu. -->
+    <link rel="preload" href="/fonts/plus-jakarta-sans-latin.woff2" as="font" type="font/woff2" crossorigin />
     <script src="/theme-init.js"></script>
   </head>
   <body>

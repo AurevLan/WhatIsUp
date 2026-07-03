@@ -1,0 +1,4 @@
+Plus Jakarta Sans — Copyright Tokotype Foundry.
+Licensed under the SIL Open Font License, Version 1.1.
+Self-hosted woff2 (latin + latin-ext subsets) fetched from Google Fonts (v12).
+Full license: https://openfontlicense.org

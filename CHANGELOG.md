@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.15.2](https://github.com/AurevLan/WhatIsUp/compare/v1.15.1...v1.15.2) (2026-07-08)
+
+
+### Performance
+
+* **server:** factor LATERAL latest-row into fetch_latest_results ([#218](https://github.com/AurevLan/WhatIsUp/issues/218) follow-up) ([#254](https://github.com/AurevLan/WhatIsUp/issues/254)) ([13dea83](https://github.com/AurevLan/WhatIsUp/commit/13dea838d56ef2d99dae9679ee3073777226e875))
+
 ## [1.15.1](https://github.com/AurevLan/WhatIsUp/compare/v1.15.0...v1.15.1) (2026-07-03)
 
 

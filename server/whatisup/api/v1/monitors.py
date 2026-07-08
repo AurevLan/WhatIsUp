@@ -46,7 +46,12 @@ from whatisup.schemas.monitor import (
 from whatisup.schemas.probe import ProbeMonitorStatus
 from whatisup.schemas.result import CheckResultOut, UptimeStats
 from whatisup.schemas.slo import SLORuleCreate, SLORuleOut, SLORuleUpdate
-from whatisup.services.stats import compute_uptime, compute_uptime_bulk, compute_uptime_in_range
+from whatisup.services.stats import (
+    compute_uptime,
+    compute_uptime_bulk,
+    compute_uptime_in_range,
+    fetch_latest_results,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -104,69 +109,18 @@ async def list_monitors(
 
     monitor_ids = [m.id for m in monitors]
 
-    # Latest status + response time per monitor.
-    #
-    # A `GROUP BY monitor_id` over `max(checked_at)` forces a GroupAggregate over
-    # the WHOLE check_results table (~5M rows in production → ~8 s per call, and
-    # this ran twice). A LATERAL `ORDER BY checked_at DESC LIMIT 1` per monitor
-    # hits ix_check_results_monitor_checked once per monitor for a single row
-    # (sub-millisecond total) — same trick as the sparkline below.
-    if dialect_name(db) == "sqlite":
-        # SQLite LATERAL support is not uniformly available in test containers;
-        # keep the max-checked_at self-join (test tables are tiny).
-        max_ts_subq = (
-            select(
-                CheckResult.monitor_id,
-                func.max(CheckResult.checked_at).label("max_at"),
-            )
-            .where(CheckResult.monitor_id.in_(monitor_ids))
-            .group_by(CheckResult.monitor_id)
-            .subquery()
-        )
-        latest_rows = (
-            await db.execute(
-                select(
-                    CheckResult.monitor_id,
-                    CheckResult.status,
-                    CheckResult.checked_at,
-                    CheckResult.response_time_ms,
-                ).join(
-                    max_ts_subq,
-                    and_(
-                        CheckResult.monitor_id == max_ts_subq.c.monitor_id,
-                        CheckResult.checked_at == max_ts_subq.c.max_at,
-                    ),
-                )
-            )
-        ).all()
-    else:
-        latest_lateral = (
-            select(
-                CheckResult.status,
-                CheckResult.checked_at,
-                CheckResult.response_time_ms,
-            )
-            .where(CheckResult.monitor_id == Monitor.id)
-            .order_by(CheckResult.checked_at.desc())
-            .limit(1)
-            .lateral("latest_cr")
-        )
-        latest_rows = (
-            await db.execute(
-                select(
-                    Monitor.id,
-                    latest_lateral.c.status,
-                    latest_lateral.c.checked_at,
-                    latest_lateral.c.response_time_ms,
-                )
-                .select_from(Monitor.__table__.join(latest_lateral, true()))
-                .where(Monitor.id.in_(monitor_ids))
-            )
-        ).all()
+    # Latest status + response time per monitor — LATERAL on PostgreSQL, see
+    # fetch_latest_results (a GROUP BY max(checked_at) aggregates every
+    # historical row of the listed monitors, ~8 s on 5M rows — #218).
+    latest_by_monitor = await fetch_latest_results(db, monitor_ids)
     # Map: monitor_id → (status_value, checked_at)
-    latest_map = {str(r[0]): (r[1].value, r[2]) for r in latest_rows}
+    latest_map = {str(mid): (r.status.value, r.checked_at) for mid, r in latest_by_monitor.items()}
     # Last response time per monitor (same latest row)
-    rt_map = {str(r[0]): round(r[3], 1) for r in latest_rows if r[3] is not None}
+    rt_map = {
+        str(mid): round(r.response_time_ms, 1)
+        for mid, r in latest_by_monitor.items()
+        if r.response_time_ms is not None
+    }
 
     # Uptime 24h per monitor (multi-probe consensus, one query)
     cutoff = datetime.now(UTC) - timedelta(hours=24)

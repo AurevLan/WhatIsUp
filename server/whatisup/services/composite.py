@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.models.monitor import CompositeMonitorMember, Monitor
 from whatisup.models.result import CheckResult, CheckStatus
-from whatisup.services.stats import latest_results_subq
+from whatisup.services.stats import fetch_latest_results
 
 logger = structlog.get_logger(__name__)
 
@@ -117,27 +117,11 @@ async def _recompute_composite(
 
     member_monitor_ids = [m.monitor_id for m in all_members]
 
-    # Latest result per member monitor (one query)
-    latest_subq = latest_results_subq(
-        CheckResult.monitor_id.in_(member_monitor_ids),
-        group_col=CheckResult.monitor_id,
-    )
-    latest_results = (
-        (
-            await db.execute(
-                select(CheckResult).join(
-                    latest_subq,
-                    (CheckResult.monitor_id == latest_subq.c.monitor_id)
-                    & (CheckResult.checked_at == latest_subq.c.max_at),
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
+    # Latest result per member monitor (one query, LATERAL on PostgreSQL)
+    latest_results = await fetch_latest_results(db, member_monitor_ids)
 
     status_by_monitor: dict[uuid.UUID, CheckStatus] = {
-        r.monitor_id: r.status for r in latest_results
+        r.monitor_id: r.status for r in latest_results.values()
     }
 
     computed_status = _apply_aggregation_rule(

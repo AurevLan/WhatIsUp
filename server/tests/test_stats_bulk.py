@@ -15,6 +15,7 @@ from whatisup.services.stats import (
     compute_daily_history,
     compute_daily_history_bulk,
     compute_uptime_bulk,
+    fetch_latest_results,
 )
 
 
@@ -111,3 +112,51 @@ async def test_compute_daily_history_bulk_matches_single(
 @pytest.mark.asyncio
 async def test_compute_daily_history_bulk_empty_ids(service_db: AsyncSession) -> None:
     assert await compute_daily_history_bulk(service_db, [], days=90) == {}
+
+
+@pytest.mark.asyncio
+async def test_fetch_latest_results_returns_most_recent_row_per_monitor(
+    service_db: AsyncSession, test_user: User
+) -> None:
+    mon_a = await _make_monitor(service_db, test_user, "latest-a")
+    mon_b = await _make_monitor(service_db, test_user, "latest-b")
+    mon_empty = await _make_monitor(service_db, test_user, "latest-empty")
+    probe = await _make_probe(service_db, "p-latest")
+
+    now = datetime.now(UTC)
+    # mon_a: old up rows then a final down row → latest must be down
+    _add_results(
+        service_db, mon_a, probe, start=now - timedelta(hours=2), count=5, status=CheckStatus.up
+    )
+    service_db.add(
+        CheckResult(
+            monitor_id=mon_a.id,
+            probe_id=probe.id,
+            checked_at=now - timedelta(minutes=1),
+            status=CheckStatus.down,
+        )
+    )
+    _add_results(
+        service_db, mon_b, probe, start=now - timedelta(minutes=30), count=3, status=CheckStatus.up
+    )
+    await service_db.flush()
+
+    out = await fetch_latest_results(service_db, [mon_a.id, mon_b.id, mon_empty.id])
+
+    def _naive(dt: datetime) -> datetime:
+        # SQLite returns naive datetimes; compare on the UTC wall-clock value
+        return dt.replace(tzinfo=None)
+
+    assert set(out) == {mon_a.id, mon_b.id}  # no row for the empty monitor
+    assert out[mon_a.id].status == CheckStatus.down
+    assert _naive(out[mon_a.id].checked_at) == _naive(now - timedelta(minutes=1))
+    # mon_b: latest = start + 2 intervals of 60 s
+    assert out[mon_b.id].status == CheckStatus.up
+    assert _naive(out[mon_b.id].checked_at) == _naive(
+        now - timedelta(minutes=30) + timedelta(seconds=120)
+    )
+
+
+@pytest.mark.asyncio
+async def test_fetch_latest_results_empty_ids(service_db: AsyncSession) -> None:
+    assert await fetch_latest_results(service_db, []) == {}

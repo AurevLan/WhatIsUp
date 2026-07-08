@@ -26,9 +26,12 @@ from collections.abc import Iterable, Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select, text, true
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
+from whatisup.core.database import dialect_name
+from whatisup.models.monitor import Monitor
 from whatisup.models.probe import NetworkType, Probe
 from whatisup.models.result import CheckResult, CheckStatus
 from whatisup.schemas.result import UptimeStats
@@ -58,6 +61,63 @@ def latest_results_subq(*where_clauses: Any, group_col: Any) -> Any:
         .group_by(group_col)
         .subquery()
     )
+
+
+async def fetch_latest_results(
+    db: AsyncSession,
+    monitor_ids: Sequence[uuid.UUID],
+) -> dict[uuid.UUID, CheckResult]:
+    """Latest CheckResult per monitor, keyed by monitor_id.
+
+    On PostgreSQL a ``max(checked_at)`` self-join aggregates every historical
+    row of the listed monitors (seconds on millions of rows — see #218); a
+    LATERAL ``ORDER BY checked_at DESC LIMIT 1`` hits
+    ix_check_results_monitor_checked once per monitor for a single row.
+    SQLite (tests) keeps the self-join: LATERAL support is not uniformly
+    available in test containers, and test tables are tiny.
+
+    Monitors with no results are absent from the returned dict.
+    """
+    if not monitor_ids:
+        return {}
+    if dialect_name(db) == "sqlite":
+        subq = latest_results_subq(
+            CheckResult.monitor_id.in_(monitor_ids), group_col=CheckResult.monitor_id
+        )
+        rows = (
+            (
+                await db.execute(
+                    select(CheckResult).join(
+                        subq,
+                        (CheckResult.monitor_id == subq.c.monitor_id)
+                        & (CheckResult.checked_at == subq.c.max_at),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+    else:
+        lateral = (
+            select(CheckResult)
+            .where(CheckResult.monitor_id == Monitor.id)
+            .order_by(CheckResult.checked_at.desc())
+            .limit(1)
+            .lateral("latest_cr")
+        )
+        latest_cr = aliased(CheckResult, lateral)
+        rows = (
+            (
+                await db.execute(
+                    select(latest_cr)
+                    .select_from(Monitor.__table__.join(lateral, true()))
+                    .where(Monitor.id.in_(monitor_ids))
+                )
+            )
+            .scalars()
+            .all()
+        )
+    return {r.monitor_id: r for r in rows}
 
 
 async def invalidate_uptime_cache(monitor_id: uuid.UUID) -> None:

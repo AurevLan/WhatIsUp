@@ -15,13 +15,12 @@ from whatisup.core.limiter import limiter
 from whatisup.models.incident import Incident
 from whatisup.models.incident_update import IncidentUpdate
 from whatisup.models.monitor import Monitor, MonitorGroup
-from whatisup.models.result import CheckResult
 from whatisup.models.status_subscription import StatusSubscription
 from whatisup.services.stats import (
     compute_daily_history_bulk,
     compute_uptime,
     compute_uptime_bulk,
-    latest_results_subq,
+    fetch_latest_results,
 )
 
 router = APIRouter(prefix="/public", tags=["public"])
@@ -161,25 +160,8 @@ async def get_public_monitors(
 
     monitor_ids = [m.id for m in monitors]
 
-    # Batch-fetch latest result per monitor (N+1 avoidance)
-    subq = latest_results_subq(
-        CheckResult.monitor_id.in_(monitor_ids),
-        group_col=CheckResult.monitor_id,
-    )
-    latest_rows = (
-        (
-            await db.execute(
-                select(CheckResult).join(
-                    subq,
-                    (CheckResult.monitor_id == subq.c.monitor_id)
-                    & (CheckResult.checked_at == subq.c.max_at),
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
-    latest_by_monitor = {r.monitor_id: r for r in latest_rows}
+    # Batch-fetch latest result per monitor (N+1 avoidance, LATERAL on PostgreSQL)
+    latest_by_monitor = await fetch_latest_results(db, monitor_ids)
 
     # Batch uptime + daily history: one SQL round-trip each for the whole
     # group instead of 2 queries per monitor (public endpoint, unauthenticated)

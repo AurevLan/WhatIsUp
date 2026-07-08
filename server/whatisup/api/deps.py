@@ -27,6 +27,21 @@ bearer_scheme = HTTPBearer(auto_error=False)
 _USER_KEY_PREFIX = "wiu_u_"
 
 
+def _probe_hash_fingerprint(api_key_hash: str) -> str:
+    """Short fingerprint of the stored bcrypt hash, embedded in cache values (SA6).
+
+    Binds a probe-auth cache entry to the exact credential generation it was
+    verified against. After a key rotation the DB hash changes, so the
+    fingerprint of any stale entry (e.g. one re-written by a bcrypt slow path
+    that was in flight while the rotation committed) no longer matches the
+    live hash: the fast path rejects and evicts it instead of letting the old
+    key re-authenticate for another cache TTL.
+    """
+    # SHA-256 used as a comparison tag only (not for password hashing — the
+    # underlying credential is already bcrypt-hashed).
+    return hashlib.sha256(api_key_hash.encode(), usedforsecurity=False).hexdigest()[:16]
+
+
 async def _auth_via_user_api_key(raw_key: str, db: AsyncSession) -> User:
     """Authenticate using a user API key (fast Redis cache + slow bcrypt fallback)."""
     from whatisup.core.redis import get_redis
@@ -156,7 +171,8 @@ async def get_current_probe(
 ) -> Probe:
     """Authenticate a probe via its API key.
 
-    Fast path: SHA-256(key) → probe_id cached in Redis (TTL 60s).
+    Fast path: SHA-256(key) → ``probe_id|hash_fingerprint`` cached in Redis
+    (TTL 60s); the fingerprint is checked against the probe row loaded anyway.
     Slow path (cache miss):
 
     - New-scheme key ``wiu_<prefix>.<secret>`` → resolve the single candidate by
@@ -169,6 +185,13 @@ async def get_current_probe(
       prefix is re-populated (self-healing, no manual rotation needed).
 
     Both slow-path branches then populate the same forward cache + reverse index.
+
+    Rotation hardening (SA6): the cache value carries a fingerprint of the
+    bcrypt hash the key was verified against. The fast path checks it against
+    the probe row it loads anyway (no extra DB read), and the slow path only
+    writes the cache if the verified hash is still the live one in DB — so a
+    bcrypt verification in flight during ``rotate-key`` cannot re-cache the
+    old key after the rotation's eviction.
     """
     if not x_probe_api_key.startswith("wiu_"):
         raise HTTPException(
@@ -186,23 +209,52 @@ async def get_current_probe(
         usedforsecurity=False,
     ).hexdigest()[:32]
     cache_key = f"whatisup:probe_auth:{digest}"
-    cached_id = await redis.get(cache_key)
-    if cached_id:
+    cached = await redis.get(cache_key)
+    if cached:
+        if isinstance(cached, bytes):  # decode_responses=False clients (e.g. fakeredis)
+            cached = cached.decode()
+        cached_id, _, cached_fp = cached.partition("|")
+        try:
+            probe_pk = uuid.UUID(cached_id)
+        except ValueError:
+            probe_pk = None  # corrupted value → treat as stale
         probe = (
-            await db.execute(select(Probe).where(Probe.id == cached_id, Probe.is_active))
-        ).scalar_one_or_none()
-        if probe is not None:
+            (
+                await db.execute(select(Probe).where(Probe.id == probe_pk, Probe.is_active))
+            ).scalar_one_or_none()
+            if probe_pk is not None
+            else None
+        )
+        if probe is not None and cached_fp == _probe_hash_fingerprint(probe.api_key_hash):
             observe_auth_cache("probe_api_key", hit=True)
             return probe
-        # Cache stale (probe deactivated/deleted) — fall through to slow path
+        # Cache stale — probe deactivated/deleted, key rotated since the entry
+        # was written (fingerprint mismatch), or pre-fingerprint value format.
+        # Evict and fall through to the slow path: only the credential that
+        # matches the CURRENT hash can (re-)authenticate.
         await redis.delete(cache_key)
     observe_auth_cache("probe_api_key", hit=False)
 
-    async def _accept(probe: Probe) -> Probe:
+    async def _accept(probe: Probe, verified_hash: str) -> Probe:
         # Cache the result (TTL 60s) + reverse index (probe_id → key digest) so key
         # rotation / deactivation can evict the forward entry precisely without
         # holding the raw key.
-        await redis.setex(cache_key, 60, str(probe.id))
+        #
+        # Guarded write (SA6): this slow path may have verified the key against a
+        # hash snapshot read BEFORE a concurrent rotate-key committed. Writing the
+        # cache unconditionally here would re-authenticate the OLD key for another
+        # TTL after the rotation already evicted it. Re-read the live hash and
+        # only cache if the credential we verified is still current; the
+        # fingerprint stored in the value lets the fast path re-check this on
+        # every hit for free (the probe row is loaded there anyway).
+        fingerprint = _probe_hash_fingerprint(verified_hash)
+        current_hash = (
+            await db.execute(select(Probe.api_key_hash).where(Probe.id == probe.id))
+        ).scalar_one_or_none()
+        if current_hash is None or _probe_hash_fingerprint(current_hash) != fingerprint:
+            logger.info("probe_auth_cache_write_skipped_stale_hash", probe_id=str(probe.id))
+            return probe
+        await redis.setex(cache_key, 60, f"{probe.id}|{fingerprint}")
         await redis.setex(f"whatisup:probe_auth_rev:{probe.id}", 60, digest)
         return probe
 
@@ -213,8 +265,11 @@ async def get_current_probe(
             await db.execute(select(Probe).where(Probe.api_key_prefix == prefix, Probe.is_active))
         ).scalar_one_or_none()
         if candidate is not None:
-            if verify_api_key(x_probe_api_key, candidate.api_key_hash):
-                return await _accept(candidate)
+            # Snapshot the hash we verify against: it is what the cache entry
+            # must be fingerprinted with, even if the row changes concurrently.
+            verified_hash = candidate.api_key_hash
+            if verify_api_key(x_probe_api_key, verified_hash):
+                return await _accept(candidate, verified_hash)
             # Prefix resolved but secret wrong → hard reject, never fall back
             # to the scan (exactly one bcrypt per attempt on this path).
             logger.warning("probe_auth_failed", key_prefix=x_probe_api_key[:10])
@@ -234,7 +289,8 @@ async def get_current_probe(
     )
 
     for probe in probes:
-        if verify_api_key(x_probe_api_key, probe.api_key_hash):
+        verified_hash = probe.api_key_hash
+        if verify_api_key(x_probe_api_key, verified_hash):
             if prefix is not None:
                 # Self-heal: re-populate the wiped prefix so the next auth for
                 # this probe takes the indexed fast path again (same mechanics
@@ -246,7 +302,7 @@ async def get_current_probe(
                     .where(Probe.id == probe.id, Probe.api_key_prefix.is_(None))
                     .values(api_key_prefix=prefix)
                 )
-            return await _accept(probe)
+            return await _accept(probe, verified_hash)
 
     logger.warning("probe_auth_failed", key_prefix=x_probe_api_key[:10])
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid probe API key")
@@ -267,6 +323,8 @@ async def invalidate_probe_auth_cache(probe_id: uuid.UUID) -> None:
     rev_key = f"whatisup:probe_auth_rev:{probe_id}"
     digest = await redis.get(rev_key)
     if digest:
+        if isinstance(digest, bytes):  # decode_responses=False clients (e.g. fakeredis)
+            digest = digest.decode()
         await redis.delete(f"whatisup:probe_auth:{digest}")
     await redis.delete(rev_key)
 

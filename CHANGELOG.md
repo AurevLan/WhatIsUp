@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.15.1](https://github.com/AurevLan/WhatIsUp/compare/v1.15.0...v1.15.1) (2026-07-03)
+
+
+### Performance
+
+* **frontend:** self-host Plus Jakarta Sans & JetBrains Mono, drop Google Fonts CDN ([#239](https://github.com/AurevLan/WhatIsUp/issues/239)) ([1d1508e](https://github.com/AurevLan/WhatIsUp/commit/1d1508ed2921eb730fa6f3808932a188291105e8))
+
+
+### Docs
+
+* **features:** amend for v1.15.0 — security wave, leader election, structured logs, perf ([#237](https://github.com/AurevLan/WhatIsUp/issues/237)) ([ad30b0d](https://github.com/AurevLan/WhatIsUp/commit/ad30b0d2e0a9bddf12b9ac0ebf426666340ffa72))
+
 ## [1.15.0](https://github.com/AurevLan/WhatIsUp/compare/v1.14.3...v1.15.0) (2026-07-03)
 
 

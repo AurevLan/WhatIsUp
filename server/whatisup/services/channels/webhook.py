@@ -9,9 +9,7 @@ import string
 from datetime import UTC, datetime
 from typing import Any
 
-import httpx
-
-from ._helpers import validate_webhook_url
+from ._helpers import ssrf_safe_client, validate_webhook_url
 from .base import BaseAlertChannel
 
 
@@ -30,7 +28,7 @@ class WebhookChannel(BaseAlertChannel):
         if secret := config.get("secret"):
             sig = hmac.new(secret.encode(), payload_bytes, hashlib.sha256).hexdigest()
             headers["X-WhatIsUp-Signature"] = f"sha256={sig}"
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with ssrf_safe_client(timeout=10) as client:
             resp = await client.post(config["url"], content=payload_bytes, headers=headers)
             resp.raise_for_status()
             return True, f"HTTP {resp.status_code}"
@@ -118,7 +116,7 @@ class WebhookChannel(BaseAlertChannel):
             sig = hmac.new(secret.encode(), payload_bytes, hashlib.sha256).hexdigest()
             headers["X-WhatIsUp-Signature"] = f"sha256={sig}"
 
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with ssrf_safe_client(timeout=10) as client:
             resp = await client.post(config["url"], content=payload_bytes, headers=headers)
             resp.raise_for_status()
             return f"HTTP {resp.status_code}"

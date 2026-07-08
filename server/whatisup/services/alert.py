@@ -23,6 +23,7 @@ from whatisup.core.metrics import observe_alert_dispatch
 from whatisup.core.security import decrypt_channel_config
 from whatisup.models.alert import AlertChannel, AlertChannelType, AlertEvent, AlertEventStatus
 from whatisup.models.incident import Incident
+from whatisup.services.channels._helpers import ssrf_safe_client
 from whatisup.services.channels._helpers import validate_webhook_url as _validate_webhook_url
 
 logger = structlog.get_logger(__name__)
@@ -289,28 +290,28 @@ async def _flush_digest(rule_id: str, channels: list[AlertChannel], ctx: dict) -
                         )
                 elif channel.type == AlertChannelType.slack:
                     await _validate_webhook_url(decrypted_config["webhook_url"])
-                    async with httpx.AsyncClient(timeout=10) as client:
+                    async with ssrf_safe_client(timeout=10) as client:
                         await client.post(
                             decrypted_config["webhook_url"],
                             json={"text": summary_text},
                         )
                 elif channel.type == AlertChannelType.discord:
                     await _validate_webhook_url(decrypted_config["webhook_url"])
-                    async with httpx.AsyncClient(timeout=10) as client:
+                    async with ssrf_safe_client(timeout=10) as client:
                         await client.post(
                             decrypted_config["webhook_url"],
                             json={"content": summary_text[:1900]},
                         )
                 elif channel.type == AlertChannelType.mattermost:
                     await _validate_webhook_url(decrypted_config["webhook_url"])
-                    async with httpx.AsyncClient(timeout=10) as client:
+                    async with ssrf_safe_client(timeout=10) as client:
                         await client.post(
                             decrypted_config["webhook_url"],
                             json={"username": "WhatIsUp", "text": summary_text},
                         )
                 elif channel.type == AlertChannelType.teams:
                     await _validate_webhook_url(decrypted_config["webhook_url"])
-                    async with httpx.AsyncClient(timeout=10) as client:
+                    async with ssrf_safe_client(timeout=10) as client:
                         await client.post(
                             decrypted_config["webhook_url"],
                             json={
@@ -349,7 +350,7 @@ async def _flush_digest(rule_id: str, channels: list[AlertChannel], ctx: dict) -
                     if secret := decrypted_config.get("secret"):
                         sig = hmac.new(secret.encode(), payload_bytes, hashlib.sha256).hexdigest()
                         headers["X-WhatIsUp-Signature"] = f"sha256={sig}"
-                    async with httpx.AsyncClient(timeout=10) as client:
+                    async with ssrf_safe_client(timeout=10) as client:
                         resp = await client.post(
                             decrypted_config["url"], content=payload_bytes, headers=headers
                         )

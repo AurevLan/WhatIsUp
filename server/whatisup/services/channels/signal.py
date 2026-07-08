@@ -8,9 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-import httpx
-
-from ._helpers import scope_label_fr, validate_webhook_url
+from ._helpers import scope_label_fr, ssrf_safe_client, validate_webhook_url
 from .base import BaseAlertChannel
 
 
@@ -21,7 +19,7 @@ class SignalChannel(BaseAlertChannel):
         api_url = config["api_url"].rstrip("/")
         await validate_webhook_url(api_url)
 
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with ssrf_safe_client(timeout=10) as client:
             resp = await client.post(
                 f"{api_url}/v2/send",
                 json={
@@ -65,7 +63,7 @@ class SignalChannel(BaseAlertChannel):
         api_url = config["api_url"].rstrip("/")
         await validate_webhook_url(api_url)
 
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with ssrf_safe_client(timeout=10) as client:
             resp = await client.post(
                 f"{api_url}/v2/send",
                 json={

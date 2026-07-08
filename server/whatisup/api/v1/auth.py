@@ -473,8 +473,10 @@ async def oidc_callback(
 
     access = create_access_token(str(user.id))
     refresh = create_refresh_token(str(user.id))
-    _rh = hashlib.sha256(refresh.encode()).hexdigest()[:32]
-    await redis.setex(f"whatisup:refresh:{user.id}:{_rh}", 7 * 86400, "1")
+    # Same session bookkeeping as the classic login flow: UA/IP/created_at
+    # metadata + TTL aligned on refresh_token_expire_days (was a bare "1"
+    # with a hardcoded 7-day TTL, invisible in the active-sessions UI).
+    await store_refresh_session(user.id, refresh, request)
 
     logger.info("oidc_login_success", user_id=str(user.id))
     from whatisup.services.audit import log_action

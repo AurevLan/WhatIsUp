@@ -468,20 +468,22 @@ Toute modification de cette table doit être reportée dans `FEATURES.md` §11.
 | Endpoint | Méthode | Limite | Justification |
 |---|---|---|---|
 | `/auth/login` | POST | **10/min** | Anti brute-force credential |
-| `/auth/register` | POST | **5/min** | Anti enum + spam |
+| `/auth/register` | POST | *sans limite* | Endpoint désactivé — 403 systématique (invite-only) |
 | `/auth/refresh` | POST | **30/min** | Mobile + multi-tab |
 | `/auth/me` | PATCH | **30/min** | Self-update |
+| `/auth/oidc/login` | GET | **20/min** | Anti spam redirect provider |
+| `/auth/oidc/callback` | GET | **20/min** | Anti brute-force state/code |
 | `/probes/heartbeat` | POST | **120/min** | Probe health beats |
 | `/probes/results` | POST | **600/min** | Probe results push (bursts ok) |
-| `/probes/register` | POST | **3/min** | Anti scan |
+| `/probes/register` | POST | *sans limite* | Superadmin only (JWT) — pas de limite explicite |
 | `/probes/{id}/rotate-key` | POST | **10/min** | Rotation clé — superadmin only |
 | `/monitors` | POST | **10/min** | Anti spam monitor |
-| `/monitors/{id}/trigger-check` | POST | **20/min** | Évite trigger storm |
-| `/config` | GET | **5/min** | Probe config pull |
-| `/silences` | POST/DELETE | **20–60/min** | Catch-all silences |
+| `/monitors/{id}/trigger-check` | POST | **10/min** | Évite trigger storm |
+| `/config` | GET / PUT | *sans limite* / **10/min** | Export config (JWT) / import déclaratif |
+| `/silences` | GET / POST / PATCH / DELETE | **60 / 20 / 30 / 30/min** | Catch-all silences |
 | `/incidents/bulk-ack` | POST | **20/min** | Anti boucle |
 | `/incidents/{id}/snooze` | POST | **30/min** | UX bulk |
-| `/alerts/channels/{id}/test` | POST | **5/min** | Anti spam canal |
+| `/alerts/channels/{id}/test` | POST | **10/min** | Anti spam canal |
 | `/api/v1/extension/download` | GET | **10/min** | Anti scrape |
 
 > **Tout nouvel endpoint public ou écrit DOIT avoir un rate-limit explicite.** Le défaut implicite n'existe pas.
@@ -524,6 +526,7 @@ Ce document est **vivant**. Il doit être mis à jour :
 ### TODO / améliorations identifiées
 
 - [ ] Publier `/.well-known/security.txt` (RFC 9116)
+- [ ] Ajouter un rate-limit explicite sur `GET /config` (export) et `POST /probes/register` (actuellement protégés uniquement par JWT / superadmin — cf. §12)
 - [ ] Activer signature Cosign keyless sur images GHCR
 - [ ] Pin GH Actions par SHA (au minimum sur `release.yml` et `mobile-release.yml`)
 - [ ] Générer SBOM (CycloneDX) à chaque release

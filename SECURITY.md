@@ -278,13 +278,30 @@ VAPID_PUBLIC_KEY=...   VAPID_PRIVATE_KEY=...             # web push (opt-in)
 | Secret | Fréquence | Procédure | Impact |
 |---|---|---|---|
 | `SECRET_KEY` | Compromission ou 12 mois | redéployer avec nouvelle valeur | invalide tous les JWT actifs |
-| `FERNET_KEY` | Compromission uniquement | re-chiffrer tous les `AlertChannel.config`, `MonitorTemplate`, `system_settings.oidc_client_secret`, scenario `secret` vars (script à fournir) | indispo passagère des alertes |
+| `FERNET_KEY` | Compromission uniquement | procédure zéro-downtime ci-dessous : `FERNET_KEY_PREVIOUS` + `python -m whatisup.tools.rotate_fernet` | aucune (déchiffrement multi-clés pendant la transition) |
 | Probe API key | Compromission ou 6 mois | `POST /probes/{id}/rotate-key` | sonde re-enroll requise |
 | DB password | Compromission ou 12 mois | `ALTER USER` + redéploiement | brève coupure |
 | OIDC client_secret | Selon politique IdP | UI Settings → OIDC | re-login users |
 | Android keystore | **JAMAIS** sans pré-publication majeure | rotation impossible post-Play Store | crash auto-update |
 
-#### Format de clé sonde & index par préfixe (auth O(1) bcrypt)
+#### Rotation `FERNET_KEY` (zéro downtime)
+
+Le déchiffrement est **multi-clés** (MultiFernet) : `FERNET_KEY` = clé **primaire** (seule clé utilisée pour chiffrer) ; `FERNET_KEY_PREVIOUS` = ancienne(s) clé(s), séparées par des virgules, acceptées **en déchiffrement uniquement** pendant la transition. Données concernées : `alert_channels.config` (champs secrets), `monitors.scenario_variables` (variables `secret: true`), `users.totp_secret`, `system_settings.oidc_client_secret`.
+
+1. **Générer** la nouvelle clé : `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`.
+2. **Redéployer** avec les deux clés : `FERNET_KEY=<nouvelle>` + `FERNET_KEY_PREVIOUS=<ancienne>`. Aucune coupure : les secrets existants restent lisibles via l'ancienne clé, tout nouveau secret est chiffré avec la nouvelle.
+3. **Dry-run** (compte-rendu sans écriture) :
+   ```bash
+   docker compose exec server python -m whatisup.tools.rotate_fernet --dry-run
+   ```
+4. **Rotation** (re-chiffre tout avec la clé primaire ; idempotent ; ne loggue jamais les valeurs) :
+   ```bash
+   docker compose exec server python -m whatisup.tools.rotate_fernet
+   ```
+5. **Vérifier** le compte-rendu : `0 unreadable` attendu (une valeur `unreadable` = plaintext legacy pré-chiffrement, ou clé absente de `FERNET_KEY_PREVIOUS` — jamais modifiée). Relancer l'outil au besoin : un second passage doit rapporter `0 rotated`.
+6. **Retirer** `FERNET_KEY_PREVIOUS` et redéployer, puis détruire l'ancienne clé et **re-backuper la nouvelle** séparément de la DB (cf. §8).
+
+
 
 Les clés sonde utilisent le format **`wiu_<prefix>.<secret>`** :
 

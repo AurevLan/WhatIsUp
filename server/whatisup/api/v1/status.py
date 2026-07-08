@@ -4,7 +4,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import and_, case, func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.api.deps import build_access_filter, get_current_user, get_user_team_ids
@@ -14,7 +14,7 @@ from whatisup.models.incident import Incident
 from whatisup.models.monitor import Monitor
 from whatisup.models.result import CheckResult, CheckStatus
 from whatisup.models.user import User
-from whatisup.services.stats import compute_uptime, latest_results_subq
+from whatisup.services.stats import compute_uptime, fetch_latest_results
 
 router = APIRouter(prefix="/status", tags=["status"])
 
@@ -39,25 +39,8 @@ async def status_all_monitors(
 
     monitor_ids = [m.id for m in monitors]
 
-    # Batch: latest CheckResult per monitor
-    latest_subq = latest_results_subq(
-        CheckResult.monitor_id.in_(monitor_ids),
-        group_col=CheckResult.monitor_id,
-    )
-    latest_results = (
-        (
-            await db.execute(
-                select(CheckResult).join(
-                    latest_subq,
-                    (CheckResult.monitor_id == latest_subq.c.monitor_id)
-                    & (CheckResult.checked_at == latest_subq.c.max_at),
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
-    latest_by_monitor = {r.monitor_id: r for r in latest_results}
+    # Batch: latest CheckResult per monitor (LATERAL on PostgreSQL)
+    latest_by_monitor = await fetch_latest_results(db, monitor_ids)
 
     # Batch: open incidents per monitor
     open_incidents = (
@@ -170,23 +153,8 @@ async def status_summary(
 
     monitor_ids = [m.id for m in monitors]
 
-    # Latest result per monitor (batch)
-    latest_subq = latest_results_subq(
-        CheckResult.monitor_id.in_(monitor_ids),
-        group_col=CheckResult.monitor_id,
-    )
-    latest_results = (
-        await db.execute(
-            select(CheckResult.monitor_id, CheckResult.status, CheckResult.response_time_ms).join(
-                latest_subq,
-                and_(
-                    CheckResult.monitor_id == latest_subq.c.monitor_id,
-                    CheckResult.checked_at == latest_subq.c.max_at,
-                ),
-            )
-        )
-    ).all()
-    latest_map = {r.monitor_id: r for r in latest_results}
+    # Latest result per monitor (batch, LATERAL on PostgreSQL)
+    latest_map = await fetch_latest_results(db, monitor_ids)
 
     # Uptime 24h (batch)
     cutoff = datetime.now(UTC) - timedelta(hours=24)

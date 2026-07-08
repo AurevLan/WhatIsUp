@@ -126,15 +126,27 @@ def test_list_monitors_latest_query_is_bounded_not_full_scan() -> None:
     response time must be fetched with a per-monitor bounded LATERAL
     ``ORDER BY checked_at DESC LIMIT 1``, not a table-wide ``GROUP BY``. Reverting
     to the old aggregate removes this marker and fails the test.
+
+    The latest-row logic now lives in the shared ``fetch_latest_results``
+    helper (stats.py) consumed by monitors, public, status and composite —
+    the guard pins both the helper's LATERAL and the endpoint's use of it.
     """
     import inspect
 
     from whatisup.api.v1 import monitors
+    from whatisup.services import stats
 
     src = inspect.getsource(monitors.list_monitors)
+    assert "fetch_latest_results" in src, (
+        "list_monitors must fetch the latest row via the shared bounded helper"
+    )
+
+    helper_src = inspect.getsource(stats.fetch_latest_results)
     # The non-sqlite branch builds the bounded per-monitor lateral.
-    assert 'lateral("latest_cr")' in src, "production latest-row path must use a LATERAL subquery"
-    assert ".limit(1)" in src, "the lateral must fetch a single (latest) row per monitor"
+    assert 'lateral("latest_cr")' in helper_src, (
+        "production latest-row path must use a LATERAL subquery"
+    )
+    assert ".limit(1)" in helper_src, "the lateral must fetch a single (latest) row per monitor"
 
 
 @pytest.mark.asyncio

@@ -86,6 +86,13 @@ updates:
     commit-message:
       prefix: "chore(ci)"
       include: "scope"
+    groups:
+      # init/autobuild/analyze doivent rester à la même version — un bump
+      # partiel casse CodeQL ("Loaded a configuration file for version X,
+      # but running version Y")
+      codeql-action:
+        patterns:
+          - "github/codeql-action*"
 
   # ── Docker base images ────────────────────────────────────────────────────
   - package-ecosystem: "docker"

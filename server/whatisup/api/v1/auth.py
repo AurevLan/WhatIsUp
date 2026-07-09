@@ -25,6 +25,7 @@ from whatisup.core.security import (
     create_mfa_token,
     create_refresh_token,
     decode_token,
+    hash_password_async,
     verify_password_async,
 )
 from whatisup.models.user import User
@@ -34,6 +35,13 @@ from whatisup.schemas.user import (
     TokenResponse,
     UserOut,
     UserSelfUpdate,
+)
+from whatisup.services.lockout import (
+    LOCKOUT_DURATION_SECONDS,
+    LOCKOUT_THRESHOLD,
+    is_locked,
+    register_failure,
+    reset_failures,
 )
 
 logger = structlog.get_logger(__name__)
@@ -83,6 +91,52 @@ async def store_refresh_session(
     )
 
 
+def _invalid_credentials() -> HTTPException:
+    """The one and only failure response for /login — identical for unknown
+    account, wrong password and active lockout (anti-enumeration)."""
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+_dummy_hash: str | None = None
+
+
+async def _burn_password_check(password: str) -> None:
+    """Verify against a throwaway bcrypt hash so the locked-out path takes the
+    same time as a real wrong-password check (no timing oracle on the lockout)."""
+    global _dummy_hash
+    if _dummy_hash is None:
+        _dummy_hash = await hash_password_async(os.urandom(16).hex())
+    await verify_password_async(password, _dummy_hash)
+
+
+async def _note_login_failure(
+    identifier: str, user: User | None, request: Request, db: AsyncSession
+) -> None:
+    """Count one failed attempt; audit + persist when it triggers the lockout."""
+    if not await register_failure(identifier):
+        return
+    from whatisup.services.audit import log_action
+
+    await log_action(
+        db,
+        "user.login_lockout",
+        "user",
+        user.id if user else None,
+        user.username if user else identifier.strip().lower()[:120],
+        None,
+        diff={"threshold": LOCKOUT_THRESHOLD, "lockout_seconds": LOCKOUT_DURATION_SECONDS},
+        ip_address=request.client.host if request.client else None,
+    )
+    # The request ends with a 401 → get_db rolls back on exception; commit now
+    # so the audit entry survives.
+    await db.commit()
+    logger.warning("login_lockout_triggered", user_id=str(user.id) if user else None)
+
+
 @router.post("/login", response_model=LoginResponse)
 @limiter.limit("10/minute")
 async def login(
@@ -90,23 +144,34 @@ async def login(
     form: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db),
 ) -> LoginResponse:
+    identifier = form.username
+
+    # Per-account lockout (SA2) — checked first. Response and timing are
+    # indistinguishable from a wrong password: never reveal the lockout.
+    if await is_locked(identifier):
+        await _burn_password_check(form.password)
+        logger.warning("login_locked_out")
+        raise _invalid_credentials()
+
     user = (await db.execute(select(User).where(User.email == form.username))).scalar_one_or_none()
 
     if user is None or not user.is_active or not user.hashed_password:
+        # Burn a bcrypt verification so an unknown / inactive account takes the
+        # same ~100ms as a wrong password on a real account — no timing oracle
+        # to enumerate valid emails.
+        await _burn_password_check(form.password)
+        await _note_login_failure(identifier, None, request, db)
         logger.warning("login_failed")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise _invalid_credentials()
 
     if not await verify_password_async(form.password, user.hashed_password):
+        await _note_login_failure(identifier, user, request, db)
         logger.warning("login_failed_password", user_id=str(user.id))
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise _invalid_credentials()
+
+    # Correct password — clear the failure counter (applies to the password
+    # step only; the TOTP flow below has its own replay/attempt guards).
+    await reset_failures(identifier)
 
     # 2FA: password alone is not enough — issue a short-lived MFA challenge
     if user.totp_enabled:

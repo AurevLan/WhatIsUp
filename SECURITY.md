@@ -402,6 +402,31 @@ add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment
 - [ ] `SELECT * FROM alert_channels WHERE updated_at > <fenêtre>;` — exfil via webhook ?
 - [ ] CodeQL re-run sur le commit suspect
 
+### Déverrouillage manuel d'un compte (lockout SA2)
+
+Le verrouillage par compte (`services/lockout.py`) est un anti-brute-force :
+10 échecs de mot de passe en 15 min → compte verrouillé 15 min. Le verrou
+n'est **pas prolongeable** (`SET … NX`) et est **réinitialisé** au premier
+login réussi, donc il expire seul. Mais c'est aussi un **vecteur de DoS
+ciblé** : quiconque connaît l'email d'une victime peut la verrouiller. Pour
+déverrouiller immédiatement (support / faux positif), supprimer les deux clés
+Redis. L'index de clé est `sha256(email_normalisé)[:32]` où
+`email_normalisé = email.strip().lower()` :
+
+```bash
+# Calculer l'index (email en minuscules, sans espaces de bord)
+IDX=$(printf '%s' "victime@example.com" | tr 'A-Z' 'a-z' \
+      | sha256sum | cut -c1-32)
+
+# Supprimer le compteur d'échecs ET le verrou actif
+redis-cli DEL "whatisup:lockout:fail:${IDX}"
+redis-cli DEL "whatisup:lockout:lock:${IDX}"
+```
+
+> ⚠️ Supprimer les **deux** clés : `fail:` (compteur) et `lock:` (verrou
+> actif). Ne retirer que `lock:` laisserait le compteur près du seuil → le
+> compte se re-verrouillerait au prochain échec.
+
 ### Communication post-mortem
 
 - ✅ Annoncer dans `CHANGELOG.md` section `### Security`

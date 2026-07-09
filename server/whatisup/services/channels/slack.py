@@ -4,9 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-import httpx
-
-from ._helpers import scope_label_en, validate_webhook_url
+from ._helpers import scope_label_en, ssrf_safe_client, validate_webhook_url
 from .base import BaseAlertChannel
 
 
@@ -15,7 +13,7 @@ class SlackChannel(BaseAlertChannel):
 
     async def test(self, config: dict[str, Any], settings: Any) -> tuple[bool, str]:
         await validate_webhook_url(config["webhook_url"])
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with ssrf_safe_client(timeout=10) as client:
             resp = await client.post(
                 config["webhook_url"],
                 json={
@@ -77,7 +75,7 @@ class SlackChannel(BaseAlertChannel):
         }
 
         await validate_webhook_url(config["webhook_url"])
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with ssrf_safe_client(timeout=10) as client:
             resp = await client.post(config["webhook_url"], json=payload)
             resp.raise_for_status()
             return f"HTTP {resp.status_code}"

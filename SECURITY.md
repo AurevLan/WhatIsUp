@@ -299,7 +299,7 @@ Le déchiffrement est **multi-clés** (MultiFernet) : `FERNET_KEY` = clé **prim
    docker compose exec server python -m whatisup.tools.rotate_fernet
    ```
 5. **Vérifier** le compte-rendu : `0 unreadable` attendu (une valeur `unreadable` = plaintext legacy pré-chiffrement, ou clé absente de `FERNET_KEY_PREVIOUS` — jamais modifiée). Relancer l'outil au besoin : un second passage doit rapporter `0 rotated`.
-6. **Retirer** `FERNET_KEY_PREVIOUS` et redéployer, puis détruire l'ancienne clé et **re-backuper la nouvelle** séparément de la DB (cf. §8).
+6. **Retirer** `FERNET_KEY_PREVIOUS` de la config et redéployer **toutes** les répliques (aucune ne doit conserver l'ancienne clé). En déploiement multi-répliques, une réplique encore en ancienne config a pu chiffrer un nouveau secret avec l'ancienne clé pendant la transition : **avant de détruire l'ancienne clé**, relancer une dernière fois l'outil et exiger une sortie `0 rotated / 0 unreadable` (code de sortie `0`) — c'est la garantie qu'aucune valeur ne dépend plus de l'ancienne clé. Une sortie non nulle (`unreadable > 0`) = ne PAS détruire la clé, investiguer. Enfin, détruire l'ancienne clé et **re-backuper la nouvelle** séparément de la DB (cf. §8).
 
 
 

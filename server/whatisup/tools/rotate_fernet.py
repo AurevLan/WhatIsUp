@@ -225,6 +225,8 @@ def main(argv: list[str] | None = None) -> int:
             "They were left untouched.",
             file=sys.stderr,
         )
+        # Undecryptable values mean the rotation is NOT complete — never exit 0.
+        return 1
     return 0
 
 

@@ -80,6 +80,10 @@ services:
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set}
       FERNET_KEY: ${FERNET_KEY:?FERNET_KEY must be set}
+      # Set only during a FERNET_KEY rotation (old key(s), comma-separated);
+      # empty otherwise. See SECURITY.md §7. Required so the container can
+      # decrypt secrets still encrypted with the old key until rotation completes.
+      FERNET_KEY_PREVIOUS: ${FERNET_KEY_PREVIOUS:-}
       ENVIRONMENT: production
       DEBUG: "false"
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?CORS_ALLOWED_ORIGINS must be set}

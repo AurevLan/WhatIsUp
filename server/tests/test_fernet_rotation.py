@@ -212,3 +212,27 @@ def test_report_summary_never_contains_secrets(monkeypatch):
     report = RotationReport(dry_run=False, stores={"x": StoreReport(scanned=2, rotated=1)})
     assert "dummy" not in report.summary()
     assert "1 rotated" in report.summary()
+
+
+def test_main_exit_code(monkeypatch):
+    """main() must exit non-zero when any value stays unreadable, 0 otherwise."""
+    import whatisup.tools.rotate_fernet as rf
+
+    _use_keys(monkeypatch, KEY_B)  # fernet_key set → main() proceeds
+
+    state = {"unreadable": 0}
+
+    def _fake_asyncio_run(_coro):
+        return rf.RotationReport(
+            dry_run=False,
+            stores={"x": rf.StoreReport(scanned=2, rotated=1, unreadable=state["unreadable"])},
+        )
+
+    monkeypatch.setattr(rf, "_run", lambda dry_run: None)
+    monkeypatch.setattr(rf.asyncio, "run", _fake_asyncio_run)
+
+    state["unreadable"] = 0
+    assert rf.main([]) == 0
+
+    state["unreadable"] = 1
+    assert rf.main([]) == 1

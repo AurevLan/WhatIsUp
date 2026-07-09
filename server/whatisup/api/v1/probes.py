@@ -566,7 +566,10 @@ async def rotate_probe_key(
     # that still sees the OLD committed hash, re-authenticates and re-populates
     # the forward cache + reverse index for another TTL window — keeping the
     # compromised key valid up to ~60 s after rotation. Committing first means
-    # any slow-path scan can only ever match the NEW hash.
+    # any slow-path scan can only ever match the NEW hash. Defense in depth (SA6):
+    # deps.get_current_probe additionally fingerprints cache values with the bcrypt
+    # hash and guards slow-path cache writes, so even a bcrypt verification already
+    # in flight against the OLD hash cannot re-cache the old key.
     await db.commit()
 
     # Best-effort eviction: the new key is already durably committed, so if Redis

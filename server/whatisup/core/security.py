@@ -229,17 +229,29 @@ def refresh_token_redis_key(jti_or_subject: str) -> str:
 
 
 def _get_fernet():
-    """Return a Fernet instance using FERNET_KEY from settings, or None if not configured."""
-    from cryptography.fernet import Fernet
+    """Return the Fernet engine from settings, or None if not configured.
+
+    When FERNET_KEY_PREVIOUS is set (key rotation in progress), returns a
+    MultiFernet: encryption always uses the primary FERNET_KEY (listed first),
+    while decryption transparently falls back to the previous key(s). Once the
+    rotation tool (``python -m whatisup.tools.rotate_fernet``) has re-encrypted
+    everything, FERNET_KEY_PREVIOUS can be removed and this degrades to a plain
+    single-key Fernet.
+    """
+    from cryptography.fernet import Fernet, MultiFernet
 
     settings = get_settings()
     if not settings.fernet_key:
         return None
-    return Fernet(
+    primary = Fernet(
         settings.fernet_key.encode()
         if isinstance(settings.fernet_key, str)
         else settings.fernet_key
     )
+    previous = [Fernet(key.encode()) for key in settings.fernet_previous_keys]
+    if previous:
+        return MultiFernet([primary, *previous])
+    return primary
 
 
 # Fields in alert channel config that contain secrets and must be encrypted

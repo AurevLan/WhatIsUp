@@ -98,7 +98,7 @@ get_current_probe   # X-Probe-Api-Key (bcrypt + cache Redis SHA-256[:32], TTL 60
 
 - JWT WebSocket : auth par message `{"type":"auth","token":"..."}` — jamais `?token=` dans l'URL (ANSSI)
 - Secrets alert : `encrypt_channel_config(config)` avant DB, `decrypt_channel_config(config)` au dispatch
-- Champs chiffrés Fernet : `bot_token`, `webhook_secret`, `webhook_url`, `integration_key` (PagerDuty), `api_key` (Opsgenie)
+- Champs chiffrés Fernet (`_SECRET_FIELDS` dans `core/security.py`) : `secret`, `bot_token`, `password`, `integration_key` (PagerDuty), `api_key` (Opsgenie) — PAS `webhook_url` ni `webhook_secret` (non chiffrés)
 - URLs HTTP sortantes : appeler `_validate_webhook_url(url)` avant tout `httpx.post` (SSRF)
 - `AlertRule` delete / `list_events` : toujours vérifier `owner_id` via JOIN — sans filtre = fuite cross-user
 - Nouveaux endpoints : `@limiter.limit("X/minute")` + `request: Request` (slowapi)

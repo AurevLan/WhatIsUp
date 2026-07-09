@@ -46,6 +46,11 @@ class Settings(BaseSettings):
     # Fernet key for encrypting alert channel secrets at rest
     # Generate: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"  # noqa: E501
     fernet_key: str = ""
+    # Previous Fernet key(s) — comma-separated, accepted for DECRYPTION only
+    # during a key rotation. Encryption always uses FERNET_KEY (primary).
+    # Procedure: SECURITY.md §7 "Rotation FERNET_KEY (zéro downtime)" +
+    # `python -m whatisup.tools.rotate_fernet`.
+    fernet_key_previous: str = ""
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 7
 
@@ -142,7 +147,19 @@ class Settings(BaseSettings):
                 Fernet(self.fernet_key.encode())
             except Exception as exc:
                 raise ValueError(f"FERNET_KEY is invalid: {exc}") from exc
+            for idx, key in enumerate(self.fernet_previous_keys, start=1):
+                try:
+                    from cryptography.fernet import Fernet
+
+                    Fernet(key.encode())
+                except Exception as exc:
+                    raise ValueError(f"FERNET_KEY_PREVIOUS entry #{idx} is invalid: {exc}") from exc
         return self
+
+    @property
+    def fernet_previous_keys(self) -> list[str]:
+        """Previous Fernet keys (comma-separated env), decryption-only."""
+        return [k.strip() for k in self.fernet_key_previous.split(",") if k.strip()]
 
     @property
     def is_production(self) -> bool:

@@ -142,14 +142,97 @@ async def test_totp_flow_resets_counter_at_password_step(
     assert not await fake_redis.exists(lockout.fail_key(regular_user.email))
 
 
+@pytest.mark.asyncio
+async def test_fail_counter_always_carries_ttl(
+    client: AsyncClient, admin_user: User, fake_redis: FakeRedis
+) -> None:
+    """R2: the failure counter must always carry a TTL — even on the very first
+    failure, which the atomic INCR/EXPIRE pipeline guarantees."""
+    await _fail(client, admin_user.email, n=1)
+
+    fkey = lockout.fail_key(admin_user.email)
+    assert int(await fake_redis.get(fkey)) == 1
+    ttl = await fake_redis.ttl(fkey)
+    assert 0 < ttl <= lockout.LOCKOUT_WINDOW_SECONDS
+
+
+@pytest.mark.asyncio
+async def test_ttl_self_heals_immortal_counter(
+    client: AsyncClient, admin_user: User, fake_redis: FakeRedis
+) -> None:
+    """R2 regression guard ("immortal counter"): if a counter is ever left
+    WITHOUT a TTL (e.g. a lost EXPIRE after a Redis blip), the next failure must
+    re-apply the window. On the pre-fix code (EXPIRE only when count == 1) the
+    key stayed TTL-less forever and re-locked the user on every later failure;
+    the atomic ``EXPIRE ... NX`` self-heals it."""
+    fkey = lockout.fail_key(admin_user.email)
+    # Simulate a counter mid-window with NO expiry (the bug condition).
+    await fake_redis.set(fkey, 5)
+    assert await fake_redis.ttl(fkey) == -1  # -1 == key exists but no TTL
+
+    await _fail(client, admin_user.email, n=1)
+
+    assert int(await fake_redis.get(fkey)) == 6
+    ttl = await fake_redis.ttl(fkey)
+    assert 0 < ttl <= lockout.LOCKOUT_WINDOW_SECONDS
+
+
+@pytest.mark.asyncio
+async def test_unknown_account_burns_bcrypt(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """R3: an unknown / inactive account still runs a bcrypt verification so its
+    response timing matches a wrong password on a real account (no timing oracle
+    to enumerate valid emails)."""
+    import whatisup.api.v1.auth as auth_module
+
+    calls = {"n": 0}
+    original = auth_module._burn_password_check
+
+    async def _spy(password: str) -> None:
+        calls["n"] += 1
+        await original(password)
+
+    monkeypatch.setattr(auth_module, "_burn_password_check", _spy)
+
+    resp = await client.post(
+        LOGIN, data={"username": "ghost@nowhere.test", "password": WRONG_PASSWORD}
+    )
+    assert resp.status_code == 401
+    assert calls["n"] == 1
+
+
 class _BrokenRedis:
-    """Every awaited call raises RedisError — simulates Redis being down."""
+    """Every awaited call raises RedisError — simulates Redis being down.
+
+    Also models the pipeline API used by ``register_failure`` so the fail-open
+    path is exercised realistically: queued commands are no-ops and ``execute``
+    raises, just like a real client whose connection drops mid-transaction.
+    """
 
     def __getattr__(self, name):
         async def _boom(*args, **kwargs):
             raise RedisError("redis down")
 
         return _boom
+
+    def pipeline(self, *args, **kwargs):
+        return self
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+    def incr(self, *args, **kwargs):
+        return self
+
+    def expire(self, *args, **kwargs):
+        return self
+
+    async def execute(self):
+        raise RedisError("redis down")
 
 
 @pytest.mark.asyncio

@@ -9,6 +9,16 @@ wrong password (anti-enumeration — the lockout must never be observable).
 Fail-open by design: if Redis is unavailable, lockout checks are skipped —
 the per-IP slowapi rate limit on /login remains the backstop (same policy
 as the other Redis-backed guards in the project).
+
+Operational trade-off (know this before enabling): a per-account lockout is a
+targeted denial-of-service vector — anyone who knows a victim's email can lock
+that account out by burning through the failure threshold. This is mitigated
+here by (a) a *non-extendable* lock (an already-active lock is never renewed —
+`SET ... NX`), so the damage is bounded to a single fixed window, and (b) an
+automatic counter reset on the first successful password verification. It is
+NOT eliminated: operators must know how to release a lock manually — see the
+"lockout" runbook in ``SECURITY.md`` (delete the ``fail`` / ``lock`` Redis keys
+built from ``sha256(normalized_email)[:32]``).
 """
 
 from __future__ import annotations
@@ -60,9 +70,16 @@ async def register_failure(identifier: str) -> bool:
     try:
         redis = get_redis()
         key = fail_key(identifier)
-        count = await redis.incr(key)
-        if count == 1:
-            await redis.expire(key, LOCKOUT_WINDOW_SECONDS)
+        # INCR + EXPIRE must commit together: a crash between two separate
+        # commands could leave the counter without a TTL ("immortal counter"),
+        # re-locking a legitimate user on every later failure. A MULTI/EXEC
+        # pipeline makes it atomic in a single round-trip. EXPIRE ... NX sets
+        # the window on the first failure and self-heals the TTL if it was ever
+        # lost, without extending the window on subsequent failures.
+        async with redis.pipeline(transaction=True) as pipe:
+            pipe.incr(key)
+            pipe.expire(key, LOCKOUT_WINDOW_SECONDS, nx=True)
+            count, _ = await pipe.execute()
         if count >= LOCKOUT_THRESHOLD:
             # NX → only the attempt crossing the threshold reports the trigger;
             # an already-active lock is never extended.

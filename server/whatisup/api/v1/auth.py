@@ -156,6 +156,10 @@ async def login(
     user = (await db.execute(select(User).where(User.email == form.username))).scalar_one_or_none()
 
     if user is None or not user.is_active or not user.hashed_password:
+        # Burn a bcrypt verification so an unknown / inactive account takes the
+        # same ~100ms as a wrong password on a real account — no timing oracle
+        # to enumerate valid emails.
+        await _burn_password_check(form.password)
         await _note_login_failure(identifier, None, request, db)
         logger.warning("login_failed")
         raise _invalid_credentials()

@@ -125,7 +125,7 @@
 - ✅ Carte Leaflet temps réel (`ProbeMap.vue`) avec status 24 h
 - ✅ Heartbeat probe → incident si ping absent > interval+grace (15 s par défaut)
 - ✅ Trigger-now via Redis pub/sub (`scheduler.py` du probe)
-- ✅ Config sync `GET /api/v1/config` (probe-scoped, rate-limit 5/min)
+- ✅ Config sync `GET/PUT /api/v1/config` (export JSON + import déclaratif, JWT ; rate-limit 10/min sur le PUT)
 - ✅ **ASN enrichment (V2-02-01)** — chaque sonde résolue automatiquement vers son ASN + AS-name via Team Cymru DNS (`services/probe_enrichment.py`). Champs `Probe.public_ip`, `asn`, `asn_name`, `ixp_membership`, `asn_updated_at`. Refresh opportuniste à chaque heartbeat si stale (24 h par défaut, configurable via `ASN_REFRESH_HOURS`) + tâche de fond toutes les 6 h. Backend configurable `ASN_LOOKUP_PROVIDER ∈ {cymru, disabled}`. Best-effort : aucun blocage du heartbeat en cas d'échec lookup.
 - ✅ **Outbound IP intelligence (V2-02-07)** — la sonde résout sa propre IP de sortie via `api.ipify.org` (+ fallbacks `ifconfig.me`, `icanhazip.com`) et l'envoie dans le heartbeat. Champs `Probe.self_reported_ip` + `Probe.self_reported_asn`. Si différent de `public_ip` (vu par le serveur via `request.client.host`) → badge `NAT/VPN` UI + tooltip explicatif. Détecte les setups proxy / NAT / VPN qui font passer une sonde pour autre chose qu'elle prétend (`probe/whatisup_probe/public_ip.py`).
 
@@ -403,9 +403,10 @@
 | Endpoint | Limite |
 |---|---|
 | `/auth/login` | 10/min |
-| `/auth/register` | 5/min |
+| `/auth/register` | — (endpoint désactivé, 403 invite-only) |
 | `/auth/refresh` | 30/min |
 | `/auth/me` PATCH | 30/min |
+| `/auth/oidc/login` + `/auth/oidc/callback` | 20/min |
 | `/auth/totp/*` (setup/enable/verify/disable) | 10/min |
 | `/auth/sessions/list` + DELETE | 30/min |
 | `/auth/sessions/revoke-all` | 10/min |
@@ -413,8 +414,8 @@
 | `/probes/results` | 600/min |
 | `/probes/{id}/rotate-key` | 10/min |
 | `/monitors` POST | 10/min |
-| `/config` | 5/min |
-| `/silences` | 20–60/min |
+| `/config` PUT | 10/min (GET sans limite explicite) |
+| `/silences` | GET 60 / POST 20 / PATCH 30 / DELETE 30/min |
 | `/incidents/bulk-ack` | 20/min |
 | `/incidents/{id}/snooze` | 30/min |
 

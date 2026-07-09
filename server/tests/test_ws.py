@@ -376,6 +376,132 @@ async def test_broadcast_global_event_dashboard_only() -> None:
     pub.send_text.assert_not_called()
 
 
+# ── Per-recipient payload rewrite — correlated_monitor_ids (finding SA5) ──────
+
+
+def _common_cause_event() -> dict:
+    """A common_cause_detected event whose correlated list spans two tenants.
+
+    Primary monitor ``ma1`` belongs to tenant A; the correlation (global, keyed
+    on shared probes) also picked up B's monitors ``mb1``/``mb2``.
+    """
+    return {
+        "type": "common_cause_detected",
+        "group_id": "g1",
+        "monitor_id": "ma1",
+        "correlated_monitor_ids": ["ma2", "mb1", "mb2"],
+        "shared_probe_ids": ["p1"],
+    }
+
+
+@pytest.mark.asyncio
+async def test_broadcast_filters_correlated_ids_for_scoped_dashboard() -> None:
+    """User A must not receive B's monitor ids inside correlated_monitor_ids.
+
+    The scope gate on the event's primary ``monitor_id`` alone let the full
+    correlated list through: a common-cause event on A's monitor leaked the ids
+    of other tenants' monitors sharing the same probes.
+    """
+    manager = ConnectionManager()
+    a = _fake_ws()
+    await manager.connect(a, client_ip="1.1.1.1")
+    await manager.authorize(a, "dashboard", {"ma1", "ma2"})
+
+    await manager.broadcast(_common_cause_event())
+
+    a.send_text.assert_awaited_once()
+    raw = a.send_text.await_args.args[0]
+    received = json.loads(raw)
+    assert received["correlated_monitor_ids"] == ["ma2"]
+    assert "mb1" not in raw
+    assert "mb2" not in raw
+    # The rest of the payload is untouched.
+    assert received["monitor_id"] == "ma1"
+    assert received["group_id"] == "g1"
+    assert received["shared_probe_ids"] == ["p1"]
+
+
+@pytest.mark.asyncio
+async def test_broadcast_superadmin_receives_full_correlated_ids() -> None:
+    """The superadmin firehose keeps the complete cross-tenant correlation."""
+    manager = ConnectionManager()
+    su = _fake_ws()
+    await manager.connect(su, client_ip="1.1.1.1")
+    await manager.authorize(su, "dashboard", SUPERADMIN_SCOPE)
+
+    await manager.broadcast(_common_cause_event())
+
+    su.send_text.assert_awaited_once()
+    received = json.loads(su.send_text.await_args.args[0])
+    assert received["correlated_monitor_ids"] == ["ma2", "mb1", "mb2"]
+
+
+@pytest.mark.asyncio
+async def test_broadcast_public_socket_correlated_ids_scoped_to_slug_group() -> None:
+    """An anonymous status-page socket only sees correlated ids of its group."""
+    manager = ConnectionManager()
+    pub = _fake_ws()
+    await manager.connect(pub, client_ip="1.1.1.1")
+    # Slug group contains the primary monitor and ma2 — not B's monitors.
+    await manager.authorize(pub, "public", {"ma1", "ma2"})
+
+    await manager.broadcast(_common_cause_event())
+
+    pub.send_text.assert_awaited_once()
+    raw = pub.send_text.await_args.args[0]
+    assert json.loads(raw)["correlated_monitor_ids"] == ["ma2"]
+    assert "mb1" not in raw
+    assert "mb2" not in raw
+
+
+@pytest.mark.asyncio
+async def test_broadcast_correlated_ids_all_foreign_still_delivers() -> None:
+    """The event itself stays deliverable when the whole list is out of scope.
+
+    The recipient legitimately sees the incident on its own monitor; only the
+    foreign correlation detail is stripped (empty list, not a dropped event).
+    """
+    manager = ConnectionManager()
+    a = _fake_ws()
+    await manager.connect(a, client_ip="1.1.1.1")
+    await manager.authorize(a, "dashboard", {"ma1"})
+
+    event = _common_cause_event()
+    event["correlated_monitor_ids"] = ["mb1", "mb2"]
+    await manager.broadcast(event)
+
+    a.send_text.assert_awaited_once()
+    received = json.loads(a.send_text.await_args.args[0])
+    assert received["correlated_monitor_ids"] == []
+    assert received["type"] == "common_cause_detected"
+
+
+@pytest.mark.asyncio
+async def test_broadcast_correlated_ids_mixed_recipients() -> None:
+    """One broadcast, three sockets: each recipient gets its own filtered view."""
+    manager = ConnectionManager()
+    a = _fake_ws()
+    b = _fake_ws()
+    su = _fake_ws()
+    await manager.connect(a, client_ip="1.1.1.1")
+    await manager.connect(b, client_ip="2.2.2.2")
+    await manager.connect(su, client_ip="3.3.3.3")
+    await manager.authorize(a, "dashboard", {"ma1", "ma2"})
+    await manager.authorize(b, "dashboard", {"mb1", "mb2"})
+    await manager.authorize(su, "dashboard", SUPERADMIN_SCOPE)
+
+    await manager.broadcast(_common_cause_event())
+
+    # B is not authorized for the primary monitor → no delivery at all.
+    b.send_text.assert_not_called()
+    assert json.loads(a.send_text.await_args.args[0])["correlated_monitor_ids"] == ["ma2"]
+    assert json.loads(su.send_text.await_args.args[0])["correlated_monitor_ids"] == [
+        "ma2",
+        "mb1",
+        "mb2",
+    ]
+
+
 # ── Tenant scoping — scope computation from the DB authorization model ─────────
 
 

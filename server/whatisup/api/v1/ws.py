@@ -14,6 +14,11 @@ Every connection carries a **scope** decided at authentication time:
 ``broadcast`` filters every event by its ``monitor_id`` against the connection
 scope. The check is an in-memory set lookup — no DB hit on the hot path.
 
+Per-recipient payload rewrite (finding SA5): events that embed a list of other
+monitors (``common_cause_detected`` → ``correlated_monitor_ids``) are rewritten
+per recipient so the list only contains monitors within the connection's scope
+(dashboard *and* public sockets alike). Superadmins receive the full list.
+
 Scope freshness: the scope is a snapshot taken at connect and refreshed on a
 wall-clock cadence of ``SCOPE_REFRESH_SECONDS``. The keep-alive loop waits for
 an incoming frame but no longer than that window (``asyncio.wait_for``); on
@@ -156,14 +161,34 @@ class ConnectionManager:
     async def broadcast(self, event: dict) -> None:
         message = json.dumps(event)
         monitor_id = event.get("monitor_id")
+        # Per-recipient payload rewrite (finding SA5): ``common_cause_detected``
+        # carries ``correlated_monitor_ids`` that may reference monitors of
+        # OTHER tenants (correlation runs globally on shared probes). The scope
+        # gate above only checks the event's primary ``monitor_id``, so without
+        # a rewrite a recipient authorized for the primary monitor would still
+        # see foreign monitor ids inside the list. Each scoped recipient gets
+        # the list intersected with its own scope; superadmins keep the full
+        # payload. Serialized variants are memoized per filtered list so the
+        # hot path stays a set lookup + at most one json.dumps per distinct
+        # scope shape.
+        correlated = event.get("correlated_monitor_ids")
+        scoped_cache: dict[tuple[str, ...], str] = {}
         dead: list[WebSocket] = []
         async with self._lock:
             targets = list(self._connections.items())
         for ws, conn in targets:
             if not self._should_deliver(conn, monitor_id):
                 continue
+            payload = message
+            if isinstance(correlated, list) and conn["scope"] is not SUPERADMIN_SCOPE:
+                allowed = [mid for mid in correlated if mid in conn["scope"]]
+                if allowed != correlated:
+                    key = tuple(allowed)
+                    if key not in scoped_cache:
+                        scoped_cache[key] = json.dumps({**event, "correlated_monitor_ids": allowed})
+                    payload = scoped_cache[key]
             try:
-                await ws.send_text(message)
+                await ws.send_text(payload)
             except Exception as exc:
                 logger.debug("ws_send_failed", error=str(exc))
                 dead.append(ws)

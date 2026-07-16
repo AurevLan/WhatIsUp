@@ -13,8 +13,9 @@ authors = [{ name = "WhatIsUp Contributors" }]
 
 dependencies = [
     # Web framework
-    # 0.137-0.138 cassaient le routing (_IncludedRouter dans app.routes,
-    # AttributeError côté Starlette), corrigé en 0.139 ; borne haute prudente <0.140.
+    # Le bug _IncludedRouter (routing cassé en 0.137-0.138, AttributeError côté
+    # Starlette) est corrigé depuis 0.139 : plus aucun blocage connu. Le cap <0.140
+    # n'est donc qu'une borne haute prudente, à réévaluer/relever librement.
     "fastapi>=0.125.0,<0.140",
     "starlette>=0.49.1",
     "uvicorn[standard]>=0.32.0,<0.52",
@@ -25,9 +26,13 @@ dependencies = [
     "alembic>=1.18.4,<1.19",
 
     # Cache / pub-sub
-    # <8 : redis-py 8.0.0 force socket_timeout=5s sur les connexions pubsub
-    # (le subscriber WS idle crashe toutes les 5s) et plafonne le pool à 100.
-    "redis[hiredis]>=5.2.0,<9",
+    # !=8.0.0 : cette unique version force socket_timeout=5s sur le read bloquant
+    # du pubsub → le subscriber WS idle (api/v1/ws.py:_redis_subscriber) crashe
+    # toutes les 5s (TimeoutError, reproduit empiriquement contre un vrai redis).
+    # Corrigé dès 8.0.1 : le read bloquant passe timeout=math.inf et n'hérite plus
+    # de socket_timeout (celui-ci ne régit plus que reconnect/AUTH/resubscribe).
+    # 8.0.1+ est donc sûr ; on garde <9 mais on exclut la 8.0.0 connue cassante.
+    "redis[hiredis]>=5.2.0,!=8.0.0,<9",
 
     # Configuration
     "pydantic>=2.12.5,<3",
@@ -68,7 +73,6 @@ dev = [
     "pytest>=8.3.0,<10",
     "pytest-asyncio>=0.25.0,<1.5",
     "pytest-cov>=6.0.0,<8",
-    "httpx>=0.28.0,<0.29",
     "aiosqlite>=0.20.0,<0.23",
     "ruff>=0.15.10,<0.16",
     "mypy>=1.20.1,<3",

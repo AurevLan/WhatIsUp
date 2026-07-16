@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from whatisup.api.deps import get_current_user
+from whatisup.api.deps import get_current_user, invalidate_user_api_key_cache
 from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
 from whatisup.core.security import generate_user_api_key, hash_api_key
@@ -114,11 +114,33 @@ async def revoke_api_key(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    """Revoke (soft-delete) an API key.  Cached entries expire within 5 minutes."""
+    """Revoke (soft-delete) an API key — invalidated immediately.
+
+    The auth cache is evicted right after the revoke commits, so the key stops
+    authenticating on the fast path without waiting for the cache TTL (≤60 s).
+    """
     row = await _get_key_or_404(key_id, current_user, db)
     row.is_revoked = True
 
     from whatisup.services.audit import log_action
 
     await log_action(db, "api_key.revoke", "api_key", row.id, row.name, current_user)
+
+    # Commit the revocation BEFORE evicting the cache (mirrors probe rotate-key,
+    # cf. SA6). Evicting first would open a race: a concurrent request presenting
+    # the key cache-misses between eviction and the (deferred) commit, runs the
+    # bcrypt slow path on a session that still sees the key as active, and
+    # re-populates the cache for another TTL window. Committing first means any
+    # slow-path scan can only ever see the revoked flag; the guarded cache write
+    # in deps._auth_via_user_api_key closes the residual in-flight-bcrypt variant.
+    await db.commit()
+
+    # Best-effort eviction: the revocation is already durably committed, so if
+    # Redis is momentarily unavailable the stale forward entry simply expires on
+    # its own within the cache TTL. Never fail the revocation over a cache op.
+    try:
+        await invalidate_user_api_key_cache(key_id)
+    except Exception as exc:
+        logger.warning("user_api_key_cache_evict_failed", key_id=str(key_id), error=str(exc))
+
     logger.info("api_key_revoked", user_id=str(current_user.id), key_id=str(key_id))

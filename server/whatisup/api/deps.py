@@ -1,6 +1,7 @@
 """FastAPI dependencies: current user, superadmin check, probe auth."""
 
 import hashlib
+import hmac
 import uuid
 from datetime import UTC, datetime
 
@@ -27,23 +28,41 @@ bearer_scheme = HTTPBearer(auto_error=False)
 _USER_KEY_PREFIX = "wiu_u_"
 
 
-def _probe_hash_fingerprint(api_key_hash: str) -> str:
-    """Short fingerprint of the stored bcrypt hash, embedded in cache values (SA6).
+def _hash_fingerprint(api_key_hash: str) -> str:
+    """Short fingerprint of a stored bcrypt hash, embedded in cache values (SA6).
 
-    Binds a probe-auth cache entry to the exact credential generation it was
-    verified against. After a key rotation the DB hash changes, so the
-    fingerprint of any stale entry (e.g. one re-written by a bcrypt slow path
-    that was in flight while the rotation committed) no longer matches the
-    live hash: the fast path rejects and evicts it instead of letting the old
-    key re-authenticate for another cache TTL.
+    Binds an auth cache entry to the exact credential generation it was verified
+    against. After a probe key rotation the DB hash changes, so the fingerprint of
+    any stale entry (e.g. one re-written by a bcrypt slow path that was in flight
+    while the rotation committed) no longer matches the live hash: the fast path
+    rejects and evicts it instead of letting the old key re-authenticate for
+    another cache TTL. Used for both probe and user API-key caches.
     """
     # SHA-256 used as a comparison tag only (not for password hashing — the
     # underlying credential is already bcrypt-hashed).
     return hashlib.sha256(api_key_hash.encode(), usedforsecurity=False).hexdigest()[:16]
 
 
+# Back-compat alias — probe-auth cache tests reference this name.
+_probe_hash_fingerprint = _hash_fingerprint
+
+
 async def _auth_via_user_api_key(raw_key: str, db: AsyncSession) -> User:
-    """Authenticate using a user API key (fast Redis cache + slow bcrypt fallback)."""
+    """Authenticate using a user API key (fast Redis cache + slow bcrypt fallback).
+
+    Fast path: ``SHA-256(key)`` → ``user_id|key_id|hash_fingerprint`` cached in
+    Redis (TTL 60s). The fingerprint is re-checked against the live key row the
+    fast path loads anyway (constant-time ``hmac.compare_digest``), and the row's
+    ``is_revoked`` / ``expires_at`` are re-validated — so a revoked or expired key
+    stops authenticating on sight, without waiting for the cache TTL.
+
+    Revocation hardening (S4, mirrors probe SA6): the cache value carries a
+    fingerprint of the bcrypt hash the key was verified against, a reverse index
+    (``user_api_rev:{key_id} → digest``) lets ``revoke`` evict the forward entry
+    precisely, and the slow path only writes the cache if the key is still live —
+    so a bcrypt verification in flight while ``revoke`` commits cannot re-cache a
+    credential that was just invalidated.
+    """
     from whatisup.core.redis import get_redis
 
     redis = get_redis()
@@ -54,19 +73,55 @@ async def _auth_via_user_api_key(raw_key: str, db: AsyncSession) -> User:
     ).hexdigest()[:32]
     cache_key = f"whatisup:user_api:{digest}"
 
-    cached_id = await redis.get(cache_key)
-    if cached_id:
-        user = (
-            await db.execute(select(User).where(User.id == uuid.UUID(cached_id), User.is_active))
-        ).scalar_one_or_none()
-        if user is not None:
-            observe_auth_cache("user_api_key", hit=True)
-            return user
+    now = datetime.now(UTC)
+    cached = await redis.get(cache_key)
+    if cached:
+        if isinstance(cached, bytes):  # decode_responses=False clients (e.g. fakeredis)
+            cached = cached.decode()
+        parts = cached.split("|")
+        user_pk: uuid.UUID | None = None
+        key_pk: uuid.UUID | None = None
+        cached_fp = ""
+        if len(parts) == 3:
+            try:
+                user_pk = uuid.UUID(parts[0])
+                key_pk = uuid.UUID(parts[1])
+                cached_fp = parts[2]
+            except ValueError:
+                user_pk = key_pk = None  # corrupted value → treat as stale
+        key_row = (
+            (
+                await db.execute(
+                    select(UserApiKey).where(
+                        UserApiKey.id == key_pk, UserApiKey.is_revoked.is_(False)
+                    )
+                )
+            ).scalar_one_or_none()
+            if key_pk is not None
+            else None
+        )
+        fresh = (
+            key_row is not None
+            and key_row.user_id == user_pk
+            and not (key_row.expires_at and key_row.expires_at < now)
+            and hmac.compare_digest(cached_fp, _hash_fingerprint(key_row.key_hash))
+        )
+        if fresh:
+            user = (
+                await db.execute(select(User).where(User.id == key_row.user_id, User.is_active))
+            ).scalar_one_or_none()
+            if user is not None:
+                observe_auth_cache("user_api_key", hit=True)
+                return user
+        # Cache stale — key revoked/expired/deleted, user deactivated, fingerprint
+        # mismatch, or pre-S4 value format. Evict the forward entry (and the reverse
+        # index if we could parse the key id) and fall through to the slow path.
         await redis.delete(cache_key)
+        if key_pk is not None:
+            await redis.delete(f"whatisup:user_api_rev:{key_pk}")
     observe_auth_cache("user_api_key", hit=False)
 
     # Slow path — find the matching key row
-    now = datetime.now(UTC)
     api_key_row = None
     rows = (
         (
@@ -94,6 +149,11 @@ async def _auth_via_user_api_key(raw_key: str, db: AsyncSession) -> User:
             detail="Invalid or expired API key",
         )
 
+    # Snapshot the hash we verified against — it is what the cache entry must be
+    # fingerprinted with, even if the row is invalidated concurrently.
+    verified_hash = api_key_row.key_hash
+    key_id = api_key_row.id
+
     user = (
         await db.execute(select(User).where(User.id == api_key_row.user_id, User.is_active))
     ).scalar_one_or_none()
@@ -103,10 +163,37 @@ async def _auth_via_user_api_key(raw_key: str, db: AsyncSession) -> User:
             detail="User not found or inactive",
         )
 
-    # Update last_used_at and populate cache
     api_key_row.last_used_at = now
-    await redis.setex(cache_key, 60, str(user.id))
     logger.info("user_api_key_auth_ok", user_id=str(user.id), key_name=api_key_row.name)
+
+    # Guarded write (S4): this slow path may have verified the key against a row
+    # snapshot read BEFORE a concurrent revoke committed. Writing the cache
+    # unconditionally would re-authenticate the revoked key for another TTL after
+    # revoke already evicted it. Re-read the live row and only cache if the
+    # credential we verified is still valid; the fingerprint stored in the value
+    # lets the fast path re-check this on every hit for free.
+    fingerprint = _hash_fingerprint(verified_hash)
+    live = (
+        await db.execute(
+            select(
+                UserApiKey.key_hash,
+                UserApiKey.is_revoked,
+                UserApiKey.expires_at,
+            ).where(UserApiKey.id == key_id)
+        )
+    ).one_or_none()
+    now_write = datetime.now(UTC)
+    stale = (
+        live is None
+        or live.is_revoked
+        or (live.expires_at and live.expires_at < now_write)
+        or not hmac.compare_digest(_hash_fingerprint(live.key_hash), fingerprint)
+    )
+    if stale:
+        logger.info("user_api_key_cache_write_skipped_stale", key_id=str(key_id))
+        return user
+    await redis.setex(cache_key, 60, f"{user.id}|{key_id}|{fingerprint}")
+    await redis.setex(f"whatisup:user_api_rev:{key_id}", 60, digest)
     return user
 
 
@@ -326,6 +413,27 @@ async def invalidate_probe_auth_cache(probe_id: uuid.UUID) -> None:
         if isinstance(digest, bytes):  # decode_responses=False clients (e.g. fakeredis)
             digest = digest.decode()
         await redis.delete(f"whatisup:probe_auth:{digest}")
+    await redis.delete(rev_key)
+
+
+async def invalidate_user_api_key_cache(key_id: uuid.UUID) -> None:
+    """Immediately evict the Redis user-API-key auth cache entry for a key.
+
+    The forward cache maps ``SHA-256(raw_key)[:32] → user_id|key_id|fingerprint``
+    and the raw key is not available at revocation time. We therefore keep a
+    reverse index (``key_id → digest``) written whenever a key is cached, and use
+    it here to delete the forward entry. Without this a revoked key would keep
+    authenticating on the fast path until the cache TTL (≤60 s) expires.
+    """
+    from whatisup.core.redis import get_redis
+
+    redis = get_redis()
+    rev_key = f"whatisup:user_api_rev:{key_id}"
+    digest = await redis.get(rev_key)
+    if digest:
+        if isinstance(digest, bytes):  # decode_responses=False clients (e.g. fakeredis)
+            digest = digest.decode()
+        await redis.delete(f"whatisup:user_api:{digest}")
     await redis.delete(rev_key)
 
 

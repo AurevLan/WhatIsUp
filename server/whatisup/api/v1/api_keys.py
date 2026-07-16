@@ -109,7 +109,9 @@ async def create_api_key(
 
 
 @router.delete("/{key_id}", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("30/minute")
 async def revoke_api_key(
+    request: Request,
     key_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

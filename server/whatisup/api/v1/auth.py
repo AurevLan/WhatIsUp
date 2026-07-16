@@ -236,7 +236,8 @@ async def refresh(
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
-async def logout(payload: TokenRefreshRequest) -> None:
+@limiter.limit("30/minute")
+async def logout(request: Request, payload: TokenRefreshRequest) -> None:
     try:
         data = decode_token(payload.refresh_token, "refresh")
         user_id = data["sub"]

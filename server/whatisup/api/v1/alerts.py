@@ -293,7 +293,9 @@ async def list_rules(
 
 
 @router.post("/rules", response_model=AlertRuleOut, status_code=status.HTTP_201_CREATED)
+@limiter.limit("30/minute")
 async def create_rule(
+    request: Request,
     payload: AlertRuleCreate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

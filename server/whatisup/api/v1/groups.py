@@ -58,7 +58,9 @@ async def list_groups(
 
 
 @router.post("/", response_model=MonitorGroupOut, status_code=status.HTTP_201_CREATED)
+@limiter.limit("20/minute")
 async def create_group(
+    request: Request,
     payload: MonitorGroupCreate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

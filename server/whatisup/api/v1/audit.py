@@ -2,12 +2,13 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.api.deps import require_superadmin
 from whatisup.core.database import get_db
+from whatisup.core.limiter import limiter
 from whatisup.models.audit_log import AuditLog
 from whatisup.models.user import User
 from whatisup.schemas.audit_log import AuditLogOut
@@ -16,7 +17,9 @@ router = APIRouter(prefix="/audit", tags=["audit"])
 
 
 @router.get("/", response_model=list[AuditLogOut])
+@limiter.limit("30/minute")
 async def list_audit_logs(
+    request: Request,
     object_type: str | None = None,
     object_id: uuid.UUID | None = None,
     user_id: uuid.UUID | None = None,

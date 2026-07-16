@@ -1435,7 +1435,9 @@ async def add_dependency(
     "/{monitor_id}/dependencies/{dependency_id}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
+@limiter.limit("30/minute")
 async def remove_dependency(
+    request: Request,
     monitor_id: uuid.UUID,
     dependency_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
@@ -1773,7 +1775,9 @@ async def update_composite_member(
     "/{monitor_id}/composite-members/{member_id}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
+@limiter.limit("30/minute")
 async def remove_composite_member(
+    request: Request,
     monitor_id: uuid.UUID,
     member_id: uuid.UUID,
     current_user: User = Depends(get_current_user),

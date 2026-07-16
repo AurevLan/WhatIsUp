@@ -17,6 +17,12 @@ _PING_OK_OUTPUT = (
 )
 
 
+@pytest.fixture(autouse=True)
+def _allow_hosts(monkeypatch):
+    """Bypass SSRF host validation (fake hostnames won't resolve in tests)."""
+    monkeypatch.setattr("whatisup_probe.checkers.ping.validate_host_ssrf", lambda host: None)
+
+
 def _config(**overrides: Any) -> dict[str, Any]:
     config: dict[str, Any] = {"url": "https://example.com", "timeout_seconds": 5}
     config.update(overrides)
@@ -105,6 +111,76 @@ async def test_ping_rejects_unsafe_host(monkeypatch) -> None:
     assert result.status == "error"
     assert result.error_message == "Invalid host for ping check"
     exec_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_ping_ssrf_blocked(monkeypatch) -> None:
+    """An SSRF-blocked host short-circuits the check before any subprocess spawn."""
+    monkeypatch.setattr(
+        "whatisup_probe.checkers.ping.validate_host_ssrf",
+        lambda host: f"Blocked host: {host!r}",
+    )
+    exec_mock = AsyncMock()
+    monkeypatch.setattr("whatisup_probe.checkers.ping.asyncio.create_subprocess_exec", exec_mock)
+
+    result = await PingChecker().check("ping-ssrf", _config(url="http://localhost"))
+
+    assert result.status == "error"
+    assert "SSRF blocked" in (result.error_message or "")
+    exec_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_ping_blocks_loopback_ip(monkeypatch) -> None:
+    """Real (unmocked) SSRF validation rejects a loopback IP before pinging it."""
+    from whatisup_probe.checkers._shared import validate_host_ssrf as real_validate_host_ssrf
+
+    monkeypatch.setattr("whatisup_probe.checkers.ping.validate_host_ssrf", real_validate_host_ssrf)
+    exec_mock = AsyncMock()
+    monkeypatch.setattr("whatisup_probe.checkers.ping.asyncio.create_subprocess_exec", exec_mock)
+
+    result = await PingChecker().check("ping-loopback", _config(url="http://127.0.0.1"))
+
+    assert result.status == "error"
+    assert "SSRF blocked" in (result.error_message or "")
+    exec_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_ping_blocks_metadata_ip(monkeypatch) -> None:
+    """Real (unmocked) SSRF validation rejects the cloud metadata IP before pinging it."""
+    from whatisup_probe.checkers._shared import validate_host_ssrf as real_validate_host_ssrf
+
+    monkeypatch.setattr("whatisup_probe.checkers.ping.validate_host_ssrf", real_validate_host_ssrf)
+    exec_mock = AsyncMock()
+    monkeypatch.setattr("whatisup_probe.checkers.ping.asyncio.create_subprocess_exec", exec_mock)
+
+    result = await PingChecker().check("ping-metadata", _config(url="http://169.254.169.254"))
+
+    assert result.status == "error"
+    assert "SSRF blocked" in (result.error_message or "")
+    exec_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_ping_allows_public_host(monkeypatch) -> None:
+    """Real (unmocked) SSRF validation allows a host resolving to a public IP."""
+    import socket
+
+    from whatisup_probe.checkers._shared import validate_host_ssrf as real_validate_host_ssrf
+
+    monkeypatch.setattr(
+        "whatisup_probe.checkers._shared.socket.getaddrinfo",
+        lambda host, port, **kwargs: [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 0))
+        ],
+    )
+    monkeypatch.setattr("whatisup_probe.checkers.ping.validate_host_ssrf", real_validate_host_ssrf)
+    _patch_subprocess(monkeypatch, _fake_proc(returncode=0, stdout=_PING_OK_OUTPUT))
+
+    result = await PingChecker().check("ping-public", _config(url="https://example.com"))
+
+    assert result.status == "up"
 
 
 @pytest.mark.asyncio

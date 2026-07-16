@@ -527,8 +527,24 @@ Toute modification de cette table doit être reportée dans `FEATURES.md` §11.
 | `/incidents/{id}/snooze` | POST | **30/min** | UX bulk |
 | `/alerts/channels/{id}/test` | POST | **10/min** | Anti spam canal |
 | `/api/v1/extension/download` | GET | **10/min** | Anti scrape |
+| `/alerts/rules` | POST | **30/min** | Création de règle d'alerte — alignée sur PATCH/DELETE existantes |
+| `/teams` | GET / POST | **60 / 20/min** | Liste teams / création team |
+| `/teams/{id}` | GET / PATCH / DELETE | **60 / 30 / 30/min** | Lecture, renommage, suppression team |
+| `/teams/{id}/members` | GET / POST | **60 / 20/min** | Liste membres / ajout membre |
+| `/teams/{id}/members/{user_id}` | PATCH / DELETE | **30 / 30/min** | Changement de rôle / retrait membre |
+| `/onboarding/status` | GET | **60/min** | Poll d'état onboarding |
+| `/onboarding/complete` | POST | **30/min** | Bascule ponctuelle d'état |
+| `/audit` | GET | **30/min** | Liste audit log — superadmin only, requête lourde |
+| `/groups` | POST | **20/min** | Anti spam group (parité avec `/teams` POST) |
+| `/api-keys/{id}` | DELETE | **30/min** | Révocation clé API |
+| `/auth/logout` | POST | **30/min** | Aligné sur `/auth/refresh` (session mgmt) |
+| `/monitors/{id}/dependencies/{dep_id}` | DELETE | **30/min** | Aligné sur le POST de création (add_dependency) |
+| `/monitors/{id}/composite-members/{member_id}` | DELETE | **30/min** | Aligné sur le POST/PATCH de composite members |
+| `/public/pages/{slug}/unsubscribe` | GET | **10/min** | Action d'état (désabonnement) exposée sans auth via token |
 
 > **Tout nouvel endpoint public ou écrit DOIT avoir un rate-limit explicite.** Le défaut implicite n'existe pas.
+>
+> **Sweep S2 (2026-07-16)** : audit exhaustif de `api/v1/` — 130 fonctions endpoint avaient déjà un décorateur (vagues SA1-SA7), 19 en manquaient : 13 dans le périmètre initial de l'audit (`teams.py` : 9/9, le module n'importait même pas `limiter` ; `alerts.py` : `POST /rules` ; `onboarding.py` : les 2 endpoints ; `audit.py` : `GET /`) plus 6 trouvés hors périmètre pendant le balayage complet (`groups.py POST /`, `api_keys.py DELETE /{id}`, `auth.py POST /logout`, `monitors.py DELETE .../dependencies/{id}` et `.../composite-members/{id}`, `public.py GET .../unsubscribe`). Tous comblés ; `test_rate_limit_coverage.py` fait échouer la CI si un futur endpoint POST/PUT/PATCH/DELETE sous `/api/v1` est ajouté sans décorateur (hors `_EXEMPT_KEYS` documentée : `/auth/register` désactivé, `/probes/register` superadmin-only, tous deux déjà dans ce tableau).
 
 ---
 

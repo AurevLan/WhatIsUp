@@ -418,6 +418,18 @@
 | `/silences` | GET 60 / POST 20 / PATCH 30 / DELETE 30/min |
 | `/incidents/bulk-ack` | 20/min |
 | `/incidents/{id}/snooze` | 30/min |
+| `/alerts/rules` POST | 30/min |
+| `/teams` | GET 60 / POST 20/min |
+| `/teams/{id}` | GET 60 / PATCH 30 / DELETE 30/min |
+| `/teams/{id}/members` | GET 60 / POST 20/min |
+| `/teams/{id}/members/{user_id}` | PATCH 30 / DELETE 30/min |
+| `/onboarding/status` + `/onboarding/complete` | 60/min (GET) / 30/min (POST) |
+| `/audit` GET | 30/min (superadmin only) |
+| `/groups` POST | 20/min |
+| `/api-keys/{id}` DELETE | 30/min |
+| `/auth/logout` | 30/min |
+| `/monitors/{id}/dependencies/{dep_id}` + `/composite-members/{member_id}` DELETE | 30/min |
+| `/public/pages/{slug}/unsubscribe` | 10/min |
 
 ### CORS
 - ✅ Origines explicites (jamais `*` avec `credentials: true`)

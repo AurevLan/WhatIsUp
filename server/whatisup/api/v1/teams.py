@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +14,7 @@ from whatisup.api.deps import (
     get_current_user,
 )
 from whatisup.core.database import get_db
+from whatisup.core.limiter import limiter
 from whatisup.models.team import Team, TeamMembership, TeamRole
 from whatisup.models.user import User
 from whatisup.schemas.team import (
@@ -82,7 +83,9 @@ async def _get_membership_or_403(
 
 
 @router.get("/", response_model=list[TeamOut])
+@limiter.limit("60/minute")
 async def list_teams(
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -116,7 +119,9 @@ async def list_teams(
 
 
 @router.post("/", response_model=TeamOut, status_code=201)
+@limiter.limit("20/minute")
 async def create_team(
+    request: Request,
     payload: TeamCreate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -152,7 +157,9 @@ async def create_team(
 
 
 @router.get("/{team_id}", response_model=TeamOut)
+@limiter.limit("60/minute")
 async def get_team(
+    request: Request,
     team_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -176,7 +183,9 @@ async def get_team(
 
 
 @router.patch("/{team_id}", response_model=TeamOut)
+@limiter.limit("30/minute")
 async def update_team(
+    request: Request,
     team_id: uuid.UUID,
     payload: TeamUpdate,
     current_user: User = Depends(get_current_user),
@@ -206,7 +215,9 @@ async def update_team(
 
 
 @router.delete("/{team_id}", status_code=204)
+@limiter.limit("30/minute")
 async def delete_team(
+    request: Request,
     team_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -220,7 +231,9 @@ async def delete_team(
 
 
 @router.get("/{team_id}/members", response_model=list[TeamMemberOut])
+@limiter.limit("60/minute")
 async def list_members(
+    request: Request,
     team_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -250,7 +263,9 @@ async def list_members(
 
 
 @router.post("/{team_id}/members", response_model=TeamMemberOut, status_code=201)
+@limiter.limit("20/minute")
 async def add_member(
+    request: Request,
     team_id: uuid.UUID,
     payload: TeamMemberAdd,
     current_user: User = Depends(get_current_user),
@@ -306,7 +321,9 @@ async def add_member(
 
 
 @router.patch("/{team_id}/members/{user_id}", response_model=TeamMemberOut)
+@limiter.limit("30/minute")
 async def update_member_role(
+    request: Request,
     team_id: uuid.UUID,
     user_id: uuid.UUID,
     payload: TeamMemberUpdate,
@@ -350,7 +367,9 @@ async def update_member_role(
 
 
 @router.delete("/{team_id}/members/{user_id}", status_code=204)
+@limiter.limit("30/minute")
 async def remove_member(
+    request: Request,
     team_id: uuid.UUID,
     user_id: uuid.UUID,
     current_user: User = Depends(get_current_user),

@@ -395,7 +395,9 @@ async def subscribe_status(
 
 
 @router.get("/pages/{slug}/unsubscribe")
+@limiter.limit("10/minute")
 async def unsubscribe_status(
+    request: Request,
     slug: str,
     token: str,
     db: AsyncSession = Depends(get_db),

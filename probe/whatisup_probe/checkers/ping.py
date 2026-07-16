@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import urlparse
 
+from ._shared import validate_host_ssrf
 from .base import BaseChecker, CheckResult
 
 _SAFE_HOST_RE = re.compile(r"^[A-Za-z0-9.\-]{1,253}$")
@@ -31,6 +32,16 @@ class PingChecker(BaseChecker):
                 checked_at=checked_at,
                 status="error",
                 error_message="Invalid host for ping check",
+            )
+
+        # SSRF protection — block hostnames/IPs resolving to internal/private space
+        ssrf_err = validate_host_ssrf(host)
+        if ssrf_err:
+            return CheckResult(
+                monitor_id=monitor_id,
+                checked_at=checked_at,
+                status="error",
+                error_message=f"SSRF blocked: {ssrf_err}",
             )
 
         t0 = time.perf_counter()

@@ -1,8 +1,8 @@
 # WhatIsUp — Inventaire des Fonctionnalités
 
 > **Source de vérité** des features livrées. À amender à chaque release.
-> Référence : **v1.15.0** (2026-07-03) — durcissement sécurité post-audit 2026-07 (WebSocket scopé par tenant, confiance probe scope-bindée + rotation de clé, couverture audit log des mutations de config), leader election Redis, logs JSON structurés + X-Request-ID, perf (auth probe par préfixe indexé, `GET /monitors/` 7869 → 0,6 ms) et quick wins UX (toast erreurs global, tri persistant, undo bulk delete) & mobile (back Android, WS en arrière-plan, POST_NOTIFICATIONS). Socle : design system consolidé + responsive (v1.14), VELOURS + a11y gates CI (v1.13), 2FA TOTP + sessions actives (v1.12), Health Engine V2 (M0-M5, en prod sur 17/17 monitors depuis 2026-05-06).
-> Dernière release : **v1.15.0** (2026-07-03). Précédente : **v1.14.3** (2026-06-16) — release docs-only, 2e passage confirmé du **chaînage CI 100 % automatique** (release-please → Docker GHCR + APK signé).
+> Référence : **v1.16.0** (2026-07-20) — 2e vague sécurité post-audit (SA1-SA7 + S1/S2/S4) : SSRF anti-DNS-rebinding (IP résolue épinglée sur le transport httpx), lockout compte par utilisateur + anti-énumération timing, rotation `FERNET_KEY` (MultiFernet + outil `rotate_fernet`), scoping cross-tenant des payloads WS (`correlated_monitor_ids`) et `incident-groups`, durcissement cache auth probe **et** API-key utilisateur (fingerprint + révocation immédiate), SSRF sur le checker `ping`, comblement rate-limit sur 19 endpoints (teams, alerts rules, onboarding, audit + sweep). Précédent : **v1.15.0** (2026-07-03) — durcissement sécurité post-audit 2026-07 (WebSocket scopé par tenant, confiance probe scope-bindée + rotation de clé, couverture audit log des mutations de config), leader election Redis, logs JSON structurés + X-Request-ID, perf (auth probe par préfixe indexé, `GET /monitors/` 7869 → 0,6 ms) et quick wins UX (toast erreurs global, tri persistant, undo bulk delete) & mobile (back Android, WS en arrière-plan, POST_NOTIFICATIONS). Socle : design system consolidé + responsive (v1.14), VELOURS + a11y gates CI (v1.13), 2FA TOTP + sessions actives (v1.12), Health Engine V2 (M0-M5, en prod sur 17/17 monitors depuis 2026-05-06).
+> Dernière release : **v1.16.0** (2026-07-20). Précédente : **v1.15.2** (2026-07-08) — perf (factor LATERAL latest-row).
 > Pour la chronologie détaillée, voir `CHANGELOG.md`.
 
 **Légende** : ✅ livré · 🔬 livré + tests automatisés · 🚧 partiel (voir notes).
@@ -39,6 +39,7 @@
 - ✅ Refresh token Redis avec hash SHA-256 + TTL + rotation à chaque `/auth/refresh`
 - ✅ `/auth/logout` révoque le refresh côté Redis
 - ✅ Bearer header obligatoire — pas de token en query/URL
+- 🔬 **Lockout compte par utilisateur + anti-énumération** (v1.16, audit SA2) — compteur d'échecs Redis (`INCR`/`EXPIRE NX` en pipeline atomique, auto-cicatrisation d'un TTL perdu) : verrouillage temporaire après N tentatives ; la branche compte inconnu/inactif de `/auth/login` brûle un bcrypt factice pour égaliser le timing avec un mot de passe faux sur un compte réel (plus d'oracle de timing pour deviner les emails enregistrés) ; fail-open si Redis down ; runbook de déverrouillage manuel (`SECURITY.md §9`)
 - 🔬 **Sessions actives** (v1.12) — les refresh tokens portent des métadonnées (`created_at` / `ua` / `ip`) et constituent la liste de sessions ; `POST /auth/sessions/list`, `DELETE /auth/sessions/{id}`, `POST /auth/sessions/revoke-all` + UI Settings (badge « cet appareil », révocation par ligne, « déconnecter les autres »). La rotation hérite des métadonnées de la session d'origine ; claim `jti` sur les refresh tokens (deux logins dans la même seconde = deux sessions distinctes) (`api/v1/sessions.py`)
 
 ### 2FA TOTP (v1.12)
@@ -79,6 +80,7 @@
 
 ### API keys
 - ✅ Personal API keys utilisateur (`wiu_u_<32 chars>`, bcrypt, expiry, revoke, last_used_at, prefix)
+- 🔬 **Cache d'auth API-key durci** (v1.16, audit S4, portage du pattern SA6 probe) — valeur cache empreinte `user_id|key_id|SHA-256[:16]` du hash bcrypt vérifié ; le fast-path recharge la clé live (`is_revoked`/`expires_at`) et compare l'empreinte en temps constant (`hmac.compare_digest`), évince sur mismatch → **révocation immédiate**, plus d'attente du TTL (60 s) ; slow-path relit la clé juste avant l'écriture cache et l'ignore si elle n'est plus valide (ferme la race bcrypt-en-vol pendant une révocation)
 - 🔬 Probe API keys — format `wiu_<prefix>.<secret>` (v1.15) : préfixe non-secret 64 bits indexé en DB + bcrypt sur la clé entière → **1 seule vérification bcrypt** au lieu du scan O(n) de la flotte ; fallback legacy `wiu_<secret>` avec auto-cicatrisation vers le nouveau format ; cache Redis SHA-256[:32]
 - 🔬 Rotation `POST /probes/{id}/rotate-key` (v1.15, superadmin, 10/min, audit-loggé) — éviction immédiate du cache Redis via index inverse (l'ancienne clé cesse de fonctionner sans attendre le TTL)
 
@@ -120,6 +122,7 @@
 - 🔬 **Rotation de clé** `POST /probes/{id}/rotate-key` (v1.15, superadmin) — nouvelle clé `wiu_<prefix>.<secret>`, éviction cache Redis immédiate (index inverse), audit-loggé
 - 🔬 **Auth par préfixe indexé** (v1.15) — le préfixe non-secret de la clé sélectionne la probe en DB → 1 bcrypt au lieu du scan O(n) de toutes les clés de la flotte ; fallback legacy + auto-cicatrisation
 - 🔬 **Confiance probe scope-bindée** (v1.15, audit H1/H2) — `POST /probes/results` rejette tout résultat pour un monitor hors du scope de la probe (`network_scope`, assignation) : une probe compromise ne peut plus forger des résultats arbitraires (`probe_result_scope_rejected` loggé)
+- 🔬 **Cache d'auth probe fingerprinté** (v1.16, audit SA6) — ferme la race « rotate-key + bcrypt en vol » : la valeur cache embarque une empreinte SHA-256[:16] du hash bcrypt vérifié, re-vérifiée sans I/O supplémentaire au fast-path (évince sur mismatch) ; le slow-path relit le hash live juste avant l'écriture et l'ignore s'il n'est plus courant (`probe_auth_cache_write_skipped_stale_hash`) — une clé tournée ne peut plus se ré-authentifier via une entrée cache périmée pendant jusqu'à 60 s
 - ✅ `network_type ∈ {internal, external}` — séparation panne réseau corp vs internet
 - ✅ Probe groups admin → user (RBAC accès aux sondes)
 - ✅ Carte Leaflet temps réel (`ProbeMap.vue`) avec status 24 h
@@ -152,6 +155,7 @@
 - ✅ Dépendances parent → child + `suppress_on_parent_down` + cycle detection 5 hops
 - ✅ Graphe SVG force-directed interactif (`DependencyGraph.vue`)
 - ✅ Patterns de corrélation persistés (`correlation_pattern.py`)
+- 🔬 **`incident-groups` scopé par tenant** (v1.16, audit SA7) — la corrélation tourne globalement sur des sondes partagées ; l'accès utilise désormais `build_access_filter` (owner OU team, cohérent avec monitors/groups/alerts/WS) et le payload est réécrit par requêteur : `incident_ids`/`incident_refs` filtrés aux monitors accessibles, `root_cause_monitor_id`/`name` nullifiés si hors tenant (clés conservées, valeurs filtrées → contrat frontend inchangé) ; superadmin voit tout
 
 ### Post-mortem
 - ✅ Génération markdown automatique à la résolution (`GET /monitors/{id}/incidents/{inc}/postmortem`)
@@ -370,6 +374,8 @@
 - ✅ Per-IP connection limit avant auth WS
 - ✅ Public slug WS validé pré-accept
 - 🔬 **Fan-out WebSocket scopé par tenant** (v1.15, audit M1) — le WS dashboard ne pousse que les évènements des monitors accessibles à l'utilisateur (`build_access_filter`), le WS public que ceux du groupe du slug ; scope rafraîchi périodiquement, **close 4001 si l'utilisateur est révoqué** en cours de session
+- 🔬 **`correlated_monitor_ids` filtré par destinataire** (v1.16, audit SA5) — le scoping WS ne gatait que sur le `monitor_id` primaire de l'évènement `common_cause_detected` ; sa liste `correlated_monitor_ids` (corrélation globale sur sondes partagées) pouvait référencer des monitors d'autres tenants. `ConnectionManager.broadcast` réécrit désormais le payload par destinataire (intersection avec le scope de la connexion, dashboard **et** WS public), superadmin conservant la liste complète ; variantes sérialisées mémoïsées par forme filtrée distincte pour rester sur le hot path
+- 🔬 **Lockout compte + anti-énumération** (v1.16, audit SA2) — détail §1
 
 ### Autorisation
 - ✅ Ownership enforcement par JOIN sur tous endpoints mutants
@@ -386,8 +392,10 @@
 
 ### Anti-SSRF
 - ✅ `_validate_webhook_url()` rejette RFC 1918 / loopback / link-local
-- ✅ Appliqué à : webhooks, OIDC discovery, scenario navigation, checkers HTTP/TCP/UDP/SMTP/DNS
+- ✅ Appliqué à : webhooks, OIDC discovery, scenario navigation, checkers HTTP/TCP/UDP/SMTP/DNS/**ping**
 - ✅ Redirects re-validés à chaque hop
+- 🔬 **IP résolue épinglée — anti DNS rebinding** (v1.16, audit SA1) — la validation DNS avait lieu au moment du check mais httpx re-résolvait l'hostname à la requête réelle, laissant une fenêtre de rebinding (DNS qui bascule vers une IP privée entre validation et connexion). `_PinnedHostTransport` (transport httpx custom) résout une seule fois, rejette privé/loopback/link-local/multicast, réécrit l'URL vers l'IP validée tout en conservant le hostname d'origine en `Host` header et SNI (extension `sni_hostname`) — la vérification du certificat cible toujours le vrai hostname. Câblé sur `ssrf_safe_client()` : slack/discord/mattermost/teams/signal/webhook + digest (`services/alert.py`)
+- 🔬 **SSRF sur le checker `ping`** (v1.16, audit S1) — `validate_host_ssrf()` câblé dans `PingChecker.check()` (même pattern que TCP/UDP/SMTP/DNS) ; seule la regex anti-injection protégeait auparavant le host passé au sous-processus `ping`, laissant sonder des adresses internes/metadata cloud (`probe/whatisup_probe/checkers/ping.py`)
 - ✅ **SEC-B3** (v1.10.2) : `_extract_host()` (probe diagnostics) rejette tout host commençant par `-` — passé en argv positionnel à `traceroute`/`dig`/`ping`, il serait sinon interprété comme un flag (pas de shell, mais flag-injection). `run_collection` log + skip (`probe/whatisup_probe/diagnostics.py`)
 
 ### Anti-XSS / Clickjacking
@@ -439,6 +447,7 @@
 ### Secrets management
 - ✅ Aucun secret en dur dans le code
 - ✅ `FERNET_KEY` requis en prod (refus démarrage sinon)
+- 🔬 **Rotation `FERNET_KEY` sans coupure** (v1.16, audit SA3) — `FERNET_KEY_PREVIOUS` (liste CSV) accepté au déchiffrement via `MultiFernet` (le chiffrement reste sur la clé primaire) ; outil `python -m whatisup.tools.rotate_fernet [--dry-run]` re-chiffre `alert_channels.config`, `monitors.scenario_variables` (vars secret), `users.totp_secret`, `system_settings.oidc_client_secret` avec la clé primaire — idempotent, ne loggue jamais les valeurs, exit 1 si des valeurs restent illisibles ; procédure zéro-downtime documentée `SECURITY.md §7` (déployer 2 clés → rotate → retirer l'ancienne)
 - ✅ Probe rejette `PROBE_API_KEY` vide
 - ✅ Redis healthcheck sans password en argv
 - ✅ Secrets channels masqués (`***`) dans réponses API
@@ -612,17 +621,17 @@
 
 | Pilier | Items livrés | Fichiers clés |
 |---|---|---|
-| Auth | 10 axes (+2FA TOTP +sessions actives) | `auth.py`, `totp.py`, `sessions.py`, `user.py`, `security.py`, `teams.py`, `tag.py`, `api_key.py` |
+| Auth | 11 axes (+2FA TOTP +sessions actives +lockout/anti-énumération v1.16) | `auth.py`, `totp.py`, `sessions.py`, `user.py`, `security.py`, `teams.py`, `tag.py`, `api_key.py`, `lockout.py` |
 | Check types | 11 types | `probe/whatisup_probe/checkers/*.py` |
-| Probes | 11 axes (+ASN +outbound IP +auth préfixe/rotation clé +scope-binding v1.15) | `probe.py`, `probes.py`, `probe_group.py`, `probe_enrichment.py`, `ProbeMap.vue` |
-| Incidents | 10 axes (+playback +diagnostic engine) | `incident.py`, `correlation.py`, `anomaly.py`, `diagnostics.py`, `incident_diagnostic.py` |
+| Probes | 12 axes (+ASN +outbound IP +auth préfixe/rotation clé +scope-binding v1.15 +cache fingerprinté v1.16) | `probe.py`, `probes.py`, `probe_group.py`, `probe_enrichment.py`, `ProbeMap.vue` |
+| Incidents | 11 axes (+playback +diagnostic engine +incident-groups tenant-scopé v1.16) | `incident.py`, `correlation.py`, `anomaly.py`, `diagnostics.py`, `incident_diagnostic.py` |
 | Alerting | 14 axes (+silences +network suppress +matrix preview +pont détection→alerte) | `alert.py`, `alerts.py`, `silences.py`, `useDetectionAlertBridge.js`, `services/channels/*.py` (11 canaux) |
 | Status pages | 4 axes | `public.py`, `PublicPageView.vue` |
 | Dashboard UX | 18 axes (+design system VELOURS +a11y gates +consolidation composants +responsive mobile +quick wins v1.15 : toast erreurs, tri persistant, undo bulk, EmptyState ×6) | `ws.py`, `stats.py`, `style.css`, `lib/themeColors.js`, `StatusBadge.vue`, components shared/* + monitors/* |
 | Maintenance | 4 axes | `maintenance.py` × 2 |
 | Audit/Compliance | 6 axes (+couverture complète mutations config v1.15) | `audit_log.py`, `retention.py`, `reports.py` |
 | Infra | 10 axes (+leader election +logs JSON/X-Request-ID v1.15) | `docker-compose.yml`, Dockerfiles, deploy.sh, `core/leader.py` |
-| Sécurité | 13 axes (+SC-07 distributed RL +WS tenant scoping v1.15) | `security.py`, `middleware.py`, `_helpers.py`, `core/limiter.py` |
+| Sécurité | 17 axes (+SC-07 distributed RL +WS tenant scoping v1.15 +SSRF anti-rebinding +lockout +rotation FERNET_KEY +WS correlated_ids scopé +incident-groups scopé +cache probe/API-key fingerprinté +ping SSRF +19 rate-limits v1.16) | `security.py`, `middleware.py`, `_helpers.py`, `core/limiter.py`, `lockout.py`, `tools/rotate_fernet.py` |
 | CI/CD | 6 workflows + release-please | `.github/workflows/*.yml` |
 | Mobile | 7 axes (+quick wins Android v1.15 : back button, WS background, POST_NOTIFICATIONS) | Capacitor 8, FCM, biometrics, mobile-release.yml |
 | Extensions | 5 axes | extension/, config IaC, web_push, templates, prometheus |
@@ -651,4 +660,4 @@
 > 4. Si la PR introduit un nouveau type de check ou canal → reporter dans §2 ou §5.
 > 5. Si la PR touche le Health Engine ou les V2-02 → reporter dans §16 ou §17.
 
-*Dernière revue exhaustive : 2026-05-10 (v1.8.0 + Health Engine V2). Dernier amendement : 2026-07-03 (v1.15.0 — vague sécurité post-audit 2026-07, leader election Redis, logs JSON structurés + X-Request-ID, perf auth probe / GET monitors, quick wins UX & mobile).*
+*Dernière revue exhaustive : 2026-05-10 (v1.8.0 + Health Engine V2). Dernier amendement : 2026-07-20 (v1.16.0 — 2e vague sécurité post-audit SA1-SA7 + S1/S2/S4 : anti-DNS-rebinding, lockout compte, rotation FERNET_KEY, scoping cross-tenant WS/incident-groups, durcissement cache auth probe & API-key, SSRF ping, 19 rate-limits comblés).*

@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.16.0](https://github.com/AurevLan/WhatIsUp/compare/v1.15.2...v1.16.0) (2026-07-20)
+
+
+### Added
+
+* **security:** FERNET_KEY rotation — MultiFernet + rotate_fernet tool (SA3) ([#258](https://github.com/AurevLan/WhatIsUp/issues/258)) ([7352447](https://github.com/AurevLan/WhatIsUp/commit/73524471294a9f28898cf1f2ab9f265591dbc0c6))
+* **security:** per-account login lockout with anti-enumeration (SA2) ([#257](https://github.com/AurevLan/WhatIsUp/issues/257)) ([8de10a9](https://github.com/AurevLan/WhatIsUp/commit/8de10a98eda0d8be0fd04e48f36f582f0e0a9cf9))
+
+
+### Fixed
+
+* **security:** add SSRF host validation to the ping checker (S1) ([#266](https://github.com/AurevLan/WhatIsUp/issues/266)) ([19b4880](https://github.com/AurevLan/WhatIsUp/commit/19b48808125e9e4cff63a02c9d8e5566bf84de94))
+* **security:** close rate-limit gaps on 19 endpoints — teams, alerts rules, onboarding, audit + sweep (S2) ([#267](https://github.com/AurevLan/WhatIsUp/issues/267)) ([4441936](https://github.com/AurevLan/WhatIsUp/commit/444193600468dd9b392e5d4276eef7b364b257a9))
+* **security:** filter correlated_monitor_ids per recipient scope in WS broadcast (SA5) ([#260](https://github.com/AurevLan/WhatIsUp/issues/260)) ([251e0c7](https://github.com/AurevLan/WhatIsUp/commit/251e0c7c53e93f339f368bab67c9a0790268464a))
+* **security:** fingerprint probe auth cache writes — close rotate-key re-cache race (SA6) ([#261](https://github.com/AurevLan/WhatIsUp/issues/261)) ([882e49c](https://github.com/AurevLan/WhatIsUp/commit/882e49c03fe5b02088863118071e9c20906f5cbf))
+* **security:** harden user API-key auth cache — immediate revocation + fingerprint guard (S4) ([#268](https://github.com/AurevLan/WhatIsUp/issues/268)) ([29b2974](https://github.com/AurevLan/WhatIsUp/commit/29b2974369b2baacea9adaefb7a7f8d29e9344f4))
+* **security:** pin resolved IP in SSRF guard — defeat DNS rebinding (SA1) ([#256](https://github.com/AurevLan/WhatIsUp/issues/256)) ([7cbcce3](https://github.com/AurevLan/WhatIsUp/commit/7cbcce36a9595fe98400d1b5f8a7b51ddc85bbc0))
+* **security:** resync SECURITY.md rate-limits table + OIDC session metadata parity (SA4) ([#259](https://github.com/AurevLan/WhatIsUp/issues/259)) ([924c193](https://github.com/AurevLan/WhatIsUp/commit/924c193dc393c962b739ff4a0a7ba77266d08bc9))
+* **security:** scope incident-groups payload per tenant — build_access_filter + filtered monitor ids (SA7) ([#262](https://github.com/AurevLan/WhatIsUp/issues/262)) ([4adf81e](https://github.com/AurevLan/WhatIsUp/commit/4adf81ec269f80eaed3bc60fd80a8c7fad638c8e))
+
 ## [1.15.2](https://github.com/AurevLan/WhatIsUp/compare/v1.15.1...v1.15.2) (2026-07-08)
 
 

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.16.1](https://github.com/AurevLan/WhatIsUp/compare/v1.16.0...v1.16.1) (2026-07-20)
+
+
+### Docs
+
+* mettre à jour FEATURES.md pour v1.16.0 ([#275](https://github.com/AurevLan/WhatIsUp/issues/275)) ([020f959](https://github.com/AurevLan/WhatIsUp/commit/020f959d59dde3c18824c4753daaf20f6328dfb3))
+
 ## [1.16.0](https://github.com/AurevLan/WhatIsUp/compare/v1.15.2...v1.16.0) (2026-07-20)
 
 

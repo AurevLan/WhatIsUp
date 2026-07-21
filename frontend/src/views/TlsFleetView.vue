@@ -85,10 +85,11 @@ import { ref, onMounted, reactive, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Lock } from 'lucide-vue-next'
 import { tlsFleetApi } from '../api/tlsFleet'
+import { useAsyncResource } from '../composables/useAsyncResource'
 import EmptyState from '../components/shared/EmptyState.vue'
 
 const { t } = useI18n()
-const loading = ref(false)
+const { loading, run } = useAsyncResource()
 const items = ref([])
 const filters = reactive({ grade_below: '', expires_within_days: null, san_mismatch: false })
 const hasActiveTlsFilters = computed(() =>
@@ -126,12 +127,13 @@ function buildParams() {
   return params
 }
 
+// Les filtres de la barre relancent `reload()` : `run` écarte les réponses
+// doublées par une requête plus récente.
 async function reload() {
-  loading.value = true
-  try {
-    const { data } = await tlsFleetApi.list(buildParams())
-    items.value = data.items || []
-  } finally { loading.value = false }
+  await run(
+    () => tlsFleetApi.list(buildParams()),
+    ({ data }) => { items.value = data.items || [] },
+  )
 }
 
 async function exportCsv() {

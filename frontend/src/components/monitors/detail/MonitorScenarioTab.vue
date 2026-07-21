@@ -191,7 +191,7 @@
                 <span
                   v-if="s.continue_on_fail"
                   class="text-xs px-1 py-0.5 rounded bg-[color-mix(in_srgb,var(--warn)_12%,transparent)] text-(--warn) shrink-0"
-                >skip on fail</span>
+                >{{ t('sweep.skip_on_fail') }}</span>
                 <span
                   v-if="s.error"
                   class="text-xs text-(--down) truncate max-w-xs"
@@ -203,7 +203,7 @@
                 <button
                   v-if="s.screenshot"
                   class="shrink-0 rounded overflow-hidden border border-(--border) hover:border-(--accent-border) transition-colors"
-                  title="Voir le screenshot"
+                  :title="t('sweep.view_screenshot')"
                   @click.stop="$emit('open-screenshot', { src: s.screenshot, label: s.label || s.type })"
                 >
                   <img

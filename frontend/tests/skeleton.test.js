@@ -1,7 +1,11 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
-import SkeletonBox from '../src/components/shared/SkeletonBox.vue'
-import SkeletonRow from '../src/components/shared/SkeletonRow.vue'
+
+// SkeletonRow traduit son aria-label : on stubbe `t` faute de plugin i18n ici.
+vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (k) => k }) }))
+
+const SkeletonBox = (await import('../src/components/shared/SkeletonBox.vue')).default
+const SkeletonRow = (await import('../src/components/shared/SkeletonRow.vue')).default
 
 describe('SkeletonBox', () => {
   it('renders with .skeleton class and aria-busy', () => {

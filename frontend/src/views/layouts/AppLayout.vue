@@ -9,7 +9,7 @@
     <nav
       class="sidebar"
       :class="{ 'sidebar--open': sidebarOpen }"
-      aria-label="Main navigation"
+      :aria-label="t('sweep.main_navigation')"
     >
       <!-- Logo -->
       <div class="sidebar__logo">
@@ -18,7 +18,7 @@
         </div>
         <div>
           <div class="sidebar__logo-name">WhatIsUp</div>
-          <div class="sidebar__logo-sub">Monitoring</div>
+          <div class="sidebar__logo-sub">{{ t('sweep.tagline') }}</div>
         </div>
       </div>
 
@@ -45,7 +45,7 @@
         <NavLink to="/settings" :icon="Settings" :label="t('nav.settings')" />
 
         <template v-if="auth.isSuperadmin">
-          <div class="nav-section">Admin</div>
+          <div class="nav-section">{{ t('sweep.admin') }}</div>
           <NavLink to="/admin" :icon="ShieldCheck" :label="t('nav.admin')" />
         </template>
       </div>
@@ -73,7 +73,7 @@
       <!-- Topbar -->
       <header class="topbar">
         <!-- Hamburger (mobile) -->
-        <button class="topbar__hamburger" @click="sidebarOpen = !sidebarOpen" aria-label="Toggle menu">
+        <button class="topbar__hamburger" @click="sidebarOpen = !sidebarOpen" :aria-label="t('sweep.toggle_menu')">
           <span class="hamburger-line" :class="{ 'hamburger-line--open-1': sidebarOpen }" />
           <span class="hamburger-line" :class="{ 'hamburger-line--open-2': sidebarOpen }" />
           <span class="hamburger-line" :class="{ 'hamburger-line--open-3': sidebarOpen }" />
@@ -117,7 +117,7 @@
           </button>
 
           <!-- Theme toggle -->
-          <button @click="toggleTheme" :title="isDark ? 'Light mode' : 'Dark mode'" class="topbar__theme-btn" aria-label="Toggle theme">
+          <button @click="toggleTheme" :title="isDark ? 'Light mode' : 'Dark mode'" class="topbar__theme-btn" :aria-label="t('sweep.toggle_theme')">
             <Sun v-if="isDark" :size="14" />
             <Moon v-else :size="14" />
           </button>

@@ -24,7 +24,7 @@
 
       <!-- Header / Statut global -->
       <div class="text-center mb-10">
-        <img v-if="page?.public_logo_url || page?.custom_logo_url" :src="page.public_logo_url || page.custom_logo_url" alt="Logo" class="mx-auto mb-4 max-h-16 object-contain" />
+        <img v-if="page?.public_logo_url || page?.custom_logo_url" :src="page.public_logo_url || page.custom_logo_url" :alt="t('sweep.logo_alt')" class="mx-auto mb-4 max-h-16 object-contain" />
         <h1 class="font-display text-3xl font-bold text-(--text-1)">{{ page?.public_title || page?.name || 'Status Page' }}</h1>
         <p v-if="page?.public_description || page?.description" class="text-(--text-2) mt-2">{{ page.public_description || page.description }}</p>
 
@@ -94,7 +94,7 @@
                   <span class="text-(--text-3)">{{ formatTcpTarget(m) }}</span>
                 </template>
                 <template v-else-if="m.check_type === 'scenario'">
-                  <span class="text-(--text-3)">Browser scenario</span>
+                  <span class="text-(--text-3)">{{ t('sweep.browser_scenario') }}</span>
                 </template>
                 <template v-else>
                   <span class="text-(--text-3) truncate block">{{ m.url?.replace(/^https?:\/\//, '') }}</span>

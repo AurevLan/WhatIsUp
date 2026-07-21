@@ -21,9 +21,9 @@
   <!-- Schema drift card -->
   <div v-if="isHttpLike && monitor.schema_drift_enabled" class="card mb-6">
     <div class="flex items-center justify-between mb-3">
-      <h2 class="text-sm font-semibold text-(--text-2)">API Schema Drift Detection</h2>
+      <h2 class="text-sm font-semibold text-(--text-2)">{{ t('sweep.schema_drift_title') }}</h2>
       <label class="flex items-center gap-2 cursor-pointer">
-        <span class="text-xs text-(--text-2)">Enabled</span>
+        <span class="text-xs text-(--text-2)">{{ t('sweep.enabled') }}</span>
         <input
           type="checkbox"
           :checked="monitor.schema_drift_enabled"
@@ -35,19 +35,19 @@
     <template v-if="monitor.schema_drift_enabled">
       <div class="flex items-start justify-between gap-4">
         <div class="flex-1">
-          <p class="text-xs text-(--text-3) mb-1">Current baseline fingerprint</p>
+          <p class="text-xs text-(--text-3) mb-1">{{ t('sweep.baseline_fingerprint') }}</p>
           <div v-if="monitor.schema_baseline">
             <code class="font-mono text-xs text-(--up) bg-(--bg-surface-2) px-2 py-1 rounded block">{{ monitor.schema_baseline }}</code>
             <p v-if="monitor.schema_baseline_updated_at" class="text-xs text-(--text-3) mt-1">
               Updated {{ fmtDateTime(monitor.schema_baseline_updated_at) }}
             </p>
           </div>
-          <p v-else class="text-xs text-(--text-3) italic">No baseline set — next successful check will auto-set it</p>
+          <p v-else class="text-xs text-(--text-3) italic">{{ t('sweep.baseline_none') }}</p>
         </div>
         <div class="flex gap-2 flex-shrink-0">
           <button v-if="schemaAlert.wired.value !== true" @click="schemaAlert.offerAlert('schema_drift')" class="btn-secondary btn-sm">{{ t('detection_alert.cta') }}</button>
-          <button @click="patch.acceptSchemaBaseline" class="btn-primary btn-sm">Accept latest</button>
-          <button @click="patch.resetSchemaBaseline" :disabled="!monitor.schema_baseline" class="btn-ghost btn-sm text-(--down) disabled:opacity-50">Reset</button>
+          <button @click="patch.acceptSchemaBaseline" class="btn-primary btn-sm">{{ t('sweep.accept_latest') }}</button>
+          <button @click="patch.resetSchemaBaseline" :disabled="!monitor.schema_baseline" class="btn-ghost btn-sm text-(--down) disabled:opacity-50">{{ t('sweep.reset') }}</button>
         </div>
       </div>
 
@@ -68,7 +68,7 @@
       />
     </template>
     <template v-else>
-      <p class="text-xs text-(--text-3)">Enable to automatically detect JSON response structure changes.</p>
+      <p class="text-xs text-(--text-3)">{{ t('sweep.schema_drift_hint') }}</p>
     </template>
   </div>
 
@@ -92,7 +92,7 @@
       <div class="flex-1 min-w-40">
         <label class="text-xs text-(--text-3) block mb-1">{{ t('monitors.composite.add_member') }}</label>
         <select v-model="deps.newMember.value.monitor_id" class="input w-full text-sm">
-          <option value="">— select a monitor —</option>
+          <option value="">{{ t('sweep.select_monitor') }}</option>
           <option v-for="m in deps.availableMonitors.value" :key="m.id" :value="m.id">{{ m.name }}</option>
         </select>
       </div>
@@ -124,24 +124,24 @@
     <div class="flex items-center gap-3 mb-3">
       <ShieldCheck v-if="latestSsl.ssl_valid" class="w-5 h-5 text-(--up)" />
       <ShieldAlert v-else class="w-5 h-5 text-(--down)" />
-      <h2 class="text-sm font-semibold text-(--text-2)">Certificat SSL</h2>
+      <h2 class="text-sm font-semibold text-(--text-2)">{{ t('sweep.ssl_certificate') }}</h2>
     </div>
     <div class="grid grid-cols-3 gap-4 text-center">
       <div>
         <p class="text-xs text-(--text-3) mb-1">{{ t('common.status') }}</p>
         <span class="text-sm font-semibold px-2 py-0.5 rounded-full"
           :class="latestSsl.ssl_valid ? 'bg-[color-mix(in_srgb,var(--up)_12%,transparent)] text-(--up)' : 'bg-[color-mix(in_srgb,var(--down)_12%,transparent)] text-(--down)'">
-          {{ latestSsl.ssl_valid ? 'Valid' : 'Invalid' }}
+          {{ latestSsl.ssl_valid ? t('sweep.valid') : t('sweep.invalid') }}
         </span>
       </div>
       <div>
-        <p class="text-xs text-(--text-3) mb-1">Expires on</p>
+        <p class="text-xs text-(--text-3) mb-1">{{ t('sweep.expires_on') }}</p>
         <p class="text-sm font-mono text-(--text-2)">
           {{ latestSsl.ssl_expires_at ? formatDateShort(latestSsl.ssl_expires_at) : '—' }}
         </p>
       </div>
       <div>
-        <p class="text-xs text-(--text-3) mb-1">Days remaining</p>
+        <p class="text-xs text-(--text-3) mb-1">{{ t('sweep.days_remaining') }}</p>
         <p class="text-sm font-bold"
           :class="latestSsl.ssl_days_remaining > monitor.ssl_expiry_warn_days ? 'text-(--up)'
                 : latestSsl.ssl_days_remaining > 7 ? 'text-(--warn)' : 'text-(--down)'">
@@ -162,17 +162,17 @@
     <div class="flex items-center gap-3 mb-3">
       <ShieldCheck v-if="latestDomainExpiry && latestDomainExpiry.ssl_days_remaining > 0" class="w-5 h-5 text-(--up)" />
       <ShieldAlert v-else class="w-5 h-5 text-(--down)" />
-      <h2 class="text-sm font-semibold text-(--text-2)">Domain expiry</h2>
+      <h2 class="text-sm font-semibold text-(--text-2)">{{ t('sweep.domain_expiry') }}</h2>
     </div>
     <div v-if="latestDomainExpiry" class="grid grid-cols-2 gap-4 text-center">
       <div>
-        <p class="text-xs text-(--text-3) mb-1">Expires on</p>
+        <p class="text-xs text-(--text-3) mb-1">{{ t('sweep.expires_on') }}</p>
         <p class="text-sm font-mono text-(--text-2)">
           {{ latestDomainExpiry.ssl_expires_at ? formatDateShort(latestDomainExpiry.ssl_expires_at) : '—' }}
         </p>
       </div>
       <div>
-        <p class="text-xs text-(--text-3) mb-1">Days remaining</p>
+        <p class="text-xs text-(--text-3) mb-1">{{ t('sweep.days_remaining') }}</p>
         <p class="text-sm font-bold"
           :class="latestDomainExpiry.ssl_days_remaining > 30 ? 'text-(--up)'
                 : latestDomainExpiry.ssl_days_remaining > 7 ? 'text-(--warn)' : 'text-(--down)'">

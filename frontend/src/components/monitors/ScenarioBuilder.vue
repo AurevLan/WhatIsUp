@@ -4,26 +4,26 @@
     <!-- Variables -->
     <div>
       <div class="flex items-center justify-between mb-2">
-        <label class="text-sm font-medium text-(--text-2)">Variables <span class="text-(--text-3) font-normal">(usable with {{ NAME }})</span></label>
-        <button type="button" @click="addVariable" class="text-xs text-(--accent)">+ Add variable</button>
+        <label class="text-sm font-medium text-(--text-2)">{{ t('scenario.variables') }} <span class="text-(--text-3) font-normal">({{ t('scenario.variables_hint') }} {{ NAME }})</span></label>
+        <button type="button" @click="addVariable" class="text-xs text-(--accent)">+ {{ t('scenario.add_variable') }}</button>
       </div>
       <div v-if="localVars.length" class="space-y-2 mb-2">
         <div v-for="(v, i) in localVars" :key="i" class="flex items-center gap-2">
-          <input v-model="v.name" class="input flex-1" placeholder="NAME" @input="emitVars" style="font-family:monospace;text-transform:uppercase;" />
+          <input v-model="v.name" class="input flex-1" :placeholder="t('scenario.variable_name_placeholder')" @input="emitVars" style="font-family:monospace;text-transform:uppercase;" />
           <input
             v-model="v.value"
             :type="v.secret ? 'password' : 'text'"
             class="input flex-1"
-            placeholder="value"
+            :placeholder="t('scenario.variable_value_placeholder')"
             @input="emitVars"
           />
           <button type="button" @click="v.secret = !v.secret; emitVars()"
             class="text-xs px-2 py-1.5 rounded border transition-colors flex-shrink-0"
             :class="v.secret ? 'border-(--warn) text-(--warn) bg-[color-mix(in_srgb,var(--warn)_20%,transparent)]' : 'border-(--border) text-(--text-3)'"
-            title="Mark as secret (hidden)">
+            :title="t('scenario.mark_secret')">
             {{ v.secret ? '🔒' : '👁' }}
           </button>
-          <button type="button" @click="removeVar(i)" class="text-(--text-3) hover:text-(--down) flex-shrink-0" aria-label="Remove variable">✕</button>
+          <button type="button" @click="removeVar(i)" class="text-(--text-3) hover:text-(--down) flex-shrink-0" :aria-label="t('scenario.remove_variable')">✕</button>
         </div>
       </div>
     </div>
@@ -33,33 +33,33 @@
       <!-- Steps header -->
       <div class="flex items-center justify-between mb-2">
         <div class="flex items-center gap-3">
-          <label class="text-sm font-medium text-(--text-2)">Steps</label>
-          <span class="text-xs text-(--text-3)">{{ localSteps.length }} step(s)</span>
+          <label class="text-sm font-medium text-(--text-2)">{{ t('scenario.steps') }}</label>
+          <span class="text-xs text-(--text-3)">{{ t('scenario.step_count', { n: localSteps.length }) }}</span>
           <button type="button" @click="showTemplates = !showTemplates"
             class="text-xs px-2 py-0.5 rounded border border-(--border) text-(--text-2) hover:border-(--accent-border) hover:text-(--accent) transition-colors">
-            📋 Templates
+            📋 {{ t('scenario.templates') }}
           </button>
         </div>
         <div class="flex items-center gap-2">
           <!-- Import JSON -->
           <button type="button" @click="$refs.importInput.click()"
             class="text-xs px-2 py-0.5 rounded border border-(--border) text-(--text-2) hover:border-(--accent-border) hover:text-(--accent) transition-colors"
-            title="Import steps from a JSON file">
-            ⬇ Import
+            :title="t('scenario.import_title')">
+            ⬇ {{ t('scenario.import') }}
           </button>
           <input ref="importInput" type="file" accept=".json" class="hidden" @change="importJSON" />
           <!-- Export JSON -->
           <button type="button" @click="exportJSON"
             class="text-xs px-2 py-0.5 rounded border border-(--border) text-(--text-2) hover:border-(--accent-border) hover:text-(--accent) transition-colors"
-            title="Export steps as JSON">
-            ⬆ Export
+            :title="t('scenario.export_title')">
+            ⬆ {{ t('scenario.export') }}
           </button>
         </div>
       </div>
 
       <!-- Templates panel -->
       <div v-if="showTemplates" class="mb-3 p-3 bg-(--bg-surface) rounded-xl border border-(--border) space-y-2">
-        <p class="text-xs text-(--text-2) font-medium mb-2">Choose a template to pre-fill steps:</p>
+        <p class="text-xs text-(--text-2) font-medium mb-2">{{ t('scenario.choose_template') }}</p>
         <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <div v-for="tmpl in templates" :key="tmpl.id"
             @click="applyTemplate(tmpl)"
@@ -100,12 +100,12 @@
             <div class="flex items-center gap-2">
               <span class="text-xs text-(--text-3) cursor-grab select-none">⠿</span>
               <input v-model="step.label" class="bg-transparent border-none outline-none text-sm font-semibold text-(--text-2) flex-1 min-w-0"
-                placeholder="Section title…" @input="emitSteps" />
-              <button type="button" @click="moveStep(i, -1)" :disabled="i === 0" aria-label="Move step up"
+                :placeholder="t('scenario.section_title_placeholder')" @input="emitSteps" />
+              <button type="button" @click="moveStep(i, -1)" :disabled="i === 0" :aria-label="t('scenario.move_step_up')"
                 class="text-(--text-3) hover:text-(--text-1) disabled:opacity-20 flex-shrink-0 text-xs">▲</button>
-              <button type="button" @click="moveStep(i, 1)" :disabled="i === localSteps.length - 1" aria-label="Move step down"
+              <button type="button" @click="moveStep(i, 1)" :disabled="i === localSteps.length - 1" :aria-label="t('scenario.move_step_down')"
                 class="text-(--text-3) hover:text-(--text-1) disabled:opacity-20 flex-shrink-0 text-xs">▼</button>
-              <button type="button" @click="removeStep(i)" class="text-(--text-3) hover:text-(--down) flex-shrink-0 text-sm" aria-label="Remove step">✕</button>
+              <button type="button" @click="removeStep(i)" class="text-(--text-3) hover:text-(--down) flex-shrink-0 text-sm" :aria-label="t('scenario.remove_step')">✕</button>
             </div>
           </template>
 
@@ -119,41 +119,41 @@
 
               <!-- Type selector -->
               <select v-model="step.type" class="input text-xs flex-shrink-0 w-36" @change="onTypeChange(step); emitSteps()">
-                <optgroup label="Navigation">
-                  <option value="navigate">🌐 Navigate</option>
-                  <option value="click">🖱 Click</option>
-                  <option value="fill">⌨ Fill</option>
-                  <option value="press">⌨ Press key</option>
-                  <option value="type">⌨ Type text</option>
-                  <option value="select">📋 Select</option>
-                  <option value="hover">🖱 Hover</option>
-                  <option value="scroll">📜 Scroll</option>
+                <optgroup :label="t('scenario.group_navigation')">
+                  <option value="navigate">🌐 {{ t('scenario.type.navigate') }}</option>
+                  <option value="click">🖱 {{ t('scenario.type.click') }}</option>
+                  <option value="fill">⌨ {{ t('scenario.type.fill') }}</option>
+                  <option value="press">⌨ {{ t('scenario.type.press') }}</option>
+                  <option value="type">⌨ {{ t('scenario.type.type') }}</option>
+                  <option value="select">📋 {{ t('scenario.type.select') }}</option>
+                  <option value="hover">🖱 {{ t('scenario.type.hover') }}</option>
+                  <option value="scroll">📜 {{ t('scenario.type.scroll') }}</option>
                 </optgroup>
-                <optgroup label="Wait">
-                  <option value="wait_element">👁 Wait element</option>
-                  <option value="wait_time">⏱ Wait time</option>
+                <optgroup :label="t('scenario.group_wait')">
+                  <option value="wait_element">👁 {{ t('scenario.type.wait_element') }}</option>
+                  <option value="wait_time">⏱ {{ t('scenario.type.wait_time') }}</option>
                 </optgroup>
-                <optgroup label="Assertions">
-                  <option value="assert_text">📝 Assert text</option>
-                  <option value="assert_visible">✅ Assert visible</option>
-                  <option value="assert_url">🔗 Assert URL</option>
+                <optgroup :label="t('scenario.group_assertions')">
+                  <option value="assert_text">📝 {{ t('scenario.type.assert_text') }}</option>
+                  <option value="assert_visible">✅ {{ t('scenario.type.assert_visible') }}</option>
+                  <option value="assert_url">🔗 {{ t('scenario.type.assert_url') }}</option>
                 </optgroup>
-                <optgroup label="Misc">
-                  <option value="screenshot">📸 Screenshot</option>
-                  <option value="extract">📤 Extract</option>
+                <optgroup :label="t('scenario.group_misc')">
+                  <option value="screenshot">📸 {{ t('scenario.type.screenshot') }}</option>
+                  <option value="extract">📤 {{ t('scenario.type.extract') }}</option>
                 </optgroup>
               </select>
 
               <!-- Label -->
-              <input v-model="step.label" class="input text-xs flex-1 min-w-0" placeholder="Description (optional)"
+              <input v-model="step.label" class="input text-xs flex-1 min-w-0" :placeholder="t('scenario.step_label_placeholder')"
                 @input="step._labelEdited = true; emitSteps()" />
 
               <!-- Move up/down (accessibility) -->
-              <button type="button" @click="moveStep(i, -1)" :disabled="i === 0" aria-label="Move step up"
+              <button type="button" @click="moveStep(i, -1)" :disabled="i === 0" :aria-label="t('scenario.move_step_up')"
                 class="text-(--text-3) hover:text-(--text-1) disabled:opacity-20 flex-shrink-0 text-xs">▲</button>
-              <button type="button" @click="moveStep(i, 1)" :disabled="i === localSteps.length - 1" aria-label="Move step down"
+              <button type="button" @click="moveStep(i, 1)" :disabled="i === localSteps.length - 1" :aria-label="t('scenario.move_step_down')"
                 class="text-(--text-3) hover:text-(--text-1) disabled:opacity-20 flex-shrink-0 text-xs">▼</button>
-              <button type="button" @click="removeStep(i)" class="text-(--text-3) hover:text-(--down) flex-shrink-0 text-sm" aria-label="Remove step">✕</button>
+              <button type="button" @click="removeStep(i)" class="text-(--text-3) hover:text-(--down) flex-shrink-0 text-sm" :aria-label="t('scenario.remove_step')">✕</button>
             </div>
 
             <!-- Step params -->
@@ -169,14 +169,14 @@
               <!-- click / hover / assert_visible -->
               <template v-else-if="['click','hover','assert_visible'].includes(step.type)">
                 <input v-model="step.params.selector" class="input text-xs w-full font-mono"
-                  placeholder="CSS selector e.g. button#submit, .btn-login"
+                  :placeholder="t('scenario.selector_click_placeholder')"
                   @input="updateAutoLabel(step); emitSteps()" />
               </template>
 
               <!-- fill -->
               <template v-else-if="step.type === 'fill'">
                 <input v-model="step.params.selector" class="input text-xs w-full font-mono"
-                  placeholder="CSS selector e.g. input[name=email], #password"
+                  :placeholder="t('scenario.selector_fill_placeholder')"
                   @input="updateAutoLabel(step); emitSteps()" />
                 <input v-model="step.params.value" class="input text-xs w-full"
                   :placeholder="'Value — supports {{VARIABLE}}'"
@@ -186,27 +186,27 @@
               <!-- select -->
               <template v-else-if="step.type === 'select'">
                 <input v-model="step.params.selector" class="input text-xs w-full font-mono"
-                  placeholder="CSS selector"
+                  :placeholder="t('scenario.selector_placeholder')"
                   @input="emitSteps()" />
                 <input v-model="step.params.value" class="input text-xs w-full"
-                  placeholder="Option value"
+                  :placeholder="t('scenario.option_value_placeholder')"
                   @input="emitSteps()" />
               </template>
 
               <!-- wait_element -->
               <template v-else-if="step.type === 'wait_element'">
                 <input v-model="step.params.selector" class="input text-xs w-full font-mono"
-                  placeholder="CSS selector"
+                  :placeholder="t('scenario.selector_placeholder')"
                   @input="updateAutoLabel(step); emitSteps()" />
                 <div class="grid grid-cols-2 gap-2">
                   <select v-model="step.params.state" class="input text-xs" @change="emitSteps">
-                    <option value="visible">visible</option>
-                    <option value="hidden">hidden</option>
-                    <option value="attached">attached</option>
-                    <option value="detached">detached</option>
+                    <option value="visible">{{ t('scenario.state_visible') }}</option>
+                    <option value="hidden">{{ t('scenario.state_hidden') }}</option>
+                    <option value="attached">{{ t('scenario.state_attached') }}</option>
+                    <option value="detached">{{ t('scenario.state_detached') }}</option>
                   </select>
                   <input v-model.number="step.params.timeout" class="input text-xs" type="number"
-                    placeholder="Timeout ms (default: 5000)" @input="emitSteps" />
+                    :placeholder="t('scenario.timeout_placeholder')" @input="emitSteps" />
                 </div>
               </template>
 
@@ -214,21 +214,21 @@
               <template v-else-if="step.type === 'wait_time'">
                 <input v-model.number="step.params.duration_ms" class="input text-xs w-full"
                   type="number" min="100" max="30000"
-                  placeholder="Duration in ms e.g. 1000"
+                  :placeholder="t('scenario.duration_placeholder')"
                   @input="updateAutoLabel(step); emitSteps()" />
               </template>
 
               <!-- assert_text -->
               <template v-else-if="step.type === 'assert_text'">
                 <input v-model="step.params.selector" class="input text-xs w-full font-mono"
-                  placeholder="CSS selector" @input="emitSteps" />
+                  :placeholder="t('scenario.selector_placeholder')" @input="emitSteps" />
                 <div class="grid grid-cols-3 gap-2">
                   <select v-model="step.params.mode" class="input text-xs" @change="emitSteps">
-                    <option value="contains">contains</option>
-                    <option value="equals">equals</option>
+                    <option value="contains">{{ t('scenario.mode_contains') }}</option>
+                    <option value="equals">{{ t('scenario.mode_equals') }}</option>
                   </select>
                   <input v-model="step.params.expected" class="input text-xs col-span-2"
-                    placeholder="Expected text"
+                    :placeholder="t('scenario.expected_text_placeholder')"
                     @input="updateAutoLabel(step); emitSteps()" />
                 </div>
               </template>
@@ -237,11 +237,11 @@
               <template v-else-if="step.type === 'assert_url'">
                 <div class="grid grid-cols-3 gap-2">
                   <select v-model="step.params.mode" class="input text-xs" @change="emitSteps">
-                    <option value="contains">contains</option>
-                    <option value="equals">equals</option>
+                    <option value="contains">{{ t('scenario.mode_contains') }}</option>
+                    <option value="equals">{{ t('scenario.mode_equals') }}</option>
                   </select>
                   <input v-model="step.params.expected" class="input text-xs col-span-2"
-                    placeholder="Expected URL"
+                    :placeholder="t('scenario.expected_url_placeholder')"
                     @input="updateAutoLabel(step); emitSteps()" />
                 </div>
               </template>
@@ -249,7 +249,7 @@
               <!-- scroll -->
               <template v-else-if="step.type === 'scroll'">
                 <input v-model="step.params.selector" class="input text-xs w-full font-mono"
-                  placeholder="CSS selector (leave empty to scroll by position)" @input="emitSteps" />
+                  :placeholder="t('scenario.selector_scroll_placeholder')" @input="emitSteps" />
                 <div v-if="!step.params.selector" class="grid grid-cols-2 gap-2">
                   <input v-model.number="step.params.x" class="input text-xs" type="number" placeholder="X px" @input="emitSteps" />
                   <input v-model.number="step.params.y" class="input text-xs" type="number" placeholder="Y px" @input="emitSteps" />
@@ -259,7 +259,7 @@
               <!-- press -->
               <template v-else-if="step.type === 'press'">
                 <input v-model="step.params.selector" class="input text-xs w-full font-mono"
-                  placeholder="CSS selector (leave empty to press on focused element)"
+                  :placeholder="t('scenario.selector_press_placeholder')"
                   @input="updateAutoLabel(step); emitSteps()" />
                 <div class="grid grid-cols-2 gap-2">
                   <select v-model="step.params.key" class="input text-xs" @change="updateAutoLabel(step); emitSteps()">
@@ -279,7 +279,7 @@
                     <option value="PageUp">Page Up</option>
                   </select>
                   <input v-model="step.params.key" class="input text-xs font-mono"
-                    placeholder="Or custom key e.g. Control+a"
+                    :placeholder="t('scenario.custom_key_placeholder')"
                     @input="updateAutoLabel(step); emitSteps()" />
                 </div>
               </template>
@@ -287,7 +287,7 @@
               <!-- type -->
               <template v-else-if="step.type === 'type'">
                 <input v-model="step.params.selector" class="input text-xs w-full font-mono"
-                  placeholder="CSS selector (leave empty to type on focused element)"
+                  :placeholder="t('scenario.selector_type_placeholder')"
                   @input="updateAutoLabel(step); emitSteps()" />
                 <input v-model="step.params.text" class="input text-xs w-full"
                   :placeholder="'Text to type — supports {{VARIABLE}}'"
@@ -297,25 +297,25 @@
               <!-- screenshot -->
               <template v-else-if="step.type === 'screenshot'">
                 <input v-model="step.params.name" class="input text-xs w-full"
-                  placeholder="Name e.g. after-login"
+                  :placeholder="t('scenario.screenshot_name_placeholder')"
                   @input="updateAutoLabel(step); emitSteps()" />
               </template>
 
               <!-- extract -->
               <template v-else-if="step.type === 'extract'">
                 <input v-model="step.params.selector" class="input text-xs w-full font-mono"
-                  placeholder="CSS selector"
+                  :placeholder="t('scenario.selector_placeholder')"
                   @input="emitSteps" />
                 <div class="grid grid-cols-2 gap-2">
                   <select v-model="step.params.attribute" class="input text-xs" @change="emitSteps">
-                    <option value="text">text (content)</option>
-                    <option value="value">value (input)</option>
+                    <option value="text">{{ t('scenario.attr_text') }}</option>
+                    <option value="value">{{ t('scenario.attr_value') }}</option>
                     <option value="href">href</option>
                     <option value="src">src</option>
-                    <option value="data-*">custom attribute</option>
+                    <option value="data-*">{{ t('scenario.attr_custom') }}</option>
                   </select>
                   <input v-model="step.params.variable" class="input text-xs font-mono uppercase"
-                    placeholder="NOM_VARIABLE"
+                    :placeholder="t('scenario.extract_variable_placeholder')"
                     @input="updateAutoLabel(step); emitSteps()" />
                 </div>
               </template>
@@ -327,16 +327,16 @@
               <button type="button"
                 @click="step._showOpts = !step._showOpts"
                 class="text-xs text-(--text-3) hover:text-(--text-2) transition-colors">
-                ⚙ Options{{ (step.timeout_ms || step.continue_on_fail) ? ' ●' : '' }}
+                ⚙ {{ t('scenario.options') }}{{ (step.timeout_ms || step.continue_on_fail) ? ' ●' : '' }}
               </button>
               <div v-if="step._showOpts" class="mt-2 grid grid-cols-2 gap-2">
                 <input v-model.number="step.timeout_ms" class="input text-xs" type="number" min="0"
-                  placeholder="Timeout ms (inherits global if empty)"
+                  :placeholder="t('scenario.step_timeout_placeholder')"
                   @input="emitSteps" />
                 <label class="flex items-center gap-1.5 text-xs text-(--text-2) cursor-pointer">
                   <input type="checkbox" v-model="step.continue_on_fail" @change="emitSteps"
                     class="rounded border-(--border) bg-(--bg-surface-2) text-(--accent)" />
-                  Continue if this step fails
+                  {{ t('scenario.continue_on_fail') }}
                 </label>
               </div>
             </div>
@@ -346,17 +346,17 @@
 
       <!-- Visual step type palette -->
       <div class="mt-4 p-3 bg-(--bg-surface) rounded-xl border border-(--border)">
-        <p class="text-xs text-(--text-3) font-medium mb-2">Add a step</p>
+        <p class="text-xs text-(--text-3) font-medium mb-2">{{ t('scenario.add_step') }}</p>
         <div class="grid grid-cols-3 sm:grid-cols-5 gap-2">
           <button
-            v-for="t in paletteTypes"
-            :key="t.type"
+            v-for="pt in paletteTypes"
+            :key="pt.type"
             type="button"
-            @click="addStep(t.type)"
+            @click="addStep(pt.type)"
             class="bg-(--bg-surface-2) hover:bg-(--bg-surface-3) rounded-xl p-3 text-center cursor-pointer border border-(--border) hover:border-(--accent-border) transition-all flex flex-col items-center gap-1"
           >
-            <span class="text-2xl leading-none">{{ t.icon }}</span>
-            <span class="text-xs text-(--text-2) leading-tight">{{ t.label }}</span>
+            <span class="text-2xl leading-none">{{ pt.icon }}</span>
+            <span class="text-xs text-(--text-2) leading-tight">{{ pt.label }}</span>
           </button>
         </div>
       </div>
@@ -365,9 +365,11 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useToast } from '../../composables/useToast'
 
+const { t } = useI18n()
 const { error: toastError } = useToast()
 
 const props = defineProps({
@@ -589,11 +591,11 @@ function importJSON(event) {
 }
 
 // --- Templates ---
-const templates = [
+const templates = computed(() => [
   {
     id: 'login',
-    title: '🔐 Login form',
-    description: 'Opens a login page, fills email + password, verifies redirect.',
+    title: '🔐 ' + t('scenario.tmpl.login_title'),
+    description: t('scenario.tmpl.login_desc'),
     vars: ['BASE_URL', 'EMAIL', 'PASSWORD'],
     steps: [
       { type: 'navigate',   label: 'Open login page',   params: { url: '{{BASE_URL}}/login' } },
@@ -605,8 +607,8 @@ const templates = [
   },
   {
     id: 'search',
-    title: '🔍 Search + verify',
-    description: 'Performs a search and verifies the presence of results.',
+    title: '🔍 ' + t('scenario.tmpl.search_title'),
+    description: t('scenario.tmpl.search_desc'),
     vars: ['BASE_URL', 'SEARCH_TERM'],
     steps: [
       { type: 'navigate',    label: 'Open page',          params: { url: '{{BASE_URL}}' } },
@@ -617,8 +619,8 @@ const templates = [
   },
   {
     id: 'contact',
-    title: '📝 Contact form',
-    description: 'Fills and submits a contact form, verifies the confirmation.',
+    title: '📝 ' + t('scenario.tmpl.contact_title'),
+    description: t('scenario.tmpl.contact_desc'),
     vars: ['BASE_URL'],
     steps: [
       { type: 'navigate',    label: 'Open form',          params: { url: '{{BASE_URL}}/contact' } },
@@ -631,8 +633,8 @@ const templates = [
   },
   {
     id: 'cart',
-    title: '🛒 Shopping cart',
-    description: 'Adds a product to the cart and verifies its contents.',
+    title: '🛒 ' + t('scenario.tmpl.cart_title'),
+    description: t('scenario.tmpl.cart_desc'),
     vars: ['PRODUCT_URL', 'BASE_URL'],
     steps: [
       { type: 'navigate',       label: 'Product page',      params: { url: '{{PRODUCT_URL}}' } },
@@ -642,11 +644,11 @@ const templates = [
       { type: 'assert_text',    label: 'Product in cart',   params: { selector: '.cart-items', expected: '1', mode: 'contains' } },
     ],
   },
-]
+])
 
 function applyTemplate(tmpl) {
   const hasSteps = localSteps.value.length > 0
-  if (hasSteps && !confirm('Replace existing steps?')) return
+  if (hasSteps && !confirm(t('scenario.replace_steps_confirm'))) return
 
   localSteps.value = tmpl.steps.map(hydrateStep)
 
@@ -663,22 +665,24 @@ function applyTemplate(tmpl) {
 }
 
 // --- Visual palette definition ---
-const paletteTypes = [
-  { type: 'navigate',       icon: '🌐', label: 'Navigate'    },
-  { type: 'click',          icon: '🖱',  label: 'Click'       },
-  { type: 'fill',           icon: '⌨',  label: 'Fill'        },
-  { type: 'press',          icon: '⌨',  label: 'Press key'   },
-  { type: 'type',           icon: '⌨',  label: 'Type text'   },
-  { type: 'select',         icon: '📋', label: 'Select'      },
-  { type: 'hover',          icon: '🖱',  label: 'Hover'       },
-  { type: 'scroll',         icon: '📜', label: 'Scroll'      },
-  { type: 'wait_element',   icon: '👁',  label: 'Wait elem.'  },
-  { type: 'wait_time',      icon: '⏱',  label: 'Wait'        },
-  { type: 'assert_text',    icon: '📝', label: 'Assert text' },
-  { type: 'assert_visible', icon: '✅', label: 'Visible'     },
-  { type: 'assert_url',     icon: '🔗', label: 'Assert URL'  },
-  { type: 'screenshot',     icon: '📷', label: 'Screenshot'  },
-  { type: 'extract',        icon: '📤', label: 'Extract'     },
-  { type: 'group',          icon: '━━', label: 'Group'       },
-]
+// La palette réutilise les libellés du sélecteur de type, avec quelques
+// variantes courtes (scenario.palette.*) pour tenir dans les tuiles.
+const paletteTypes = computed(() => [
+  { type: 'navigate',       icon: '🌐', label: t('scenario.type.navigate')      },
+  { type: 'click',          icon: '🖱',  label: t('scenario.type.click')         },
+  { type: 'fill',           icon: '⌨',  label: t('scenario.type.fill')          },
+  { type: 'press',          icon: '⌨',  label: t('scenario.type.press')         },
+  { type: 'type',           icon: '⌨',  label: t('scenario.type.type')          },
+  { type: 'select',         icon: '📋', label: t('scenario.type.select')        },
+  { type: 'hover',          icon: '🖱',  label: t('scenario.type.hover')         },
+  { type: 'scroll',         icon: '📜', label: t('scenario.type.scroll')        },
+  { type: 'wait_element',   icon: '👁',  label: t('scenario.palette.wait_element') },
+  { type: 'wait_time',      icon: '⏱',  label: t('scenario.palette.wait_time')  },
+  { type: 'assert_text',    icon: '📝', label: t('scenario.type.assert_text')   },
+  { type: 'assert_visible', icon: '✅', label: t('scenario.palette.assert_visible') },
+  { type: 'assert_url',     icon: '🔗', label: t('scenario.type.assert_url')    },
+  { type: 'screenshot',     icon: '📷', label: t('scenario.type.screenshot')    },
+  { type: 'extract',        icon: '📤', label: t('scenario.type.extract')       },
+  { type: 'group',          icon: '━━', label: t('scenario.type.group')         },
+])
 </script>

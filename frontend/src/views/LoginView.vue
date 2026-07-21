@@ -94,7 +94,7 @@
         <div v-if="!auth.mfaPending && oidcEnabled" class="login__sso">
           <div class="login__divider">
             <div class="login__divider-line" />
-            <span class="login__divider-text">ou</span>
+            <span class="login__divider-text">{{ t('sweep.or') }}</span>
             <div class="login__divider-line" />
           </div>
           <a href="/api/v1/auth/oidc/login" class="login__sso-btn">

@@ -340,7 +340,8 @@ def create_app() -> FastAPI:
     app.include_router(totp.router, prefix="/api/v1")
     app.include_router(sessions.router, prefix="/api/v1")
     app.include_router(api_keys.router, prefix="/api/v1")
-    app.include_router(monitors.router, prefix="/api/v1")
+    for monitors_sub_router in monitors.routers:
+        app.include_router(monitors_sub_router, prefix="/api/v1")
     app.include_router(groups.router, prefix="/api/v1")
     app.include_router(probes.router, prefix="/api/v1")
     app.include_router(alerts.router, prefix="/api/v1")

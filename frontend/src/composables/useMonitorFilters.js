@@ -62,12 +62,14 @@ export function useMonitorFilters(monitors) {
     localStorage.setItem(STORAGE_KEY, mode)
   }
 
+  // Libellés i18n et couleurs tokenisées : ces chips étaient le dernier îlot
+  // de statuts en anglais codés en dur et de couleurs hors design system.
   const statusFilters = computed(() => [
-    { val: '',       label: t('monitors.all_statuses'), dot: null,             active: 'bg-blue-600/20 border-blue-500/60 text-blue-300' },
-    { val: 'up',     label: 'Up',                      dot: 'bg-emerald-400', active: 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400' },
-    { val: 'down',   label: 'Down',                    dot: 'bg-red-500',     active: 'bg-red-500/10 border-red-500/40 text-red-400' },
-    { val: 'error',  label: 'Error',                   dot: 'bg-orange-500',  active: 'bg-orange-500/10 border-orange-500/40 text-orange-400' },
-    { val: 'paused', label: t('status.paused'),         dot: 'bg-gray-500',   active: 'bg-gray-700/60 border-gray-500 text-gray-300' },
+    { val: '',       label: t('monitors.all_statuses'), dot: null,            active: 'bg-(--accent-glow) border-(--accent) text-(--accent)' },
+    { val: 'up',     label: t('status.up'),             dot: 'bg-(--up)',     active: 'bg-[color-mix(in_srgb,var(--up)_12%,transparent)] border-(--up) text-(--up)' },
+    { val: 'down',   label: t('status.down'),           dot: 'bg-(--down)',   active: 'bg-[color-mix(in_srgb,var(--down)_12%,transparent)] border-(--down) text-(--down)' },
+    { val: 'error',  label: t('status.error'),          dot: 'bg-(--error)',  active: 'bg-[color-mix(in_srgb,var(--error)_12%,transparent)] border-(--error) text-(--error)' },
+    { val: 'paused', label: t('status.paused'),         dot: 'bg-(--text-3)', active: 'bg-(--bg-surface-2) border-(--border-hover) text-(--text-2)' },
   ])
 
   const hasActiveFilters = computed(() => filterStatus.value || filterType.value || filterGroup.value || search.value)

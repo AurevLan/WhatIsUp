@@ -120,7 +120,14 @@ import { useI18n } from 'vue-i18n'
 import { Radio } from 'lucide-vue-next'
 import { probesApi } from '../../api/probes'
 import { asnLabel, colorForAsn, hasProxyDivergence } from '../../lib/asnPalette'
-import { cssVar, withAlpha } from '../../lib/themeColors'
+import {
+  cssVar,
+  levelBgClass,
+  levelColor,
+  levelTextClass,
+  uptimeLevel,
+  withAlpha,
+} from '../../lib/themeColors'
 
 const { t } = useI18n()
 
@@ -139,33 +146,24 @@ function isOnline(probe) {
   return (Date.now() - new Date(probe.last_seen_at).getTime()) / 1000 < 120
 }
 
+// La pastille de la liste exige en plus un heartbeat récent : une sonde
+// inactive ou muette est grise même si son uptime 24 h reste bon. Le marqueur
+// de la carte, lui, ne retient que is_active (comportement historique).
 function dotClass(probe) {
-  if (!probe.is_active) return 'bg-(--text-3)'
-  const u = probe.uptime_24h
-  if (!isOnline(probe))  return 'bg-(--text-3)'
-  if (u == null)         return 'bg-(--text-3)'
-  if (u >= 99)           return 'bg-(--up)'
-  if (u >= 90)           return 'bg-(--warn)'
-  return 'bg-(--down)'
+  const level =
+    probe.is_active && isOnline(probe) ? uptimeLevel(probe.uptime_24h) : 'unknown'
+  return levelBgClass(level)
 }
 
 function uptimeColorClass(u) {
-  if (u == null) return 'text-(--text-3)'
-  if (u >= 99)   return 'text-(--up)'
-  if (u >= 90)   return 'text-(--warn)'
-  return 'text-(--down)'
+  return levelTextClass(uptimeLevel(u))
 }
 
 // Couleurs lues au moment du rendu des marqueurs (pas de réactivité au toggle
 // thème : les marqueurs sont re-rendus toutes les 60 s / au changement de
 // filtre, et à la navigation). Fallbacks hex requis pour jsdom (cssVar → '').
 function statusFill(probe) {
-  if (!probe.is_active)      return cssVar('--text-3') || '#9a8e76'
-  const u = probe.uptime_24h
-  if (u == null)             return cssVar('--text-3') || '#9a8e76'
-  if (u >= 99)               return cssVar('--up')     || '#8fc09e'
-  if (u >= 90)               return cssVar('--warn')   || '#dcab4a'
-  return cssVar('--down') || '#e8876b'
+  return levelColor(probe.is_active ? uptimeLevel(probe.uptime_24h) : 'unknown')
 }
 
 // V2-02-06 — derive an ASN legend from the currently-loaded probes.

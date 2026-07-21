@@ -1,7 +1,7 @@
 /**
  * C4 (bilan 2026-07) — EmptyState rollout on 6 views that previously
  * hand-rolled their own "no data" markup (or a bare text line): Incidents,
- * ApiKeys, Templates, Audit, TlsFleet, IncidentGroups.
+ * ApiKeys, Templates, Audit, TlsFleet.
  *
  * Mounts each view standalone (mock API returning empty lists, fresh
  * Pinia, memory router — same harness as tests/a11y.test.js) and asserts
@@ -29,7 +29,6 @@ import ApiKeysView from '../src/views/ApiKeysView.vue'
 import TemplatesView from '../src/views/TemplatesView.vue'
 import AuditView from '../src/views/AuditView.vue'
 import TlsFleetView from '../src/views/TlsFleetView.vue'
-import IncidentGroupsView from '../src/views/IncidentGroupsView.vue'
 
 function makeRouter() {
   const stub = { template: '<div />' }
@@ -71,7 +70,6 @@ describe('EmptyState rollout — views render the real component when empty', ()
     ['TemplatesView', TemplatesView, en.templates.no_templates],
     ['AuditView', AuditView, en.audit.empty],
     ['TlsFleetView', TlsFleetView, en.tls_fleet.empty],
-    ['IncidentGroupsView', IncidentGroupsView, en.incidentGroups.empty],
   ])('%s shows the EmptyState component with the expected title', async (_name, component, expectedTitle) => {
     const wrapper = await mountView(component)
     const title = wrapper.find('.empty-state__title')

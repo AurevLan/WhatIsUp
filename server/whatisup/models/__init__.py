@@ -24,7 +24,6 @@ from whatisup.models.monitor import (
     Monitor,
     MonitorDependency,
     MonitorGroup,
-    PublicPage,
 )
 from whatisup.models.monitor_health import MonitorHealthState, SLORule, SLORuleType
 from whatisup.models.monitor_template import MonitorTemplate
@@ -34,7 +33,7 @@ from whatisup.models.result import CheckResult, CheckStatus
 from whatisup.models.silence import AlertSilence
 from whatisup.models.status_subscription import StatusSubscription
 from whatisup.models.system_settings import SystemSettings
-from whatisup.models.tag import PermissionLevel, Tag, UserTagPermission
+from whatisup.models.tag import Tag
 from whatisup.models.team import Team, TeamMembership, TeamRole
 from whatisup.models.user import User
 from whatisup.models.web_push import WebPushSubscription
@@ -45,13 +44,10 @@ __all__ = [
     "UUIDPrimaryKeyMixin",
     "User",
     "Tag",
-    "UserTagPermission",
-    "PermissionLevel",
     "CompositeMonitorMember",
     "Monitor",
     "MonitorDependency",
     "MonitorGroup",
-    "PublicPage",
     "Probe",
     "ProbeGroup",
     "probe_group_members",

@@ -22,7 +22,6 @@ export default {
     overview: 'Overview',
     infrastructure: 'Infrastructure',
     account: 'Account',
-    incidentGroups: 'Incident Groups',
     incidents: 'Incidents',
     templates: 'Templates',
     tls_fleet: 'TLS Fleet',
@@ -1316,27 +1315,6 @@ export default {
   },
 
   // Incident groups
-  incidentGroups: {
-    title: 'Incident Groups',
-    subtitle: 'Correlated incidents caused by the same probe failures',
-    id: 'Group ID',
-    triggered_at: 'Triggered',
-    resolved_at: 'Resolved',
-    status: 'Status',
-    status_open: 'Open',
-    status_resolved: 'Resolved',
-    cause_probes: 'Affected probes',
-    incidents: 'Incidents',
-    empty: 'No correlated incident groups.',
-    root_cause: 'Root cause',
-    correlation_type: 'Correlation',
-    type_probe: 'Shared probes',
-    type_group: 'Infrastructure group',
-    type_dependency: 'Dependency cascade',
-    type_pattern: 'Learned pattern',
-    correlated_monitors: 'Frequently fails with',
-  },
-
   // Admin
   admin: {
     title: 'Administration',

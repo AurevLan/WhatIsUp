@@ -63,7 +63,7 @@ server/whatisup/
   services/     ← incident, alert, stats, audit, maintenance,
                    heartbeat, retention
 probe/whatisup_probe/
-  checker.py    ← HTTP / TCP / DNS / Keyword / JSONPath / Scenario (Playwright)
+  checkers/     ← HTTP / TCP / UDP / DNS / SMTP / Ping / DomainExpiry / Scenario (Playwright)
   scheduler.py  ← APScheduler + trigger-now loop Redis
   reporter.py   ← push résultats vers central API
 frontend/src/
@@ -107,7 +107,6 @@ get_current_probe   # X-Probe-Api-Key (bcrypt + cache Redis SHA-256[:32], TTL 60
 
 ## Pièges connus
 
-- `PublicPage` model : jamais utilisé — employer `MonitorGroup.public_slug` directement
 - `GroupDetailView` : utiliser `monitorsApi.list({ group_id })` (enrichi) et non `groupsApi.monitors(id)` (brut, sans last_status/uptime)
 - Champ manquant dans un schema Pydantic `*Out` → silencieusement absent côté frontend (ex: `scenario_result`)
 - Playwright Docker (probe) : `ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright` + `chmod -R 755` obligatoires pour l'utilisateur non-root

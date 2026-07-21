@@ -6,8 +6,6 @@ import uuid
 
 from pydantic import BaseModel, Field
 
-from whatisup.models.tag import PermissionLevel
-
 
 class TagCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
@@ -26,19 +24,5 @@ class TagOut(BaseModel):
     name: str
     color: str | None
     description: str | None
-
-    model_config = {"from_attributes": True}
-
-
-class UserTagPermissionCreate(BaseModel):
-    user_id: uuid.UUID
-    tag_id: uuid.UUID
-    permission: PermissionLevel
-
-
-class UserTagPermissionOut(BaseModel):
-    user_id: uuid.UUID
-    tag_id: uuid.UUID
-    permission: PermissionLevel
 
     model_config = {"from_attributes": True}

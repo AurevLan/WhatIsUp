@@ -450,20 +450,3 @@ class CompositeMonitorMemberOut(BaseModel):
     role: str | None
 
     model_config = {"from_attributes": True}
-
-
-class PublicPageCreate(BaseModel):
-    slug: str = Field(min_length=3, max_length=100, pattern=r"^[a-z0-9-]+$")
-    name: str = Field(min_length=1, max_length=255)
-    group_id: uuid.UUID | None = None
-    custom_domain: str | None = Field(default=None, max_length=255)
-
-
-class PublicPageOut(BaseModel):
-    id: uuid.UUID
-    slug: str
-    name: str
-    group_id: uuid.UUID | None
-    custom_domain: str | None
-
-    model_config = {"from_attributes": True}

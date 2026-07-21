@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import SkeletonBox from '../src/components/shared/SkeletonBox.vue'
-import SkeletonText from '../src/components/shared/SkeletonText.vue'
 import SkeletonRow from '../src/components/shared/SkeletonRow.vue'
 
 describe('SkeletonBox', () => {
@@ -42,27 +41,6 @@ describe('SkeletonBox', () => {
   it('uses ariaLabel prop', () => {
     const w = mount(SkeletonBox, { props: { ariaLabel: 'Loading chart' } })
     expect(w.attributes('aria-label')).toBe('Loading chart')
-  })
-})
-
-describe('SkeletonText', () => {
-  it('renders the requested number of lines', () => {
-    const w = mount(SkeletonText, { props: { lines: 4 } })
-    expect(w.findAllComponents(SkeletonBox)).toHaveLength(4)
-  })
-
-  it('shortens the last line when more than one line', () => {
-    const w = mount(SkeletonText, { props: { lines: 3 } })
-    const boxes = w.findAllComponents(SkeletonBox)
-    expect(boxes[2].props('width')).toBe('60%')
-    expect(boxes[0].props('width')).toBe('100%')
-  })
-
-  it('does not shorten when only one line', () => {
-    const w = mount(SkeletonText, { props: { lines: 1 } })
-    const boxes = w.findAllComponents(SkeletonBox)
-    expect(boxes).toHaveLength(1)
-    expect(boxes[0].props('width')).toBe('100%')
   })
 })
 

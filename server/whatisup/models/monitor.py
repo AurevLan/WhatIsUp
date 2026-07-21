@@ -187,7 +187,6 @@ class MonitorGroup(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     tags: Mapped[list[Tag]] = relationship("Tag", secondary=monitor_group_tags, lazy="selectin")
     monitors: Mapped[list[Monitor]] = relationship("Monitor", back_populates="group")
-    public_pages: Mapped[list[PublicPage]] = relationship("PublicPage", back_populates="group")
 
     def __repr__(self) -> str:
         return f"<MonitorGroup {self.name!r}>"
@@ -416,19 +415,3 @@ class Monitor(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     def __repr__(self) -> str:
         return f"<Monitor {self.name!r} url={self.url!r}>"
-
-
-class PublicPage(UUIDPrimaryKeyMixin, TimestampMixin, Base):
-    __tablename__ = "public_pages"
-
-    slug: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
-    group_id: Mapped[uuid.UUID | None] = mapped_column(
-        Uuid(as_uuid=True),
-        ForeignKey("monitor_groups.id", ondelete="SET NULL"),
-        nullable=True,
-        index=True,
-    )
-    custom_domain: Mapped[str | None] = mapped_column(String(255), nullable=True)
-
-    group: Mapped[MonitorGroup | None] = relationship("MonitorGroup", back_populates="public_pages")

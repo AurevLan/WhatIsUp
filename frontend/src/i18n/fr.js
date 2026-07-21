@@ -21,7 +21,6 @@ export default {
     overview: 'Vue générale',
     infrastructure: 'Infrastructure',
     account: 'Compte',
-    incidentGroups: "Groupes d'incidents",
     incidents: 'Incidents',
     templates: 'Modèles',
     tls_fleet: 'Parc TLS',
@@ -1283,27 +1282,6 @@ export default {
   },
 
   // Groupes d'incidents
-  incidentGroups: {
-    title: "Groupes d'incidents",
-    subtitle: 'Incidents corrélés causés par les mêmes sondes défaillantes',
-    id: 'ID Groupe',
-    triggered_at: 'Déclenché',
-    resolved_at: 'Résolu',
-    status: 'Statut',
-    status_open: 'Ouvert',
-    status_resolved: 'Résolu',
-    cause_probes: 'Sondes affectées',
-    incidents: 'Incidents',
-    empty: "Aucun groupe d'incidents corrélés.",
-    root_cause: 'Cause racine',
-    correlation_type: 'Corrélation',
-    type_probe: 'Sondes partagées',
-    type_group: 'Groupe d\'infrastructure',
-    type_dependency: 'Cascade de dépendance',
-    type_pattern: 'Pattern appris',
-    correlated_monitors: 'Tombe souvent avec',
-  },
-
   // Admin
   admin: {
     title: 'Administration',

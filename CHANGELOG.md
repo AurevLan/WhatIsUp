@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.17.0](https://github.com/AurevLan/WhatIsUp/compare/v1.16.2...v1.17.0) (2026-07-21)
+
+
+### Added
+
+* **frontend:** add useAsyncResource to drop stale filter responses — B3 ([#297](https://github.com/AurevLan/WhatIsUp/issues/297)) ([b81c262](https://github.com/AurevLan/WhatIsUp/commit/b81c26295a886c08cf6478bdc55a6cffb56f97a9))
+* **security:** scope user API keys to read-only or full access — C2 ([#299](https://github.com/AurevLan/WhatIsUp/issues/299)) ([75138f2](https://github.com/AurevLan/WhatIsUp/commit/75138f2456c087ab4218da1226f8136e98e40fd7))
+* **server:** rate-limit all api/v1 GET endpoints — SEC-3 harmonization ([#291](https://github.com/AurevLan/WhatIsUp/issues/291)) ([1047b64](https://github.com/AurevLan/WhatIsUp/commit/1047b64e068b8e2b90d3ab7a210c60093a4a419c))
+* **status-page:** make email subscriptions work end-to-end — C1 ([#298](https://github.com/AurevLan/WhatIsUp/issues/298)) ([0726da5](https://github.com/AurevLan/WhatIsUp/commit/0726da58d1ffe459ea011801c02460c36da9dd2d))
+
+
+### Changed
+
+* **frontend:** extract MonitorFormFields from the create/edit modals — B2 ([#294](https://github.com/AurevLan/WhatIsUp/issues/294)) ([7d76d99](https://github.com/AurevLan/WhatIsUp/commit/7d76d99272a2bfa59bc6d38cac0b4cc01cd65925))
+* **frontend:** tokenize monitor status colors and share the uptime scale — B1 ([#293](https://github.com/AurevLan/WhatIsUp/issues/293)) ([d61924b](https://github.com/AurevLan/WhatIsUp/commit/d61924b0695fcd9917db237c6f830cbebffb2539))
+* **server:** drop dedicated incident-groups REST endpoints ([#290](https://github.com/AurevLan/WhatIsUp/issues/290)) ([615443d](https://github.com/AurevLan/WhatIsUp/commit/615443d627236c01b7bdd7c9e8c91475b59a0ea0))
+* **server:** split api/v1/monitors.py into sub-router package — R-3 ([#292](https://github.com/AurevLan/WhatIsUp/issues/292)) ([7e7aa9e](https://github.com/AurevLan/WhatIsUp/commit/7e7aa9e46bad5c4b36d82ec33a679c8d4df8e294))
+* unify incident duration formatting and probe SSRF results — B3 ([#295](https://github.com/AurevLan/WhatIsUp/issues/295)) ([4eb2a91](https://github.com/AurevLan/WhatIsUp/commit/4eb2a9120de879f15e210c190f4aca4b463885b5))
+
+
+### Docs
+
+* mettre à jour FEATURES.md pour v1.16.2 ([#288](https://github.com/AurevLan/WhatIsUp/issues/288)) ([b0bb96c](https://github.com/AurevLan/WhatIsUp/commit/b0bb96c214c3ea71bd773007fd2e5f07fb0aa8ff))
+
 ## [1.16.2](https://github.com/AurevLan/WhatIsUp/compare/v1.16.1...v1.16.2) (2026-07-21)
 
 

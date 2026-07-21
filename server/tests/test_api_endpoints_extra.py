@@ -108,24 +108,6 @@ async def test_auth_refresh_flow(client: AsyncClient, regular_user) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Incident groups
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_incident_groups_list_empty(client: AsyncClient, user_token: str) -> None:
-    resp = await client.get("/api/v1/incident-groups/", headers=_auth(user_token))
-    assert resp.status_code == 200
-    assert resp.json() == []
-
-
-@pytest.mark.asyncio
-async def test_incident_group_404(client: AsyncClient, user_token: str) -> None:
-    resp = await client.get(f"/api/v1/incident-groups/{uuid.uuid4()}", headers=_auth(user_token))
-    assert resp.status_code == 404
-
-
-# ---------------------------------------------------------------------------
 # Incidents list
 # ---------------------------------------------------------------------------
 

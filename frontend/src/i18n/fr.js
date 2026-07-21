@@ -167,8 +167,6 @@ export default {
     audit_filtered_text: 'Aucune entrée du journal d\'audit ne correspond au filtre actuel.',
     tls_fleet_text: 'Lancez un check sur un monitor HTTPS pour voir sa note TLS, son chiffrement et son expiration ici.',
     tls_fleet_filtered_text: 'Aucun monitor ne correspond aux filtres actuels.',
-    incident_groups_text: 'Quand plusieurs incidents partagent une cause commune (même sonde, même infrastructure), WhatIsUp les regroupe ici.',
-    incident_groups_filtered_text: 'Aucun groupe d\'incidents ne correspond au filtre actuel.',
   },
 
   status: {

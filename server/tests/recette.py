@@ -781,23 +781,6 @@ def test_ping() -> None:
         client.delete(f"/api/v1/monitors/{hb['id']}", headers=auth_headers())
 
 
-def test_incident_groups() -> None:
-    section("Incident Groups")
-    r = client.get("/api/v1/incident-groups/", headers=auth_headers())
-    data = check("GET /incident-groups/ (list)", r, 200)
-    if data and isinstance(data, list):
-        # Verify root_cause and correlation_type fields are present in schema
-        for g in data[:3]:
-            if "root_cause_monitor_id" not in g:
-                fail("IncidentGroup has root_cause_monitor_id field")
-                break
-            if "correlation_type" not in g:
-                fail("IncidentGroup has correlation_type field")
-                break
-        else:
-            ok("IncidentGroup schema includes root_cause + correlation_type")
-
-
 def test_metrics() -> None:
     section("Custom Metrics")
     if "monitor_id" not in IDS:
@@ -1063,7 +1046,6 @@ def main() -> int:
     test_templates()
     test_status()
     test_ping()
-    test_incident_groups()
     test_metrics()
     test_public_pages()
     test_smart_alerts()

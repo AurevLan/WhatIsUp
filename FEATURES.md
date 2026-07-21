@@ -156,7 +156,7 @@
 - ✅ Dépendances parent → child + `suppress_on_parent_down` + cycle detection 5 hops
 - ✅ Graphe SVG force-directed interactif (`DependencyGraph.vue`)
 - ✅ Patterns de corrélation persistés (`correlation_pattern.py`)
-- 🔬 **`incident-groups` scopé par tenant** (v1.16, audit SA7) — la corrélation tourne globalement sur des sondes partagées ; l'accès utilise désormais `build_access_filter` (owner OU team, cohérent avec monitors/groups/alerts/WS) et le payload est réécrit par requêteur : `incident_ids`/`incident_refs` filtrés aux monitors accessibles, `root_cause_monitor_id`/`name` nullifiés si hors tenant (clés conservées, valeurs filtrées → contrat frontend inchangé) ; superadmin voit tout
+- 🔬 **`incident-groups` scopé par tenant** (v1.16, audit SA7) — la corrélation tourne globalement sur des sondes partagées ; l'accès utilise `build_access_filter` (owner OU team) et le payload est réécrit par requêteur (monitors hors tenant filtrés/nullifiés) ; superadmin voit tout. **Depuis post-v1.16.2 : les endpoints REST dédiés `GET /incident-groups/` sont supprimés** (vue frontend débranchée depuis longtemps) — les groupes restent exposés via les métadonnées inline de `GET /incidents/` (`correlation_type`, `root_cause_monitor_name`, `group_monitor_names`), elles-mêmes scopées tenant
 
 ### Post-mortem
 - ✅ Génération markdown automatique à la résolution (`GET /monitors/{id}/incidents/{inc}/postmortem`)

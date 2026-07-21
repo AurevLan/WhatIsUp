@@ -77,3 +77,5 @@ frontend/android/app/google-services.json
 
 # ── Local planning docs (working notes, not shipped) ──────────────────────────
 plan_*.md
+# Les plans terminés sont archivés versionnés dans docs/archived/plans/
+!docs/archived/plans/plan_*.md

@@ -374,20 +374,15 @@ async function load() {
 watch([statusFilter, daysFilter], load)
 onMounted(load)
 
-const { formatDate: fmtDate } = useDateFormat()
+const { formatDate: fmtDate, formatDuration: fmtDuration } = useDateFormat()
 
 const formatDate = (iso) =>
   fmtDate(iso, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 
+// Un incident encore ouvert n'a pas de durée à afficher.
 function formatDuration(inc) {
   if (!inc.is_resolved) return '—'
-  const secs = inc.duration_seconds
-  if (secs == null) return '—'
-  if (secs < 60) return `${secs}s`
-  if (secs < 3600) return `${Math.round(secs / 60)}m`
-  const h = Math.floor(secs / 3600)
-  const m = Math.round((secs % 3600) / 60)
-  return m > 0 ? `${h}h ${m}m` : `${h}h`
+  return fmtDuration(inc.duration_seconds)
 }
 
 function badgeClass(inc) {

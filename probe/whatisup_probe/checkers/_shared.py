@@ -17,6 +17,8 @@ from urllib.parse import urlparse
 
 import httpx
 
+from whatisup_probe.checkers.base import CheckResult
+
 logger = logging.getLogger(__name__)
 
 # ── DNS cache (TTL 60s, max 1000 entries) ───────────────────────────────────
@@ -55,6 +57,32 @@ _BLOCKED_HOSTS = {
 
 class SSRFBlockedError(Exception):
     """Raised when an outbound request targets a blocked/internal host."""
+
+
+def ssrf_blocked_result(
+    monitor_id: str,
+    checked_at: datetime,
+    reason: object,
+    *,
+    after_redirect: bool = False,
+    response_time_ms: float | None = None,
+) -> CheckResult:
+    """CheckResult renvoyé quand le garde-fou SSRF bloque une cible.
+
+    Le même triplet (status ``error``, préfixe ``SSRF blocked``, raison) était
+    recopié dans les 7 checkers — 9 sites au total. Le centraliser garantit
+    qu'un blocage SSRF se signale de la même façon partout : c'est ce que le
+    serveur et les tests reconnaissent pour distinguer un refus délibéré d'une
+    panne réseau.
+    """
+    prefix = "SSRF blocked after redirect" if after_redirect else "SSRF blocked"
+    return CheckResult(
+        monitor_id=monitor_id,
+        checked_at=checked_at,
+        status="error",
+        response_time_ms=response_time_ms,
+        error_message=f"{prefix}: {reason}",
+    )
 
 
 def _is_internal_ip(ip_str: str) -> bool:

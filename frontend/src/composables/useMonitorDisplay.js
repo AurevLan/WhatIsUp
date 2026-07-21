@@ -1,3 +1,5 @@
+import { levelTextClass, uptimeLevel } from '../lib/themeColors'
+
 // Status dots, tokenized (VELOURS). Badge + label now live in <StatusBadge>.
 const statusDot = {
   up:      'bg-(--up)',
@@ -23,22 +25,19 @@ export function useMonitorDisplay() {
   }
 
   function uptimeColor(u) {
-    if (u == null) return 'text-gray-500'
-    if (u >= 99)   return 'text-emerald-400'
-    if (u >= 90)   return 'text-amber-400'
-    return 'text-red-400'
+    return levelTextClass(uptimeLevel(u))
   }
 
+  // Barème propre au temps de réponse : relatif au p95 du monitor, pas au
+  // pourcentage d'uptime — d'où une échelle distincte de `uptimeLevel`.
   function responseTimeColor(ms, monitor) {
-    if (ms == null) return 'text-gray-600'
+    if (ms == null) return levelTextClass('unknown')
     const p95 = monitor?._p95ResponseTimeMs
-    if (p95 != null && p95 > 0) {
-      const ratio = ms / p95
-      if (ratio <= 0.6)  return 'text-emerald-400'
-      if (ratio <= 1.2)  return 'text-amber-400'
-      return 'text-red-400'
-    }
-    return 'text-gray-600'
+    if (p95 == null || p95 <= 0) return levelTextClass('unknown')
+    const ratio = ms / p95
+    if (ratio <= 0.6) return levelTextClass('up')
+    if (ratio <= 1.2) return levelTextClass('warn')
+    return levelTextClass('down')
   }
 
   return { dotClass, formatTarget, uptimeColor, responseTimeColor }

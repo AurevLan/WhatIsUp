@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.16.2](https://github.com/AurevLan/WhatIsUp/compare/v1.16.1...v1.16.2) (2026-07-21)
+
+
+### Fixed
+
+* **deps:** resolve redis pin contradiction — exclude broken 8.0.0, drop httpx dev dup ([#277](https://github.com/AurevLan/WhatIsUp/issues/277)) ([ac59b8e](https://github.com/AurevLan/WhatIsUp/commit/ac59b8e50aef8c41363301840dfdb2b613cabf24))
+* **probe:** SSRF IP pinning on HTTP checker — close DNS-rebinding window and re-validate redirect hops ([#283](https://github.com/AurevLan/WhatIsUp/issues/283)) ([0ef4008](https://github.com/AurevLan/WhatIsUp/commit/0ef40082ac7af71780a0f52f931df769ba7e40b1))
+* **server:** commit renotify per incident — one failure no longer discards prior incidents' alerts ([#285](https://github.com/AurevLan/WhatIsUp/issues/285)) ([9fea9b6](https://github.com/AurevLan/WhatIsUp/commit/9fea9b61f3a24d0b0a0e8eddcc1fa02f01de2a95))
+* **server:** fail-open Redis on API-key auth paths — outage degrades to bcrypt fallback, not 500 ([#284](https://github.com/AurevLan/WhatIsUp/issues/284)) ([65e6b9b](https://github.com/AurevLan/WhatIsUp/commit/65e6b9b46f3fd48fe94b5f529f49300f6748f3c0))
+
+
+### Changed
+
+* **server:** drop dead AlertCondition.tls_grade_below enum value ([#287](https://github.com/AurevLan/WhatIsUp/issues/287)) ([6bf2ebe](https://github.com/AurevLan/WhatIsUp/commit/6bf2ebe105a1e7c01f5d50a7657a287846c7eff8))
+* **server:** unify alert-condition matching — shared pure predicates for dispatch and preview ([#286](https://github.com/AurevLan/WhatIsUp/issues/286)) ([a34bca7](https://github.com/AurevLan/WhatIsUp/commit/a34bca7bb7c220a68a776429f720cc1f6b97d94d))
+
+
+### Docs
+
+* refresh README/CLAUDE.md/UPGRADING + archive completed plans ([#281](https://github.com/AurevLan/WhatIsUp/issues/281)) ([883c187](https://github.com/AurevLan/WhatIsUp/commit/883c1876f5993a28367e51e63925887d65bee03a))
+
 ## [1.16.1](https://github.com/AurevLan/WhatIsUp/compare/v1.16.0...v1.16.1) (2026-07-20)
 
 

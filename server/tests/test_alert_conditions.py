@@ -316,11 +316,10 @@ async def test_simulate_ssl_invalid_cert_fires(
 
 # ── Anti-divergence guard ────────────────────────────────────────────────────
 
-# Dead enum value: defined in the model but wired to no dispatch logic, no
-# frontend, no preview. If you implement it, add preview support and remove it
-# from this set; if you add a NEW condition, this test fails until the preview
-# handles it.
-_KNOWN_UNSUPPORTED = {AlertCondition.tls_grade_below}
+# Every AlertCondition member must have preview support: if you add a NEW
+# condition, this test fails until simulate_rule handles it. (tls_grade_below,
+# the last dead enum value, was removed — it never existed in the PG enum type.)
+_KNOWN_UNSUPPORTED: set[AlertCondition] = set()
 
 
 @pytest.mark.asyncio

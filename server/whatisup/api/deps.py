@@ -62,10 +62,12 @@ async def _auth_via_user_api_key(raw_key: str, db: AsyncSession) -> User:
     precisely, and the slow path only writes the cache if the key is still live —
     so a bcrypt verification in flight while ``revoke`` commits cannot re-cache a
     credential that was just invalidated.
-    """
-    from whatisup.core.redis import get_redis
 
-    redis = get_redis()
+    Redis is a pure accelerator on this path (R-2): any outage degrades to a
+    cache miss + bcrypt fallback instead of failing the request.
+    """
+    from whatisup.core.redis import redis_delete_safe, redis_get_safe, redis_setex_safe
+
     # SHA-256 used as cache index only (not for password hashing — bcrypt handles that)
     digest = hashlib.sha256(
         raw_key.encode(),
@@ -74,7 +76,7 @@ async def _auth_via_user_api_key(raw_key: str, db: AsyncSession) -> User:
     cache_key = f"whatisup:user_api:{digest}"
 
     now = datetime.now(UTC)
-    cached = await redis.get(cache_key)
+    cached = await redis_get_safe(cache_key)
     if cached:
         if isinstance(cached, bytes):  # decode_responses=False clients (e.g. fakeredis)
             cached = cached.decode()
@@ -116,9 +118,10 @@ async def _auth_via_user_api_key(raw_key: str, db: AsyncSession) -> User:
         # Cache stale — key revoked/expired/deleted, user deactivated, fingerprint
         # mismatch, or pre-S4 value format. Evict the forward entry (and the reverse
         # index if we could parse the key id) and fall through to the slow path.
-        await redis.delete(cache_key)
+        stale_keys = [cache_key]
         if key_pk is not None:
-            await redis.delete(f"whatisup:user_api_rev:{key_pk}")
+            stale_keys.append(f"whatisup:user_api_rev:{key_pk}")
+        await redis_delete_safe(*stale_keys)
     observe_auth_cache("user_api_key", hit=False)
 
     # Slow path — find the matching key row
@@ -192,8 +195,8 @@ async def _auth_via_user_api_key(raw_key: str, db: AsyncSession) -> User:
     if stale:
         logger.info("user_api_key_cache_write_skipped_stale", key_id=str(key_id))
         return user
-    await redis.setex(cache_key, 60, f"{user.id}|{key_id}|{fingerprint}")
-    await redis.setex(f"whatisup:user_api_rev:{key_id}", 60, digest)
+    await redis_setex_safe(cache_key, 60, f"{user.id}|{key_id}|{fingerprint}")
+    await redis_setex_safe(f"whatisup:user_api_rev:{key_id}", 60, digest)
     return user
 
 
@@ -286,17 +289,17 @@ async def get_current_probe(
             detail="Invalid probe API key",
         )
 
-    # Fast path: try Redis cache (key is SHA-256 of the raw API key — safe, preimage-resistant)
-    from whatisup.core.redis import get_redis
+    # Fast path: try Redis cache (key is SHA-256 of the raw API key — safe, preimage-resistant).
+    # Redis is a pure accelerator here (R-2): outage → cache miss + bcrypt fallback, not a 500.
+    from whatisup.core.redis import redis_delete_safe, redis_get_safe, redis_setex_safe
 
-    redis = get_redis()
     # SHA-256 used as cache index only (not for password hashing — bcrypt handles that)
     digest = hashlib.sha256(
         x_probe_api_key.encode(),
         usedforsecurity=False,
     ).hexdigest()[:32]
     cache_key = f"whatisup:probe_auth:{digest}"
-    cached = await redis.get(cache_key)
+    cached = await redis_get_safe(cache_key)
     if cached:
         if isinstance(cached, bytes):  # decode_responses=False clients (e.g. fakeredis)
             cached = cached.decode()
@@ -319,7 +322,7 @@ async def get_current_probe(
         # was written (fingerprint mismatch), or pre-fingerprint value format.
         # Evict and fall through to the slow path: only the credential that
         # matches the CURRENT hash can (re-)authenticate.
-        await redis.delete(cache_key)
+        await redis_delete_safe(cache_key)
     observe_auth_cache("probe_api_key", hit=False)
 
     async def _accept(probe: Probe, verified_hash: str) -> Probe:
@@ -341,8 +344,8 @@ async def get_current_probe(
         if current_hash is None or _probe_hash_fingerprint(current_hash) != fingerprint:
             logger.info("probe_auth_cache_write_skipped_stale_hash", probe_id=str(probe.id))
             return probe
-        await redis.setex(cache_key, 60, f"{probe.id}|{fingerprint}")
-        await redis.setex(f"whatisup:probe_auth_rev:{probe.id}", 60, digest)
+        await redis_setex_safe(cache_key, 60, f"{probe.id}|{fingerprint}")
+        await redis_setex_safe(f"whatisup:probe_auth_rev:{probe.id}", 60, digest)
         return probe
 
     # New-scheme slow path: indexed prefix lookup → at most one candidate, one bcrypt.
@@ -403,17 +406,21 @@ async def invalidate_probe_auth_cache(probe_id: uuid.UUID) -> None:
     index (``probe_id → digest``) written whenever a key is cached, and use it
     here to delete the forward entry. Without this the previous key would keep
     authenticating on the fast path until the cache TTL expires.
-    """
-    from whatisup.core.redis import get_redis
 
-    redis = get_redis()
+    Fail-open on Redis outage (R-2): a skipped eviction is defused by the hash
+    fingerprint in the cache value (fast path rejects it against the live row)
+    and bounded by the 60 s TTL — while failing here would 500 the rotation
+    or deactivation itself.
+    """
+    from whatisup.core.redis import redis_delete_safe, redis_get_safe
+
     rev_key = f"whatisup:probe_auth_rev:{probe_id}"
-    digest = await redis.get(rev_key)
+    digest = await redis_get_safe(rev_key)
     if digest:
         if isinstance(digest, bytes):  # decode_responses=False clients (e.g. fakeredis)
             digest = digest.decode()
-        await redis.delete(f"whatisup:probe_auth:{digest}")
-    await redis.delete(rev_key)
+        await redis_delete_safe(f"whatisup:probe_auth:{digest}")
+    await redis_delete_safe(rev_key)
 
 
 async def invalidate_user_api_key_cache(key_id: uuid.UUID) -> None:
@@ -424,17 +431,21 @@ async def invalidate_user_api_key_cache(key_id: uuid.UUID) -> None:
     reverse index (``key_id → digest``) written whenever a key is cached, and use
     it here to delete the forward entry. Without this a revoked key would keep
     authenticating on the fast path until the cache TTL (≤60 s) expires.
-    """
-    from whatisup.core.redis import get_redis
 
-    redis = get_redis()
+    Fail-open on Redis outage (R-2): a skipped eviction is defused by the hash
+    fingerprint in the cache value (fast path rejects it against the live row)
+    and bounded by the 60 s TTL — while failing here would 500 the revocation
+    itself.
+    """
+    from whatisup.core.redis import redis_delete_safe, redis_get_safe
+
     rev_key = f"whatisup:user_api_rev:{key_id}"
-    digest = await redis.get(rev_key)
+    digest = await redis_get_safe(rev_key)
     if digest:
         if isinstance(digest, bytes):  # decode_responses=False clients (e.g. fakeredis)
             digest = digest.decode()
-        await redis.delete(f"whatisup:user_api:{digest}")
-    await redis.delete(rev_key)
+        await redis_delete_safe(f"whatisup:user_api:{digest}")
+    await redis_delete_safe(rev_key)
 
 
 # ── Team-aware access control ────────────────────────────────────────────────

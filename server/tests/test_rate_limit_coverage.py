@@ -81,12 +81,12 @@ _MUST_HAVE_LIMIT = [
     (
         "DELETE",
         "/monitors/{monitor_id}/dependencies/{dependency_id}",
-        "whatisup.api.v1.monitors.remove_dependency",
+        "whatisup.api.v1.monitors.dependencies.remove_dependency",
     ),
     (
         "DELETE",
         "/monitors/{monitor_id}/composite-members/{member_id}",
-        "whatisup.api.v1.monitors.remove_composite_member",
+        "whatisup.api.v1.monitors.dependencies.remove_composite_member",
     ),
     (
         "GET",

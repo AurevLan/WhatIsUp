@@ -50,7 +50,9 @@ router = APIRouter(prefix="/probes", tags=["probes"])
 
 
 @router.get("/", response_model=list[ProbeOut])
+@limiter.limit("60/minute")
 async def list_probes(
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[Probe]:
@@ -74,7 +76,9 @@ async def list_probes(
 
 
 @router.get("/stats", response_model=list[ProbeStatsOut])
+@limiter.limit("60/minute")
 async def probe_stats(
+    request: Request,
     _user: User = Depends(require_superadmin),
     db: AsyncSession = Depends(get_db),
 ) -> list[dict]:

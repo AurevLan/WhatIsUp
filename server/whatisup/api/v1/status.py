@@ -82,7 +82,9 @@ async def status_all_monitors(
 
 
 @router.get("/monitors/{monitor_id}")
+@limiter.limit("60/minute")
 async def status_monitor(
+    request: Request,
     monitor_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

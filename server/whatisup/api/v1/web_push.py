@@ -22,7 +22,8 @@ router = APIRouter(prefix="/push", tags=["web-push"])
 
 
 @router.get("/vapid-public-key", response_model=WebPushPublicKeyOut)
-async def get_vapid_public_key() -> WebPushPublicKeyOut:
+@limiter.limit("30/minute")
+async def get_vapid_public_key(request: Request) -> WebPushPublicKeyOut:
     """Return the VAPID public key for the frontend to subscribe."""
     settings = get_settings()
     return WebPushPublicKeyOut(

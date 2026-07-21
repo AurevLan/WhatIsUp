@@ -74,7 +74,9 @@ async def _get_monitor_or_404(
 
 
 @router.get("/", response_model=list[MonitorOut])
+@limiter.limit("120/minute")
 async def list_monitors(
+    request: Request,
     response: Response,
     enabled: bool | None = None,
     group_id: uuid.UUID | None = None,
@@ -716,7 +718,9 @@ async def get_dependency_graph(
 
 
 @router.get("/{monitor_id}", response_model=MonitorOut)
+@limiter.limit("120/minute")
 async def get_monitor(
+    request: Request,
     monitor_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -813,7 +817,9 @@ async def delete_monitor(
 
 
 @router.get("/{monitor_id}/results", response_model=list[CheckResultOut])
+@limiter.limit("120/minute")
 async def get_results(
+    request: Request,
     monitor_id: uuid.UUID,
     limit: int = Query(default=100, ge=1, le=2000),
     offset: int = Query(default=0, ge=0),
@@ -833,7 +839,9 @@ async def get_results(
 
 
 @router.get("/{monitor_id}/uptime", response_model=UptimeStats)
+@limiter.limit("60/minute")
 async def get_uptime(
+    request: Request,
     monitor_id: uuid.UUID,
     period_hours: int = Query(default=24, ge=1, le=2160),
     current_user: User = Depends(get_current_user),
@@ -844,7 +852,9 @@ async def get_uptime(
 
 
 @router.get("/{monitor_id}/history", response_model=list[dict])
+@limiter.limit("60/minute")
 async def get_history(
+    request: Request,
     monitor_id: uuid.UUID,
     days: int = Query(default=90, ge=1, le=365),
     current_user: User = Depends(get_current_user),
@@ -858,7 +868,9 @@ async def get_history(
 
 
 @router.get("/{monitor_id}/health-state")
+@limiter.limit("60/minute")
 async def get_health_state(
+    request: Request,
     monitor_id: uuid.UUID,
     current_user: User = Depends(require_superadmin),
     db: AsyncSession = Depends(get_db),
@@ -916,7 +928,9 @@ async def get_percentiles(
 
 
 @router.get("/{monitor_id}/probes", response_model=list[ProbeMonitorStatus])
+@limiter.limit("60/minute")
 async def get_monitor_probe_status(
+    request: Request,
     monitor_id: uuid.UUID,
     _user: User = Depends(require_superadmin),
     db: AsyncSession = Depends(get_db),
@@ -994,7 +1008,9 @@ async def trigger_check(
 
 
 @router.get("/{monitor_id}/incidents", response_model=list[IncidentOut])
+@limiter.limit("60/minute")
 async def get_incidents(
+    request: Request,
     monitor_id: uuid.UUID,
     resolved: bool | None = None,
     limit: int = Query(default=50, ge=1, le=200),
@@ -1015,7 +1031,9 @@ async def get_incidents(
 
 
 @router.get("/{monitor_id}/incidents/{incident_id}/postmortem")
+@limiter.limit("30/minute")
 async def get_postmortem(
+    request: Request,
     monitor_id: uuid.UUID,
     incident_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
@@ -1203,7 +1221,9 @@ async def get_sla_report(
 
 
 @router.get("/{monitor_id}/annotations")
+@limiter.limit("60/minute")
 async def list_annotations(
+    request: Request,
     monitor_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -1802,7 +1822,9 @@ async def remove_composite_member(
 
 
 @router.get("/{monitor_id}/slo-rules", response_model=list[SLORuleOut])
+@limiter.limit("60/minute")
 async def list_slo_rules(
+    request: Request,
     monitor_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -1909,7 +1931,9 @@ async def delete_slo_rule(
 
 
 @router.get("/{monitor_id}/correlated")
+@limiter.limit("60/minute")
 async def get_correlated_monitors(
+    request: Request,
     monitor_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

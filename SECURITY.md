@@ -522,7 +522,7 @@ Toute modification de cette table doit être reportée dans `FEATURES.md` §11.
 | `/probes/{id}/rotate-key` | POST | **10/min** | Rotation clé — superadmin only |
 | `/monitors` | POST | **10/min** | Anti spam monitor |
 | `/monitors/{id}/trigger-check` | POST | **10/min** | Évite trigger storm |
-| `/config` | GET / PUT | *sans limite* / **10/min** | Export config (JWT) / import déclaratif |
+| `/config` | GET / PUT | **10/min** / **10/min** | Export config complet (requête lourde) / import déclaratif |
 | `/silences` | GET / POST / PATCH / DELETE | **60 / 20 / 30 / 30/min** | Catch-all silences |
 | `/incidents/bulk-ack` | POST | **20/min** | Anti boucle |
 | `/incidents/{id}/snooze` | POST | **30/min** | UX bulk |
@@ -542,10 +542,17 @@ Toute modification de cette table doit être reportée dans `FEATURES.md` §11.
 | `/monitors/{id}/dependencies/{dep_id}` | DELETE | **30/min** | Aligné sur le POST de création (add_dependency) |
 | `/monitors/{id}/composite-members/{member_id}` | DELETE | **30/min** | Aligné sur le POST/PATCH de composite members |
 | `/public/pages/{slug}/unsubscribe` | GET | **10/min** | Action d'état (désabonnement) exposée sans auth via token |
+| GET standard `/api/v1` (listes + détail : alerts channels/rules/events/presets/matrix-templates/matrix, api-keys, auth/me, groups ×3, maintenance, probes + stats, status/monitors/{id}, monitors uptime/history/health-state/probes/incidents/annotations/slo-rules/correlated) | GET | **60/min** | Harmonisation SEC-3 — lecture authentifiée standard, alignée sur le précédent teams/silences |
+| `/monitors` + `/monitors/{id}` + `/monitors/{id}/results` | GET | **120/min** | Chemins chauds dashboard (vue principale, détail, polling results 3 s pendant un test) |
+| `/monitors/{id}/incidents/{inc}/postmortem` | GET | **30/min** | Génération markdown coûteuse |
+| `/auth/oidc/config` + `/push/vapid-public-key` | GET | **30/min** | Publics sans auth mais réponse statique triviale |
+| `/api/health` + `/api/metrics` | GET | *sans limite* | Health checks LB/probe/app native + scrape Prometheus — hors routers v1, hors gate CI |
 
-> **Tout nouvel endpoint public ou écrit DOIT avoir un rate-limit explicite.** Le défaut implicite n'existe pas.
+> **Tout nouvel endpoint public ou écrit DOIT avoir un rate-limit explicite.** Le défaut implicite n'existe pas. **Depuis SEC-3 (2026-07-21), les GET aussi** : le gate CI couvre désormais toutes les méthodes sous `api/v1/`.
 >
 > **Sweep S2 (2026-07-16)** : audit exhaustif de `api/v1/` — 130 fonctions endpoint avaient déjà un décorateur (vagues SA1-SA7), 19 en manquaient : 13 dans le périmètre initial de l'audit (`teams.py` : 9/9, le module n'importait même pas `limiter` ; `alerts.py` : `POST /rules` ; `onboarding.py` : les 2 endpoints ; `audit.py` : `GET /`) plus 6 trouvés hors périmètre pendant le balayage complet (`groups.py POST /`, `api_keys.py DELETE /{id}`, `auth.py POST /logout`, `monitors.py DELETE .../dependencies/{id}` et `.../composite-members/{id}`, `public.py GET .../unsubscribe`). Tous comblés ; `test_rate_limit_coverage.py` fait échouer la CI si un futur endpoint POST/PUT/PATCH/DELETE sous `/api/v1` est ajouté sans décorateur (hors `_EXEMPT_KEYS` documentée : `/auth/register` désactivé, `/probes/register` superadmin-only, tous deux déjà dans ce tableau).
+>
+> **Sweep SEC-3 (2026-07-21)** : les 30 GET restés sans décorateur sous `api/v1/` sont harmonisés — 60/min standard, 120/min chemins chauds monitors, 10/min export `/config`, 30/min postmortem et publics statiques (`/auth/oidc/config`, `/push/vapid-public-key`). Le gate CI est étendu aux GET (`test_all_get_v1_endpoints_have_rate_limit`), scoping module `whatisup.api.v1.*` — `/api/health` et `/api/metrics` restent volontairement sans limite (hors routers v1).
 
 ---
 

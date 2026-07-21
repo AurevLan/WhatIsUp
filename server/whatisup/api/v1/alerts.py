@@ -80,7 +80,9 @@ async def _fetch_channels_by_ids(
 
 
 @router.get("/channels", response_model=list[AlertChannelOut])
+@limiter.limit("60/minute")
 async def list_channels(
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[AlertChannel]:
@@ -270,7 +272,9 @@ async def delete_channel(
 
 
 @router.get("/rules", response_model=list[AlertRuleOut])
+@limiter.limit("60/minute")
 async def list_rules(
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[AlertRule]:
@@ -472,7 +476,9 @@ async def delete_rule(
 
 
 @router.get("/events", response_model=list[AlertEventOut])
+@limiter.limit("60/minute")
 async def list_events(
+    request: Request,
     limit: int = Query(default=50, ge=1, le=500),
     status_filter: str | None = Query(default=None, alias="status"),
     current_user: User = Depends(get_current_user),
@@ -516,7 +522,9 @@ async def list_events(
 
 
 @router.get("/presets/{check_type}")
+@limiter.limit("60/minute")
 async def get_alert_presets(
+    request: Request,
     check_type: str,
     current_user: User = Depends(get_current_user),
 ) -> list[dict]:
@@ -678,7 +686,9 @@ async def preview_alert_matrix(
 
 
 @router.get("/matrix-templates/{check_type}", response_model=list[AlertMatrixTemplateOut])
+@limiter.limit("60/minute")
 async def list_matrix_templates(
+    request: Request,
     check_type: str,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -757,7 +767,9 @@ async def delete_matrix_template(
 
 
 @router.get("/monitors/{monitor_id}/matrix", response_model=AlertMatrixOut)
+@limiter.limit("60/minute")
 async def get_alert_matrix(
+    request: Request,
     monitor_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

@@ -251,7 +251,8 @@ async def logout(request: Request, payload: TokenRefreshRequest) -> None:
 
 
 @router.get("/me", response_model=UserOut)
-async def me(current_user: User = Depends(get_current_user)) -> User:
+@limiter.limit("60/minute")
+async def me(request: Request, current_user: User = Depends(get_current_user)) -> User:
     """Return the currently authenticated user."""
     return current_user
 
@@ -323,7 +324,8 @@ async def _resolve_oidc_settings(db: AsyncSession) -> dict:
 
 
 @router.get("/oidc/config")
-async def oidc_config(db: AsyncSession = Depends(get_db)) -> dict:
+@limiter.limit("30/minute")
+async def oidc_config(request: Request, db: AsyncSession = Depends(get_db)) -> dict:
     """Return OIDC availability so the frontend can show/hide the SSO button."""
     cfg = await _resolve_oidc_settings(db)
     return {"enabled": cfg["enabled"]}

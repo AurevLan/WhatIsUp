@@ -2,392 +2,32 @@
   <BaseModal :title="t('monitors.edit_title')" size="lg" @close="$emit('close')">
       <form @submit.prevent="handleSubmit" class="space-y-4">
 
-        <!-- Check type selector (read-only in edit mode) -->
-        <div>
-          <label class="block text-sm font-medium text-(--text-2) mb-2">Check type</label>
-          <div class="grid grid-cols-4 sm:grid-cols-6 gap-1">
-            <button
-              v-for="ct in checkTypes" :key="ct.value" type="button"
-              @click="form.check_type = ct.value"
-              class="py-2 px-1 rounded-lg border text-xs font-medium transition-colors text-center"
-              :class="form.check_type === ct.value
-                ? 'bg-(--accent-glow) border-(--accent-border) text-(--accent)'
-                : 'border-(--border) text-(--text-2) hover:border-(--border-hover) hover:text-(--text-1)'"
-            >
-              <div class="text-base mb-0.5">{{ ct.icon }}</div>
-              {{ ct.label }}
-            </button>
-          </div>
-          <p class="text-xs text-(--text-3) mt-1.5">{{ currentType.description }}</p>
-        </div>
-
-        <!-- Name -->
-        <div>
-          <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('common.name') }} *</label>
-          <input v-model="form.name" class="input w-full" :placeholder="currentType.namePlaceholder" required />
-        </div>
-
-        <!-- URL / Host field -->
-        <div v-if="form.check_type !== 'scenario' && form.check_type !== 'heartbeat' && form.check_type !== 'composite'">
-          <label class="block text-sm font-medium text-(--text-2) mb-1">{{ currentType.urlLabel }} *</label>
-          <input
-            v-model="form.url"
-            class="input w-full"
-            :placeholder="currentType.urlPlaceholder"
-            :type="['http', 'keyword', 'json_path'].includes(form.check_type) ? 'url' : 'text'"
-            :required="form.check_type !== 'scenario' && form.check_type !== 'heartbeat'"
-          />
-        </div>
-
-        <!-- Heartbeat options -->
-        <template v-if="form.check_type === 'heartbeat'">
-          <div>
-            <label class="block text-sm font-medium text-(--text-2) mb-1">Identifiant (slug) *</label>
-            <input v-model="form.heartbeat_slug" class="input w-full" placeholder="mon-cron-backup"
-              pattern="[a-z0-9\-]+" required />
-            <p v-if="form.heartbeat_token" class="text-xs text-(--text-3) mt-1">
-              URL de ping : <code class="font-mono text-(--accent) break-all">POST /api/v1/ping/{{ form.heartbeat_token }}</code>
-            </p>
-            <p v-else class="text-xs text-(--text-3) mt-1">
-              {{ t('create_monitor.heartbeat_slug_hint') }}
-            </p>
-          </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-medium text-(--text-2) mb-1">Intervalle attendu (s) *</label>
-              <input v-model.number="form.heartbeat_interval_seconds" type="number" min="60" class="input w-full"
-                placeholder="86400 (1 jour)" required />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-(--text-2) mb-1">Délai de grâce (s)</label>
-              <input v-model.number="form.heartbeat_grace_seconds" type="number" min="30" class="input w-full"
-                placeholder="300 (5 min)" />
-            </div>
-          </div>
-        </template>
-
-        <!-- TCP port -->
-        <div v-if="form.check_type === 'tcp'">
-          <label class="block text-sm font-medium text-(--text-2) mb-1">Port *</label>
-          <input v-model.number="form.tcp_port" class="input w-full" type="number" min="1" max="65535" placeholder="e.g. 443, 22, 5432" required />
-        </div>
-
-        <!-- UDP port -->
-        <div v-if="form.check_type === 'udp'">
-          <label class="block text-sm font-medium text-(--text-2) mb-1">Port *</label>
-          <input v-model.number="form.udp_port" class="input w-full" type="number" min="1" max="65535" placeholder="e.g. 53, 123, 161" required />
-          <p class="text-xs text-(--text-3) mt-1">Sends an empty datagram — no ICMP unreachable = port open/filtered → up.</p>
-        </div>
-
-        <!-- SMTP options -->
-        <div v-if="form.check_type === 'smtp'" class="space-y-3">
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-medium text-(--text-2) mb-1">Port</label>
-              <input v-model.number="form.smtp_port" class="input w-full" type="number" min="1" max="65535" placeholder="25" />
-            </div>
-            <div class="flex items-end pb-1">
-              <div class="flex items-center gap-2">
-                <input v-model="form.smtp_starttls" type="checkbox" id="smtp_starttls" />
-                <label for="smtp_starttls" class="text-sm text-(--text-2)">STARTTLS</label>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Domain expiry options -->
-        <div v-if="form.check_type === 'domain_expiry'">
-          <label class="block text-sm font-medium text-(--text-2) mb-1">Alert threshold (days)</label>
-          <input v-model.number="form.domain_expiry_warn_days" class="input w-full" type="number" min="1" max="365" placeholder="30" />
-          <p class="text-xs text-(--text-3) mt-1">Alert when domain expires in ≤ N days.</p>
-        </div>
-
-        <!-- DNS options -->
-        <div v-if="form.check_type === 'dns'" class="space-y-4">
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-medium text-(--text-2) mb-1">Record type</label>
-              <select v-model="form.dns_record_type" class="input w-full">
-                <option v-for="r in dnsRecordTypes" :key="r" :value="r">{{ r }}</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-(--text-2) mb-1">Expected value <span class="text-(--text-3)">(optional)</span></label>
-              <input v-model="form.dns_expected_value" class="input w-full" placeholder="1.2.3.4" />
-            </div>
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('monitors.dns_nameservers.label') }} <span class="text-(--text-3)">(optional)</span></label>
-            <input v-model="form.dns_nameservers_raw" class="input w-full" :placeholder="t('monitors.dns_nameservers.placeholder')" />
-            <p class="text-xs text-(--text-3) mt-1">{{ t('monitors.dns_nameservers.desc') }}</p>
-          </div>
-          <div class="rounded-lg border border-(--border) p-3 space-y-3">
-            <p class="text-xs font-semibold text-(--text-2) uppercase tracking-wide">{{ t('monitors.dns_drift.label') }}</p>
-            <div class="flex items-start gap-3">
-              <input v-model="form.dns_drift_alert" type="checkbox" id="dns_drift_alert" class="mt-0.5" />
-              <div>
-                <label for="dns_drift_alert" class="text-sm text-(--text-2)">{{ t('monitors.dns_drift.label') }}</label>
-                <p class="text-xs text-(--text-3)">{{ t('monitors.dns_drift.desc') }}</p>
-              </div>
-            </div>
-            <div v-if="form.dns_drift_alert" class="flex items-start gap-3 pl-1">
-              <input v-model="form.dns_split_enabled" type="checkbox" id="dns_split_enabled" class="mt-0.5" />
-              <div>
-                <label for="dns_split_enabled" class="text-sm text-(--text-2)">{{ t('monitors.dns_drift.split_horizon') }}</label>
-                <p class="text-xs text-(--text-3)">{{ t('monitors.dns_drift.split_horizon_desc') }}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Composite options -->
-        <div v-if="form.check_type === 'composite'" class="space-y-3">
-          <div>
-            <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('monitors.composite.aggregation') }}</label>
-            <select v-model="form.composite_aggregation" class="input w-full">
-              <option value="majority_up">{{ t('monitors.composite.aggregation_majority_up') }}</option>
-              <option value="all_up">{{ t('monitors.composite.aggregation_all_up') }}</option>
-              <option value="any_up">{{ t('monitors.composite.aggregation_any_up') }}</option>
-              <option value="weighted_up">{{ t('monitors.composite.aggregation_weighted_up') }}</option>
-            </select>
-            <p class="text-xs text-(--text-3) mt-1">{{ t('monitors.composite.desc') }}</p>
-          </div>
-        </div>
-
-        <!-- Keyword options -->
-        <div v-if="form.check_type === 'keyword'">
-          <label class="block text-sm font-medium text-(--text-2) mb-1">Keyword to find *</label>
-          <input v-model="form.keyword" class="input w-full" placeholder="e.g. &quot;status&quot;: &quot;ok&quot;" required />
-          <div class="flex items-center gap-2 mt-2">
-            <input v-model="form.keyword_negate" type="checkbox" id="negate" />
-            <label for="negate" class="text-sm text-(--text-2)">Alert if keyword <strong class="text-(--text-1)">IS found</strong> (negate check)</label>
-          </div>
-        </div>
-
-        <!-- JSON path options -->
-        <div v-if="form.check_type === 'json_path'" class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-medium text-(--text-2) mb-1">JSON path *</label>
-            <input v-model="form.expected_json_path" class="input w-full" placeholder="$.status" required />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-(--text-2) mb-1">Expected value <span class="text-(--text-3)">(optional)</span></label>
-            <input v-model="form.expected_json_value" class="input w-full" placeholder="ok" />
-          </div>
-        </div>
-
-        <!-- Scenario builder -->
-        <div v-if="form.check_type === 'scenario'">
-          <label class="block text-sm font-medium text-(--text-2) mb-2">Scénario de navigation</label>
-          <ScenarioBuilder
-            v-model="form.scenario_steps"
-            :variables="form.scenario_variables"
-            @update:variables="form.scenario_variables = $event"
-          />
-        </div>
-
-        <!-- Network scope -->
-        <div v-if="form.check_type !== 'heartbeat' && form.check_type !== 'composite'">
-          <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('monitors.network_scope.label') }}</label>
-          <div class="grid grid-cols-3 gap-2">
-            <button
-              v-for="s in networkScopes" :key="s.value" type="button"
-              @click="form.network_scope = s.value"
-              class="py-2 px-2 rounded-lg border text-xs font-medium transition-colors text-center"
-              :class="form.network_scope === s.value
-                ? 'bg-(--accent-glow) border-(--accent-border) text-(--accent)'
-                : 'border-(--border) text-(--text-2) hover:border-(--border-hover) hover:text-(--text-1)'"
-            >
-              <div class="text-base mb-0.5">{{ s.icon }}</div>
-              {{ s.label }}
-            </button>
-          </div>
-          <p class="text-xs text-(--text-3) mt-1">{{ networkScopes.find(s => s.value === form.network_scope)?.desc }}</p>
-        </div>
-
-        <!-- Interval / Timeout -->
-        <div v-if="form.check_type !== 'heartbeat' && form.check_type !== 'composite'" class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-medium text-(--text-2) mb-1">Interval (s)</label>
-            <input v-model.number="form.interval_seconds" class="input w-full" type="number" min="5" max="86400" />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-(--text-2) mb-1">Timeout (s)</label>
-            <input v-model.number="form.timeout_seconds" class="input w-full" type="number" min="1" max="60" />
-          </div>
-        </div>
-
-        <!-- HTTP-only options -->
-        <template v-if="['http', 'keyword', 'json_path'].includes(form.check_type)">
-          <div class="flex items-center gap-3">
-            <input v-model="form.follow_redirects" type="checkbox" id="redirects" />
-            <label for="redirects" class="text-sm text-(--text-2)">Follow redirects</label>
-          </div>
-          <div class="flex items-center gap-3">
-            <input v-model="form.ssl_check_enabled" type="checkbox" id="ssl" />
-            <label for="ssl" class="text-sm text-(--text-2)">Monitor SSL certificate</label>
-          </div>
-          <div v-if="form.ssl_check_enabled" class="ml-6 space-y-2 border-l-2 border-(--border) pl-3">
-            <div>
-              <label class="text-xs text-(--text-2) block mb-1">{{ t('monitors.sslAdvanced.pin') }}</label>
-              <input v-model="form.ssl_pin_sha256" class="input w-full font-mono text-xs" :placeholder="t('monitors.sslAdvanced.pinPlaceholder')" maxlength="64" pattern="[a-f0-9]{64}" />
-              <p class="text-xs text-(--text-3) mt-1">{{ t('monitors.sslAdvanced.pinHint') }}</p>
-            </div>
-            <div>
-              <label class="text-xs text-(--text-2) block mb-1">{{ t('monitors.sslAdvanced.minChainDays') }}</label>
-              <input v-model.number="form.ssl_min_chain_days" type="number" class="input w-32 text-xs" min="1" max="365" :placeholder="t('monitors.sslAdvanced.minChainPlaceholder')" />
-              <p class="text-xs text-(--text-3) mt-1">{{ t('monitors.sslAdvanced.minChainHint') }}</p>
-            </div>
-          </div>
-
-          <!-- Custom request headers accordion -->
+        <MonitorFormFields mode="edit" :json-schema-error="jsonSchemaError">
+          <template #before-flapping>
+          <!-- Runbook -->
           <div class="border border-(--border) rounded-lg overflow-hidden">
-            <button
-              type="button"
-              @click="showCustomHeaders = !showCustomHeaders"
-              class="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium text-(--text-2) hover:text-(--text-1) hover:bg-(--bg-surface-2) transition-colors"
-            >
-              <span>{{ t('monitors.customHeaders.title') }}</span>
-              <span class="text-xs transition-transform" :class="showCustomHeaders ? 'rotate-180' : ''">▼</span>
-            </button>
-            <div v-if="showCustomHeaders" class="px-4 pb-4 pt-2 space-y-3 border-t border-(--border) bg-(--bg-surface-2)">
-              <p class="text-xs text-(--text-3)">{{ t('monitors.customHeaders.desc') }}</p>
-              <div class="flex items-center gap-2">
-                <label class="text-xs text-(--text-2) shrink-0">{{ t('monitors.customHeaders.presets.label') }}</label>
-                <select v-model="selectedUaPreset" @change="onUaPresetChange" class="input text-xs flex-1">
-                  <option value="">{{ t('monitors.customHeaders.presets.choose') }}</option>
-                  <option v-for="p in UA_PRESETS" :key="p.id" :value="p.id">{{ t(p.labelKey) }}</option>
-                </select>
-              </div>
-              <div v-if="form.custom_headers_list.length" class="space-y-2">
-                <div v-for="(h, idx) in form.custom_headers_list" :key="idx" class="flex gap-2 items-center">
-                  <input v-model="h.key" class="input flex-1 font-mono text-xs" :placeholder="t('monitors.customHeaders.namePlaceholder')" maxlength="100" />
-                  <input v-model="h.value" class="input flex-1 font-mono text-xs" :placeholder="t('monitors.customHeaders.valuePlaceholder')" maxlength="500" />
-                  <button type="button" @click="removeCustomHeader(idx)" class="text-(--down) text-xs px-1 shrink-0" :aria-label="t('a11y.remove')">✕</button>
-                </div>
-              </div>
-              <p v-else class="text-xs text-(--text-3)">{{ t('monitors.customHeaders.empty') }}</p>
-              <button
-                type="button"
-                @click="addCustomHeader"
-                class="text-xs text-(--accent) flex items-center gap-1"
-                :disabled="form.custom_headers_list.length >= 20"
-              >+ {{ t('monitors.customHeaders.add') }}</button>
-            </div>
-          </div>
-
-          <!-- Advanced assertions accordion -->
-          <div class="border border-(--border) rounded-lg overflow-hidden">
-            <button
-              type="button"
-              @click="showAdvanced = !showAdvanced"
-              class="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium text-(--text-2) hover:text-(--text-1) hover:bg-(--bg-surface-2) transition-colors"
-            >
-              <span>Assertions avancées</span>
-              <span class="text-xs transition-transform" :class="showAdvanced ? 'rotate-180' : ''">▼</span>
-            </button>
-            <div v-if="showAdvanced" class="px-4 pb-4 pt-2 space-y-4 border-t border-(--border) bg-(--bg-surface-2)">
-              <div>
-                <label class="block text-sm font-medium text-(--text-2) mb-1">
-                  Regex corps <span class="text-(--text-3)">(optionnel)</span>
+            <div class="flex items-center justify-between px-4 py-2.5 bg-(--bg-surface-2)">
+              <div class="flex items-start gap-3">
+                <input v-model="form.runbook_enabled" type="checkbox" id="runbook_enabled" class="mt-0.5" />
+                <label for="runbook_enabled" class="text-sm font-medium text-(--text-2) cursor-pointer">
+                  {{ t('runbook.enable_label') }}
+                  <p class="text-xs text-(--text-3) font-normal mt-0.5">{{ t('runbook.enable_desc') }}</p>
                 </label>
-                <input
-                  v-model="form.body_regex"
-                  class="input w-full font-mono text-sm"
-                  placeholder=".*&quot;status&quot;:&quot;ok&quot;.*"
-                />
-                <p class="text-xs text-(--text-3) mt-1">Expression régulière à rechercher dans le corps de la réponse.</p>
-              </div>
-
-              <div>
-                <div class="flex items-center justify-between mb-2">
-                  <label class="text-sm font-medium text-(--text-2)">En-têtes attendus</label>
-                  <button
-                    type="button"
-                    @click="addExpectedHeader"
-                    class="text-xs text-(--accent) flex items-center gap-1"
-                  >+ Ajouter</button>
-                </div>
-                <div v-if="form.expected_headers_list.length" class="space-y-2">
-                  <div v-for="(h, idx) in form.expected_headers_list" :key="idx" class="flex gap-2 items-center">
-                    <input v-model="h.key" class="input flex-1 font-mono text-xs" placeholder="content-type" />
-                    <input v-model="h.value" class="input flex-1 font-mono text-xs" placeholder="application/json ou /pattern/" />
-                    <button type="button" @click="removeExpectedHeader(idx)" class="text-(--down) text-xs px-1 shrink-0" :aria-label="t('a11y.remove')">✕</button>
-                  </div>
-                </div>
-                <p v-else class="text-xs text-(--text-3)">Aucun en-tête — cliquez sur "+ Ajouter".</p>
-                <p class="text-xs text-(--text-3) mt-1">Utilisez <code class="font-mono text-(--text-2)">/regex/</code> comme valeur pour un match par expression régulière.</p>
-              </div>
-
-              <div>
-                <label class="block text-sm font-medium text-(--text-2) mb-1">
-                  JSON Schema <span class="text-(--text-3)">(optionnel)</span>
-                </label>
-                <textarea
-                  v-model="form.json_schema_text"
-                  class="input w-full font-mono text-xs"
-                  rows="4"
-                  placeholder="{&quot;type&quot;:&quot;object&quot;,&quot;required&quot;:[&quot;status&quot;],&quot;properties&quot;:{&quot;status&quot;:{&quot;type&quot;:&quot;string&quot;}}}"
-                ></textarea>
-                <p v-if="jsonSchemaError" class="text-xs text-(--down) mt-1">{{ jsonSchemaError }}</p>
-                <p class="text-xs text-(--text-3) mt-1">JSON Schema (draft-07) pour valider le corps de la réponse.</p>
               </div>
             </div>
-          </div>
-        </template>
-
-        <!-- Runbook -->
-        <div class="border border-(--border) rounded-lg overflow-hidden">
-          <div class="flex items-center justify-between px-4 py-2.5 bg-(--bg-surface-2)">
-            <div class="flex items-start gap-3">
-              <input v-model="form.runbook_enabled" type="checkbox" id="runbook_enabled" class="mt-0.5" />
-              <label for="runbook_enabled" class="text-sm font-medium text-(--text-2) cursor-pointer">
-                {{ t('runbook.enable_label') }}
-                <p class="text-xs text-(--text-3) font-normal mt-0.5">{{ t('runbook.enable_desc') }}</p>
-              </label>
+            <div v-if="form.runbook_enabled" class="px-4 pb-4 pt-3 border-t border-(--border)">
+              <textarea
+                v-model="form.runbook_markdown"
+                rows="8"
+                maxlength="20000"
+                class="input w-full font-mono text-sm"
+                :placeholder="t('runbook.placeholder')"
+              ></textarea>
+              <p class="text-xs text-(--text-3) mt-1">{{ t('runbook.markdown_hint') }}</p>
             </div>
           </div>
-          <div v-if="form.runbook_enabled" class="px-4 pb-4 pt-3 border-t border-(--border)">
-            <textarea
-              v-model="form.runbook_markdown"
-              rows="8"
-              maxlength="20000"
-              class="input w-full font-mono text-sm"
-              :placeholder="t('runbook.placeholder')"
-            ></textarea>
-            <p class="text-xs text-(--text-3) mt-1">{{ t('runbook.markdown_hint') }}</p>
-          </div>
-        </div>
-
-        <!-- Flapping detection overrides -->
-        <div v-if="form.check_type !== 'heartbeat'" class="border border-(--border) rounded-lg overflow-hidden">
-          <button
-            type="button"
-            @click="showFlapping = !showFlapping"
-            class="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium text-(--text-2) hover:text-(--text-1) hover:bg-(--bg-surface-2) transition-colors"
-          >
-            <span>{{ t('monitors.flapping_settings') }}</span>
-            <span class="text-xs transition-transform" :class="showFlapping ? 'rotate-180' : ''">▼</span>
-          </button>
-          <div v-if="showFlapping" class="px-4 pb-4 pt-2 space-y-3 border-t border-(--border) bg-(--bg-surface-2)">
-            <p class="text-xs text-(--text-3)">{{ t('monitors.flapping_desc') }}</p>
-            <div class="grid grid-cols-2 gap-4">
-              <div>
-                <label class="block text-xs text-(--text-2) mb-1">{{ t('monitors.flap_threshold') }}</label>
-                <input v-model.number="form.flap_threshold" type="number" min="2" max="50" class="input w-full" />
-              </div>
-              <div>
-                <label class="block text-xs text-(--text-2) mb-1">{{ t('monitors.flap_window_minutes') }}</label>
-                <input v-model.number="form.flap_window_minutes" type="number" min="1" max="60" class="input w-full" />
-              </div>
-            </div>
-            <div class="mt-3">
-              <label class="block text-xs text-(--text-2) mb-1">{{ t('monitors.auto_pause_after') }}</label>
-              <input v-model.number="form.auto_pause_after" type="number" min="2" max="100" placeholder="" class="input w-full" />
-              <p class="text-xs text-(--text-3) mt-1">{{ t('monitors.auto_pause_after_hint') }}</p>
-            </div>
-          </div>
-        </div>
+          </template>
+        </MonitorFormFields>
 
         <div v-if="error" class="bg-[color-mix(in_srgb,var(--down)_12%,transparent)] border border-[color-mix(in_srgb,var(--down)_30%,transparent)] rounded p-3 text-sm text-(--down)">
           {{ error }}
@@ -406,12 +46,12 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, provide } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useMonitorStore } from '../../stores/monitors'
-import ScenarioBuilder from './ScenarioBuilder.vue'
 import BaseModal from '../BaseModal.vue'
-import { UA_PRESETS, applyUaPreset } from '../../lib/uaPresets'
+import MonitorFormFields from './MonitorFormFields.vue'
+import { MonitorFormKey } from './monitorFormKeys'
 
 const props = defineProps({
   monitor: { type: Object, required: true },
@@ -421,131 +61,6 @@ const { t } = useI18n()
 
 const emit = defineEmits(['close', 'updated'])
 const monitorStore = useMonitorStore()
-
-const showAdvanced = ref(false)
-const showFlapping = ref(false)
-const showCustomHeaders = ref(false)
-
-const checkTypes = [
-  {
-    value: 'http',
-    label: 'HTTP',
-    icon: '🌐',
-    description: 'Check that a URL returns an expected HTTP status code.',
-    urlLabel: 'URL',
-    urlPlaceholder: 'https://example.com',
-    namePlaceholder: 'My Website',
-  },
-  {
-    value: 'keyword',
-    label: 'Keyword',
-    icon: '🔍',
-    description: 'HTTP check + verify a keyword is (or isn\'t) present in the response body.',
-    urlLabel: 'URL',
-    urlPlaceholder: 'https://api.example.com/health',
-    namePlaceholder: 'API Health Check',
-  },
-  {
-    value: 'json_path',
-    label: 'JSON',
-    icon: '{ }',
-    description: 'HTTP check + validate a JSON path value in the response (e.g. $.status == "ok").',
-    urlLabel: 'URL',
-    urlPlaceholder: 'https://api.example.com/status',
-    namePlaceholder: 'API Status',
-  },
-  {
-    value: 'tcp',
-    label: 'TCP',
-    icon: '🔌',
-    description: 'Check that a TCP port is reachable (databases, SSH, SMTP, etc.).',
-    urlLabel: 'Host',
-    urlPlaceholder: 'db.example.com',
-    namePlaceholder: 'PostgreSQL DB',
-  },
-  {
-    value: 'dns',
-    label: 'DNS',
-    icon: '📡',
-    description: 'Check DNS resolution and optionally assert the returned value.',
-    urlLabel: 'Domain',
-    urlPlaceholder: 'example.com',
-    namePlaceholder: 'DNS example.com',
-  },
-  {
-    value: 'scenario',
-    label: 'Scénario',
-    icon: '🎭',
-    description: 'Exécute un scénario de navigation complet dans un vrai navigateur (authentification, clics, assertions…).',
-    urlLabel: 'URL de départ',
-    urlPlaceholder: 'https://app.example.com',
-    namePlaceholder: 'Login + Dashboard',
-  },
-  {
-    value: 'heartbeat',
-    label: 'Heartbeat',
-    icon: '⏰',
-    description: 'Dead man\'s switch pour cron jobs : ouvre un incident si le ping ne revient pas dans l\'intervalle + délai de grâce.',
-    urlLabel: '',
-    urlPlaceholder: '',
-    namePlaceholder: 'Backup quotidien',
-  },
-  {
-    value: 'udp',
-    label: 'UDP',
-    icon: '📦',
-    description: 'Check that a UDP port is reachable (DNS, NTP, SNMP, game servers…).',
-    urlLabel: 'Host',
-    urlPlaceholder: 'dns.example.com',
-    namePlaceholder: 'DNS UDP 53',
-  },
-  {
-    value: 'smtp',
-    label: 'SMTP',
-    icon: '✉️',
-    description: 'Connect to an SMTP server, verify the banner and EHLO response.',
-    urlLabel: 'Mail server',
-    urlPlaceholder: 'mail.example.com',
-    namePlaceholder: 'SMTP Mail Server',
-  },
-  {
-    value: 'ping',
-    label: 'Ping',
-    icon: '🏓',
-    description: 'ICMP ping check — measures round-trip time and reachability.',
-    urlLabel: 'Host',
-    urlPlaceholder: 'router.internal',
-    namePlaceholder: 'Gateway Ping',
-  },
-  {
-    value: 'domain_expiry',
-    label: 'Domain',
-    icon: '🔑',
-    description: 'Monitor domain expiry via WHOIS — alerts before your domain expires.',
-    urlLabel: 'Domain',
-    urlPlaceholder: 'example.com',
-    namePlaceholder: 'example.com expiry',
-  },
-  {
-    value: 'composite',
-    label: 'Composite',
-    icon: '🔗',
-    description: 'Aggregate the state of multiple monitors into a single status (e.g. internal probe + external probe).',
-    urlLabel: '',
-    urlPlaceholder: '',
-    namePlaceholder: 'My Service (aggregated)',
-  },
-]
-
-const dnsRecordTypes = ['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS']
-
-const networkScopes = [
-  { value: 'all', icon: '🌍', label: t('monitors.network_scope.all'), desc: t('monitors.network_scope.all_desc') },
-  { value: 'internal', icon: '🏠', label: t('monitors.network_scope.internal'), desc: t('monitors.network_scope.internal_desc') },
-  { value: 'external', icon: '☁️', label: t('monitors.network_scope.external'), desc: t('monitors.network_scope.external_desc') },
-]
-
-const currentType = computed(() => checkTypes.find(ct => ct.value === form.value.check_type) || checkTypes[0])
 
 // Strip http:// prefix added by buildPayload for bare-host types so the field looks clean
 function stripScheme(url) {
@@ -609,44 +124,13 @@ const form = ref({
   runbook_markdown: m.runbook_markdown || '',
 })
 
-// Open advanced section if any advanced field is set
-if (m.body_regex || headersFromMonitor.length || m.json_schema) {
-  showAdvanced.value = true
-}
-if (customHeadersFromMonitor.length) {
-  showCustomHeaders.value = true
-}
+// Les champs partagés (MonitorFormFields) mutent ce formulaire via v-model ;
+// ils ouvrent aussi d'eux-mêmes les accordéons déjà renseignés.
+provide(MonitorFormKey, form)
 
 const loading = ref(false)
 const error = ref('')
 const jsonSchemaError = ref('')
-
-function addExpectedHeader() {
-  form.value.expected_headers_list.push({ key: '', value: '' })
-}
-
-function removeExpectedHeader(idx) {
-  form.value.expected_headers_list.splice(idx, 1)
-}
-
-function addCustomHeader() {
-  if (form.value.custom_headers_list.length >= 20) return
-  form.value.custom_headers_list.push({ key: '', value: '' })
-}
-
-function removeCustomHeader(idx) {
-  form.value.custom_headers_list.splice(idx, 1)
-}
-
-const selectedUaPreset = ref('')
-function onUaPresetChange() {
-  const preset = UA_PRESETS.find(p => p.id === selectedUaPreset.value)
-  if (!preset) return
-  const next = applyUaPreset(form.value.custom_headers_list, preset.value)
-  if (next.length > 20) return
-  form.value.custom_headers_list = next
-  selectedUaPreset.value = ''
-}
 
 function buildPayload() {
   const p = {

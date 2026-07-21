@@ -280,7 +280,7 @@ VAPID_PUBLIC_KEY=...   VAPID_PRIVATE_KEY=...             # web push (opt-in)
 | `SECRET_KEY` | Compromission ou 12 mois | redéployer avec nouvelle valeur | invalide tous les JWT actifs |
 | `FERNET_KEY` | Compromission uniquement | procédure zéro-downtime ci-dessous : `FERNET_KEY_PREVIOUS` + `python -m whatisup.tools.rotate_fernet` | aucune (déchiffrement multi-clés pendant la transition) |
 | Probe API key | Compromission ou 6 mois | `POST /probes/{id}/rotate-key` | sonde re-enroll requise |
-| User API key | Compromission ou selon politique | `DELETE /api-keys/{id}` (révocation) | invalidation **immédiate** (éviction cache auth après commit, pas d'attente du TTL 60 s) |
+| User API key | Compromission ou selon politique | `DELETE /api-keys/{id}` (révocation) | invalidation **immédiate** (éviction cache auth après commit, pas d'attente du TTL 60 s) ; émettre les clés d'intégration en **lecture seule** (scope `read` seul) limite d'emblée les dégâts d'une fuite |
 | DB password | Compromission ou 12 mois | `ALTER USER` + redéploiement | brève coupure |
 | OIDC client_secret | Selon politique IdP | UI Settings → OIDC | re-login users |
 | Android keystore | **JAMAIS** sans pré-publication majeure | rotation impossible post-Play Store | crash auto-update |

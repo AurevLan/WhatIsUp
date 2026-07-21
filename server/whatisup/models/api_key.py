@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, Uuid
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from whatisup.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -36,6 +36,12 @@ class UserApiKey(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_revoked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
+    # Portée de la clé. Une clé sans "write" n'autorise que les lectures : c'est
+    # ce qui distingue un jeton d'intégration d'un mot de passe. Le défaut reste
+    # complet pour ne pas casser les clés déjà distribuées.
+    scopes: Mapped[list[str]] = mapped_column(
+        JSON, nullable=False, default=lambda: ["read", "write"]
+    )
 
     user: Mapped[User] = relationship("User", back_populates="api_keys")
 

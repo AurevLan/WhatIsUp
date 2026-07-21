@@ -1,16 +1,16 @@
 <template>
-  <BaseModal title="Add Alert Channel" @close="$emit('close')">
+  <BaseModal :title="t('alerts.channel_form.title')" @close="$emit('close')">
 
       <form @submit.prevent="handleSubmit" class="space-y-4">
         <div>
-          <label class="block text-sm font-medium text-(--text-2) mb-1">Name *</label>
-          <input v-model="form.name" class="input w-full" placeholder="My Email Channel" required />
+          <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('alerts.channel_form.name') }} *</label>
+          <input v-model="form.name" class="input w-full" :placeholder="t('alerts.channel_form.name_placeholder')" required />
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-(--text-2) mb-1">Type *</label>
+          <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('alerts.channel_form.type') }} *</label>
           <select v-model="form.type" class="input w-full" required>
-            <option value="">Select type...</option>
+            <option value="">{{ t('alerts.channel_form.type_placeholder') }}</option>
             <option value="email">📧 Email</option>
             <option value="webhook">🔗 Webhook</option>
             <option value="telegram">✈️ Telegram</option>
@@ -27,7 +27,7 @@
         <!-- Email config -->
         <div v-if="form.type === 'email'" class="space-y-3">
           <div>
-            <label class="block text-sm font-medium text-(--text-2) mb-1">Recipients (comma-separated) *</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('alerts.channel_form.recipients') }} *</label>
             <input v-model="emailTo" class="input w-full" placeholder="alert@example.com, ops@example.com" required />
           </div>
         </div>
@@ -35,12 +35,12 @@
         <!-- Webhook config -->
         <div v-if="form.type === 'webhook'" class="space-y-3">
           <div>
-            <label class="block text-sm font-medium text-(--text-2) mb-1">URL *</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('alerts.channel_form.url') }} *</label>
             <input v-model="webhookUrl" class="input w-full" placeholder="https://hooks.slack.com/..." type="url" required />
           </div>
           <div>
-            <label class="block text-sm font-medium text-(--text-2) mb-1">Secret (for HMAC signature)</label>
-            <input v-model="webhookSecret" class="input w-full" placeholder="Optional secret" />
+            <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('alerts.channel_form.secret_hmac') }}</label>
+            <input v-model="webhookSecret" class="input w-full" :placeholder="t('alerts.channel_form.secret_placeholder')" />
           </div>
           <div>
             <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('alerts.webhook_template') }}</label>
@@ -57,43 +57,43 @@
         <!-- Slack config -->
         <div v-if="form.type === 'slack'" class="space-y-3">
           <div>
-            <label class="block text-sm font-medium text-(--text-2) mb-1">Webhook URL *</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('alerts.channel_form.webhook_url') }} *</label>
             <input v-model="slackWebhookUrl" class="input w-full" placeholder="https://hooks.slack.com/services/..." type="url" required />
-            <p class="text-xs text-(--text-3) mt-1">Create an Incoming Webhook in your Slack workspace.</p>
+            <p class="text-xs text-(--text-3) mt-1">{{ t('alerts.channel_form.slack_hint') }}</p>
           </div>
         </div>
 
         <!-- Discord config -->
         <div v-if="form.type === 'discord'" class="space-y-3">
           <div>
-            <label class="block text-sm font-medium text-(--text-2) mb-1">Webhook URL *</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('alerts.channel_form.webhook_url') }} *</label>
             <input v-model="discordWebhookUrl" class="input w-full" placeholder="https://discord.com/api/webhooks/..." type="url" required />
-            <p class="text-xs text-(--text-3) mt-1">Server Settings → Integrations → Webhooks → New Webhook.</p>
+            <p class="text-xs text-(--text-3) mt-1">{{ t('alerts.channel_form.discord_hint') }}</p>
           </div>
         </div>
 
         <!-- Mattermost config -->
         <div v-if="form.type === 'mattermost'" class="space-y-3">
           <div>
-            <label class="block text-sm font-medium text-(--text-2) mb-1">Webhook URL *</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('alerts.channel_form.webhook_url') }} *</label>
             <input v-model="mattermostWebhookUrl" class="input w-full" placeholder="https://mattermost.example.com/hooks/..." type="url" required />
-            <p class="text-xs text-(--text-3) mt-1">System Console → Integrations → Incoming Webhooks.</p>
+            <p class="text-xs text-(--text-3) mt-1">{{ t('alerts.channel_form.mattermost_hint') }}</p>
           </div>
         </div>
 
         <!-- Teams config -->
         <div v-if="form.type === 'teams'" class="space-y-3">
           <div>
-            <label class="block text-sm font-medium text-(--text-2) mb-1">Webhook URL *</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('alerts.channel_form.webhook_url') }} *</label>
             <input v-model="teamsWebhookUrl" class="input w-full" placeholder="https://prod-XX.westus.logic.azure.com/..." type="url" required />
-            <p class="text-xs text-(--text-3) mt-1">Power Automate workflow with HTTP trigger → "Post adaptive card in a chat or channel". Legacy Office 365 connectors also work.</p>
+            <p class="text-xs text-(--text-3) mt-1">{{ t('alerts.channel_form.teams_hint') }}</p>
           </div>
         </div>
 
         <!-- Telegram config -->
         <div v-if="form.type === 'telegram'" class="space-y-3">
           <div>
-            <label class="block text-sm font-medium text-(--text-2) mb-1">Bot Token *</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('alerts.channel_form.bot_token') }} *</label>
             <div class="flex gap-2">
               <input v-model="telegramToken" class="input flex-1" placeholder="1234567890:ABC..." required />
               <button
@@ -102,38 +102,38 @@
                 :disabled="!telegramToken || telegramResolving"
                 class="btn-primary whitespace-nowrap"
               >
-                {{ telegramResolving ? '…' : 'Fetch chat ID' }}
+                {{ telegramResolving ? '…' : t('alerts.channel_form.fetch_chat_id') }}
               </button>
             </div>
-            <p class="text-xs text-(--text-3) mt-1">Send any message to your bot first, then click "Fetch chat ID".</p>
+            <p class="text-xs text-(--text-3) mt-1">{{ t('alerts.channel_form.telegram_hint') }}</p>
           </div>
           <div v-if="telegramChatName" class="flex items-center gap-2 bg-[color-mix(in_srgb,var(--up)_10%,transparent)] border border-[color-mix(in_srgb,var(--up)_25%,transparent)] rounded-lg px-3 py-2 text-sm text-(--up)">
             <span>✅</span>
-            <span>Connected to <strong>{{ telegramChatName }}</strong> (ID: {{ telegramChatId }})</span>
+            <span>{{ t('alerts.channel_form.connected_to') }} <strong>{{ telegramChatName }}</strong> (ID: {{ telegramChatId }})</span>
           </div>
           <div v-if="telegramResolveError" class="bg-[color-mix(in_srgb,var(--down)_10%,transparent)] border border-[color-mix(in_srgb,var(--down)_30%,transparent)] rounded-lg px-3 py-2 text-sm text-(--down)">
             {{ telegramResolveError }}
           </div>
           <div>
-            <label class="block text-sm font-medium text-(--text-2) mb-1">Chat ID *</label>
-            <input v-model="telegramChatId" class="input w-full" placeholder="Auto-filled after fetch" required />
+            <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('alerts.channel_form.chat_id') }} *</label>
+            <input v-model="telegramChatId" class="input w-full" :placeholder="t('alerts.channel_form.chat_id_placeholder')" required />
           </div>
         </div>
 
         <!-- PagerDuty config -->
         <div v-if="form.type === 'pagerduty'" class="space-y-3">
           <div>
-            <label class="block text-sm font-medium text-(--text-2) mb-1">Integration Key (Routing Key) *</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('alerts.channel_form.integration_key') }} *</label>
             <input v-model="pdIntegrationKey" class="input w-full" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" required />
-            <p class="text-xs text-(--text-3) mt-1">Find this key in your PagerDuty service (Events API v2).</p>
+            <p class="text-xs text-(--text-3) mt-1">{{ t('alerts.channel_form.pagerduty_hint') }}</p>
           </div>
           <div>
-            <label class="block text-sm font-medium text-(--text-2) mb-1">Severity</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('alerts.channel_form.severity') }}</label>
             <select v-model="pdSeverity" class="input w-full">
-              <option value="critical">critical</option>
-              <option value="error">error</option>
-              <option value="warning">warning</option>
-              <option value="info">info</option>
+              <option value="critical">{{ t('alerts.channel_form.severity_critical') }}</option>
+              <option value="error">{{ t('alerts.channel_form.severity_error') }}</option>
+              <option value="warning">{{ t('alerts.channel_form.severity_warning') }}</option>
+              <option value="info">{{ t('alerts.channel_form.severity_info') }}</option>
             </select>
           </div>
         </div>
@@ -141,25 +141,25 @@
         <!-- Opsgenie config -->
         <div v-if="form.type === 'opsgenie'" class="space-y-3">
           <div>
-            <label class="block text-sm font-medium text-(--text-2) mb-1">API Key *</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('alerts.channel_form.api_key') }} *</label>
             <input v-model="opsApiKey" class="input w-full" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" required />
-            <p class="text-xs text-(--text-3) mt-1">Opsgenie API key (team settings).</p>
+            <p class="text-xs text-(--text-3) mt-1">{{ t('alerts.channel_form.opsgenie_hint') }}</p>
           </div>
           <div>
-            <label class="block text-sm font-medium text-(--text-2) mb-1">Region</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('alerts.channel_form.region') }}</label>
             <select v-model="opsRegion" class="input w-full">
               <option value="us">US (api.opsgenie.com)</option>
               <option value="eu">EU (api.eu.opsgenie.com)</option>
             </select>
           </div>
           <div>
-            <label class="block text-sm font-medium text-(--text-2) mb-1">Priority</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('alerts.channel_form.priority') }}</label>
             <select v-model="opsPriority" class="input w-full">
-              <option value="P1">P1 — Critical</option>
-              <option value="P2">P2 — High</option>
-              <option value="P3">P3 — Medium</option>
-              <option value="P4">P4 — Low</option>
-              <option value="P5">P5 — Info</option>
+              <option value="P1">{{ t('alerts.channel_form.priority_p1') }}</option>
+              <option value="P2">{{ t('alerts.channel_form.priority_p2') }}</option>
+              <option value="P3">{{ t('alerts.channel_form.priority_p3') }}</option>
+              <option value="P4">{{ t('alerts.channel_form.priority_p4') }}</option>
+              <option value="P5">{{ t('alerts.channel_form.priority_p5') }}</option>
             </select>
           </div>
         </div>
@@ -167,17 +167,17 @@
         <!-- Signal config -->
         <div v-if="form.type === 'signal'" class="space-y-3">
           <div>
-            <label class="block text-sm font-medium text-(--text-2) mb-1">Signal REST API URL *</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('alerts.channel_form.signal_api_url') }} *</label>
             <input v-model="signalApiUrl" class="input w-full" placeholder="https://signal-api.example.com" type="url" required />
-            <p class="text-xs text-(--text-3) mt-1">URL of your signal-cli REST API instance.</p>
+            <p class="text-xs text-(--text-3) mt-1">{{ t('alerts.channel_form.signal_api_hint') }}</p>
           </div>
           <div>
-            <label class="block text-sm font-medium text-(--text-2) mb-1">Sender Number *</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('alerts.channel_form.sender_number') }} *</label>
             <input v-model="signalSenderNumber" class="input w-full" placeholder="+33612345678" required />
-            <p class="text-xs text-(--text-3) mt-1">Phone number registered in signal-cli (E.164 format).</p>
+            <p class="text-xs text-(--text-3) mt-1">{{ t('alerts.channel_form.sender_number_hint') }}</p>
           </div>
           <div>
-            <label class="block text-sm font-medium text-(--text-2) mb-1">Recipients (comma-separated) *</label>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('alerts.channel_form.recipients') }} *</label>
             <input v-model="signalRecipients" class="input w-full" placeholder="+33612345678, +33698765432" required />
           </div>
         </div>
@@ -187,9 +187,9 @@
         </div>
 
         <div class="flex gap-3 pt-2">
-          <button type="button" @click="$emit('close')" class="btn-secondary flex-1">Cancel</button>
+          <button type="button" @click="$emit('close')" class="btn-secondary flex-1">{{ t('common.cancel') }}</button>
           <button type="submit" :disabled="loading || !form.type" class="flex-1 btn-primary">
-            {{ loading ? 'Adding…' : 'Add channel' }}
+            {{ loading ? t('alerts.channel_form.submitting') : t('alerts.channel_form.submit') }}
           </button>
         </div>
       </form>

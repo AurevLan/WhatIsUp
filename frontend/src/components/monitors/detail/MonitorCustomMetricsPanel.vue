@@ -32,25 +32,25 @@
 
   <!-- Modal URL de push -->
   <BaseModal :model-value="state.showPushUrlModal.value" size="lg"
-    title="URL de push — Métriques custom"
+    :title="t('sweep.push_url_title')"
     @update:model-value="state.showPushUrlModal.value = $event">
     <div class="space-y-4">
       <div>
-        <p class="text-xs text-(--text-3) mb-1">Endpoint</p>
+        <p class="text-xs text-(--text-3) mb-1">{{ t('sweep.endpoint') }}</p>
         <code class="block text-xs font-mono bg-(--bg-surface-2) text-(--accent) px-3 py-2 rounded break-all">
           POST {{ apiBase }}/api/v1/metrics/{{ monitor?.id }}
         </code>
       </div>
       <div>
-        <p class="text-xs text-(--text-3) mb-1">Exemple curl</p>
+        <p class="text-xs text-(--text-3) mb-1">{{ t('sweep.curl_example') }}</p>
         <pre class="text-xs font-mono bg-(--bg-surface-2) text-(--text-2) px-3 py-2 rounded overflow-x-auto whitespace-pre">curl -X POST \
   {{ apiBase }}/api/v1/metrics/{{ monitor?.id }} \
-  -H "Authorization: Bearer &lt;votre_token_jwt&gt;" \
+  -H "Authorization: Bearer &lt;{{ t('sweep.your_jwt_token') }}&gt;" \
   -H "Content-Type: application/json" \
   -d '{"metric_name":"orders_per_minute","value":42,"unit":"req/min"}'</pre>
       </div>
       <div class="text-xs text-(--text-3)">
-        <p>Champs disponibles : <code class="text-(--text-2)">metric_name</code> (requis), <code class="text-(--text-2)">value</code> (requis), <code class="text-(--text-2)">unit</code> (optionnel), <code class="text-(--text-2)">pushed_at</code> (ISO 8601, optionnel).</p>
+        <p>{{ t('sweep.available_fields') }} <code class="text-(--text-2)">metric_name</code> ({{ t('sweep.required') }}), <code class="text-(--text-2)">value</code> ({{ t('sweep.required') }}), <code class="text-(--text-2)">unit</code> ({{ t('sweep.optional') }}), <code class="text-(--text-2)">pushed_at</code> (ISO 8601, {{ t('sweep.optional') }}).</p>
       </div>
     </div>
   </BaseModal>

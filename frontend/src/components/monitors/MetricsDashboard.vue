@@ -80,8 +80,8 @@
           :options="optionsFor(name)"
           :series="seriesFor(name)"
         />
-        <p v-else-if="!ApexChart" class="text-xs text-(--text-3) text-center py-6">Loading chart…</p>
-        <p v-else class="text-xs text-(--text-3) text-center py-6">No data points in this range.</p>
+        <p v-else-if="!ApexChart" class="text-xs text-(--text-3) text-center py-6">{{ t('sweep.loading_chart') }}</p>
+        <p v-else class="text-xs text-(--text-3) text-center py-6">{{ t('sweep.no_data_points') }}</p>
       </div>
     </div>
   </div>

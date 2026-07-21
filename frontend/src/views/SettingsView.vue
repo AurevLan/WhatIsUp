@@ -16,7 +16,7 @@
             <p class="text-(--text-1)">{{ auth.user?.email }}</p>
           </div>
           <div>
-            <label class="block text-sm text-(--text-2) mb-1">Role</label>
+            <label class="block text-sm text-(--text-2) mb-1">{{ t('sweep.role') }}</label>
             <p class="text-(--text-1)">{{ auth.isSuperadmin ? 'Super Administrator' : 'User' }}</p>
           </div>
         </div>
@@ -276,10 +276,10 @@
 
       <!-- About -->
       <div class="card">
-        <h2 class="text-lg font-semibold text-(--text-1) mb-4">About</h2>
+        <h2 class="text-lg font-semibold text-(--text-1) mb-4">{{ t('sweep.about') }}</h2>
         <div class="space-y-2 text-sm text-(--text-2)">
           <p>WhatIsUp v{{ APP_VERSION }}</p>
-          <p>Web monitoring platform with multi-probe geographic correlation</p>
+          <p>{{ t('sweep.about_desc') }}</p>
         </div>
       </div>
     </div>
@@ -291,7 +291,7 @@
       :message="t('settings.security.setup_desc')"
       @close="closeTotpSetup">
       <div v-if="totp.qrDataUrl" class="flex justify-center mb-3">
-        <img :src="totp.qrDataUrl" alt="TOTP QR code"
+        <img :src="totp.qrDataUrl" :alt="t('sweep.totp_qr_alt')"
           class="rounded-lg bg-white p-2" width="192" height="192" />
       </div>
       <div v-else-if="totp.otpauthUrl" class="mb-3 text-sm text-(--warn)">

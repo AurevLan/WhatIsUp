@@ -8,7 +8,7 @@
             <input
               ref="inputRef"
               v-model="query"
-              placeholder="Search monitors, navigate..."
+              :placeholder="t('sweep.palette_placeholder')"
               @keydown.stop
             />
             <kbd class="palette__kbd">Esc</kbd>
@@ -25,7 +25,7 @@
                   type="button"
                   class="palette__group-clear"
                   @click="clearRecents"
-                  title="Clear recents"
+                  :title="t('sweep.clear_recents')"
                 >
                   <X :size="11" />
                 </button>
@@ -56,7 +56,7 @@
                 <span
                   v-else-if="item.kind === 'incident'"
                   class="palette__action-btn"
-                  title="Acknowledge"
+                  :title="t('sweep.acknowledge')"
                   @click="ackIncidentFromItem(item, $event)"
                 >
                   <CheckCheck :size="11" />
@@ -65,7 +65,7 @@
                 <ArrowRight :size="11" class="palette__arrow" />
               </button>
             </div>
-            <p v-if="totalCount === 0" class="palette__empty">No results</p>
+            <p v-if="totalCount === 0" class="palette__empty">{{ t('sweep.no_results') }}</p>
           </div>
         </div>
       </div>
@@ -75,6 +75,7 @@
 
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import {
   Search,
@@ -114,6 +115,7 @@ const props = defineProps({
 })
 const emit = defineEmits(['update:modelValue'])
 
+const { t } = useI18n()
 const router = useRouter()
 const monitorStore = useMonitorStore()
 const paletteStore = useCommandPaletteStore()

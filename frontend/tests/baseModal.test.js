@@ -3,10 +3,15 @@
  * focus restoration to the triggering element.
  */
 
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
-import BaseModal from '../src/components/BaseModal.vue'
+
+// BaseModal traduit désormais son aria-label de fermeture : sans plugin i18n
+// dans ces tests unitaires, on stubbe `t` comme le fait statusBadge.test.js.
+vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (k) => k }) }))
+
+const BaseModal = (await import('../src/components/BaseModal.vue')).default
 
 let wrapper = null
 
@@ -67,7 +72,7 @@ describe('BaseModal — focus trap', () => {
     await nextTick()
     await nextTick()
     // First focusable inside the panel is the header close button.
-    const closeBtn = wrapper.find('button[aria-label="Close"]')
+    const closeBtn = wrapper.find('button[aria-label]')
     expect(document.activeElement).toBe(closeBtn.element)
   })
 
@@ -80,7 +85,7 @@ describe('BaseModal — focus trap', () => {
     expect(document.activeElement).toBe(slotBtn.element)
 
     await wrapper.find('[role="dialog"]').trigger('keydown', { key: 'Tab' })
-    const closeBtn = wrapper.find('button[aria-label="Close"]')
+    const closeBtn = wrapper.find('button[aria-label]')
     expect(document.activeElement).toBe(closeBtn.element)
   })
 
@@ -88,7 +93,7 @@ describe('BaseModal — focus trap', () => {
     mountModal()
     await nextTick()
     await nextTick()
-    const closeBtn = wrapper.find('button[aria-label="Close"]')
+    const closeBtn = wrapper.find('button[aria-label]')
     closeBtn.element.focus()
 
     await wrapper.find('[role="dialog"]').trigger('keydown', { key: 'Tab', shiftKey: true })

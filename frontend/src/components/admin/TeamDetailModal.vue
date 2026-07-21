@@ -47,10 +47,10 @@
           <div>
             <label class="block text-xs text-(--text-2) mb-1">{{ t('admin.label_role') }}</label>
             <select v-model="teamAddMemberForm.role" class="input w-full text-sm">
-              <option value="viewer">Viewer</option>
-              <option value="editor">Editor</option>
-              <option value="admin">Admin</option>
-              <option value="owner">Owner</option>
+              <option value="viewer">{{ t('sweep.role_viewer') }}</option>
+              <option value="editor">{{ t('sweep.role_editor') }}</option>
+              <option value="admin">{{ t('sweep.role_admin') }}</option>
+              <option value="owner">{{ t('sweep.role_owner') }}</option>
             </select>
           </div>
           <div v-if="teamMemberError" class="text-(--down) text-xs">{{ teamMemberError }}</div>
@@ -100,10 +100,10 @@
                     @change="changeTeamMemberRole(m, $event.target.value)"
                     class="input text-xs px-2 py-1 w-24"
                   >
-                    <option value="viewer">Viewer</option>
-                    <option value="editor">Editor</option>
-                    <option value="admin">Admin</option>
-                    <option value="owner">Owner</option>
+                    <option value="viewer">{{ t('sweep.role_viewer') }}</option>
+                    <option value="editor">{{ t('sweep.role_editor') }}</option>
+                    <option value="admin">{{ t('sweep.role_admin') }}</option>
+                    <option value="owner">{{ t('sweep.role_owner') }}</option>
                   </select>
                 </td>
                 <td class="px-4 py-2.5 text-right">

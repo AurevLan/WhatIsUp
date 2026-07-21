@@ -38,7 +38,7 @@
         </div>
       </div>
     </div>
-    <p v-else class="text-(--text-3) text-sm text-center py-4">No changes detected in the loaded period</p>
+    <p v-else class="text-(--text-3) text-sm text-center py-4">{{ t('sweep.no_dns_changes') }}</p>
   </div>
 
   <!-- DNS drift card (always visible for DNS monitors) -->
@@ -110,12 +110,12 @@
       <template v-else>
         <!-- Baseline interne -->
         <div class="mb-4">
-          <p class="text-xs text-(--text-3) mb-1">Baseline — sondes internes</p>
+          <p class="text-xs text-(--text-3) mb-1">{{ t('sweep.baseline_internal') }}</p>
           <div v-if="monitor.dns_baseline_ips_internal?.length" class="flex flex-wrap gap-1 mb-1">
             <span v-for="ip in monitor.dns_baseline_ips_internal" :key="ip"
               class="text-xs font-mono px-2 py-0.5 rounded bg-(--accent-glow) text-(--accent)">{{ ip }}</span>
           </div>
-          <p v-else class="text-xs text-(--text-2) italic mb-1">Pas encore apprise — en attente d'un check depuis une sonde interne</p>
+          <p v-else class="text-xs text-(--text-2) italic mb-1">{{ t('sweep.baseline_internal_none') }}</p>
           <button @click="state.resetBaseline('internal')" :disabled="state.baselineLoading.value || !monitor.dns_baseline_ips_internal"
             class="text-xs text-(--text-3) hover:text-(--down) disabled:opacity-30">
             {{ t('monitors.dns_drift.reset_baseline') }}
@@ -123,12 +123,12 @@
         </div>
         <!-- Baseline externe -->
         <div>
-          <p class="text-xs text-(--text-3) mb-1">Baseline — sondes externes</p>
+          <p class="text-xs text-(--text-3) mb-1">{{ t('sweep.baseline_external') }}</p>
           <div v-if="monitor.dns_baseline_ips_external?.length" class="flex flex-wrap gap-1 mb-1">
             <span v-for="ip in monitor.dns_baseline_ips_external" :key="ip"
               class="text-xs font-mono px-2 py-0.5 rounded bg-[color-mix(in_srgb,var(--up)_12%,transparent)] text-(--up)">{{ ip }}</span>
           </div>
-          <p v-else class="text-xs text-(--text-2) italic mb-1">Pas encore apprise — en attente d'un check depuis une sonde externe</p>
+          <p v-else class="text-xs text-(--text-2) italic mb-1">{{ t('sweep.baseline_external_none') }}</p>
           <button @click="state.resetBaseline('external')" :disabled="state.baselineLoading.value || !monitor.dns_baseline_ips_external"
             class="text-xs text-(--text-3) hover:text-(--down) disabled:opacity-30">
             {{ t('monitors.dns_drift.reset_baseline') }}

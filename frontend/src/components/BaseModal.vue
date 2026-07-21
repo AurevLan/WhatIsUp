@@ -16,7 +16,7 @@
             <slot name="header">
               <h2 :id="titleId" class="modal-title">{{ title }}</h2>
             </slot>
-            <button @click="close" class="btn-ghost p-1 -mr-1" aria-label="Close">
+            <button @click="close" class="btn-ghost p-1 -mr-1" :aria-label="t('sweep.close')">
               <X :size="16" />
             </button>
           </div>
@@ -33,7 +33,10 @@
 
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, useId, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { X } from 'lucide-vue-next'
+
+const { t } = useI18n()
 
 const props = defineProps({
   modelValue: { type: Boolean, default: true },

@@ -80,7 +80,7 @@
                   :class="user.is_active ? 'bg-[color-mix(in_srgb,var(--up)_15%,transparent)] text-(--up) border-[color-mix(in_srgb,var(--up)_35%,transparent)]' : 'bg-(--bg-surface-2) text-(--text-3) border-(--border)'"
                   class="px-2 py-0.5 rounded text-xs border font-medium"
                 >{{ user.is_active ? t('admin.status_active') : t('admin.status_inactive') }}</span>
-                <span v-if="user.is_superadmin" class="ml-1 px-2 py-0.5 rounded text-xs border bg-(--accent-glow) text-(--accent) border-(--accent-border) font-medium">Admin</span>
+                <span v-if="user.is_superadmin" class="ml-1 px-2 py-0.5 rounded text-xs border bg-(--accent-glow) text-(--accent) border-(--accent-border) font-medium">{{ t('sweep.admin') }}</span>
               </td>
               <!-- Permissions -->
               <td class="px-4 py-3">
@@ -295,7 +295,7 @@
           </div>
 
           <div>
-            <label class="block text-sm text-(--text-2) mb-1">{{ t('admin.oidc_issuer_label') }} <span class="text-(--text-3)">(ex: https://accounts.google.com)</span></label>
+            <label class="block text-sm text-(--text-2) mb-1">{{ t('admin.oidc_issuer_label') }} <span class="text-(--text-3)">{{ t('sweep.oidc_issuer_hint') }}</span></label>
             <input v-model="oidcForm.oidc_issuer_url" type="url" class="input w-full" placeholder="https://accounts.example.com" />
           </div>
 

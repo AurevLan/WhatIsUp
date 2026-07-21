@@ -2,7 +2,7 @@
   <!-- DNS: resolution history table -->
   <div class="card mb-6">
     <div class="flex items-center justify-between mb-4">
-      <h2 class="text-sm font-semibold text-(--text-2)">All resolutions</h2>
+      <h2 class="text-sm font-semibold text-(--text-2)">{{ t('sweep.all_resolutions') }}</h2>
       <span v-if="monitor.dns_expected_value" class="text-xs text-(--text-3) font-mono bg-(--bg-surface-2) px-2 py-1 rounded">
         expected value: {{ monitor.dns_expected_value }}
       </span>
@@ -11,10 +11,10 @@
       <thead>
         <tr class="text-xs text-(--text-3) border-b border-(--border)">
           <th class="pb-2 text-left w-4"></th>
-          <th class="pb-2 text-left">Time</th>
-          <th class="pb-2 text-left">Probe</th>
+          <th class="pb-2 text-left">{{ t('sweep.time') }}</th>
+          <th class="pb-2 text-left">{{ t('sweep.probe') }}</th>
           <th class="pb-2 text-left">{{ t('common.status') }}</th>
-          <th class="pb-2 text-left">Returned value</th>
+          <th class="pb-2 text-left">{{ t('sweep.returned_value') }}</th>
         </tr>
       </thead>
       <tbody class="divide-y divide-(--border)">
@@ -23,7 +23,7 @@
         >
           <!-- Change indicator -->
           <td class="py-2 pr-1">
-            <span v-if="state.isValueChange(idx)" class="text-(--warn) text-xs" title="Valeur différente du check précédent">⚡</span>
+            <span v-if="state.isValueChange(idx)" class="text-(--warn) text-xs" :title="t('sweep.value_differs')">⚡</span>
           </td>
           <td class="py-2 text-(--text-2) text-xs whitespace-nowrap">{{ formatDate(r.checked_at) }}</td>
           <td class="py-2 text-xs">

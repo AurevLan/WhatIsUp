@@ -22,6 +22,7 @@ from ._shared import (
     extract_ssl_info,
     extract_tls_audit,
     get_http_client,
+    ssrf_blocked_result,
     validate_url_ssrf,
 )
 from .base import BaseChecker, CheckResult
@@ -98,11 +99,10 @@ class HTTPChecker(BaseChecker):
         # SSRF protection
         ssrf_err = await validate_url_ssrf(url)
         if ssrf_err:
-            return CheckResult(
-                monitor_id=monitor_id,
-                checked_at=checked_at,
-                status="error",
-                error_message=f"SSRF blocked: {ssrf_err}",
+            return ssrf_blocked_result(
+                monitor_id,
+                checked_at,
+                ssrf_err,
             )
 
         # DNS pre-resolution timing
@@ -177,12 +177,12 @@ class HTTPChecker(BaseChecker):
             if redirect_count > 0:
                 ssrf_final = await validate_url_ssrf(final_url)
                 if ssrf_final:
-                    return CheckResult(
-                        monitor_id=monitor_id,
-                        checked_at=checked_at,
-                        status="error",
+                    return ssrf_blocked_result(
+                        monitor_id,
+                        checked_at,
+                        ssrf_final,
+                        after_redirect=True,
                         response_time_ms=round(elapsed_ms, 1),
-                        error_message=f"SSRF blocked after redirect: {ssrf_final}",
                     )
 
             try:
@@ -381,11 +381,10 @@ class HTTPChecker(BaseChecker):
         except SSRFBlockedError as exc:
             # Raised by the pinning transport — covers DNS rebinding between
             # the pre-check above and the connection, and every redirect hop.
-            return CheckResult(
-                monitor_id=monitor_id,
-                checked_at=checked_at,
-                status="error",
-                error_message=f"SSRF blocked: {exc}",
+            return ssrf_blocked_result(
+                monitor_id,
+                checked_at,
+                exc,
             )
         except httpx.TimeoutException:
             return CheckResult(

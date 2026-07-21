@@ -62,5 +62,39 @@ export function useDateFormat() {
     return t('common.relative_days_ago', { n: Math.floor(hours / 24) })
   }
 
-  return { intlLocale, formatDate, formatDateShort, formatRelative }
+  /**
+   * Durée écoulée, à partir de secondes — "45s", "12min", "1h 30min", "2h".
+   *
+   * Les trois vues qui affichent une durée d'incident en avaient chacune leur
+   * version : le même incident de 90 minutes se lisait « 1.5h » sur la
+   * timeline des sondes, « 1h30min » sur la page publique et « 1h 30m » dans
+   * la liste des incidents — unités codées en dur, donc jamais traduites.
+   */
+  function formatDuration(seconds) {
+    if (seconds == null || Number.isNaN(seconds)) return '—'
+    const secs = Math.max(0, Math.round(seconds))
+    if (secs < 60) return t('common.duration_seconds', { n: secs })
+    const mins = Math.floor(secs / 60)
+    if (mins < 60) return t('common.duration_minutes', { n: mins })
+    const hours = Math.floor(mins / 60)
+    const remainder = mins % 60
+    return remainder > 0
+      ? t('common.duration_hours_minutes', { h: hours, m: remainder })
+      : t('common.duration_hours', { n: hours })
+  }
+
+  /** Idem, à partir de minutes (l'API des pages publiques renvoie des minutes). */
+  function formatDurationMinutes(minutes) {
+    if (minutes == null || Number.isNaN(minutes)) return '—'
+    return formatDuration(minutes * 60)
+  }
+
+  return {
+    intlLocale,
+    formatDate,
+    formatDateShort,
+    formatRelative,
+    formatDuration,
+    formatDurationMinutes,
+  }
 }

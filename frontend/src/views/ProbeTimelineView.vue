@@ -82,8 +82,10 @@ import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { probesApi } from '../api/probes'
+import { useDateFormat } from '../composables/useDateFormat'
 
 const { t } = useI18n()
+const { formatDuration } = useDateFormat()
 const route = useRoute()
 
 const probe = ref(null)
@@ -97,12 +99,6 @@ const windowEnd = ref(Date.now())
 
 function formatDt(iso) {
   return new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-}
-
-function formatDuration(s) {
-  if (s < 60) return `${s}s`
-  if (s < 3600) return `${Math.round(s / 60)}m`
-  return `${(s / 3600).toFixed(1)}h`
 }
 
 function incidentBarStyle(inc) {

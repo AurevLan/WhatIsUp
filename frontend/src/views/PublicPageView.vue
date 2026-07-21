@@ -188,7 +188,7 @@
 
               <!-- Durée -->
               <div v-if="inc.duration_minutes != null" class="text-right shrink-0">
-                <span class="text-sm font-semibold text-(--text-2)">{{ formatDuration(inc.duration_minutes) }}</span>
+                <span class="text-sm font-semibold text-(--text-2)">{{ formatDurationMinutes(inc.duration_minutes) }}</span>
                 <p class="text-xs text-(--text-3)">{{ t('public.duration') }}</p>
               </div>
 
@@ -287,7 +287,7 @@ import { useDateFormat } from '../composables/useDateFormat'
 
 const { t } = useI18n()
 const { success: toastSuccess } = useToast()
-const { formatDate, intlLocale } = useDateFormat()
+const { formatDate, formatDurationMinutes, intlLocale } = useDateFormat()
 
 const route = useRoute()
 const page = ref(null)
@@ -374,13 +374,6 @@ const formatDatetime = (iso) =>
     day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   })
-
-function formatDuration(minutes) {
-  if (minutes < 60) return `${minutes}min`
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
-  return m > 0 ? `${h}h${m}min` : `${h}h`
-}
 
 function dayTooltip(day) {
   const known = ['up', 'degraded', 'down', 'no_data']

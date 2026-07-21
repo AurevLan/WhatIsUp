@@ -25,6 +25,13 @@ from whatisup.models.monitor import Monitor
 from whatisup.models.probe import Probe
 from whatisup.models.result import CheckResult
 from whatisup.services.alert import dispatch_alert, maybe_digest_or_dispatch
+from whatisup.services.alert_conditions import (
+    above_baseline_matches,
+    anomaly_matches,
+    response_time_above_matches,
+    schema_drift_matches,
+    ssl_expiry_matches,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -177,21 +184,14 @@ async def fire_alerts(
             if event_type not in ("incident_opened", "incident_resolved"):
                 continue
         elif rule.condition == AlertCondition.ssl_expiry:
-            if not (
-                result.ssl_valid is False
-                or (
-                    result.ssl_days_remaining is not None
-                    and monitor.ssl_expiry_warn_days is not None
-                    and result.ssl_days_remaining <= monitor.ssl_expiry_warn_days
-                )
+            if not ssl_expiry_matches(
+                result.ssl_valid, result.ssl_days_remaining, monitor.ssl_expiry_warn_days
             ):
                 continue
             if event_type != "incident_opened":
                 continue
         elif rule.condition == AlertCondition.response_time_above:
-            if rule.threshold_value is None:
-                continue
-            if result.response_time_ms is None or result.response_time_ms <= rule.threshold_value:
+            if not response_time_above_matches(result.response_time_ms, rule.threshold_value):
                 continue
             if event_type != "incident_opened":
                 continue
@@ -211,9 +211,9 @@ async def fire_alerts(
                     )
                 )
             ).scalar_one_or_none()
-            if not baseline_row or baseline_row <= 0:
-                continue
-            if result.response_time_ms <= baseline_row * rule.baseline_factor:
+            if not above_baseline_matches(
+                result.response_time_ms, baseline_row, rule.baseline_factor
+            ):
                 continue
 
         elif rule.condition == AlertCondition.anomaly_detection:
@@ -222,22 +222,14 @@ async def fire_alerts(
             if result.response_time_ms is None:
                 continue
             # zscore is pre-computed by process_check_result and injected into ctx
-            zscore = ctx.get("zscore")
-            if zscore is None:
-                continue
-            threshold = rule.anomaly_zscore_threshold or 3.0
-            if zscore <= threshold:
+            if not anomaly_matches(ctx.get("zscore"), rule.anomaly_zscore_threshold):
                 continue
             ctx = {**ctx, "response_time_ms": result.response_time_ms}
 
         elif rule.condition == AlertCondition.schema_drift:
             if event_type != "incident_opened":
                 continue
-            if not result.schema_fingerprint:
-                continue
-            if not monitor.schema_baseline:
-                continue
-            if result.schema_fingerprint == monitor.schema_baseline:
+            if not schema_drift_matches(result.schema_fingerprint, monitor.schema_baseline):
                 continue
             ctx = {
                 **ctx,

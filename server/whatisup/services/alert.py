@@ -23,6 +23,13 @@ from whatisup.core.metrics import observe_alert_dispatch
 from whatisup.core.security import decrypt_channel_config
 from whatisup.models.alert import AlertChannel, AlertChannelType, AlertEvent, AlertEventStatus
 from whatisup.models.incident import Incident
+from whatisup.services.alert_conditions import (
+    above_baseline_matches,
+    anomaly_matches,
+    response_time_above_matches,
+    schema_drift_matches,
+    ssl_expiry_matches,
+)
 from whatisup.services.channels._helpers import ssrf_safe_client
 from whatisup.services.channels._helpers import validate_webhook_url as _validate_webhook_url
 
@@ -153,20 +160,23 @@ async def simulate_rule(db: AsyncSession, rule) -> dict:
         }
 
     elif condition == "response_time_above":
-        threshold = rule.threshold_value or 0
+        # Same predicate as fire_alerts: an unset threshold never fires
+        # (the preview used to treat it as 0 and fire on any latency).
+        threshold = rule.threshold_value
         slow_monitors = []
         for mid in monitor_ids:
             results = results_by_monitor.get(mid, [])
             for r in results:
-                if r.response_time_ms is not None and r.response_time_ms > threshold:
+                if response_time_above_matches(r.response_time_ms, threshold):
                     slow_monitors.append(f"{monitors_by_id[mid].name} ({r.response_time_ms:.0f}ms)")
                     break
         would_fire = len(slow_monitors) > 0
-        reason = (
-            f"Temps de réponse dépassé sur : {', '.join(slow_monitors)}"
-            if would_fire
-            else f"Tous les monitors sont sous le seuil de {threshold}ms"
-        )
+        if threshold is None:
+            reason = "Seuil non défini — la règle ne peut pas se déclencher"
+        elif would_fire:
+            reason = f"Temps de réponse dépassé sur : {', '.join(slow_monitors)}"
+        else:
+            reason = f"Tous les monitors sont sous le seuil de {threshold}ms"
         return {
             "would_fire": would_fire,
             "reason": reason,
@@ -175,20 +185,26 @@ async def simulate_rule(db: AsyncSession, rule) -> dict:
         }
 
     elif condition == "ssl_expiry":
+        # Same predicate as fire_alerts: per-monitor warn window
+        # (the preview used to hardcode a 30-day window).
         expiring = []
         for mid in monitor_ids:
             results = results_by_monitor.get(mid, [])
+            warn_days = monitors_by_id[mid].ssl_expiry_warn_days
             for r in results:
-                if r.ssl_days_remaining is not None and r.ssl_days_remaining < 30:
-                    expiring.append(
-                        f"{monitors_by_id[mid].name} (expire dans {r.ssl_days_remaining}j)"
-                    )
+                if ssl_expiry_matches(r.ssl_valid, r.ssl_days_remaining, warn_days):
+                    if r.ssl_valid is False:
+                        expiring.append(f"{monitors_by_id[mid].name} (certificat invalide)")
+                    else:
+                        expiring.append(
+                            f"{monitors_by_id[mid].name} (expire dans {r.ssl_days_remaining}j)"
+                        )
                     break
         would_fire = len(expiring) > 0
         reason = (
-            f"Certificat(s) SSL expirant bientôt : {', '.join(expiring)}"
+            f"Certificat(s) SSL invalide(s) ou expirant bientôt : {', '.join(expiring)}"
             if would_fire
-            else "Tous les certificats SSL sont valides (> 30 jours)"
+            else "Tous les certificats SSL sont valides (hors fenêtre d'alerte)"
         )
         return {
             "would_fire": would_fire,
@@ -197,13 +213,117 @@ async def simulate_rule(db: AsyncSession, rule) -> dict:
             "affected_monitors": expiring,
         }
 
+    elif condition == "response_time_above_baseline":
+        # Same predicate + same 7-day rolling average query as fire_alerts.
+        if rule.baseline_factor is None:
+            return {
+                "would_fire": False,
+                "reason": "Facteur de baseline non défini — la règle ne peut pas se déclencher",
+                "monitor_name": monitors[0].name if len(monitors) == 1 else None,
+                "affected_monitors": [],
+            }
+        baseline_cutoff = datetime.now(UTC) - timedelta(days=7)
+        above = []
+        for mid in monitor_ids:
+            results = results_by_monitor.get(mid, [])
+            baseline_avg = (
+                await db.execute(
+                    select(func.avg(CheckResult.response_time_ms)).where(
+                        CheckResult.monitor_id == mid,
+                        CheckResult.checked_at >= baseline_cutoff,
+                        CheckResult.response_time_ms.isnot(None),
+                    )
+                )
+            ).scalar_one_or_none()
+            for r in results:
+                if above_baseline_matches(r.response_time_ms, baseline_avg, rule.baseline_factor):
+                    above.append(
+                        f"{monitors_by_id[mid].name} ({r.response_time_ms:.0f}ms"
+                        f" > {rule.baseline_factor}× {baseline_avg:.0f}ms)"
+                    )
+                    break
+        would_fire = len(above) > 0
+        reason = (
+            f"Temps de réponse au-dessus de la baseline sur : {', '.join(above)}"
+            if would_fire
+            else f"Tous les monitors sont sous {rule.baseline_factor}× leur moyenne 7 jours"
+        )
+        return {
+            "would_fire": would_fire,
+            "reason": reason,
+            "monitor_name": monitors[0].name if len(monitors) == 1 else None,
+            "affected_monitors": above,
+        }
+
+    elif condition == "anomaly_detection":
+        # Same z-score computation as process_check_result + same predicate
+        # as fire_alerts. compute_zscore returns None below 10 samples.
+        from whatisup.services.anomaly import compute_zscore
+
+        anomalous = []
+        insufficient = 0
+        for mid in monitor_ids:
+            results = results_by_monitor.get(mid, [])
+            for r in results:
+                if r.response_time_ms is None:
+                    continue
+                zscore = await compute_zscore(db, mid, r.response_time_ms)
+                if zscore is None:
+                    insufficient += 1
+                    continue
+                if anomaly_matches(zscore, rule.anomaly_zscore_threshold):
+                    anomalous.append(f"{monitors_by_id[mid].name} (z-score {zscore:.1f})")
+                    break
+        would_fire = len(anomalous) > 0
+        if would_fire:
+            reason = f"Anomalie de temps de réponse sur : {', '.join(anomalous)}"
+        elif insufficient:
+            reason = (
+                f"Pas assez d'historique pour {insufficient} monitor(s)"
+                " (minimum 10 mesures) — aucune anomalie détectable"
+            )
+        else:
+            reason = "Aucune anomalie détectée sur les dernières mesures"
+        return {
+            "would_fire": would_fire,
+            "reason": reason,
+            "monitor_name": monitors[0].name if len(monitors) == 1 else None,
+            "affected_monitors": anomalous,
+        }
+
+    elif condition == "schema_drift":
+        # Same predicate as fire_alerts: latest fingerprint vs the monitor's
+        # recorded baseline; no baseline or no fingerprint never fires.
+        drifted = []
+        missing_baseline = 0
+        for mid in monitor_ids:
+            results = results_by_monitor.get(mid, [])
+            baseline = monitors_by_id[mid].schema_baseline
+            if not baseline:
+                missing_baseline += 1
+                continue
+            for r in results:
+                if schema_drift_matches(r.schema_fingerprint, baseline):
+                    drifted.append(monitors_by_id[mid].name)
+                    break
+        would_fire = len(drifted) > 0
+        if would_fire:
+            reason = f"Dérive de schéma détectée sur : {', '.join(drifted)}"
+        elif missing_baseline == len(monitor_ids):
+            reason = "Aucune baseline de schéma enregistrée — la règle ne peut pas se déclencher"
+        else:
+            reason = "Aucune dérive de schéma par rapport à la baseline"
+        return {
+            "would_fire": would_fire,
+            "reason": reason,
+            "monitor_name": monitors[0].name if len(monitors) == 1 else None,
+            "affected_monitors": drifted,
+        }
+
     else:
         return {
             "would_fire": False,
-            "reason": (
-                f"Simulation non supportée pour la condition '{condition}'"
-                " (uptime/baseline nécessitent un historique)"
-            ),
+            "reason": f"Simulation non supportée pour la condition '{condition}'",
             "monitor_name": monitors[0].name if len(monitors) == 1 else None,
             "affected_monitors": [],
         }

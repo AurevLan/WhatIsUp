@@ -1,6 +1,13 @@
-# Upgrading to WhatIsUp v1.0.0
+# Upgrading WhatIsUp
 
-This guide covers migrating from v0.12.x to v1.0.0.
+> **Upgrading to any version ≥ v1.1?** Migrations run automatically at server
+> startup (or via `alembic upgrade head`) and every 1.x release is
+> backward-compatible — see [CHANGELOG.md](CHANGELOG.md) for per-version detail.
+> Special procedures live in [SECURITY.md](SECURITY.md): zero-downtime
+> `FERNET_KEY` rotation (§7, v1.16+), account lockout runbook (§9).
+> The guide below only covers the historical v0.12.x → v1.0.0 migration.
+
+## Upgrading to v1.0.0 (from v0.12.x)
 
 ## Breaking changes
 

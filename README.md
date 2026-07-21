@@ -19,14 +19,14 @@
 <p align="center">
   <img alt="Python 3.12–3.14" src="https://img.shields.io/badge/Python-3.12%E2%80%933.14-blue">
   <img alt="Vue 3.5" src="https://img.shields.io/badge/Vue-3.5-42b883">
-  <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-0.136-009688">
+  <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-0.139-009688">
   <img alt="PostgreSQL 16" src="https://img.shields.io/badge/PostgreSQL-16-336791">
   <img alt="Redis 7" src="https://img.shields.io/badge/Redis-7-DC382D">
 </p>
 
 <p align="center">
   <a href="#quick-start">Quick start</a> ·
-  <a href="#whats-new-in-19--114">What's new</a> ·
+  <a href="#whats-new-in-115--116">What's new</a> ·
   <a href="#why-whatisup">Why WhatIsUp</a> ·
   <a href="#features">Features</a> ·
   <a href="#architecture">Architecture</a> ·
@@ -47,15 +47,24 @@ It's built for teams who want Datadog-grade monitoring without Datadog-grade bil
 
 ---
 
-## What's new in 1.9 → 1.14
+## What's new in 1.15 → 1.16
 
-The most recent release line focused on identity, design, accessibility, and supply-chain hardening — all backward-compatible.
+The current release line focused on operational hardening and a two-wave security audit — all backward-compatible.
+
+- 🛡 **Security waves SA1-SA7 + S1-S4** (v1.16) — post-audit structural hardening: SSRF guard now **pins the resolved IP** (defeats DNS rebinding, per-hop redirect re-validation), per-account **login lockout** with anti-enumeration, **zero-downtime FERNET_KEY rotation** (MultiFernet + `rotate_fernet` tool), tenant-scoped incident-groups & WS broadcasts, hardened auth caches (immediate key-revocation, fingerprint guards), SSRF validation on the ping checker, and rate-limits closed on 19 remaining endpoints with a CI coverage gate.
+- ⚙️ **Ops: leader election + structured logs** (v1.15) — singleton background loops (heartbeat, retention, renotify…) elect a leader via Redis `SET NX` with fencing tokens, making multi-replica server deployments safe; production logs are structured JSON with `X-Request-ID` correlation end-to-end.
+- ⚡ **Performance** (v1.15.x) — `GET /monitors/` latest-status resolved via a PostgreSQL LATERAL join (7869 ms → 0.6 ms on large fleets, factored into `fetch_latest_results`); fonts self-hosted (Google Fonts CDN dropped).
+- 📱 **Mobile & UX** (v1.15) — Android back button, background WebSocket suspension, POST_NOTIFICATIONS permission; persistent sorting, undo on bulk delete, global API-error toast, EmptyState rollout.
+
+## Older highlights — 1.9 → 1.14
+
+That release line focused on identity, design, accessibility, and supply-chain hardening.
 
 - 🔐 **2FA TOTP + active session management** (v1.12) — opt-in time-based one-time-password second factor (enrol via QR, recovery codes), plus a **Sessions** card in Settings: every refresh token carries `created_at` / user-agent / IP metadata, shown as a revocable session list ("this device" badge, per-row revoke, "log out everywhere").
 - 🎨 **VELOURS design system + accessibility gates** (v1.13) — full visual refresh on a tokenised two-theme foundation (dark *encre* / light *ivoire*, self-hosted Fraunces), ~2300 colour occurrences migrated to design tokens. Two permanent CI accessibility gates (axe audit + anti-artisanal-overlay) lock in `prefers-reduced-motion`, focus-trap and ARIA correctness.
 - 🧩 **Design-system consolidation + detection→alert bridge + responsive** (v1.14) — a single button scale (`.btn-sm/md/lg` + `.btn-icon`) and a canonical `<StatusBadge>` replace ad-hoc styling; a unified **detection→notification bridge** wires DNS-drift / schema-drift detections to alert channels with a consistent "wired / not wired" indicator; mobile-first responsive pass across the app (Capacitor Android build included).
 - 🛡 **CI/CD supply-chain hardening** (v1.14.x) — every GitHub Actions workflow is SHA-pinned and declares least-privilege `permissions`; a **[Plumber](https://getplumber.io) compliance gate** (score 100% / A) audits the pipeline on every PR and uploads findings to Code Scanning. `main` is ruleset-protected (PR required + Plumber / lint / server-tests must pass).
-- 🩹 **Dependency-drift guardrails** — `fastapi < 0.137` (the `_IncludedRouter` routing break) and `tzlocal != 5.4.2` (a broken upstream wheel) are pinned with CI in the loop.
+- 🩹 **Dependency-drift guardrails** — known-broken versions are excluded with CI in the loop: `fastapi < 0.140` (the 0.137-0.138 `_IncludedRouter` routing break is fixed in 0.139), `redis != 8.0.0` (pubsub socket-timeout crash) and `tzlocal != 5.4.2` (broken upstream wheel).
 
 Older highlights (1.1 → 1.8 + the V2 Global Health Engine) are kept below for reference. Full per-version detail: [CHANGELOG.md](CHANGELOG.md).
 
@@ -147,7 +156,7 @@ See the full [CHANGELOG](CHANGELOG.md#110---2026-04-14) for the complete list, i
 
 ## Screenshots
 
-> The first four pairs are **real captures** of the VELOURS design system (introduced v1.13, consolidated v1.14) — dark *encre* and light *ivoire* themes. The feature tiles further down (alert matrix, templates, tags & RBAC, scenario builder, extension) are **schematic mockups**.
+> The first four pairs are **real captures** of the VELOURS design system taken during its development (June 2026, pre-v1.13-release UI) — dark *encre* and light *ivoire* themes; minor details may differ from the current release. The feature tiles further down (alert matrix, templates, tags & RBAC, scenario builder, extension) are **schematic mockups**.
 
 | Dashboard (dark) | Dashboard (light) |
 |------------------|-------------------|
@@ -362,10 +371,10 @@ echo "SECRET_KEY=$SECRET_KEY" >> .env
 echo "FERNET_KEY=$FERNET_KEY" >> .env
 
 # 3. Start the production stack
-docker compose -f docker-compose.prod.yml up -d
+docker compose --env-file .env up -d
 
 # 4. Apply database migrations
-docker compose -f docker-compose.prod.yml exec server alembic upgrade head
+docker compose --env-file .env exec server alembic upgrade head
 ```
 
 #### Environment variables

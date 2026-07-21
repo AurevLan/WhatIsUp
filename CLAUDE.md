@@ -92,13 +92,13 @@ get_current_probe   # X-Probe-Api-Key (bcrypt + cache Redis SHA-256[:32], TTL 60
 
 ## CheckType (monitor.check_type)
 
-`http` · `tcp` · `dns` · `keyword` · `json_path` · `scenario` · `heartbeat`
+`http` · `tcp` · `udp` · `dns` · `smtp` · `ping` · `domain_expiry` · `keyword` · `json_path` · `scenario` · `heartbeat`
 
 ## Sécurité — règles absolues
 
 - JWT WebSocket : auth par message `{"type":"auth","token":"..."}` — jamais `?token=` dans l'URL (ANSSI)
 - Secrets alert : `encrypt_channel_config(config)` avant DB, `decrypt_channel_config(config)` au dispatch
-- Champs chiffrés Fernet (`_SECRET_FIELDS` dans `core/security.py`) : `secret`, `bot_token`, `password`, `integration_key` (PagerDuty), `api_key` (Opsgenie) — PAS `webhook_url` ni `webhook_secret` (non chiffrés)
+- Champs chiffrés Fernet (`_SECRET_FIELDS` dans `core/security.py`) : `secret` (dont HMAC webhook), `bot_token`, `password`, `integration_key` (PagerDuty), `api_key` (Opsgenie) — PAS `webhook_url` (non chiffré, choix assumé)
 - URLs HTTP sortantes : appeler `_validate_webhook_url(url)` avant tout `httpx.post` (SSRF)
 - `AlertRule` delete / `list_events` : toujours vérifier `owner_id` via JOIN — sans filtre = fuite cross-user
 - Nouveaux endpoints : `@limiter.limit("X/minute")` + `request: Request` (slowapi)
@@ -158,22 +158,19 @@ setLocale('fr')            // persiste dans localStorage('whatisup_lang')
 
 **Badges de statut** : composant `<StatusBadge :status>` — ne pas réimplémenter `badgeClass`/`dotClass`/`statusLabel` en local.
 
-## Processus de release (SemVer)
+## Processus de release (release-please — AUTOMATISÉ, pas de tag manuel)
 
-```bash
-# 1. Mettre à jour CHANGELOG.md (section [X.Y.Z] + liens en bas)
-# 2. Commiter sur main (après merge de la PR)
-git checkout main && git pull
+Piloté par les Conventional Commits (`feat:` → MINOR, `fix:`/`perf:` → PATCH, `feat!:` → MAJOR).
+release-please maintient une **Release PR** (`chore: release main`) qui agrège les commits ;
+**la merger suffit** : `release-please.yml` crée le tag + la GitHub Release puis chaîne
+automatiquement (via `workflow_call`) :
+- `release.yml` — build/push GHCR (`ghcr.io/aurevlan/whatisup-server` + `-probe`, `X.Y.Z` + `latest`) + notes depuis `CHANGELOG.md`
+- `mobile-release.yml` — APK Android signé attaché à la release
 
-# 3. Créer le tag annoté (déclenche le workflow release.yml)
-git tag -a vX.Y.Z -m "vX.Y.Z — Titre court"
-git push origin vX.Y.Z
-```
-
-Le workflow `.github/workflows/release.yml` fait automatiquement :
-- Extraction des notes de release depuis `CHANGELOG.md`
-- Build et push des images Docker sur GHCR (`ghcr.io/aurevlan/whatisup-server:X.Y.Z` + `latest`)
-- Création de la GitHub Release avec les notes
+Pièges connus (procédure détaillée : CONTRIBUTING.md) :
+- Checks requis bloqués sur la Release PR (créée par GITHUB_TOKEN) → `gh pr close N && gh pr reopen N` sous l'identité utilisateur
+- Runs en `action_required` après merge → `gh api -X POST .../actions/runs/<id>/approve`
+- Le dispatch manuel de `release.yml` reste possible en fallback seulement
 
 **Règles SemVer :**
 - `MAJOR` : breaking change API ou DB incompatible

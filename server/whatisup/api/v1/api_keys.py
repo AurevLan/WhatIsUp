@@ -89,6 +89,7 @@ async def create_api_key(
         key_hash=hash_api_key(raw_key),
         key_prefix=raw_key[:12],  # "wiu_u_XXXXXX"
         expires_at=payload.expires_at,
+        scopes=payload.scopes,
     )
     db.add(row)
     await db.flush()
@@ -106,6 +107,7 @@ async def create_api_key(
         last_used_at=row.last_used_at,
         expires_at=row.expires_at,
         is_revoked=row.is_revoked,
+        scopes=row.scopes,
         key=raw_key,
     )
 

@@ -70,12 +70,16 @@ async def test_user_api_key_auth_survives_redis_outage(
             name="failopen",
             key_hash=_fast_hash(raw),
             key_prefix=raw[:12],
+            scopes=["read", "write"],
         )
     )
     await service_db.flush()
 
-    user = await _auth_via_user_api_key(raw, service_db)
+    # Depuis C2 la fonction rend aussi les portées de la clé : elles sont
+    # vérifiées par `get_current_user`, qui seul connaît la méthode HTTP.
+    user, scopes = await _auth_via_user_api_key(raw, service_db)
     assert user.id == test_user.id
+    assert scopes == ["read", "write"]
 
 
 @pytest.mark.asyncio

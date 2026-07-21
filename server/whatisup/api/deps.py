@@ -6,7 +6,7 @@ import uuid
 from datetime import UTC, datetime
 
 import structlog
-from fastapi import Depends, Header, HTTPException, Security, status
+from fastapi import Depends, Header, HTTPException, Request, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt.exceptions import InvalidTokenError
 from sqlalchemy import select, update
@@ -47,7 +47,7 @@ def _hash_fingerprint(api_key_hash: str) -> str:
 _probe_hash_fingerprint = _hash_fingerprint
 
 
-async def _auth_via_user_api_key(raw_key: str, db: AsyncSession) -> User:
+async def _auth_via_user_api_key(raw_key: str, db: AsyncSession) -> tuple[User, list[str]]:
     """Authenticate using a user API key (fast Redis cache + slow bcrypt fallback).
 
     Fast path: ``SHA-256(key)`` → ``user_id|key_id|hash_fingerprint`` cached in
@@ -114,7 +114,7 @@ async def _auth_via_user_api_key(raw_key: str, db: AsyncSession) -> User:
             ).scalar_one_or_none()
             if user is not None:
                 observe_auth_cache("user_api_key", hit=True)
-                return user
+                return user, list(key_row.scopes or [])
         # Cache stale — key revoked/expired/deleted, user deactivated, fingerprint
         # mismatch, or pre-S4 value format. Evict the forward entry (and the reverse
         # index if we could parse the key id) and fall through to the slow path.
@@ -156,6 +156,7 @@ async def _auth_via_user_api_key(raw_key: str, db: AsyncSession) -> User:
     # fingerprinted with, even if the row is invalidated concurrently.
     verified_hash = api_key_row.key_hash
     key_id = api_key_row.id
+    key_scopes = list(api_key_row.scopes or [])
 
     user = (
         await db.execute(select(User).where(User.id == api_key_row.user_id, User.is_active))
@@ -194,13 +195,36 @@ async def _auth_via_user_api_key(raw_key: str, db: AsyncSession) -> User:
     )
     if stale:
         logger.info("user_api_key_cache_write_skipped_stale", key_id=str(key_id))
-        return user
+        return user, key_scopes
     await redis_setex_safe(cache_key, 60, f"{user.id}|{key_id}|{fingerprint}")
     await redis_setex_safe(f"whatisup:user_api_rev:{key_id}", 60, digest)
-    return user
+    return user, key_scopes
+
+
+# Méthodes considérées comme des lectures : elles ne modifient rien côté
+# serveur. Tout le reste exige le scope "write".
+_READ_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
+
+
+def _enforce_api_key_scopes(request: Request, scopes: list[str]) -> None:
+    """Refuse une écriture faite avec une clé API en lecture seule.
+
+    Appliqué ici plutôt que par endpoint : `get_current_user` est le passage
+    obligé de toute route authentifiée, donc aucune ne peut être oubliée. Les
+    sessions JWT ne sont pas concernées — seule une clé API porte des scopes.
+    """
+    if request.method in _READ_METHODS:
+        return
+    if "write" in scopes:
+        return
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="This API key is read-only",
+    )
 
 
 async def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials | None = Security(bearer_scheme),
     x_api_key: str | None = Header(default=None, alias="X-Api-Key"),
     db: AsyncSession = Depends(get_db),
@@ -215,11 +239,16 @@ async def get_current_user(
     token: str | None = credentials.credentials if credentials else None
 
     # --- API key paths ---
+    raw_api_key = None
     if token and token.startswith(_USER_KEY_PREFIX):
-        return await _auth_via_user_api_key(token, db)
+        raw_api_key = token
+    elif x_api_key and x_api_key.startswith(_USER_KEY_PREFIX):
+        raw_api_key = x_api_key
 
-    if x_api_key and x_api_key.startswith(_USER_KEY_PREFIX):
-        return await _auth_via_user_api_key(x_api_key, db)
+    if raw_api_key is not None:
+        user, scopes = await _auth_via_user_api_key(raw_api_key, db)
+        _enforce_api_key_scopes(request, scopes)
+        return user
 
     # --- JWT path ---
     if not token:

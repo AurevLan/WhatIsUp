@@ -52,6 +52,9 @@
             <p class="text-xs text-(--text-2) font-mono">
               {{ k.key_prefix }}••••••••••••••••••••••••••••••
             </p>
+            <p v-if="k.scopes && !k.scopes.includes('write')" class="text-xs text-(--text-3) mt-0.5">
+              {{ t('apiKeys.read_only') }}
+            </p>
           </div>
         </div>
 
@@ -112,6 +115,22 @@
           </label>
           <input v-model="form.expires_at" type="datetime-local" class="input w-full" />
         </div>
+        <div>
+          <label class="block text-sm text-(--text-2) mb-1">{{ t('apiKeys.scopes') }}</label>
+          <div class="flex gap-2">
+            <button
+              v-for="opt in scopeOptions" :key="opt.label" type="button"
+              class="flex-1 py-2 px-3 rounded-lg border text-xs font-medium transition-colors text-left"
+              :class="form.readOnly === opt.readOnly
+                ? 'bg-(--accent-glow) border-(--accent-border) text-(--accent)'
+                : 'border-(--border) text-(--text-2) hover:border-(--border-hover)'"
+              @click="form.readOnly = opt.readOnly"
+            >
+              <span class="block font-semibold">{{ opt.label }}</span>
+              <span class="block text-(--text-3) mt-0.5">{{ opt.desc }}</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       <template #footer>
@@ -165,7 +184,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { CheckCircle, Copy, KeyRound, Loader2, Plus, Trash2 } from 'lucide-vue-next'
 import { apiKeysApi } from '../api/apiKeys.js'
@@ -185,7 +204,14 @@ const loading = ref(false)
 const showCreate = ref(false)
 const creating = ref(false)
 const newKey = ref(null)
-const form = ref({ name: '', expires_at: '' })
+// `readOnly: false` par défaut — même portée que les clés émises avant
+// l'arrivée des scopes, pour ne pas surprendre qui recrée une clé existante.
+const form = ref({ name: '', expires_at: '', readOnly: false })
+
+const scopeOptions = computed(() => [
+  { readOnly: false, label: t('apiKeys.scope_full'), desc: t('apiKeys.scope_full_desc') },
+  { readOnly: true, label: t('apiKeys.scope_read'), desc: t('apiKeys.scope_read_desc') },
+])
 
 async function load() {
   loading.value = true
@@ -201,12 +227,15 @@ async function createKey() {
   if (!form.value.name.trim() || creating.value) return
   creating.value = true
   try {
-    const payload = { name: form.value.name.trim() }
+    const payload = {
+      name: form.value.name.trim(),
+      scopes: form.value.readOnly ? ['read'] : ['read', 'write'],
+    }
     if (form.value.expires_at) payload.expires_at = new Date(form.value.expires_at).toISOString()
     const { data } = await apiKeysApi.create(payload)
     newKey.value = data
     showCreate.value = false
-    form.value = { name: '', expires_at: '' }
+    form.value = { name: '', expires_at: '', readOnly: false }
     await load()
   } finally {
     creating.value = false

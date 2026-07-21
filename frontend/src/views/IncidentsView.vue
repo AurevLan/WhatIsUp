@@ -214,12 +214,13 @@ import BulkActionBar from '../components/shared/BulkActionBar.vue'
 import EmptyState from '../components/shared/EmptyState.vue'
 import IncidentPlaybackMap from '../components/dashboard/IncidentPlaybackMap.vue'
 import IncidentDiagnosticPanel from '../components/incidents/IncidentDiagnosticPanel.vue'
+import { useAsyncResource } from '../composables/useAsyncResource'
 import { useDateFormat } from '../composables/useDateFormat'
 
 const { t } = useI18n()
 const { success } = useToast()
 
-const loading = ref(false)
+const { loading, run } = useAsyncResource()
 const incidents = ref([])
 
 // Filters — persisted across refreshes and shareable via URL (T1-11).
@@ -355,18 +356,21 @@ function correlationLabel(type) {
   return labels[type] || type || '?'
 }
 
+// Le filtre relance le chargement : `run` garantit qu'une réponse doublée par
+// une requête plus récente n'écrase pas la liste affichée.
 async function load() {
-  loading.value = true
   try {
-    const params = { days: daysFilter.value, limit: 500 }
-    if (statusFilter.value === 'open')     params.resolved = 'false'
-    if (statusFilter.value === 'resolved') params.resolved = 'true'
-    const { data } = await api.get('/incidents/', { params })
-    incidents.value = data
+    await run(
+      () => {
+        const params = { days: daysFilter.value, limit: 500 }
+        if (statusFilter.value === 'open')     params.resolved = 'false'
+        if (statusFilter.value === 'resolved') params.resolved = 'true'
+        return api.get('/incidents/', { params })
+      },
+      ({ data }) => { incidents.value = data },
+    )
   } catch {
     incidents.value = []
-  } finally {
-    loading.value = false
   }
 }
 

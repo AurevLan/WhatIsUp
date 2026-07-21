@@ -98,11 +98,12 @@ import { useI18n } from 'vue-i18n'
 import { History } from 'lucide-vue-next'
 import api from '../api/client'
 import EmptyState from '../components/shared/EmptyState.vue'
+import { useAsyncResource } from '../composables/useAsyncResource'
 
 const { t } = useI18n()
 
 const logs = ref([])
-const loading = ref(true)
+const { loading, run } = useAsyncResource({ initialLoading: true })
 const selected = ref(null)
 const errorMsg = ref(null)
 const filterType = ref('')
@@ -124,19 +125,22 @@ function showError(msg) {
   setTimeout(() => { errorMsg.value = null }, 5000)
 }
 
+// Le filtre par type relance le chargement : `run` empêche une réponse
+// dépassée d'écraser la liste du filtre courant.
 async function load() {
   offset.value = 0
-  loading.value = true
   try {
-    const params = { limit: limit.value, offset: 0 }
-    if (filterType.value) params.object_type = filterType.value
-    const { data } = await api.get('/audit/', { params })
-    logs.value = data
+    await run(
+      () => {
+        const params = { limit: limit.value, offset: 0 }
+        if (filterType.value) params.object_type = filterType.value
+        return api.get('/audit/', { params })
+      },
+      ({ data }) => { logs.value = data },
+    )
   } catch (err) {
     showError(t('common.error'))
     if (import.meta.env.DEV) console.error(err)
-  } finally {
-    loading.value = false
   }
 }
 

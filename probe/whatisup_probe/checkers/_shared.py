@@ -43,6 +43,19 @@ def _cached_getaddrinfo(hostname: str, port: object = None, **kwargs: object) ->
 
 # ── SSRF protection ──────────────────────────────────────────────────────────
 
+_BLOCKED_HOSTS = {
+    "localhost",
+    "127.0.0.1",
+    "::1",
+    "0.0.0.0",
+    "169.254.169.254",
+    "metadata.google.internal",
+}
+
+
+class SSRFBlockedError(Exception):
+    """Raised when an outbound request targets a blocked/internal host."""
+
 
 def _is_internal_ip(ip_str: str) -> bool:
     """Return True if IP is private, loopback, link-local, or multicast."""
@@ -59,15 +72,7 @@ def validate_host_ssrf(hostname: str) -> str | None:
     Returns an error message if blocked, None if safe.
     Works for non-HTTP checkers (TCP, UDP, SMTP, DNS).
     """
-    blocked = {
-        "localhost",
-        "127.0.0.1",
-        "::1",
-        "0.0.0.0",
-        "169.254.169.254",
-        "metadata.google.internal",
-    }
-    if hostname.lower() in blocked:
+    if hostname.lower() in _BLOCKED_HOSTS:
         return f"Blocked host: {hostname!r}"
     # Check if hostname is a raw IP address
     try:
@@ -91,15 +96,7 @@ def _validate_url_ssrf_fast(url: str) -> str | None:
     if parsed.scheme not in ("http", "https"):
         return f"Blocked scheme: {parsed.scheme!r}"
     hostname = parsed.hostname or ""
-    blocked = {
-        "localhost",
-        "127.0.0.1",
-        "::1",
-        "0.0.0.0",
-        "169.254.169.254",
-        "metadata.google.internal",
-    }
-    if hostname.lower() in blocked:
+    if hostname.lower() in _BLOCKED_HOSTS:
         return f"Blocked host: {hostname!r}"
     return None
 
@@ -133,6 +130,86 @@ async def validate_url_ssrf(url: str) -> str | None:
         return f"DNS resolution timed out for {hostname!r}"
     except Exception as exc:
         return f"DNS resolution error for {hostname!r}: {type(exc).__name__}"
+
+
+def _ssrf_resolve_pinned_sync(hostname: str) -> str:
+    """Resolve ``hostname``, validate every A/AAAA record, return the pinned IP.
+
+    Blocking — run via executor. Raises :class:`SSRFBlockedError` if the host
+    is blocked, resolves to an internal IP, or cannot be resolved. IP literals
+    are validated and returned as-is (IPv4 preferred among resolved records,
+    mirroring the server-side SA1 helper).
+    """
+    if hostname.lower() in _BLOCKED_HOSTS:
+        raise SSRFBlockedError(f"Blocked host: {hostname!r}")
+    try:
+        ipaddress.ip_address(hostname)
+    except ValueError:
+        pass
+    else:
+        if _is_internal_ip(hostname):
+            raise SSRFBlockedError(f"Blocked internal IP: {hostname!r}")
+        return hostname
+
+    resolved: list[ipaddress.IPv4Address | ipaddress.IPv6Address] = []
+    try:
+        for ai in _cached_getaddrinfo(hostname):
+            ip_str = ai[4][0]
+            if _is_internal_ip(ip_str):
+                raise SSRFBlockedError(f"Host resolves to internal IP: {ip_str!r}")
+            resolved.append(ipaddress.ip_address(ip_str))
+    except socket.gaierror:
+        raise SSRFBlockedError(f"DNS resolution failed for {hostname!r}") from None
+    if not resolved:
+        raise SSRFBlockedError(f"DNS resolution failed for {hostname!r}")
+
+    for ip in resolved:
+        if ip.version == 4:
+            return str(ip)
+    return str(resolved[0])
+
+
+class _SSRFPinnedTransport(httpx.AsyncBaseTransport):
+    """httpx transport enforcing SSRF validation + IP pinning per request.
+
+    Port of the server-side SA1 ``_PinnedHostTransport`` pattern: for every
+    outgoing request — including **each redirect hop**, since httpx routes
+    every hop through the transport — resolve the hostname once, reject
+    internal/blocked targets, then rewrite the URL host to the validated IP so
+    httpx connects to it directly (no second DNS lookup → no rebinding
+    window). The original hostname is preserved in the ``Host`` header (built
+    by httpx at request-creation time) and as TLS server name via the
+    ``sni_hostname`` extension, so SNI and certificate verification still
+    target the real hostname.
+
+    Probe-specific twist: the original URL is restored on the request object
+    after the inner call (the connection is already established by then), so
+    relative-redirect resolution and ``CheckResult.final_url`` keep reporting
+    the real hostname instead of a bare IP.
+    """
+
+    def __init__(self, inner: httpx.AsyncBaseTransport | None = None, **kwargs: Any) -> None:
+        self._inner = inner if inner is not None else httpx.AsyncHTTPTransport(**kwargs)
+
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        original_url = request.url
+        original_host = original_url.host
+        loop = asyncio.get_running_loop()
+        pinned_ip = await asyncio.wait_for(
+            loop.run_in_executor(None, _ssrf_resolve_pinned_sync, original_host),
+            timeout=5.0,
+        )
+        if pinned_ip != original_host:
+            request.extensions = dict(request.extensions)
+            request.extensions["sni_hostname"] = original_host
+            request.url = original_url.copy_with(host=pinned_ip)
+        try:
+            return await self._inner.handle_async_request(request)
+        finally:
+            request.url = original_url
+
+    async def aclose(self) -> None:
+        await self._inner.aclose()
 
 
 # ── SSL info extraction ──────────────────────────────────────────────────────
@@ -363,9 +440,13 @@ async def get_http_client() -> httpx.AsyncClient:
         # Double-check after acquiring lock
         if _http_client is not None and not _http_client.is_closed:
             return _http_client
+        # limits/verify go to the inner transport: httpx ignores client-level
+        # pool limits when a custom transport instance is supplied.
         _http_client = httpx.AsyncClient(
-            verify=True,
-            limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
+            transport=_SSRFPinnedTransport(
+                verify=True,
+                limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
+            ),
             headers={"User-Agent": DEFAULT_USER_AGENT},
         )
     return _http_client

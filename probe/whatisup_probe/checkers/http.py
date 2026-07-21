@@ -16,6 +16,7 @@ import structlog
 from whatisup_probe.config import get_settings
 
 from ._shared import (
+    SSRFBlockedError,
     _cached_getaddrinfo,
     compute_schema_fingerprint,
     extract_ssl_info,
@@ -377,6 +378,15 @@ class HTTPChecker(BaseChecker):
                 tls_audit=tls_audit,
             )
 
+        except SSRFBlockedError as exc:
+            # Raised by the pinning transport — covers DNS rebinding between
+            # the pre-check above and the connection, and every redirect hop.
+            return CheckResult(
+                monitor_id=monitor_id,
+                checked_at=checked_at,
+                status="error",
+                error_message=f"SSRF blocked: {exc}",
+            )
         except httpx.TimeoutException:
             return CheckResult(
                 monitor_id=monitor_id,

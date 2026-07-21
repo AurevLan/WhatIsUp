@@ -68,8 +68,12 @@ async def check_renotify() -> None:
             if not has_renotify:
                 continue
 
+            # Commit per incident: with a single commit at the end, one failing
+            # incident's rollback would also discard the alert events already
+            # flushed for every incident processed before it in this cycle.
             try:
                 await _fire_alerts(db, incident, monitor, event_type="incident_renotify")
+                await db.commit()
             except Exception:
                 logger.exception(
                     "autonomous_renotify_failed",
@@ -78,5 +82,3 @@ async def check_renotify() -> None:
                 )
                 await db.rollback()
                 continue
-
-        await db.commit()

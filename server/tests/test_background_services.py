@@ -326,3 +326,58 @@ async def test_renotify_fires_for_eligible_incident(
 
     await check_renotify()
     assert calls == ["incident_renotify"]
+
+
+@pytest.mark.asyncio
+async def test_renotify_failure_does_not_discard_prior_incidents(
+    bg_session: AsyncSession, test_user: User, monkeypatch
+) -> None:
+    """R-4: per-incident commit — one incident failing must not roll back the
+    alert events already recorded for incidents processed before it."""
+    for name in ("r4-a", "r4-b"):
+        monitor = Monitor(name=name, url="http://x", owner_id=test_user.id)
+        bg_session.add(monitor)
+        await bg_session.flush()
+        bg_session.add(
+            Incident(
+                monitor_id=monitor.id,
+                started_at=datetime.now(UTC) - timedelta(minutes=15),
+                scope=IncidentScope.global_,
+                affected_probe_ids=[],
+            )
+        )
+        bg_session.add(
+            AlertRule(
+                owner_id=test_user.id,
+                monitor_id=monitor.id,
+                condition=AlertCondition.any_down,
+                renotify_after_minutes=5,
+            )
+        )
+    await bg_session.flush()
+
+    from whatisup.services import incident as inc_mod
+
+    calls = {"n": 0}
+    marker = datetime.now(UTC) + timedelta(hours=1)
+
+    async def _spy(db, incident, *args, **kwargs):
+        calls["n"] += 1
+        # Mutate DB state like the real dispatch does (AlertEvent writes),
+        # then blow up on the second incident.
+        incident.snooze_until = marker
+        if calls["n"] == 2:
+            raise RuntimeError("dispatch exploded")
+
+    monkeypatch.setattr(inc_mod, "_fire_alerts", _spy)
+
+    await check_renotify()  # must not raise
+
+    persisted = (
+        (await bg_session.execute(select(Incident).where(Incident.snooze_until.isnot(None))))
+        .scalars()
+        .all()
+    )
+    # First incident committed before the second one failed and rolled back.
+    assert calls["n"] == 2
+    assert len(persisted) == 1

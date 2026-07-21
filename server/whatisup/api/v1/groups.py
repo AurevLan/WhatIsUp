@@ -45,7 +45,9 @@ async def _get_group_or_404(
 
 
 @router.get("/", response_model=list[MonitorGroupOut])
+@limiter.limit("60/minute")
 async def list_groups(
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[MonitorGroup]:
@@ -99,7 +101,9 @@ async def create_group(
 
 
 @router.get("/{group_id}", response_model=MonitorGroupOut)
+@limiter.limit("60/minute")
 async def get_group(
+    request: Request,
     group_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -154,7 +158,9 @@ async def delete_group(
 
 
 @router.get("/{group_id}/monitors", response_model=list[MonitorOut])
+@limiter.limit("60/minute")
 async def list_group_monitors(
+    request: Request,
     group_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

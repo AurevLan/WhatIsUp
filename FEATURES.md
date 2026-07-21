@@ -426,7 +426,7 @@
 | `/probes/results` | 600/min |
 | `/probes/{id}/rotate-key` | 10/min |
 | `/monitors` POST | 10/min |
-| `/config` PUT | 10/min (GET sans limite explicite) |
+| `/config` GET + PUT | 10/min (export lourd / import déclaratif) |
 | `/silences` | GET 60 / POST 20 / PATCH 30 / DELETE 30/min |
 | `/incidents/bulk-ack` | 20/min |
 | `/incidents/{id}/snooze` | 30/min |
@@ -442,6 +442,13 @@
 | `/auth/logout` | 30/min |
 | `/monitors/{id}/dependencies/{dep_id}` + `/composite-members/{member_id}` DELETE | 30/min |
 | `/public/pages/{slug}/unsubscribe` | 10/min |
+| GET standard `/api/v1` (listes + détail — sweep SEC-3 2026-07-21) | 60/min |
+| `/monitors` + `/monitors/{id}` + `/monitors/{id}/results` GET | 120/min (chemins chauds dashboard) |
+| `/monitors/{id}/incidents/{inc}/postmortem` GET | 30/min |
+| `/auth/oidc/config` + `/push/vapid-public-key` GET | 30/min (publics statiques) |
+| `/api/health` + `/api/metrics` | — (health checks + scrape Prometheus, hors routers v1) |
+
+- ✅ **Gate CI toutes méthodes** (`test_rate_limit_coverage.py`) : depuis SEC-3, un endpoint `api/v1` ajouté sans `@limiter.limit` fait échouer la CI, GET compris (exemptions documentées SECURITY.md §12)
 
 ### CORS
 - ✅ Origines explicites (jamais `*` avec `credentials: true`)

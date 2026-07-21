@@ -23,7 +23,9 @@ router = APIRouter(prefix="/maintenance", tags=["maintenance"])
 
 
 @router.get("/", response_model=list[MaintenanceWindowOut])
+@limiter.limit("60/minute")
 async def list_windows(
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[MaintenanceWindow]:

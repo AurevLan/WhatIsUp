@@ -17,7 +17,9 @@ router = APIRouter(prefix="/config", tags=["config"])
 
 
 @router.get("/")
+@limiter.limit("10/minute")
 async def get_config(
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:

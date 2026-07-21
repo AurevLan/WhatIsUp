@@ -33,7 +33,9 @@ async def _get_key_or_404(key_id: uuid.UUID, user: User, db: AsyncSession) -> Us
 
 
 @router.get("/", response_model=list[ApiKeyOut])
+@limiter.limit("60/minute")
 async def list_api_keys(
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[UserApiKey]:

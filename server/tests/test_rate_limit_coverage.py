@@ -172,3 +172,29 @@ def test_all_mutating_v1_endpoints_have_rate_limit() -> None:
         "Mutating endpoints missing @limiter.limit (add one, or document the "
         "exemption in _EXEMPT_KEYS + SECURITY.md §12):\n" + "\n".join(missing)
     )
+
+
+def test_all_get_v1_endpoints_have_rate_limit() -> None:
+    """SEC-3 — no GET endpoint under /api/v1 ships without a limit either.
+
+    Scoped to ``whatisup.api.v1.*`` modules: ``/api/health`` (LB / probe /
+    ServerSetupView health checks) and ``/api/metrics`` (Prometheus scrape)
+    live outside the v1 routers and are intentionally unlimited — see
+    SECURITY.md §12.
+    """
+    missing = []
+    for route in _v1_routes():
+        if "GET" not in route.methods:
+            continue
+        key = f"{route.endpoint.__module__}.{route.endpoint.__name__}"
+        if not key.startswith("whatisup.api.v1."):
+            continue
+        if key in _EXEMPT_KEYS:
+            continue
+        if not _is_limited(key):
+            missing.append(f"GET {route.path} -> {key}")
+
+    assert not missing, (
+        "GET endpoints missing @limiter.limit (add one, or document the "
+        "exemption in _EXEMPT_KEYS + SECURITY.md §12):\n" + "\n".join(missing)
+    )

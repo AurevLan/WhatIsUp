@@ -535,19 +535,3 @@ async def test_correlated_endpoint(client: AsyncClient, user_token: str) -> None
     )
     assert resp.status_code == 200
     assert isinstance(resp.json(), list)
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# Incident group schema (root_cause fields)
-# ══════════════════════════════════════════════════════════════════════════════
-
-
-@pytest.mark.asyncio
-async def test_incident_group_endpoint_has_root_cause(
-    client: AsyncClient, admin_token: str
-) -> None:
-    resp = await client.get("/api/v1/incident-groups/", headers=_auth(admin_token))
-    assert resp.status_code == 200
-    # Schema should accept the new fields even if no groups exist yet
-    data = resp.json()
-    assert isinstance(data, list)

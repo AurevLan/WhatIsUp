@@ -170,8 +170,6 @@ export default {
     audit_filtered_text: 'No audit log entry matches the current filter.',
     tls_fleet_text: 'Run a check on an HTTPS monitor to see its TLS grade, cipher and expiry here.',
     tls_fleet_filtered_text: 'No monitor matches the current filters.',
-    incident_groups_text: 'When several incidents share a root cause (same probe, same infrastructure), WhatIsUp groups them here.',
-    incident_groups_filtered_text: 'No incident group matches the current filter.',
   },
 
   // Status
@@ -1314,7 +1312,6 @@ export default {
     no_data: 'No data',
   },
 
-  // Incident groups
   // Admin
   admin: {
     title: 'Administration',

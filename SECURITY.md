@@ -542,6 +542,8 @@ Toute modification de cette table doit être reportée dans `FEATURES.md` §11.
 | `/monitors/{id}/dependencies/{dep_id}` | DELETE | **30/min** | Aligné sur le POST de création (add_dependency) |
 | `/monitors/{id}/composite-members/{member_id}` | DELETE | **30/min** | Aligné sur le POST/PATCH de composite members |
 | `/public/pages/{slug}/unsubscribe` | GET | **10/min** | Action d'état (désabonnement) exposée sans auth via token |
+| `/public/pages/{slug}/subscribe` | POST | **5/min** | Inscription publique — le double opt-in empêche d'abonner un tiers, la limite freine l'envoi en masse de mails de confirmation |
+| `/public/pages/{slug}/confirm` | GET | **10/min** | Activation d'un abonnement via jeton à usage unique (aligné sur unsubscribe) |
 | GET standard `/api/v1` (listes + détail : alerts channels/rules/events/presets/matrix-templates/matrix, api-keys, auth/me, groups ×3, maintenance, probes + stats, status/monitors/{id}, monitors uptime/history/health-state/probes/incidents/annotations/slo-rules/correlated) | GET | **60/min** | Harmonisation SEC-3 — lecture authentifiée standard, alignée sur le précédent teams/silences |
 | `/monitors` + `/monitors/{id}` + `/monitors/{id}/results` | GET | **120/min** | Chemins chauds dashboard (vue principale, détail, polling results 3 s pendant un test) |
 | `/monitors/{id}/incidents/{inc}/postmortem` | GET | **30/min** | Génération markdown coûteuse |

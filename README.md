@@ -394,6 +394,7 @@ docker compose --env-file .env exec server alembic upgrade head
 | `SMTP_USER` | — | — | SMTP username |
 | `SMTP_PASSWORD` | — | — | SMTP password |
 | `SMTP_FROM` | — | `noreply@example.com` | Sender address |
+| `PUBLIC_BASE_URL` | — | `http://localhost:5173` | Public root used to build status-page email links (confirmation, unsubscribe). Behind a reverse proxy the server cannot infer it — set it or those links point at localhost. |
 | `OIDC_ENABLED` | — | `false` | Enable OIDC login (can also be set from admin GUI) |
 | `OIDC_ISSUER_URL` | — | — | OIDC provider discovery URL (e.g. `https://accounts.google.com`) |
 | `OIDC_CLIENT_ID` | — | — | Client ID registered with the OIDC provider |

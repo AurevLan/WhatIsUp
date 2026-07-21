@@ -22,7 +22,13 @@ class StatusSubscription(Base):
         index=True,
     )
     email: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Jeton de désinscription, présent dans chaque mail envoyé à l'abonné.
     token: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    # Double opt-in : tant que `confirmed_at` est NULL, l'abonnement existe
+    # mais ne reçoit aucune notification. Le jeton de confirmation est effacé
+    # une fois consommé pour qu'il ne serve qu'une fois.
+    confirm_token: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     subscribed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),

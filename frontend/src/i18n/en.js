@@ -1486,6 +1486,22 @@ export default {
     type_domain_expiry_desc: 'Domain expiry (WHOIS)',
     type_scenario_desc: 'Full browser scenario',
     type_composite_desc: 'Aggregate other monitors',
+    // Long-form catalog used by the create / edit monitor forms (short
+    // type_*_desc above stays for the wizard cards).
+    types: {
+      http:          { description: 'Check that a URL returns an expected HTTP status code.', url_label: 'URL', url_placeholder: 'https://example.com', name_placeholder: 'My Website' },
+      keyword:       { description: "HTTP check + verify a keyword is (or isn't) present in the response body.", url_label: 'URL', url_placeholder: 'https://api.example.com/health', name_placeholder: 'API Health Check' },
+      json_path:     { description: 'HTTP check + validate a JSON path value in the response (e.g. $.status == "ok").', url_label: 'URL', url_placeholder: 'https://api.example.com/status', name_placeholder: 'API Status' },
+      tcp:           { description: 'Check that a TCP port is reachable (databases, SSH, SMTP, etc.).', url_label: 'Host', url_placeholder: 'db.example.com', name_placeholder: 'PostgreSQL DB' },
+      dns:           { description: 'Check DNS resolution and optionally assert the returned value.', url_label: 'Domain', url_placeholder: 'example.com', name_placeholder: 'DNS example.com' },
+      scenario:      { description: 'Run a full browser scenario (authentication, clicks, assertions…).', url_label: 'Start URL', url_placeholder: 'https://app.example.com', name_placeholder: 'Login + Dashboard' },
+      heartbeat:     { description: "Dead man's switch for cron jobs: opens an incident if the ping doesn't come back within the interval + grace period.", url_label: '', url_placeholder: '', name_placeholder: 'Daily Backup' },
+      udp:           { description: 'Check that a UDP port is reachable (DNS, NTP, SNMP, game servers…).', url_label: 'Host', url_placeholder: 'dns.example.com', name_placeholder: 'DNS UDP 53' },
+      smtp:          { description: 'Connect to an SMTP server, verify the banner and EHLO response.', url_label: 'Mail server', url_placeholder: 'mail.example.com', name_placeholder: 'SMTP Mail Server' },
+      ping:          { description: 'ICMP ping check — measures round-trip time and reachability.', url_label: 'Host', url_placeholder: 'router.internal', name_placeholder: 'Gateway Ping' },
+      domain_expiry: { description: 'Monitor domain expiry via WHOIS — alerts before your domain expires.', url_label: 'Domain', url_placeholder: 'example.com', name_placeholder: 'example.com expiry' },
+      composite:     { description: 'Aggregate the state of multiple monitors into a single status (e.g. internal probe + external probe).', url_label: '', url_placeholder: '', name_placeholder: 'My Service (aggregated)' },
+    },
     heartbeat_slug: 'Identifier (slug)',
     heartbeat_slug_hint: 'A unique ping URL with a secret token will be generated after creation.',
     heartbeat_interval: 'Expected interval (s)',
@@ -1498,6 +1514,22 @@ export default {
     no_headers: 'No headers — click "+ Add".',
     headers_regex_hint: 'Use /regex/ as value for a regex match.',
     json_schema_hint: 'JSON Schema (draft-07) to validate the response body.',
+    // Per-type fields — were hard-coded (in English in the create modal, in
+    // French in the edit one) before the MonitorFormFields extraction.
+    udp_hint: 'Sends an empty datagram — no ICMP unreachable = port open/filtered → up.',
+    domain_expiry_threshold: 'Alert threshold (days)',
+    domain_expiry_hint: 'Alert when domain expires in ≤ N days.',
+    dns_record_type: 'Record type',
+    dns_expected_value: 'Expected value',
+    keyword_label: 'Keyword to find',
+    keyword_negate: 'Alert if keyword {strong} (negate check)',
+    keyword_negate_strong: 'IS found',
+    json_path_label: 'JSON path',
+    json_expected_value: 'Expected value',
+    composite_members_hint: 'Member monitors can be added after creation from the monitor detail page.',
+    heartbeat_ping_url: 'Ping URL:',
+    follow_redirects: 'Follow redirects',
+    ssl_check: 'Monitor SSL certificate',
   },
 
   onboarding: {

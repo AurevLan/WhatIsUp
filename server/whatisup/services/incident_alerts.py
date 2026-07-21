@@ -81,6 +81,14 @@ async def fire_alerts(
 
         await dispatch_web_push_for_incident(db, incident, monitor, event_type)
 
+        # Abonnés de la page de statut publique. Branché ici et non sur chaque
+        # site d'ouverture/résolution : `fire_alerts` est le point de passage
+        # commun à tous les chemins (composite, ponctuel, promu, standard).
+        # Indépendant des règles d'alerte — un abonné public n'en a aucune.
+        from whatisup.services.status_subscription import notify_subscribers
+
+        await notify_subscribers(db, monitor, resolved=event_type == "incident_resolved")
+
     if not rules:
         return
 

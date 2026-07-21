@@ -35,6 +35,14 @@ export const publicApi = {
   unsubscribe: (slug, token) =>
     publicHttp.get(`/pages/${slug}/unsubscribe`, { params: { token } }),
 
+  /**
+   * Confirm a subscription (double opt-in link sent by email).
+   * @param {string} slug
+   * @param {string} token
+   */
+  confirm: (slug, token) =>
+    publicHttp.get(`/pages/${slug}/confirm`, { params: { token } }),
+
   /** Fetch public incident updates for a given incident. */
   getIncidentUpdates: (slug, incidentId) =>
     publicHttp.get(`/pages/${slug}/incidents/${incidentId}/updates`),

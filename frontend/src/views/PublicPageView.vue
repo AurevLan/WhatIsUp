@@ -430,8 +430,31 @@ async function subscribe() {
 // ────────────────────────────────────────────────
 let publicWs = null
 
+// Les e-mails de confirmation et de désinscription pointent vers cette page
+// avec un jeton en query : le routeur n'expose que `/status/:slug`, une
+// sous-route serait avalée par le catch-all.
+async function handleEmailLinkTokens(slug) {
+  const { confirm, unsubscribe } = route.query
+  if (!confirm && !unsubscribe) return
+  subMessage.value = ''
+  subError.value = false
+  try {
+    if (confirm) {
+      await publicApi.confirm(slug, confirm)
+      subMessage.value = t('public.subscription_confirmed')
+    } else {
+      await publicApi.unsubscribe(slug, unsubscribe)
+      subMessage.value = t('public.unsubscribed')
+    }
+  } catch {
+    subError.value = true
+    subMessage.value = t('public.link_invalid')
+  }
+}
+
 onMounted(async () => {
   const slug = route.params.slug
+  await handleEmailLinkTokens(slug)
   try {
     const [pageResp, monResp, statusResp] = await Promise.all([
       publicApi.getPage(slug),

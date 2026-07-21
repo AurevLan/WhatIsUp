@@ -22,6 +22,7 @@ from whatisup.services.stats import (
     compute_uptime_bulk,
     fetch_latest_results,
 )
+from whatisup.services.status_subscription import send_confirmation_email
 
 router = APIRouter(prefix="/public", tags=["public"])
 
@@ -371,11 +372,15 @@ async def subscribe_status(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Subscribe an email address to status page notifications."""
-    group = await _get_group_by_slug(slug, db)
+    """Start a double opt-in subscription to a public status page.
 
+    La page n'exige aucune authentification : n'importe qui peut soumettre
+    l'adresse d'un tiers. L'abonnement naît donc inactif et ne le devient
+    qu'après clic sur le lien envoyé à l'adresse elle-même.
+    """
+    group = await _get_group_by_slug(slug, db)
     email = payload.email
-    # Vérifier si déjà inscrit
+
     existing = (
         await db.execute(
             select(StatusSubscription).where(
@@ -384,14 +389,58 @@ async def subscribe_status(
             )
         )
     ).scalar_one_or_none()
-    if existing is not None:
-        # Répondre 200 sans révéler si l'email existe (anti-enumeration)
-        return {"message": "Inscription confirmée"}
 
-    token = secrets.token_urlsafe(32)
-    sub = StatusSubscription(group_id=group.id, email=email, token=token)
+    if existing is not None:
+        # Une inscription restée non confirmée peut être relancée : sinon un
+        # mail perdu enfermerait l'adresse dans un état sans issue.
+        if existing.confirmed_at is None:
+            existing.confirm_token = secrets.token_urlsafe(32)
+            await db.flush()
+            await send_confirmation_email(existing, group)
+        # Réponse identique dans tous les cas : ne pas révéler si l'adresse
+        # est déjà abonnée (anti-énumération).
+        return {"message": "Check your inbox to confirm the subscription."}
+
+    sub = StatusSubscription(
+        group_id=group.id,
+        email=email,
+        token=secrets.token_urlsafe(32),
+        confirm_token=secrets.token_urlsafe(32),
+    )
     db.add(sub)
-    return {"message": "Inscription confirmée"}
+    await db.flush()
+    await send_confirmation_email(sub, group)
+    return {"message": "Check your inbox to confirm the subscription."}
+
+
+@router.get("/pages/{slug}/confirm")
+@limiter.limit("10/minute")
+async def confirm_status_subscription(
+    request: Request,
+    slug: str,
+    token: str,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Activate a subscription from the link sent by e-mail (double opt-in)."""
+    group = await _get_group_by_slug(slug, db)
+
+    sub = (
+        await db.execute(
+            select(StatusSubscription).where(
+                StatusSubscription.confirm_token == token,
+                StatusSubscription.group_id == group.id,
+            )
+        )
+    ).scalar_one_or_none()
+    if sub is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid token")
+
+    if sub.confirmed_at is None:
+        sub.confirmed_at = datetime.now(UTC)
+    # Le jeton ne sert qu'une fois : un lien qui traîne dans une boîte mail ne
+    # doit pas pouvoir réactiver un abonnement supprimé depuis.
+    sub.confirm_token = None
+    return {"message": "Subscription confirmed."}
 
 
 @router.get("/pages/{slug}/unsubscribe")
@@ -415,6 +464,6 @@ async def unsubscribe_status(
         )
     ).scalar_one_or_none()
     if sub is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Token invalide")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid token")
     await db.delete(sub)
-    return {"message": "Désabonnement effectué"}
+    return {"message": "Unsubscribed."}

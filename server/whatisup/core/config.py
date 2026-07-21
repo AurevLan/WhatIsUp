@@ -78,6 +78,12 @@ class Settings(BaseSettings):
     smtp_from: str = "noreply@example.com"
     smtp_tls: bool = True
 
+    # Racine publique utilisée pour construire les liens des e-mails
+    # (confirmation et désinscription des pages de statut). Le serveur ne peut
+    # pas la deviner : il est derrière un reverse proxy et ne voit ni le nom
+    # d'hôte externe ni le schéma.
+    public_base_url: str = "http://localhost:5173"
+
     # Probe
     probe_result_rate_limit: str = "30/minute"
     probe_heartbeat_interval_seconds: int = 30

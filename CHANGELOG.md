@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.17.1](https://github.com/AurevLan/WhatIsUp/compare/v1.17.0...v1.17.1) (2026-07-24)
+
+
+### Fixed
+
+* **security:** scope tag_selector alert rules to the monitor owner — F1 ([#300](https://github.com/AurevLan/WhatIsUp/issues/300)) ([286b8cd](https://github.com/AurevLan/WhatIsUp/commit/286b8cd70e4f9852e1950e21d0d46395e72cf742))
+
 ## [1.17.0](https://github.com/AurevLan/WhatIsUp/compare/v1.16.2...v1.17.0) (2026-07-21)
 
 

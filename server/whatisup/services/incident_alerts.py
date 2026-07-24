@@ -15,7 +15,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 import structlog
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -24,6 +24,7 @@ from whatisup.models.incident import Incident, IncidentScope
 from whatisup.models.monitor import Monitor
 from whatisup.models.probe import Probe
 from whatisup.models.result import CheckResult
+from whatisup.models.team import TeamMembership
 from whatisup.services.alert import dispatch_alert, maybe_digest_or_dispatch
 from whatisup.services.alert_conditions import (
     above_baseline_matches,
@@ -51,10 +52,34 @@ async def fire_alerts(
       - "incident_resolved": incident just resolved
       - "incident_renotify": incident still open, check for periodic re-notification
     """
+    # F1: tag names are a global shared pool (Tag.name is unique across tenants),
+    # so a tag_selector rule must be scoped to owners who can actually access the
+    # monitor — otherwise any authenticated user could subscribe to another
+    # tenant's outages by putting a common tag name (`prod`, …) in tag_selector.
+    # "Can access" mirrors check_resource_access: the monitor owner plus every
+    # member of the monitor's team.
+    tag_owner_ids = {monitor.owner_id}
+    if monitor.team_id is not None:
+        member_ids = (
+            (
+                await db.execute(
+                    select(TeamMembership.user_id).where(TeamMembership.team_id == monitor.team_id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        tag_owner_ids.update(member_ids)
+
     conditions = [AlertRule.monitor_id == monitor.id]
     if monitor.group_id:
         conditions.append(AlertRule.group_id == monitor.group_id)
-    conditions.append(AlertRule.tag_selector.isnot(None))
+    conditions.append(
+        and_(
+            AlertRule.tag_selector.isnot(None),
+            AlertRule.owner_id.in_(tag_owner_ids),
+        )
+    )
 
     candidate_rules = (
         (
@@ -72,7 +97,11 @@ async def fire_alerts(
         for r in candidate_rules
         if r.monitor_id == monitor.id
         or (monitor.group_id is not None and r.group_id == monitor.group_id)
-        or (r.tag_selector and monitor_tag_names.intersection(r.tag_selector))
+        or (
+            r.tag_selector
+            and r.owner_id in tag_owner_ids
+            and monitor_tag_names.intersection(r.tag_selector)
+        )
     ]
 
     # Web push: notify monitor owner for open/resolve events (independent of rules)

@@ -7,6 +7,21 @@
 > `FERNET_KEY` rotation (§7, v1.16+), account lockout runbook (§9).
 > The guide below only covers the historical v0.12.x → v1.0.0 migration.
 
+## SSO / OIDC — `email_verified` now required
+
+Since the security fix for audit finding F16, the OIDC callback refuses to link
+or auto-provision an account when the provider does not assert
+`email_verified: true` in its userinfo response (a missing claim counts as *not
+verified*). Users already bound to an `oidc_sub` are unaffected — only the first
+binding is gated.
+
+If SSO logins start failing with `error=email_not_verified`, add `email` to the
+configured scopes and make sure the IdP emits the claim (Keycloak, Auth0,
+Google, Okta and Entra ID all do by default). For an address the IdP cannot
+vouch for, the binding has to be written directly in the database
+(`UPDATE users SET oidc_sub = '<sub>' WHERE email = '…'`) — there is
+deliberately no API to do it.
+
 ## Upgrading to v1.0.0 (from v0.12.x)
 
 ## Breaking changes

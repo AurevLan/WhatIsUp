@@ -69,7 +69,13 @@ class _FakeResponse:
 
 
 class _FakeHttpxClient:
-    """Stands in for httpx.AsyncClient inside oidc_callback (token + userinfo)."""
+    """Stands in for httpx.AsyncClient inside oidc_callback (token + userinfo).
+
+    ``userinfo_overrides`` lets a test tweak the claims the fake IdP returns
+    (e.g. drop ``email_verified``).
+    """
+
+    userinfo_overrides: dict = {}
 
     def __init__(self, *args, **kwargs) -> None:
         pass
@@ -88,8 +94,10 @@ class _FakeHttpxClient:
             {
                 "sub": "oidc-sub-123",
                 "email": "sso.user@test.com",
+                "email_verified": True,
                 "preferred_username": "sso_user",
                 "name": "SSO User",
+                **self.userinfo_overrides,
             }
         )
 
@@ -153,3 +161,120 @@ async def test_oidc_callback_stores_session_metadata(
     assert meta["ua"] == "OIDC-Device"
     assert meta["created_at"]
     assert "ip" in meta
+
+
+# ── F16 — email_verified gate on identity binding ────────────────────────────
+
+
+async def _fake_oidc_settings(db) -> dict:
+    return {
+        "enabled": True,
+        "issuer_url": "https://idp.example.com",
+        "client_id": "whatisup",
+        "client_secret": "secret",
+        "redirect_uri": None,
+        "scopes": "openid email profile",
+        "auto_provision": True,
+    }
+
+
+async def _fake_oidc_discover(issuer: str) -> dict:
+    return {
+        "authorization_endpoint": "https://idp.example.com/authorize",
+        "token_endpoint": "https://idp.example.com/token",
+        "userinfo_endpoint": "https://idp.example.com/userinfo",
+    }
+
+
+async def _run_callback(
+    client: AsyncClient,
+    fake_redis: FakeRedis,
+    monkeypatch: pytest.MonkeyPatch,
+    userinfo_overrides: dict,
+    state: str = "f16state",
+):
+    monkeypatch.setattr(auth_module, "_resolve_oidc_settings", _fake_oidc_settings)
+    monkeypatch.setattr(auth_module, "_oidc_discover", _fake_oidc_discover)
+    monkeypatch.setattr(_FakeHttpxClient, "userinfo_overrides", userinfo_overrides)
+    monkeypatch.setattr(auth_module.httpx, "AsyncClient", _FakeHttpxClient)
+    await fake_redis.setex(f"whatisup:oidc:state:{state}", 300, "verifier123")
+    return await client.get(
+        "/api/v1/auth/oidc/callback",
+        params={"code": "authcode", "state": state},
+        follow_redirects=False,
+    )
+
+
+@pytest.mark.asyncio
+async def test_oidc_callback_refuses_unverified_email(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    fake_redis: FakeRedis,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An IdP that does not assert email_verified must not bind an identity.
+
+    Otherwise an attacker who signs up at the IdP with the victim's address
+    takes over the victim's local account (audit F16).
+    """
+    victim = User(
+        email="sso.user@test.com",
+        username="victim_local",
+        hashed_password="x",
+    )
+    db_session.add(victim)
+    await db_session.commit()
+
+    resp = await _run_callback(
+        client, fake_redis, monkeypatch, {"email_verified": False}, state="f16-false"
+    )
+    assert resp.status_code == 302
+    assert "error=email_not_verified" in resp.headers["location"]
+    assert "access_token" not in resp.headers["location"]
+
+    await db_session.refresh(victim)
+    assert victim.oidc_sub is None  # no identity was bound to the local account
+
+
+@pytest.mark.asyncio
+async def test_oidc_callback_refuses_missing_email_verified_claim(
+    client: AsyncClient,
+    fake_redis: FakeRedis,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+) -> None:
+    """A missing email_verified claim is treated as unverified (fail closed)."""
+    resp = await _run_callback(
+        client,
+        fake_redis,
+        monkeypatch,
+        {"email_verified": None},
+        state="f16-missing",
+    )
+    assert resp.status_code == 302
+    assert "error=email_not_verified" in resp.headers["location"]
+
+    user = (
+        await db_session.execute(select(User).where(User.email == "sso.user@test.com"))
+    ).scalar_one_or_none()
+    assert user is None  # auto-provisioning did not run either
+
+
+@pytest.mark.asyncio
+async def test_oidc_callback_accepts_string_true_email_verified(
+    client: AsyncClient,
+    fake_redis: FakeRedis,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+) -> None:
+    """Providers that serialise email_verified as the string "true" still work."""
+    resp = await _run_callback(
+        client, fake_redis, monkeypatch, {"email_verified": "true"}, state="f16-str"
+    )
+    assert resp.status_code == 302
+    assert "#access_token=" in resp.headers["location"]
+
+    user = (
+        await db_session.execute(select(User).where(User.oidc_sub == "oidc-sub-123"))
+    ).scalar_one()
+    assert user.email == "sso.user@test.com"

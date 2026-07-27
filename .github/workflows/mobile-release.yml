@@ -35,6 +35,21 @@ on:
         description: "Tag to release (e.g. v1.9.0). Must already exist on the repo."
         required: true
         type: string
+    # Declared explicitly so the caller can forward exactly these and nothing
+    # else (`secrets: inherit` would hand over every secret in the repo).
+    secrets:
+      ANDROID_KEYSTORE_BASE64:
+        description: "base64 of release.keystore — required to sign the release APK"
+        required: true
+      ANDROID_KEYSTORE_PASSWORD:
+        required: true
+      ANDROID_KEY_ALIAS:
+        required: true
+      ANDROID_KEY_PASSWORD:
+        required: true
+      GOOGLE_SERVICES_JSON_BASE64:
+        description: "base64 of google-services.json — optional, FCM push only"
+        required: false
   workflow_dispatch:
     inputs:
       tag:

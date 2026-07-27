@@ -6,12 +6,10 @@ version: "2.0"
 github:
   controls:
     # Every external action must be pinned to a full commit SHA (no mutable tags).
-    # This repo already pins everything by SHA — keep it that way.
+    # No `trustedOwners` exemption: `actions/*` and `github/*` are SHA-pinned too,
+    # so the control applies to every action without exception.
     actionsMustBePinnedByCommitSha:
       enabled: true
-      trustedOwners:
-        - actions
-        - github
 
     # Every workflow must declare an explicit top-level `permissions:` block
     # (least privilege); jobs elevate per-job only where required.

@@ -2,7 +2,9 @@
 
 > Garde-fou exécutif du projet : **chaque contrôle listé ici doit être actif en production**.
 > Conforme : OWASP Top 10 2021 · ANSSI RGS · NIST SP 800-63B · CWE Top 25.
-> Dernière revue exhaustive : **2026-04-29** (v1.5.0). Référence canonique : `FEATURES.md` §11.
+> Dernière revue exhaustive : **2026-07-28** — audit `claude-security` du 2026-07-24 (20 findings),
+> soldé par les lots S1→S7 (PRs #302, #303, #319, #320, #321, #322, #323).
+> Référence canonique : `FEATURES.md` §11.
 
 ---
 
@@ -30,9 +32,9 @@
 
 | Version | Support sécurité | Notes |
 |---|---|---|
-| `1.5.x` | ✅ Actif | Branche courante (toutes CVE patchées) |
-| `1.4.x` | ⚠️ Critiques uniquement | EOL au prochain mineur |
-| `1.3.x` et antérieur | ❌ Non supportée | Migration vers 1.5.x requise |
+| `1.17.x` | ✅ Actif | Branche courante (toutes CVE patchées) |
+| `1.16.x` | ⚠️ Critiques uniquement | EOL au prochain mineur |
+| `1.15.x` et antérieur | ❌ Non supportée | Migration vers 1.17.x requise |
 | `0.x` | ❌ Non supportée | Beta, pas de support |
 
 ### SLA de remédiation
@@ -86,6 +88,8 @@
 | **A05 — Security Misconfiguration** | Defaults faibles | `validate_production_settings` refuse SECRET_KEY défaut, FERNET_KEY requis, CORS `*` interdit, server bind 127.0.0.1 | Démarrage prod ✓ |
 | **A06 — Vulnerable Components** | CVE deps | Dependabot + pip-audit + npm audit hebdo + CodeQL | Workflows `security-audit.yml`, `codeql.yml` |
 | **A07 — Auth Failures** | Brute-force, JWT | slowapi rate-limit, JWT 15min + refresh révocable, MFA biométrique mobile, OIDC PKCE | Table §12 |
+| **A07 — Auth Failures** | Login CSRF / fixation de session (retour SSO) | Aucun jeton dans une URL : le callback rend un code opaque à usage unique (TTL 60 s), échangé contre les jetons ; cookie nonce HttpOnly exigé au callback **et** à l'échange | `api/v1/auth.py`, `test_security_oidc_handoff.py`, §6 |
+| **A07 — Auth Failures** | Takeover par email non vérifié (SSO) | Liaison d'identité refusée si le provider n'affirme pas `email_verified` (claim absent = non vérifié), auto-provisioning inclus | `_email_is_verified`, `test_oidc.py` |
 | **A08 — Software & Data Integrity** | CI/CD compromise | GHCR images signées via OIDC (à activer), workflows pinned actions `@v6`, supply-chain audit | Workflows + §10 |
 | **A09 — Logging & Monitoring** | Détection | `AuditLog` immuable, structlog JSON + request ID, Prometheus metrics | `audit_log.py`, `/metrics` |
 | **A10 — SSRF** | Webhooks/scenario | `_validate_webhook_url()` rejette RFC 1918/loopback/link-local, redirects re-validés, applied to HTTP/TCP/UDP/SMTP/DNS | `services/channels/_helpers.py`, `probe/.../_shared.py` |
@@ -100,9 +104,10 @@
 
 | Workflow | Trigger | Garde-fous |
 |---|---|---|
-| `ci.yml` | push/PR `main` | ruff lint + tests pytest serveur (`--cov-fail-under=50`) + tests probe (`--cov-fail-under=35`) + Alembic upgrade/downgrade |
+| `ci.yml` | push/PR `main` | ruff lint + tests pytest serveur (`--cov-fail-under=65`) + tests probe (`--cov-fail-under=40`) + tests vitest frontend + Alembic upgrade/downgrade |
 | `codeql.yml` | push/PR + lundi 06h UTC | CodeQL `security-extended` Python + JS/TS |
 | `security-audit.yml` | push/PR + lundi 08h UTC | `pip-audit` server + probe + `npm audit --audit-level=moderate` frontend |
+| `plumber.yml` | push/PR `main` | Hardening supply-chain des workflows (actions SHA-pinnées, `permissions` déclaré, triggers dangereux, tags d'image mutables) — gate **bloquant** à 100 % / grade A, SARIF vers Code Scanning |
 | `release.yml` | tag `v[0-9]+.[0-9]+.[0-9]+*` | CI gate obligatoire avant build & push GHCR + GH Release |
 | `mobile-release.yml` | push main + tag v* | APK debug + APK release signée (keystore secrets) |
 | `release-please.yml` | push `main` | Auto-versioning SemVer + génération CHANGELOG + tag (déclenche `release.yml`) |
@@ -111,9 +116,10 @@
 
 - Vulnérabilité **High/Critical** détectée par `pip-audit` ou `npm audit`
 - Finding **error-level** par CodeQL
-- Couverture < seuil (50% server / 35% probe)
+- Couverture < seuil (65% server / 40% probe)
 - `ruff check` non vert
 - Migration Alembic non rétro-compatible (downgrade KO)
+- Score Plumber < 100 % (action non SHA-pinnée, workflow sans bloc `permissions`, trigger dangereux)
 
 ### Alertes non-bloquantes (à traiter sous SLA)
 
@@ -139,6 +145,7 @@
 - [ ] **Erreurs de canal** : jamais `str(exc)` brut dans un log ou une réponse API → `redact_secrets(str(exc), config)`
 - [ ] **Email** : destinataire validé (`is_valid_email`), message construit avec `EmailMessage`, sujet aplati, `html.escape()` sur toute valeur utilisateur dans un corps HTML
 - [ ] **WebSocket** : auth par message `{"type":"auth","token"}`, jamais en URL
+- [ ] **Jetons hors URL** : aucun `access_token`/`refresh_token` dans une query, un fragment ou une redirection — un code opaque à usage unique, lié au navigateur par cookie, sinon
 - [ ] **CORS** : si nouvelle origin → ajout dans `CORS_ALLOWED_ORIGINS` (jamais `*` avec credentials)
 - [ ] **Tests** : test de privilège (autre user reçoit 404 ou 403, jamais 200)
 - [ ] **Tests** : test de validation (input invalide → 422)
@@ -568,7 +575,9 @@ redis-cli DEL "whatisup:lockout:lock:${IDX}"
 - ✅ pip-audit hebdo — `security-audit.yml`
 - ✅ npm audit hebdo — `security-audit.yml`
 - ✅ CodeQL `security-extended` — `codeql.yml`
+- ✅ Hardening des workflows — `plumber.yml` (gate bloquant, cf. §4)
 - ⏳ **À ajouter** : génération SBOM (`anchore/sbom-action`) sur `release.yml`
+- ⏳ **À ajouter** : détection de secrets commités — secret scanning GitHub + push protection (gratuits sur ce repo public, actuellement **désactivés**), complétés par un scan `trufflehog --only-verified` en CI
 - ⏳ **À ajouter** : signature des images GHCR via Cosign keyless (OIDC GitHub)
 
 ### Verrouillage versions
@@ -576,8 +585,7 @@ redis-cli DEL "whatisup:lockout:lock:${IDX}"
 - ✅ Server : `pyproject.toml` borne haute (`fastapi>=0.125,<0.140`)
 - ✅ Probe : idem
 - ✅ Frontend : `package-lock.json` versionné
-- ✅ GH Actions pinnées `@v6` minimum (jamais `@main`)
-- ⏳ **À durcir** : pin par SHA pour les actions critiques (`actions/checkout@<sha>`)
+- ✅ GH Actions **pinnées par SHA** sur tous les workflows (jamais `@main`, jamais un tag mutable) — vérifié à chaque PR par le gate `plumber.yml`
 
 ### Vérification reporter (extension probe Docker)
 
@@ -655,7 +663,7 @@ Toute modification de cette table doit être reportée dans `FEATURES.md` §11.
 | `/monitors` + `/monitors/{id}` + `/monitors/{id}/results` | GET | **120/min** | Chemins chauds dashboard (vue principale, détail, polling results 3 s pendant un test) |
 | `/monitors/{id}/incidents/{inc}/postmortem` | GET | **30/min** | Génération markdown coûteuse |
 | `/auth/oidc/config` + `/push/vapid-public-key` | GET | **30/min** | Publics sans auth mais réponse statique triviale |
-| `/api/health` + `/api/metrics` | GET | *sans limite* | Health checks LB/probe/app native + scrape Prometheus — hors routers v1, hors gate CI |
+| `/api/health` + `/api/metrics` | GET | *sans limite* | Health checks LB/probe/app native + scrape Prometheus — hors routers v1, hors gate CI. `/api/metrics` n'est pas pour autant ouvert : refusé par le `nginx.conf` livré, et `401` en production sans `METRICS_AUTH_TOKEN` (cf. §8) |
 
 > **Tout nouvel endpoint public ou écrit DOIT avoir un rate-limit explicite.** Le défaut implicite n'existe pas. **Depuis SEC-3 (2026-07-21), les GET aussi** : le gate CI couvre désormais toutes les méthodes sous `api/v1/`.
 >
@@ -701,9 +709,8 @@ Ce document est **vivant**. Il doit être mis à jour :
 ### TODO / améliorations identifiées
 
 - [ ] Publier `/.well-known/security.txt` (RFC 9116)
-- [ ] Ajouter un rate-limit explicite sur `GET /config` (export) et `POST /probes/register` (actuellement protégés uniquement par JWT / superadmin — cf. §12)
+- [ ] Activer le secret scanning GitHub + push protection, puis un scan `trufflehog` en CI (cf. §10)
 - [ ] Activer signature Cosign keyless sur images GHCR
-- [ ] Pin GH Actions par SHA (au minimum sur `release.yml` et `mobile-release.yml`)
 - [ ] Générer SBOM (CycloneDX) à chaque release
 - [ ] Mettre en place 2FA TOTP côté serveur (mobile = biometric, web = TOTP)
 - [ ] Chiffrement at-rest Postgres (TDE ou disque chiffré LUKS)

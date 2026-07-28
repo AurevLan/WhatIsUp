@@ -24,6 +24,8 @@ from urllib.parse import urlparse
 
 import structlog
 
+from whatisup_probe.checkers._shared import SSRFBlockedError, _ssrf_resolve_pinned_sync
+
 logger = structlog.get_logger(__name__)
 
 _PER_KIND_TIMEOUT = 10.0  # seconds — hard cap per collector
@@ -137,12 +139,16 @@ async def collect_dig_trace(host: str) -> dict[str, Any]:
     }
 
 
-async def collect_openssl_handshake(host: str, port: int) -> dict[str, Any]:
+async def collect_openssl_handshake(
+    host: str, port: int, connect_ip: str | None = None
+) -> dict[str, Any]:
+    # On se connecte à l'IP validée en amont, mais le SNI garde le nom : sans
+    # ça, openssl referait sa propre résolution (audit F9).
     cmd = [
         "openssl",
         "s_client",
         "-connect",
-        f"{host}:{port}",
+        f"{connect_ip or host}:{port}",
         "-servername",
         host,
         "-showcerts",
@@ -199,7 +205,9 @@ async def collect_icmp_ping(host: str) -> dict[str, Any]:
     }
 
 
-async def collect_http_verbose(target: str) -> dict[str, Any]:
+async def collect_http_verbose(
+    target: str, host: str | None = None, port: int = 443, connect_ip: str | None = None
+) -> dict[str, Any]:
     cmd = [
         "curl",
         "-sS",
@@ -210,8 +218,15 @@ async def collect_http_verbose(target: str) -> dict[str, Any]:
         "8",
         "-A",
         "WhatIsUp-Probe-Diagnostic/1.0",
-        target,
     ]
+    # `--resolve` épingle la résolution sur l'IP déjà validée : l'URL, l'en-tête
+    # Host et le SNI restent inchangés, mais curl ne refait pas de DNS — sinon
+    # le nom pouvait basculer vers une IP interne entre la validation et
+    # l'exécution, et les en-têtes du service interne remontaient dans le
+    # payload de diagnostic (audit F9).
+    if host and connect_ip:
+        cmd += ["--resolve", f"{host}:{port}:{connect_ip}"]
+    cmd.append(target)
     rc, _out, err = await _run(cmd)
     request_headers = [ln[2:] for ln in err.splitlines() if ln.startswith("> ")]
     response_headers = [ln[2:] for ln in err.splitlines() if ln.startswith("< ")]
@@ -282,22 +297,48 @@ async def run_collection(
     except ValueError as exc:
         logger.warning("diagnostic_host_rejected", target=target, error=str(exc))
         return []
+
+    # La cible vaut `monitor.url`, choisie par un utilisateur authentifié :
+    # aucun collecteur ne passait par le garde-fou que tous les checkers
+    # appliquent, alors qu'ils tournent depuis le réseau interne et renvoient
+    # en-têtes, CN de certificat et IPs de sauts dans un payload que
+    # l'utilisateur peut lire (audit F9). On résout et valide **une fois**, puis
+    # on épingle chaque collecteur sur l'IP obtenue.
+    loop = asyncio.get_running_loop()
+    try:
+        pinned_ip = await asyncio.wait_for(
+            loop.run_in_executor(None, _ssrf_resolve_pinned_sync, host),
+            timeout=5.0,
+        )
+    except SSRFBlockedError as exc:
+        logger.warning("diagnostic_target_blocked", target=target, error=str(exc))
+        return []
+    except Exception as exc:  # noqa: BLE001 — fail-closed : pas de résolution, pas de collecte
+        logger.warning("diagnostic_target_unresolved", target=target, error=str(exc))
+        return []
+
     port = _extract_port(target)
     enabled = set(kinds or ALL_KINDS)
 
     is_http = check_type == "http" or target.startswith(("http://", "https://"))
     tasks: dict[str, Any] = {}
 
+    # traceroute et ping prennent l'IP validée : `-n` était déjà en place, le
+    # nom n'apportait rien et rouvrait la fenêtre de rebinding.
     if "traceroute" in enabled:
-        tasks["traceroute"] = collect_traceroute(host)
+        tasks["traceroute"] = collect_traceroute(pinned_ip)
     if "dig_trace" in enabled:
+        # Seul collecteur à garder le nom : il interroge des résolveurs, il ne
+        # se connecte pas à la cible.
         tasks["dig_trace"] = collect_dig_trace(host)
     if "icmp_ping" in enabled:
-        tasks["icmp_ping"] = collect_icmp_ping(host)
+        tasks["icmp_ping"] = collect_icmp_ping(pinned_ip)
     if "openssl_handshake" in enabled and is_http:
-        tasks["openssl_handshake"] = collect_openssl_handshake(host, port)
+        tasks["openssl_handshake"] = collect_openssl_handshake(host, port, connect_ip=pinned_ip)
     if "http_verbose" in enabled and is_http:
-        tasks["http_verbose"] = collect_http_verbose(target)
+        tasks["http_verbose"] = collect_http_verbose(
+            target, host=host, port=port, connect_ip=pinned_ip
+        )
 
     results = await asyncio.gather(
         *(_safe_run(k, c) for k, c in tasks.items()),

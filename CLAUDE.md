@@ -104,6 +104,8 @@ get_current_probe   # X-Probe-Api-Key (bcrypt + cache Redis SHA-256[:32], TTL 60
 - URLs HTTP sortantes : appeler `_validate_webhook_url(url)` avant tout `httpx.post` (SSRF)
 - Emails : destinataires validés par `core/validators.is_valid_email` (aucun CR/LF → pas d'injection d'en-tête), construction via `EmailMessage` (jamais `MIMEMultipart`/compat32), sujet aplati (`" ".join(s.split())`), et `html.escape()` sur toute valeur utilisateur interpolée dans un corps HTML (nom de monitor/groupe, type, portée)
 - Code généré destiné à être exécuté (export Playwright de l'extension) : `_escJs()` pour l'intérieur des littéraux, `_num()` pour les positions **non entourées de guillemets** — une valeur non numérique y devient du code
+- Sonde — toute connexion sortante (socket, subprocess, httpx) passe par `_ssrf_resolve_pinned_sync(host)` puis vise **l'IP retournée**, jamais le nom : une seconde résolution rouvre une fenêtre de rebinding. Pour les binaires : `curl --resolve host:port:ip`, `openssl -connect ip:port -servername host`
+- Sonde — motifs et `json_schema` fournis par un tenant : jamais `re`/`jsonschema.validate` en direct → `safe_search` / `validate_json_schema_sync` de `checkers/_regex_guard.py` (moteur `regex` interruptible + pool de threads isolé de l'executor par défaut). `asyncio.wait_for` autour d'un `run_in_executor` n'arrête pas le thread
 - `AlertRule` delete / `list_events` : toujours vérifier `owner_id` via JOIN — sans filtre = fuite cross-user
 - Nouveaux endpoints : `@limiter.limit("X/minute")` + `request: Request` (slowapi)
 - CORS production : pas de wildcard `*` ; origines HTTP rejetées au démarrage (`config.py`)

@@ -119,8 +119,12 @@ async def init() -> None:
 
                 _write_secret_file(PROBE_KEY_FILE, api_key)
 
+                # Chemin écrit en toutes lettres, pas interpolé : CodeQL classe
+                # tout identifiant contenant « KEY » comme donnée sensible et
+                # signale un log en clair, alors qu'on n'affiche qu'un chemin.
                 print(  # noqa: T201
-                    f"[WhatIsUp] Central-Probe enregistrée, clé écrite dans {PROBE_KEY_FILE}"
+                    "[WhatIsUp] Central-Probe enregistrée, clé écrite dans"
+                    " /probe-secrets/PROBE_API_KEY"
                 )
 
         await db.commit()

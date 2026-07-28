@@ -364,6 +364,22 @@ async def _oidc_discover(issuer: str) -> dict:
         return resp.json()
 
 
+def _email_is_verified(userinfo: dict) -> bool:
+    """Whether the provider asserts the ``email`` claim was verified.
+
+    OIDC core defines ``email_verified`` as a boolean, but providers in the wild
+    also send the strings ``"true"`` / ``"1"``. A missing claim is treated as
+    *not* verified: an IdP that never asserts verification cannot be used to
+    bind an email address to an account (audit F16).
+    """
+    raw = userinfo.get("email_verified")
+    if isinstance(raw, bool):
+        return raw
+    if isinstance(raw, str):
+        return raw.strip().lower() in ("true", "1", "yes")
+    return raw == 1
+
+
 @router.get("/oidc/login")
 @limiter.limit("20/minute")
 async def oidc_login(request: Request, db: AsyncSession = Depends(get_db)) -> RedirectResponse:
@@ -505,6 +521,15 @@ async def oidc_callback(
     user = (await db.execute(select(User).where(User.oidc_sub == sub))).scalar_one_or_none()
 
     if user is None:
+        # Audit F16: binding an identity by email address is only safe when the
+        # provider asserts the address was verified. Without this check, an IdP
+        # that allows unverified-email signups lets an attacker register
+        # victim@corp.com there and take over the victim's local account (or
+        # squat their address through auto-provisioning).
+        if not _email_is_verified(userinfo):
+            logger.warning("oidc_email_not_verified", sub=sub)
+            return _fail("email_not_verified")
+
         # Try to find by email (link existing account)
         user = (await db.execute(select(User).where(User.email == email))).scalar_one_or_none()
         if user:

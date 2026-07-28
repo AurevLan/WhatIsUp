@@ -126,6 +126,7 @@
 
 - [ ] **Pydantic** : tout body/query/path/header validé avec `extra="forbid"` sur `*In`/`*Update`
 - [ ] **Ownership** : `current_user.id` dans le `where` de toute requête mutante (ou `require_superadmin`)
+- [ ] **Mass-assignment** : tout endpoint qui écrit depuis du JSON brut (import, bulk) rejoue les mêmes gardes que l'endpoint typé (`assert_can_assign_group`, `assert_can_assign_team`) et chiffre les mêmes champs
 - [ ] **Pas de secret** dans le code, les logs, les messages d'erreur API, les commits
 - [ ] **`.is_(True)`** / `.is_(False)` (jamais `is True`) dans tous les filtres SQLAlchemy
 - [ ] **Rate-limit** `@limiter.limit("X/minute")` + `request: Request` sur tout endpoint public ou sensible
@@ -150,6 +151,8 @@
 - 🔴 Token dans URL WebSocket (`?token=...`) → apparaît dans logs reverse proxy
 - 🔴 Nouveau channel sans `encrypt_channel_config()` à l'écriture
 - 🔴 Webhook sortant sans SSRF guard
+- 🔴 Endpoint d'import/bulk qui applique un `group_id`/`team_id` du payload sans `assert_can_assign_*` → poisoning de la status page d'un autre tenant
+- 🔴 Liaison d'identité SSO sur un `email` dont le provider n'affirme pas `email_verified` → takeover de compte local
 
 ---
 
@@ -234,6 +237,38 @@ class UserSelfUpdate(BaseModel):
     full_name: str | None = None
     timezone: str | None = None
 ```
+
+### Mass-assignment depuis du JSON brut (import / bulk)
+
+```python
+# ❌ INTERDIT — group_id vient du payload, aucune vérification d'accès
+data = {k: v for k, v in entry.items() if k in config_fields}
+monitor = Monitor(owner_id=current_user.id, **data)   # ← group_id d'un autre tenant
+
+# ✅ OK — mêmes gardes que create_monitor / update_monitor
+await assert_can_assign_group(db, current_user, uuid.UUID(entry["group_id"]))
+data["scenario_variables"] = encrypt_scenario_variables(data["scenario_variables"])
+```
+
+Un endpoint qui contourne les schemas Pydantic (`list[dict[str, Any]]`) contourne
+aussi tous les validateurs : rejouer explicitement les contrôles d'accès **et**
+le chiffrement des secrets.
+
+### Liaison d'identité SSO (OIDC)
+
+```python
+# ❌ INTERDIT — l'email suffit à lier/créer un compte
+user = await db.scalar(select(User).where(User.email == userinfo["email"]))
+user.oidc_sub = sub
+
+# ✅ OK — le provider doit affirmer la vérification de l'adresse
+if not _email_is_verified(userinfo):      # claim absent = non vérifié
+    return _fail("email_not_verified")
+```
+
+Sans ce contrôle, un IdP qui autorise l'inscription sans vérification d'adresse
+permet à un attaquant de s'inscrire avec `victime@corp.com` et de récupérer le
+compte local de la victime.
 
 ### Refresh post-mutation
 

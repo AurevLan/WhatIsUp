@@ -1560,6 +1560,7 @@ export default {
     back_to_login: '← Back to login',
     signing_in: 'Signing in…',
     missing_params: 'Missing parameters in the SSO response.',
+    exchange_failed: 'This login link is no longer valid. Please sign in again from this browser.',
     profile_error: 'Could not fetch user profile.',
   },
 

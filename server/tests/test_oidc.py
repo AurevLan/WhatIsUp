@@ -134,19 +134,35 @@ async def test_oidc_callback_stores_session_metadata(
     monkeypatch.setattr(auth_module, "_oidc_discover", _fake_discover)
     monkeypatch.setattr(auth_module.httpx, "AsyncClient", _FakeHttpxClient)
 
-    # Seed the PKCE state exactly as /oidc/login would
-    await fake_redis.setex("whatisup:oidc:state:teststate", 300, "verifier123")
+    # Seed the PKCE state exactly as /oidc/login would (verifier + nonce
+    # fingerprint — the browser binding added by S7, see
+    # test_security_oidc_handoff.py)
+    nonce = "nonce-session-parity"
+    await fake_redis.setex(
+        "whatisup:oidc:state:teststate",
+        300,
+        json.dumps(
+            {"verifier": "verifier123", "nonce": hashlib.sha256(nonce.encode()).hexdigest()}
+        ),
+    )
 
     resp = await client.get(
         "/api/v1/auth/oidc/callback",
         params={"code": "authcode", "state": "teststate"},
-        headers={"User-Agent": "OIDC-Device"},
+        headers={"User-Agent": "OIDC-Device", "Cookie": f"wiu_oidc_nonce={nonce}"},
         follow_redirects=False,
     )
     assert resp.status_code == 302, resp.text
-    location = resp.headers["location"]
-    assert "#access_token=" in location and "refresh_token=" in location
-    refresh_token = location.split("refresh_token=")[1].split("&")[0]
+    # Tokens are minted at the exchange, so that is where the session metadata
+    # is recorded — the callback only hands back a one-time code.
+    code = resp.headers["location"].split("#code=")[1]
+    exchange = await client.post(
+        "/api/v1/auth/oidc/exchange",
+        json={"code": code},
+        headers={"User-Agent": "OIDC-Device", "Cookie": f"wiu_oidc_nonce={nonce}"},
+    )
+    assert exchange.status_code == 200, exchange.text
+    refresh_token = exchange.json()["refresh_token"]
 
     user = (
         await db_session.execute(select(User).where(User.oidc_sub == "oidc-sub-123"))
@@ -197,10 +213,22 @@ async def _run_callback(
     monkeypatch.setattr(auth_module, "_oidc_discover", _fake_oidc_discover)
     monkeypatch.setattr(_FakeHttpxClient, "userinfo_overrides", userinfo_overrides)
     monkeypatch.setattr(auth_module.httpx, "AsyncClient", _FakeHttpxClient)
-    await fake_redis.setex(f"whatisup:oidc:state:{state}", 300, "verifier123")
+    # État au format S7 : verifier + empreinte du nonce, et le cookie posé par
+    # /oidc/login doit accompagner le retour — sans lui le callback s'arrête sur
+    # `invalid_state` avant même de regarder les claims (voir
+    # test_security_oidc_handoff.py).
+    nonce = f"nonce-{state}"
+    await fake_redis.setex(
+        f"whatisup:oidc:state:{state}",
+        300,
+        json.dumps(
+            {"verifier": "verifier123", "nonce": hashlib.sha256(nonce.encode()).hexdigest()}
+        ),
+    )
     return await client.get(
         "/api/v1/auth/oidc/callback",
         params={"code": "authcode", "state": state},
+        headers={"Cookie": f"wiu_oidc_nonce={nonce}"},
         follow_redirects=False,
     )
 
@@ -272,7 +300,10 @@ async def test_oidc_callback_accepts_string_true_email_verified(
         client, fake_redis, monkeypatch, {"email_verified": "true"}, state="f16-str"
     )
     assert resp.status_code == 302
-    assert "#access_token=" in resp.headers["location"]
+    # Le callback ne rend qu'un code opaque : la liaison a bien eu lieu, mais
+    # aucun jeton ne transite par l'URL (S7).
+    assert "#code=" in resp.headers["location"]
+    assert "access_token" not in resp.headers["location"]
 
     user = (
         await db_session.execute(select(User).where(User.oidc_sub == "oidc-sub-123"))

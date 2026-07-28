@@ -186,6 +186,12 @@ async def login(
     from whatisup.services.audit import log_action
 
     await log_action(db, "user.login", "user", user.id, user.username, None)
+    if user.is_superadmin:
+        # Le mot de passe du premier boot a servi : on retire le fichier au lieu
+        # d'en conseiller la suppression (audit F15).
+        from whatisup.init_data import consume_admin_password_file
+
+        consume_admin_password_file()
     return LoginResponse(access_token=access, refresh_token=refresh)
 
 

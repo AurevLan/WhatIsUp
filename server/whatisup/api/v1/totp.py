@@ -213,6 +213,11 @@ async def verify_totp(
 
     await log_action(db, "user.login", "user", user.id, user.username, None)
     logger.info("login_success_mfa", user_id=str(user.id))
+    if user.is_superadmin:
+        # Même consommation que sur le chemin sans MFA (audit F15).
+        from whatisup.init_data import consume_admin_password_file
+
+        consume_admin_password_file()
     return TokenResponse(access_token=access, refresh_token=refresh)
 
 

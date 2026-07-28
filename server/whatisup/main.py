@@ -381,18 +381,31 @@ def create_app() -> FastAPI:
         from prometheus_fastapi_instrumentator import Instrumentator
 
         def _require_metrics_access(authorization: str | None = Header(default=None)) -> None:
-            """Defence-in-depth gate on /api/metrics.
+            """Gate on /api/metrics — fail-closed en production (audit F5).
 
-            No-op unless ``METRICS_AUTH_TOKEN`` is configured (deployments already
-            restrict this endpoint at the reverse proxy — SECURITY.md §8). When
-            set, a constant-time bearer-token match is required.
+            L'ancienne version ne faisait rien tant que ``METRICS_AUTH_TOKEN``
+            était vide, en supposant que le reverse proxy filtrait déjà. Cette
+            hypothèse était fausse pour l'installation par défaut : le
+            `nginx.conf` livré routait `/api/metrics` par le bloc `/api/`
+            générique, et l'inventaire complet des routes, latences et codes de
+            retour était servi à n'importe qui. Le proxy livré refuse désormais
+            cet endpoint, et sans jeton configuré la production refuse aussi.
             """
-            token = get_settings().metrics_auth_token
+            settings = get_settings()
+            token = settings.metrics_auth_token
             if not token:
-                return
+                if settings.is_production:
+                    raise HTTPException(status_code=401, detail="Unauthorized")
+                return  # dev / test : ouvert, c'est un outil de mise au point
             expected = f"Bearer {token}"
             if not authorization or not _secrets.compare_digest(authorization, expected):
                 raise HTTPException(status_code=401, detail="Unauthorized")
+
+        if get_settings().is_production and not get_settings().metrics_auth_token:
+            logger.warning(
+                "metrics_endpoint_closed",
+                detail="METRICS_AUTH_TOKEN is unset — /api/metrics returns 401 in production",
+            )
 
         Instrumentator().instrument(app).expose(
             app,

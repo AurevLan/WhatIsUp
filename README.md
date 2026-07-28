@@ -337,12 +337,10 @@ docker compose ps
 | API (FastAPI) | http://localhost:8000 |
 | API docs (Swagger UI) | http://localhost:8000/docs |
 
-On first start an **admin account** and a **local probe** are created automatically. The admin password is written to `/shared/ADMIN_PASSWORD` inside the server container:
+On first start an **admin account** and a **local probe** are created automatically. The admin password is written to `/shared/ADMIN_PASSWORD` inside the server container — a volume the probe cannot read — and the file is **deleted automatically on the first successful admin login**:
 
 ```bash
 docker compose exec server cat /shared/ADMIN_PASSWORD
-# Delete the file after reading
-docker compose exec server rm /shared/ADMIN_PASSWORD
 ```
 
 ### Production deploy

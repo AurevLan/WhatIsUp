@@ -42,23 +42,37 @@ onMounted(async () => {
     return
   }
 
-  // Tokens are passed via URL fragment (#) to avoid leakage in server logs/Referer
+  // Le callback ne transporte qu'un code opaque à usage unique : les jetons ne
+  // circulent plus dans une URL. Un lien fabriqué par un tiers ne sert à rien,
+  // l'échange exige le cookie nonce posé au départ de *ce* navigateur (F11).
   const fragment = window.location.hash.substring(1)
   const params = new URLSearchParams(fragment)
-  const accessToken  = params.get('access_token')
-  const refreshToken = params.get('refresh_token')
+  const code = params.get('code')
 
-  if (!accessToken || !refreshToken) {
+  if (!code) {
     error.value = true
     errorMessage.value = t('oidc.missing_params')
     return
   }
 
-  // Store tokens and clear fragment from URL to prevent leakage via browser history
+  // Nettoyer le fragment avant tout appel réseau (historique / Referer)
+  window.history.replaceState({}, '', window.location.pathname)
+
+  let accessToken, refreshToken
+  try {
+    // withCredentials : le cookie nonce est HttpOnly et n'est pas envoyé sans.
+    const { data } = await api.post('/auth/oidc/exchange', { code }, { withCredentials: true })
+    accessToken = data.access_token
+    refreshToken = data.refresh_token
+  } catch {
+    error.value = true
+    errorMessage.value = t('oidc.exchange_failed')
+    return
+  }
+
   localStorage.setItem('access_token', accessToken)
   localStorage.setItem('refresh_token', refreshToken)
   auth.accessToken = accessToken
-  window.history.replaceState({}, '', window.location.pathname)
 
   // Fetch user profile (access_token is already in localStorage — interceptor attaches it)
   try {

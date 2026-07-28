@@ -192,6 +192,29 @@ const ws = new WebSocket('/ws/dashboard')
 ws.onopen = () => ws.send(JSON.stringify({ type: 'auth', token }))
 ```
 
+### Jetons de session dans une URL (retour SSO)
+
+```python
+# ❌ INTERDIT — n'importe qui peut terminer *sa* connexion SSO et envoyer le
+# lien à une victime : le navigateur de la victime ouvre la session de
+# l'attaquant (login CSRF / fixation de session). Le fragment ne protège que
+# des logs serveur, pas de la victime.
+return RedirectResponse(f"{front}/oidc-callback#access_token={access}&refresh_token={refresh}")
+
+# ✅ OK — code opaque à usage unique, échangé contre les jetons, l'échange
+# étant lié au cookie nonce HttpOnly posé avant la redirection vers l'IdP
+return RedirectResponse(f"{front}/oidc-callback#code={handoff}")
+```
+
+Le cookie `wiu_oidc_nonce` (HttpOnly, `Path=/api/v1/auth/oidc`, TTL 5 min) est
+exigé **aux deux étapes** — callback *et* échange. Le code seul ne suffirait
+pas : un attaquant peut toujours fabriquer un lien portant son propre code
+frais. Les jetons sont émis à l'échange, donc les métadonnées de session
+(UA/IP) décrivent le navigateur qui ouvre réellement la session.
+`SameSite=lax` dans le déploiement livré (front et API derrière le même
+nginx) ; `none` + `Secure` si le front est hébergé sur un hôte distinct de
+l'API, sans quoi le cookie ne partirait pas sur l'échange cross-site.
+
 ### Secrets en base
 
 ```python
@@ -597,6 +620,7 @@ Toute modification de cette table doit être reportée dans `FEATURES.md` §11.
 | `/auth/me` | PATCH | **30/min** | Self-update |
 | `/auth/oidc/login` | GET | **20/min** | Anti spam redirect provider |
 | `/auth/oidc/callback` | GET | **20/min** | Anti brute-force state/code |
+| `/auth/oidc/exchange` | POST | **20/min** | Anti brute-force code de handoff (usage unique, TTL 60 s) |
 | `/probes/heartbeat` | POST | **120/min** | Probe health beats |
 | `/probes/results` | POST | **600/min** | Probe results push (bursts ok) |
 | `/probes/register` | POST | *sans limite* | Superadmin only (JWT) — pas de limite explicite |

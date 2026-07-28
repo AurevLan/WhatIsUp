@@ -24,6 +24,32 @@ automatiquement** au démarrage du serveur (`/shared/PROBE_API_KEY` →
 `/shared/ADMIN_PASSWORD` est par ailleurs supprimé automatiquement à la première
 connexion superadmin réussie, au lieu d'une simple recommandation.
 
+## Correctifs de sécurité — lot S7 (connexion SSO)
+
+Aucune migration de base, aucune configuration à changer pour l'installation
+par défaut (nginx sert le front et proxifie `/api`).
+
+**Le retour SSO ne transporte plus de jetons.** `/auth/oidc/callback`
+redirigeait vers `/oidc-callback#access_token=…&refresh_token=…` : n'importe
+qui pouvait terminer sa propre connexion SSO et envoyer ce lien à une victime,
+dont le navigateur ouvrait alors la session de l'attaquant. Le callback rend
+désormais un code opaque à usage unique (`#code=…`), que le front échange
+contre les jetons via `POST /auth/oidc/exchange`. Un cookie nonce HttpOnly
+(`wiu_oidc_nonce`), posé avant la redirection vers l'IdP, est exigé au retour
+**et** à l'échange : un lien fabriqué ailleurs ne mène nulle part.
+
+- **Front hébergé sur un hôte distinct de l'API** : le cookie passe
+  automatiquement en `SameSite=None; Secure` (donc **HTTPS obligatoire** — déjà
+  imposé en production, où les origines HTTP sont refusées au démarrage), et
+  `CORS_ALLOWED_ORIGINS` doit lister l'origine exacte du front, comme
+  auparavant.
+- **Reverse proxy** : le proxy doit relayer les en-têtes `Cookie` et
+  `Set-Cookie` sur `/api/v1/auth/oidc/*` — c'est le comportement par défaut du
+  `nginx.conf` livré, à vérifier seulement si vous avez le vôtre.
+- **Connexions SSO en vol pendant la mise à jour** : les tentatives entamées
+  avant le redémarrage sont refusées (`?error=invalid_state`) — l'utilisateur
+  relance la connexion. Fenêtre maximale : 5 minutes.
+
 > **Upgrading to any version ≥ v1.1?** Migrations run automatically at server
 > startup (or via `alembic upgrade head`) and every 1.x release is
 > backward-compatible — see [CHANGELOG.md](CHANGELOG.md) for per-version detail.

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import re
 import time
 from datetime import UTC, datetime
 from typing import Any
@@ -15,6 +14,14 @@ import structlog
 
 from whatisup_probe.config import get_settings
 
+from ._regex_guard import (
+    MAX_SCHEMA_INSTANCE_BYTES,
+    PatternInvalid,
+    PatternTimeout,
+    pattern_executor,
+    safe_search,
+    validate_json_schema_sync,
+)
 from ._shared import (
     SSRFBlockedError,
     _cached_getaddrinfo,
@@ -31,6 +38,13 @@ logger = structlog.get_logger(__name__)
 
 
 _MAX_JSON_PATH_DEPTH = 20
+
+
+def _search_body_regex(pattern: str, subject: str):
+    """`body_regex` a toujours été évalué avec DOTALL — on le conserve."""
+    import regex
+
+    return safe_search(pattern, subject, flags=regex.DOTALL)
 
 
 def _resolve_json_path(data: Any, path: str) -> Any:
@@ -234,29 +248,24 @@ class HTTPChecker(BaseChecker):
                     status = "down"
                     error_message = f"JSON path check failed: {exc}"
 
-            # Regex body check (with ReDoS protection via timeout)
+            # Regex body check — moteur interruptible + pool isolé (audit F19).
+            # `wait_for` seul n'arrêtait pas le thread : il restait à brûler du
+            # CPU dans l'executor par défaut, celui du DNS et du TLS.
             if body_regex and status == "up":
                 try:
-                    if len(body_text) > 5_000_000:
+                    match = await asyncio.get_running_loop().run_in_executor(
+                        pattern_executor(),
+                        _search_body_regex,
+                        body_regex,
+                        body_text,
+                    )
+                    if not match:
                         status = "down"
-                        error_message = "Response too large for regex validation"
-                    else:
-                        compiled = re.compile(body_regex, re.DOTALL)
-                        match = await asyncio.wait_for(
-                            asyncio.get_running_loop().run_in_executor(
-                                None,
-                                compiled.search,
-                                body_text,
-                            ),
-                            timeout=5.0,
-                        )
-                        if not match:
-                            status = "down"
-                            error_message = f"body_regex not matched: {body_regex!r}"
-                except TimeoutError:
+                        error_message = f"body_regex not matched: {body_regex!r}"
+                except PatternTimeout:
                     status = "down"
                     error_message = f"body_regex timed out (possible ReDoS): {body_regex!r}"
-                except re.error as exc:
+                except PatternInvalid as exc:
                     status = "down"
                     error_message = f"body_regex_invalid: {exc}"
 
@@ -267,14 +276,11 @@ class HTTPChecker(BaseChecker):
                     if expected_value.startswith("/") and expected_value.endswith("/"):
                         pattern = expected_value[1:-1]
                         try:
-                            compiled = re.compile(pattern)
-                            match = await asyncio.wait_for(
-                                asyncio.get_running_loop().run_in_executor(
-                                    None,
-                                    compiled.search,
-                                    actual,
-                                ),
-                                timeout=5.0,
+                            match = await asyncio.get_running_loop().run_in_executor(
+                                pattern_executor(),
+                                safe_search,
+                                pattern,
+                                actual,
                             )
                             if not match:
                                 status = "down"
@@ -283,11 +289,11 @@ class HTTPChecker(BaseChecker):
                                     f" {pattern!r}, got {actual!r}"
                                 )
                                 break
-                        except TimeoutError:
+                        except PatternTimeout:
                             status = "down"
                             error_message = f"header_{header_name}_regex timed out (possible ReDoS)"
                             break
-                        except re.error as exc:
+                        except PatternInvalid as exc:
                             status = "down"
                             error_message = f"header_{header_name}_regex_invalid: {exc}"
                             break
@@ -300,16 +306,30 @@ class HTTPChecker(BaseChecker):
                             )
                             break
 
-            # JSON Schema validation
+            # JSON Schema validation — hors event loop, dans le pool isolé, avec
+            # les motifs du schéma routés vers le moteur interruptible (audit
+            # F8). `jsonschema.validate` tournait à même la boucle, sans aucun
+            # timeout : un `pattern` catastrophique gelait tous les monitors de
+            # la sonde, pas seulement celui-ci.
             if json_schema and status == "up":
                 try:
-                    from jsonschema import ValidationError, validate  # type: ignore[import]
+                    from jsonschema import ValidationError  # type: ignore[import]
 
+                    if len(body_text) > MAX_SCHEMA_INSTANCE_BYTES:
+                        raise ValueError("response too large for json_schema validation")
                     body = json.loads(body_text)
-                    validate(instance=body, schema=json_schema)
+                    await asyncio.get_running_loop().run_in_executor(
+                        pattern_executor(),
+                        validate_json_schema_sync,
+                        body,
+                        json_schema,
+                    )
                 except ValidationError as exc:
                     status = "down"
                     error_message = f"json_schema_invalid: {exc.message[:200]}"
+                except PatternTimeout:
+                    status = "down"
+                    error_message = "json_schema timed out (possible ReDoS in schema pattern)"
                 except Exception as exc:
                     status = "down"
                     error_message = f"json_schema_error: {exc}"

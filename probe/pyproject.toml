@@ -41,6 +41,11 @@ dependencies = [
     # JSON Schema validation (advanced HTTP assertions)
     "jsonschema>=4.26.0,<5",
 
+    # Moteur regex interruptible (`timeout=`) : `re` ne peut pas être arrêté,
+    # donc un motif à backtracking catastrophique fourni par un tenant brûlait
+    # un thread de l'executor jusqu'au bout. Voir checkers/_regex_guard.py.
+    "regex>=2024.11.6",
+
     # Domain WHOIS expiry checks
     "python-whois>=0.9.4,<1",
 

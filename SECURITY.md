@@ -89,6 +89,8 @@
 | **A08 — Software & Data Integrity** | CI/CD compromise | GHCR images signées via OIDC (à activer), workflows pinned actions `@v6`, supply-chain audit | Workflows + §10 |
 | **A09 — Logging & Monitoring** | Détection | `AuditLog` immuable, structlog JSON + request ID, Prometheus metrics | `audit_log.py`, `/metrics` |
 | **A10 — SSRF** | Webhooks/scenario | `_validate_webhook_url()` rejette RFC 1918/loopback/link-local, redirects re-validés, applied to HTTP/TCP/UDP/SMTP/DNS | `services/channels/_helpers.py`, `probe/.../_shared.py` |
+| **A10 — SSRF** | Sonde : audit TLS, diagnostics | Résolution validée **une fois** puis connexion sur l'IP épinglée (SNI/Host préservés) : audit TLS + info SSL, et collecteurs traceroute/ping/`openssl -connect`/`curl --resolve` | `probe/.../_shared.py`, `probe/.../diagnostics.py`, `test_probe_ssrf_dos_guards.py` |
+| **A06 — DoS applicatif** | ReDoS (`body_regex`, `json_schema`) | Moteur `regex` interruptible (`timeout=`) + pool de threads isolé de l'executor par défaut ; `json_schema` plafonné à 64 Ko côté API | `probe/.../checkers/_regex_guard.py`, `schemas/monitor.py` |
 
 ---
 

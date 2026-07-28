@@ -303,6 +303,12 @@ def _extract_tls_audit_sync(url: str) -> dict | None:
         hostname = parsed.hostname or ""
         port = parsed.port or 443
 
+        # Épinglage : sans lui, cette seconde connexion refaisait sa propre
+        # résolution DNS, hors de tout garde-fou — un nom validé par le check
+        # HTTP pouvait basculer vers une IP interne le temps de l'audit, et le
+        # certificat du service interne remontait dans le résultat (audit F20).
+        pinned_ip = _ssrf_resolve_pinned_sync(hostname)
+
         ctx = ssl.create_default_context()
         ctx.minimum_version = ssl.TLSVersion.TLSv1_2
         # Don't fail on validation errors — we want to AUDIT what's served, even
@@ -311,7 +317,7 @@ def _extract_tls_audit_sync(url: str) -> dict | None:
         ctx.verify_mode = ssl.CERT_NONE
 
         with ctx.wrap_socket(
-            socket.create_connection((hostname, port), timeout=5),
+            socket.create_connection((pinned_ip, port), timeout=5),
             server_hostname=hostname,
         ) as ssock:
             tls_version = ssock.version()
@@ -376,6 +382,11 @@ def _extract_tls_audit_sync(url: str) -> dict | None:
         }
         audit["grade"] = _grade_tls(audit)
         return audit
+    except SSRFBlockedError as exc:
+        # Signalé explicitement : sans log, un audit TLS absent ressemble à une
+        # panne réseau alors que c'est un refus délibéré.
+        logger.warning("tls_audit_ssrf_blocked: %s", exc)
+        return None
     except Exception:
         return None
 
@@ -406,10 +417,13 @@ def _extract_ssl_info_sync(
         hostname = parsed.hostname or ""
         port = parsed.port or 443
 
+        # Même épinglage que l'audit TLS, même raison (audit F20).
+        pinned_ip = _ssrf_resolve_pinned_sync(hostname)
+
         ctx = ssl.create_default_context()
         ctx.minimum_version = ssl.TLSVersion.TLSv1_2
         with ctx.wrap_socket(
-            socket.create_connection((hostname, port), timeout=5),
+            socket.create_connection((pinned_ip, port), timeout=5),
             server_hostname=hostname,
         ) as ssock:
             cert = ssock.getpeercert()
@@ -426,6 +440,9 @@ def _extract_ssl_info_sync(
             return days_remaining > 0, expires_at, days_remaining, pin_hex
 
         return True, None, None, pin_hex
+    except SSRFBlockedError as exc:
+        logger.warning("ssl_info_ssrf_blocked: %s", exc)
+        return False, None, None, None
     except ssl.SSLCertVerificationError:
         return False, None, None, None
     except Exception:

@@ -41,6 +41,20 @@ def _mock_run(stdout: str = "", stderr: str = "", rc: int = 0):
     return AsyncMock(return_value=(rc, stdout, stderr))
 
 
+@pytest.fixture(autouse=True)
+def _pinned_resolution():
+    """`run_collection` résout et valide la cible avant toute collecte (audit F9).
+
+    On épingle la résolution ici pour que ces tests restent hermétiques : sans
+    ça, ils dépendraient du DNS réel de `example.com`.
+    """
+    with patch(
+        "whatisup_probe.diagnostics._ssrf_resolve_pinned_sync",
+        return_value="93.184.216.34",
+    ):
+        yield
+
+
 # ── _extract_host / _extract_port (pure helpers) ─────────────────────────────
 
 

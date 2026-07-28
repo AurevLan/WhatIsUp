@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import uuid
 from datetime import datetime
@@ -29,6 +30,20 @@ def _validate_report_emails(v: list[str] | None) -> list[str] | None:
     if len(v) > _MAX_REPORT_EMAILS:
         raise ValueError(f"report_emails: at most {_MAX_REPORT_EMAILS} recipients allowed")
     return validate_email_list(v)
+
+
+# Le probe évalue ce schéma contre le corps de la réponse, avec un budget CPU
+# borné (`checkers/_regex_guard.py`, audit F8). Le refuser ici donne un 422 au
+# lieu d'un check qui échoue silencieusement à chaque cycle.
+_MAX_JSON_SCHEMA_BYTES = 64_000
+
+
+def _validate_json_schema_size(v: dict | None) -> dict | None:
+    if v is None:
+        return v
+    if len(json.dumps(v)) > _MAX_JSON_SCHEMA_BYTES:
+        raise ValueError(f"json_schema: at most {_MAX_JSON_SCHEMA_BYTES} bytes once serialized")
+    return v
 
 
 # ---------------------------------------------------------------------------
@@ -171,6 +186,11 @@ class MonitorCreate(BaseModel):
     def valid_custom_headers(cls, v: dict[str, str] | None) -> dict[str, str] | None:
         return _validate_custom_headers(v)
 
+    @field_validator("json_schema")
+    @classmethod
+    def valid_json_schema_size(cls, v: dict | None) -> dict | None:
+        return _validate_json_schema_size(v)
+
     @field_validator("url", mode="before")
     @classmethod
     def url_to_string(cls, v):
@@ -262,6 +282,11 @@ class MonitorUpdate(BaseModel):
     @classmethod
     def valid_custom_headers(cls, v: dict[str, str] | None) -> dict[str, str] | None:
         return _validate_custom_headers(v)
+
+    @field_validator("json_schema")
+    @classmethod
+    def valid_json_schema_size(cls, v: dict | None) -> dict | None:
+        return _validate_json_schema_size(v)
 
 
 class MonitorOut(BaseModel):

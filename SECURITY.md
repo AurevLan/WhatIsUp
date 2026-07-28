@@ -387,6 +387,32 @@ Les clés sonde utilisent le format **`wiu_<prefix>.<secret>`** :
 - 🔒 Healthcheck `/api/health` accessible sans auth ; `/metrics` réservé réseau interne (à protéger ou IP-whitelist)
 - 🔒 HSTS preload activé (`max-age=31536000; includeSubDomains; preload`)
 - 🔒 Certs Let's Encrypt rotation automatique (`certbot --nginx`)
+- 🔒 `X-Forwarded-For` **écrasé** au bord, jamais appendé (voir ci-dessous)
+
+#### Chaîne de confiance de l'IP client
+
+L'IP client sert de clé à **tous** les rate-limits par IP (dont le throttle de login)
+et d'IP source dans l'audit log et les sessions refresh. C'est une donnée de
+sécurité : elle ne doit jamais provenir d'un en-tête que le client contrôle.
+
+Deux réglages, à garder cohérents :
+
+| Où | Réglage | Pourquoi |
+|----|---------|----------|
+| nginx (`location /api/` **et** `/ws/`) | `proxy_set_header X-Forwarded-For $remote_addr;` | `$proxy_add_x_forwarded_for` **appende** : la valeur envoyée par le client reste en tête de liste. Sans `proxy_set_header` du tout (cas de `/ws/` avant le fix), nginx relaie tel quel l'en-tête du client. |
+| server (`TRUSTED_PROXY_IPS`) | IP/CIDR du reverse proxy — jamais `*` | Avec `*`, uvicorn prend l'entrée **la plus à gauche** = celle du client. Avec une liste restreinte, il remonte la chaîne par la droite et s'arrête au premier hop non listé = le vrai pair. |
+
+Défaut livré : loopback + plages privées (réseaux docker), ce qui couvre la stack
+`docker-compose` telle quelle. Proxy sur un autre hôte ou LB cloud → ajouter sa
+plage. `TRUSTED_PROXY_IPS=*` fait **refuser le démarrage** en production.
+
+Vérification rapide après déploiement — l'IP loguée doit être l'IP réelle, pas `9.9.9.9` :
+
+```bash
+curl -sk -H 'X-Forwarded-For: 9.9.9.9' https://<host>/api/v1/auth/login \
+     -d 'username=nobody@example.com&password=wrong'
+docker compose logs server | tail -5
+```
 
 ### Docker production
 

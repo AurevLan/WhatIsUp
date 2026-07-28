@@ -64,6 +64,16 @@ class Settings(BaseSettings):
             return [origin.strip() for origin in v.split(",") if origin.strip()]
         return v
 
+    # Reverse-proxy trust boundary (audit F4/F13/F14).
+    # Comma-separated IPs / CIDRs whose X-Forwarded-For and X-Forwarded-Proto
+    # headers are believed. Everything else is treated as a client that may be
+    # forging them: the real peer wins. The default covers loopback and the
+    # RFC1918 / ULA ranges docker networks live in, so the shipped
+    # docker-compose stack works out of the box while a directly-reachable API
+    # cannot be told "I am 9.9.9.9" by whoever connects to it.
+    # ``*`` restores the old always-trust behaviour and is refused in production.
+    trusted_proxy_ips: str = "127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7"
+
     # Database
     database_url: str = "postgresql+asyncpg://whatisup:whatisup@localhost:5432/whatisup"
 
@@ -160,12 +170,27 @@ class Settings(BaseSettings):
                     Fernet(key.encode())
                 except Exception as exc:
                     raise ValueError(f"FERNET_KEY_PREVIOUS entry #{idx} is invalid: {exc}") from exc
+            if self.trusted_proxy_list == ["*"]:
+                raise ValueError(
+                    "TRUSTED_PROXY_IPS='*' trusts the X-Forwarded-For header of every "
+                    "caller — per-IP rate limits and audit-log source IPs become "
+                    "forgeable. Set it to the address(es) of your reverse proxy."
+                )
         return self
 
     @property
     def fernet_previous_keys(self) -> list[str]:
         """Previous Fernet keys (comma-separated env), decryption-only."""
         return [k.strip() for k in self.fernet_key_previous.split(",") if k.strip()]
+
+    @property
+    def trusted_proxy_list(self) -> list[str]:
+        """Trusted reverse-proxy addresses, as uvicorn's ProxyHeadersMiddleware wants them.
+
+        An empty value means "trust nobody": the peer address is used as-is and
+        forwarded headers are ignored entirely.
+        """
+        return [h.strip() for h in self.trusted_proxy_ips.split(",") if h.strip()]
 
     @property
     def is_production(self) -> bool:

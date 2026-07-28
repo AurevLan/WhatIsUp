@@ -265,14 +265,19 @@ def create_app() -> FastAPI:
     # logs / test client exactly as before.
     app.add_exception_handler(Exception, unhandled_exception_handler)
 
-    # Trust proxy headers from nginx — `trusted_hosts` expects client IPs (the
-    # reverse proxy's IP), not CORS origin URLs. Passing a list like
-    # ['https://whatisup.aurevan.com'] silently disables the middleware and
-    # breaks X-Forwarded-Proto: redirects (e.g. FastAPI's trailing-slash 307 on
-    # `/probes` → `/probes/`) are then emitted with scheme `http`, which the
-    # browser blocks under HTTPS. The API container is only reachable via nginx
-    # on the internal docker network, so wildcard trust is safe here.
-    app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
+    # Trust proxy headers only from the configured reverse proxy (audit
+    # F4/F13/F14). `trusted_hosts` expects client IPs or CIDRs — never CORS
+    # origin URLs: a list like ['https://whatisup.aurevan.com'] silently
+    # disables the middleware and breaks X-Forwarded-Proto, so redirects (e.g.
+    # FastAPI's trailing-slash 307 on `/probes` → `/probes/`) come out with
+    # scheme `http` and the browser blocks them under HTTPS.
+    #
+    # It used to be "*", which makes uvicorn take the *leftmost* X-Forwarded-For
+    # entry — the one the client itself supplied. Every per-IP rate limit (login
+    # throttle included) and every audit-log source IP was therefore forgeable
+    # by rotating a header. With a restricted list, uvicorn walks the chain from
+    # the right and stops at the first untrusted hop: the real peer.
+    app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=settings.trusted_proxy_list)
 
     # Request size limit (5 MB)
     app.add_middleware(MaxRequestSizeMiddleware)

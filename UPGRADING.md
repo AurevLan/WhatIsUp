@@ -83,3 +83,24 @@ docker compose up -d
 ## API stability commitment
 
 Starting with v1.0.0, the `/api/v1/` endpoints are considered stable. Breaking changes will be introduced under `/api/v2/` with a 6-month deprecation period for v1 endpoints.
+
+## Reverse proxy — `TRUSTED_PROXY_IPS`
+
+The server used to trust the `X-Forwarded-For` header of every caller. It now
+believes it only from the addresses listed in `TRUSTED_PROXY_IPS`, which
+defaults to loopback plus the private ranges docker networks use — the bundled
+`docker-compose` + nginx stack needs no change.
+
+Set it if your reverse proxy reaches the API from a public address (a proxy on
+another host, a cloud load balancer): `TRUSTED_PROXY_IPS=203.0.113.10` — or add
+the LB's range. Getting it wrong is visible, not silent: every request is then
+attributed to the proxy's own IP, so per-IP rate limits apply to all clients at
+once and audit entries all show the same source.
+
+If you run your own nginx, mirror the shipped config and **overwrite** the
+header at the edge — `proxy_set_header X-Forwarded-For $remote_addr;` — rather
+than appending with `$proxy_add_x_forwarded_for`. Details in
+[SECURITY.md](SECURITY.md) §8.
+
+`TRUSTED_PROXY_IPS=*` restores the old behaviour and is refused at startup in
+production.

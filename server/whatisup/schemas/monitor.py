@@ -9,7 +9,27 @@ from typing import Literal
 
 from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from whatisup.core.validators import validate_email_list
 from whatisup.schemas.tag import TagOut
+
+# Aligné sur `EmailChannelConfig.to` : au-delà, la liste n'est plus une liste de
+# destinataires mais un relais de diffusion.
+_MAX_REPORT_EMAILS = 20
+
+
+def _validate_report_emails(v: list[str] | None) -> list[str] | None:
+    """Rejette toute adresse malformée dans `report_emails` (audit F7).
+
+    Ces valeurs sont posées telles quelles dans l'en-tête `To` du rapport SLA :
+    sans ce filtre, un CR/LF encapsulé injecte des en-têtes arbitraires (`Bcc`)
+    dans un mail émis depuis l'identité SMTP du serveur.
+    """
+    if v is None:
+        return v
+    if len(v) > _MAX_REPORT_EMAILS:
+        raise ValueError(f"report_emails: at most {_MAX_REPORT_EMAILS} recipients allowed")
+    return validate_email_list(v)
+
 
 # ---------------------------------------------------------------------------
 # Scenario sub-schemas
@@ -378,6 +398,11 @@ class MonitorGroupCreate(BaseModel):
     )
     public_custom_css: str | None = None
 
+    @field_validator("report_emails")
+    @classmethod
+    def valid_report_emails(cls, v: list[str] | None) -> list[str] | None:
+        return _validate_report_emails(v)
+
 
 class MonitorGroupUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -400,6 +425,11 @@ class MonitorGroupUpdate(BaseModel):
         default=None, max_length=7, pattern=r"^#[0-9a-fA-F]{6}$"
     )
     public_custom_css: str | None = None
+
+    @field_validator("report_emails")
+    @classmethod
+    def valid_report_emails(cls, v: list[str] | None) -> list[str] | None:
+        return _validate_report_emails(v)
 
 
 class MonitorGroupOut(BaseModel):

@@ -102,6 +102,8 @@ get_current_probe   # X-Probe-Api-Key (bcrypt + cache Redis SHA-256[:32], TTL 60
 - `Monitor.custom_headers` : valeurs chiffrées via `encrypt_custom_headers()` / `decrypt_custom_headers()` (noms en clair). Tout nouveau chemin d'écriture (CRUD, import JSON, import IaC) doit chiffrer ; tout chemin de lecture destiné à la probe ou à l'export doit déchiffrer. Pas de masquage : le formulaire d'édition relit et resoumet ces valeurs
 - Erreurs de canaux d'alerte : jamais `str(exc)` brut dans un log ou une réponse (l'URL httpx peut porter le token) → `redact_secrets(str(exc), decrypted_config)` de `services/channels/_helpers.py`. Côté probe, `_redact_secrets(text, variables)` avant tout `error_message` / `final_url` de scénario
 - URLs HTTP sortantes : appeler `_validate_webhook_url(url)` avant tout `httpx.post` (SSRF)
+- Emails : destinataires validés par `core/validators.is_valid_email` (aucun CR/LF → pas d'injection d'en-tête), construction via `EmailMessage` (jamais `MIMEMultipart`/compat32), sujet aplati (`" ".join(s.split())`), et `html.escape()` sur toute valeur utilisateur interpolée dans un corps HTML (nom de monitor/groupe, type, portée)
+- Code généré destiné à être exécuté (export Playwright de l'extension) : `_escJs()` pour l'intérieur des littéraux, `_num()` pour les positions **non entourées de guillemets** — une valeur non numérique y devient du code
 - `AlertRule` delete / `list_events` : toujours vérifier `owner_id` via JOIN — sans filtre = fuite cross-user
 - Nouveaux endpoints : `@limiter.limit("X/minute")` + `request: Request` (slowapi)
 - CORS production : pas de wildcard `*` ; origines HTTP rejetées au démarrage (`config.py`)

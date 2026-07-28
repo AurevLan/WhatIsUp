@@ -9,6 +9,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from whatisup.core.validators import validate_email_list
 from whatisup.models.alert import AlertChannelType, AlertCondition, AlertEventStatus
 
 # ── Per-type channel config validators ────────────────────────────────────────
@@ -20,11 +21,7 @@ class EmailChannelConfig(BaseModel):
     @field_validator("to")
     @classmethod
     def validate_emails(cls, v: list[str]) -> list[str]:
-        pattern = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-        for addr in v:
-            if not pattern.match(addr):
-                raise ValueError(f"Invalid email address: {addr!r}")
-        return v
+        return validate_email_list(v)
 
 
 class WebhookChannelConfig(BaseModel):

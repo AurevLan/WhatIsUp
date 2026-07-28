@@ -158,9 +158,7 @@ async def test_created_monitor_stores_headers_encrypted(
         await db_session.execute(select(Monitor).where(Monitor.name == "Protected"))
     ).scalar_one()
     assert monitor.custom_headers["Authorization"] != "Bearer prod-token"
-    assert decrypt_custom_headers(monitor.custom_headers) == {
-        "Authorization": "Bearer prod-token"
-    }
+    assert decrypt_custom_headers(monitor.custom_headers) == {"Authorization": "Bearer prod-token"}
 
 
 @pytest.mark.asyncio

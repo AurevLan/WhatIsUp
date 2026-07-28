@@ -132,7 +132,8 @@
 - [ ] **Rate-limit** `@limiter.limit("X/minute")` + `request: Request` sur tout endpoint public ou sensible
 - [ ] **Audit** : `log_action()` sur les opérations sensibles (CRUD config, escalation)
 - [ ] **SSRF** : `_validate_webhook_url(url)` avant tout `httpx` sortant non-CDN
-- [ ] **Fernet** : `encrypt_channel_config()` avant DB sur tout secret canal
+- [ ] **Fernet** : `encrypt_channel_config()` avant DB sur tout secret canal ; `encrypt_custom_headers()` sur `Monitor.custom_headers` (valeurs = credentials)
+- [ ] **Erreurs de canal** : jamais `str(exc)` brut dans un log ou une réponse API → `redact_secrets(str(exc), config)`
 - [ ] **WebSocket** : auth par message `{"type":"auth","token"}`, jamais en URL
 - [ ] **CORS** : si nouvelle origin → ajout dans `CORS_ALLOWED_ORIGINS` (jamais `*` avec credentials)
 - [ ] **Tests** : test de privilège (autre user reçoit 404 ou 403, jamais 200)
@@ -322,7 +323,7 @@ VAPID_PUBLIC_KEY=...   VAPID_PRIVATE_KEY=...             # web push (opt-in)
 
 #### Rotation `FERNET_KEY` (zéro downtime)
 
-Le déchiffrement est **multi-clés** (MultiFernet) : `FERNET_KEY` = clé **primaire** (seule clé utilisée pour chiffrer) ; `FERNET_KEY_PREVIOUS` = ancienne(s) clé(s), séparées par des virgules, acceptées **en déchiffrement uniquement** pendant la transition. Données concernées : `alert_channels.config` (champs secrets), `monitors.scenario_variables` (variables `secret: true`), `users.totp_secret`, `system_settings.oidc_client_secret`.
+Le déchiffrement est **multi-clés** (MultiFernet) : `FERNET_KEY` = clé **primaire** (seule clé utilisée pour chiffrer) ; `FERNET_KEY_PREVIOUS` = ancienne(s) clé(s), séparées par des virgules, acceptées **en déchiffrement uniquement** pendant la transition. Données concernées : `alert_channels.config` (champs secrets), `monitors.scenario_variables` (variables `secret: true`), `monitors.custom_headers` (valeurs uniquement — les noms d'en-tête restent en clair), `users.totp_secret`, `system_settings.oidc_client_secret`.
 
 1. **Générer** la nouvelle clé : `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`.
 2. **Redéployer** avec les deux clés : `FERNET_KEY=<nouvelle>` + `FERNET_KEY_PREVIOUS=<ancienne>`. Aucune coupure : les secrets existants restent lisibles via l'ancienne clé, tout nouveau secret est chiffré avec la nouvelle.

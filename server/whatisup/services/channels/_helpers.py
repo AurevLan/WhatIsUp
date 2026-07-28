@@ -116,6 +116,36 @@ def ssrf_safe_client(timeout: float = 10) -> httpx.AsyncClient:
     return httpx.AsyncClient(timeout=timeout, transport=_PinnedHostTransport())
 
 
+# Values of these config keys must never appear in a log line, an API response
+# or a stored alert event. `_SECRET_FIELDS` are Fernet-encrypted at rest;
+# `webhook_url` is not (documented choice) but it is a bearer capability — a
+# leaked Discord/Slack webhook URL is enough to post as the integration.
+_REDACTED_CONFIG_KEYS = {
+    "secret",
+    "bot_token",
+    "password",
+    "integration_key",
+    "api_key",
+    "webhook_url",
+}
+
+
+def redact_secrets(text: str, config: dict[str, Any] | None) -> str:
+    """Blank out any channel secret that leaked into an error string.
+
+    httpx puts the request URL in `HTTPStatusError`, and providers like Telegram
+    take their credential in the URL path, so `str(exc)` can carry a live token
+    straight into the logs (audit F6). Channels should keep the secret out of
+    the exception in the first place; this is the net under that.
+    """
+    if not text or not config:
+        return text
+    for key, value in config.items():
+        if key in _REDACTED_CONFIG_KEYS and isinstance(value, str) and len(value) >= 8:
+            text = text.replace(value, "***")
+    return text
+
+
 def scope_label_fr(incident: Incident, ctx: dict) -> str:
     """French scope label for notifications."""
     probe_names: dict = ctx.get("probe_names", {})

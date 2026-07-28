@@ -13,7 +13,6 @@ from email.message import EmailMessage
 from typing import Any
 
 import aiosmtplib
-import httpx
 import structlog
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,7 +29,7 @@ from whatisup.services.alert_conditions import (
     schema_drift_matches,
     ssl_expiry_matches,
 )
-from whatisup.services.channels._helpers import ssrf_safe_client
+from whatisup.services.channels._helpers import redact_secrets, ssrf_safe_client
 from whatisup.services.channels._helpers import validate_webhook_url as _validate_webhook_url
 
 logger = structlog.get_logger(__name__)
@@ -51,8 +50,11 @@ async def test_channel(channel: AlertChannel) -> tuple[bool, str]:
             return False, f"Type de canal non supporté : {channel.type}"
         return await handler.test(decrypted_config, settings)
     except Exception as exc:
-        logger.warning("channel_test_failed", channel_id=str(channel.id), error=str(exc))
-        return False, str(exc)
+        # Never echo a raw provider error: it can carry the channel's own
+        # credential (audit F6). Redact against the decrypted config.
+        detail = redact_secrets(str(exc), decrypted_config)
+        logger.warning("channel_test_failed", channel_id=str(channel.id), error=detail)
+        return False, detail
 
 
 # ── Rule simulation ────────────────────────────────────────────────────────────
@@ -377,6 +379,9 @@ async def _flush_digest(rule_id: str, channels: list[AlertChannel], ctx: dict) -
 
     async with get_session_factory()() as db:
         for channel in channels:
+            # Bound before the try so the except never redacts against the
+            # previous channel's config if decryption itself fails.
+            decrypted_config: dict = {}
             try:
                 decrypted_config = decrypt_channel_config(channel.config)
                 if channel.type == AlertChannelType.email:
@@ -398,16 +403,18 @@ async def _flush_digest(rule_id: str, channels: list[AlertChannel], ctx: dict) -
                         timeout=15,
                     )
                 elif channel.type == AlertChannelType.telegram:
-                    url = f"https://api.telegram.org/bot{decrypted_config['bot_token']}/sendMessage"
-                    async with httpx.AsyncClient(timeout=10) as client:
-                        await client.post(
-                            url,
-                            json={
-                                "chat_id": decrypted_config["chat_id"],
-                                "text": summary_text,
-                                "parse_mode": "Markdown",
-                            },
-                        )
+                    # Shared helper: keeps the bot_token out of any exception
+                    # this POST can raise (audit F6).
+                    from whatisup.services.channels.telegram import _post as _telegram_post
+
+                    await _telegram_post(
+                        decrypted_config,
+                        {
+                            "chat_id": decrypted_config["chat_id"],
+                            "text": summary_text,
+                            "parse_mode": "Markdown",
+                        },
+                    )
                 elif channel.type == AlertChannelType.slack:
                     await _validate_webhook_url(decrypted_config["webhook_url"])
                     async with ssrf_safe_client(timeout=10) as client:
@@ -490,7 +497,7 @@ async def _flush_digest(rule_id: str, channels: list[AlertChannel], ctx: dict) -
                     "digest_dispatch_failed",
                     rule_id=rule_id,
                     channel_id=str(channel.id),
-                    error=str(exc),
+                    error=redact_secrets(str(exc), decrypted_config),
                 )
 
         # Clean up DB-persisted digest window
@@ -888,7 +895,7 @@ async def dispatch_alert(
             "alert_dispatch_failed",
             channel_id=str(channel.id),
             channel_type=channel.type.value,
-            error=str(exc),
+            error=redact_secrets(str(exc), decrypted_config),
         )
         status = AlertEventStatus.failed
         response_body = type(exc).__name__

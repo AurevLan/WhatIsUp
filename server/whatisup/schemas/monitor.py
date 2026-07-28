@@ -340,6 +340,20 @@ class MonitorOut(BaseModel):
             for var in decrypted
         ]
 
+    @field_validator("custom_headers", mode="before")
+    @classmethod
+    def decrypt_custom_header_values(cls, v: dict | None) -> dict | None:
+        """Decrypt header values stored under Fernet (audit F18).
+
+        Not masked, unlike secret scenario variables: the edit form reads these
+        back and re-submits them, so masking would wipe them on every save.
+        """
+        if not v:
+            return v
+        from whatisup.core.security import decrypt_custom_headers
+
+        return decrypt_custom_headers(dict(v))
+
     model_config = {"from_attributes": True}
 
 

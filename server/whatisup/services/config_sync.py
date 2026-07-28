@@ -11,7 +11,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from whatisup.core.security import decrypt_channel_config, encrypt_channel_config
+from whatisup.core.security import (
+    decrypt_channel_config,
+    decrypt_custom_headers,
+    encrypt_channel_config,
+    encrypt_custom_headers,
+)
 from whatisup.models.alert import AlertChannel, AlertChannelType, AlertCondition, AlertRule
 from whatisup.models.monitor import Monitor, MonitorGroup
 from whatisup.models.user import User
@@ -102,6 +107,10 @@ async def export_config(user: User, db: AsyncSession) -> dict[str, Any]:
         entry: dict[str, Any] = {}
         for field in _MONITOR_EXPORT_FIELDS:
             val = getattr(m, field, None)
+            if field == "custom_headers":
+                # Stored Fernet-encrypted (audit F18) — the IaC export stays a
+                # usable, re-importable document, as it was before encryption.
+                val = decrypt_custom_headers(val)
             if val is not None and val != _get_default(field):
                 entry[field] = val
         # Always include name, url, check_type
@@ -351,6 +360,15 @@ async def import_config(
                 if field == "name":
                     continue
                 new_val = m_cfg.get(field)
+                if field == "custom_headers":
+                    # Compare in the clear, persist encrypted (audit F18).
+                    if new_val is not None and new_val != decrypt_custom_headers(
+                        getattr(existing, field, None)
+                    ):
+                        if not dry_run:
+                            existing.custom_headers = encrypt_custom_headers(new_val)
+                        changes.append(field)
+                    continue
                 if new_val is not None and new_val != getattr(existing, field, None):
                     if not dry_run:
                         setattr(existing, field, new_val)
@@ -379,7 +397,11 @@ async def import_config(
                     if field in ("name", "url"):
                         continue
                     if field in m_cfg:
-                        monitor_kwargs[field] = m_cfg[field]
+                        monitor_kwargs[field] = (
+                            encrypt_custom_headers(m_cfg[field])
+                            if field == "custom_headers"
+                            else m_cfg[field]
+                        )
                 monitor = Monitor(**monitor_kwargs)
                 db.add(monitor)
                 await db.flush()

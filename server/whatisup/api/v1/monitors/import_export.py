@@ -17,7 +17,11 @@ from whatisup.api.deps import (
 )
 from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
-from whatisup.core.security import encrypt_scenario_variables, generate_heartbeat_token
+from whatisup.core.security import (
+    encrypt_custom_headers,
+    encrypt_scenario_variables,
+    generate_heartbeat_token,
+)
 from whatisup.models.monitor import Monitor
 from whatisup.models.user import User
 from whatisup.schemas.monitor import (
@@ -187,11 +191,13 @@ async def import_monitors(
 
         try:
             data = {k: v for k, v in entry.items() if k in config_fields and v is not None}
-            # Secret scenario variables must be Fernet-encrypted at rest exactly
-            # like the create/update endpoints do — the import path used to
-            # store them verbatim.
+            # Credential-bearing fields are encrypted at rest by the typed
+            # endpoints; the raw-JSON import must do the same (audit F18 pour
+            # custom_headers, bug adjacent du lot S1 pour scenario_variables).
             if data.get("scenario_variables"):
                 data["scenario_variables"] = encrypt_scenario_variables(data["scenario_variables"])
+            if data.get("custom_headers"):
+                data["custom_headers"] = encrypt_custom_headers(data["custom_headers"])
 
             if name in existing_by_name:
                 # Update existing

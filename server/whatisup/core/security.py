@@ -345,3 +345,55 @@ def decrypt_scenario_variables(variables: list[dict]) -> list[dict]:
         else:
             result.append(v)
     return result
+
+
+# ---------------------------------------------------------------------------
+# Custom request header encryption (Fernet symmetric)
+# ---------------------------------------------------------------------------
+#
+# `Monitor.custom_headers` is documented as the place to put an `Authorization`
+# header so a probe can reach a protected endpoint, so its *values* are
+# credentials — they were the only secret category still written to the
+# database in plaintext (audit F18). Header *names* stay in the clear: they are
+# not secret and the config must remain inspectable.
+#
+# Unlike scenario secret variables, decrypted values are still returned to the
+# owner by the API: the monitor edit form reads them back and re-submits them,
+# so masking would silently wipe the headers on every save.
+
+
+def encrypt_custom_headers(headers: dict | None) -> dict | None:
+    """Encrypt the values of a custom_headers mapping.
+
+    Returns the mapping unchanged if FERNET_KEY is not configured.
+    """
+    fernet = _get_fernet()
+    if fernet is None or not headers:
+        return headers
+    return {
+        k: fernet.encrypt(v.encode()).decode() if isinstance(v, str) and v else v
+        for k, v in headers.items()
+    }
+
+
+def decrypt_custom_headers(headers: dict | None) -> dict | None:
+    """Decrypt a custom_headers mapping written by :func:`encrypt_custom_headers`.
+
+    Falls back to the raw value per entry, so rows written before encryption
+    existed keep working without a data migration.
+    """
+    from cryptography.fernet import InvalidToken
+
+    fernet = _get_fernet()
+    if fernet is None or not headers:
+        return headers
+    result = {}
+    for k, v in headers.items():
+        if isinstance(v, str) and v:
+            try:
+                result[k] = fernet.decrypt(v.encode()).decode()
+            except InvalidToken:
+                result[k] = v  # legacy plaintext
+        else:
+            result[k] = v
+    return result

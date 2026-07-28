@@ -17,6 +17,7 @@ from whatisup.api.deps import (
 from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
 from whatisup.core.security import (
+    decrypt_custom_headers,
     decrypt_scenario_variables,
     generate_probe_api_key,
     hash_api_key,
@@ -281,7 +282,7 @@ async def heartbeat(
             smtp_starttls=m.smtp_starttls,
             udp_port=m.udp_port,
             domain_expiry_warn_days=m.domain_expiry_warn_days,
-            custom_headers=m.custom_headers,
+            custom_headers=decrypt_custom_headers(m.custom_headers),
             # Advanced HTTP assertions — without these the probe falls back to
             # the schema defaults (None/False) and the UI toggles are inert
             body_regex=m.body_regex,

@@ -384,7 +384,7 @@ Les clés sonde utilisent le format **`wiu_<prefix>.<secret>`** :
 - 🔒 Postgres et Redis : **jamais** exposés publiquement (`expose:` interne uniquement)
 - 🔒 Server FastAPI : `bind 127.0.0.1:8000` (déjà appliqué `docker-compose.yml`)
 - 🔒 Reverse proxy Nginx unique entrée publique
-- 🔒 Healthcheck `/api/health` accessible sans auth ; `/metrics` réservé réseau interne (à protéger ou IP-whitelist)
+- 🔒 Healthcheck `/api/health` accessible sans auth ; **`/api/metrics` fail-closed** — le `nginx.conf` livré le refuse (`location = /api/metrics { deny all; }`) et le serveur répond `401` en production tant que `METRICS_AUTH_TOKEN` est vide. Un scraper légitime interroge `http://server:8000/api/metrics` sur le réseau Docker avec `Authorization: Bearer <jeton>`
 - 🔒 HSTS preload activé (`max-age=31536000; includeSubDomains; preload`)
 - 🔒 Certs Let's Encrypt rotation automatique (`certbot --nginx`)
 
@@ -418,6 +418,23 @@ add_header X-Content-Type-Options "nosniff" always;
 add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()" always;
 ```
+
+### Secrets de premier boot
+
+Deux volumes distincts, et non un seul : la sonde est le composant le plus
+exposé (elle exécute des checks sortants contre des cibles hostiles) et n'a
+besoin que de sa clé d'API.
+
+| Volume | Contenu | Monté dans |
+|---|---|---|
+| `shared` | `/shared/ADMIN_PASSWORD` (premier boot) | serveur uniquement |
+| `probe_secrets` | `/probe-secrets/PROBE_API_KEY` | serveur (rw) + `probe-local` (ro) |
+
+- Le fichier `ADMIN_PASSWORD` est **supprimé automatiquement** à la première
+  connexion superadmin réussie — la suppression est appliquée, plus seulement
+  recommandée.
+- Une clé de sonde écrite avant cette séparation est migrée automatiquement au
+  démarrage du serveur (`/shared/PROBE_API_KEY` → `/probe-secrets/`).
 
 ### Backup
 

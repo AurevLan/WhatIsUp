@@ -32,7 +32,12 @@ COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh \
     && useradd -m -u 1000 whatisup \
     && chown -R whatisup:whatisup /app \
-    && mkdir -p /shared && chown whatisup:whatisup /shared
+    # Deux points de montage distincts : `/shared` (serveur seul, mot de passe
+    # du premier boot) et `/probe-secrets` (partagé avec la sonde locale, clé
+    # d'API uniquement). Créés ici pour que Docker préserve le propriétaire au
+    # montage du volume — sinon le process non-root ne peut pas y écrire.
+    && mkdir -p /shared /probe-secrets \
+    && chown whatisup:whatisup /shared /probe-secrets
 
 USER whatisup
 

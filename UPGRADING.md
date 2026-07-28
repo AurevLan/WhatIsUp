@@ -1,5 +1,29 @@
 # Upgrading WhatIsUp
 
+## Correctifs de sécurité — lot S6 (déploiement)
+
+Deux changements de comportement, sans migration de base.
+
+**`/api/metrics` refuse les appels anonymes en production.** L'endpoint était
+ouvert tant que `METRICS_AUTH_TOKEN` restait vide, en supposant un filtrage par
+le reverse proxy — hypothèse fausse pour l'installation par défaut. Désormais :
+le `nginx.conf` livré refuse `/api/metrics`, et sans jeton configuré le serveur
+répond `401` en production.
+
+- Scraper Prometheus **sur le réseau Docker** (`http://server:8000/api/metrics`,
+  sans passer par nginx) : définir `METRICS_AUTH_TOKEN` dans `.env` et ajouter
+  `Authorization: Bearer <jeton>` à la configuration du scrape.
+- Environnements de dev/test (`ENVIRONMENT != production`) : inchangés, ouverts.
+
+**La sonde locale ne monte plus tout `/shared`.** Le mot de passe superadmin du
+premier boot y vit ; la sonde, composant le plus exposé, n'a besoin que de sa
+clé d'API. Un nouveau volume `probe_secrets` porte la clé, seul volume monté
+dans `probe-local`. Une clé écrite avant la séparation est **migrée
+automatiquement** au démarrage du serveur (`/shared/PROBE_API_KEY` →
+`/probe-secrets/PROBE_API_KEY`) : aucune action requise. Le fichier
+`/shared/ADMIN_PASSWORD` est par ailleurs supprimé automatiquement à la première
+connexion superadmin réussie, au lieu d'une simple recommandation.
+
 > **Upgrading to any version ≥ v1.1?** Migrations run automatically at server
 > startup (or via `alembic upgrade head`) and every 1.x release is
 > backward-compatible — see [CHANGELOG.md](CHANGELOG.md) for per-version detail.

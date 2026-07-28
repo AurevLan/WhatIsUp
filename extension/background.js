@@ -331,13 +331,15 @@ function _generatePlaywright(steps) {
         lines.push(`  await page.hover(${sel});`)
         break
       case 'scroll':
-        lines.push(`  await page.evaluate(() => window.scrollTo(${p.x || 0}, ${p.y || 0}));`)
+        lines.push(
+          `  await page.evaluate(() => window.scrollTo(${_num(p.x, 0)}, ${_num(p.y, 0)}));`
+        )
         break
       case 'wait_element':
         lines.push(`  await page.waitForSelector(${sel});`)
         break
       case 'wait_time':
-        lines.push(`  await page.waitForTimeout(${p.ms || 1000});`)
+        lines.push(`  await page.waitForTimeout(${_num(p.ms, 1000)});`)
         break
       case 'assert_text':
         lines.push(`  await expect(page.locator(${sel})).toContainText('${_escJs(p.text || '')}');`)
@@ -358,7 +360,9 @@ function _generatePlaywright(steps) {
         lines.push(`  await page.setInputFiles(${sel}, [${(p.fileNames || []).map((f) => `'${_escJs(f)}'`).join(', ')}]);`)
         break
       default:
-        lines.push(`  // Unknown step type: ${step.type}`)
+        // Un saut de ligne dans `type` sortirait du commentaire : même
+        // position non protégée que les params numériques.
+        lines.push(`  // Unknown step type: ${String(step.type).replace(/[\r\n]+/g, ' ')}`)
     }
   }
 
@@ -368,7 +372,28 @@ function _generatePlaywright(steps) {
 }
 
 function _escJs(str) {
-  return (str || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+  // Les sauts de ligne terminent un littéral entre apostrophes : sans eux, une
+  // valeur multi-ligne produit un fichier qui ne parse plus.
+  return (str || '')
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/\r/g, '\\r')
+    .replace(/\n/g, '\\n')
+}
+
+/**
+ * Coerce a step param destined for an *unquoted* position in the generated
+ * spec — the only positions `_escJs` cannot protect, since the value is not
+ * inside a string literal.
+ *
+ * A scenario loaded from the server can be authored by someone else; without
+ * this, a scroll step with `x = "0);require('child_process').execSync('…');(0"`
+ * becomes executable code in a file the user runs on their own machine.
+ * Only finite numbers survive; anything else falls back to `fallback`.
+ */
+function _num(value, fallback) {
+  const n = Number(value)
+  return Number.isFinite(n) ? n : fallback
 }
 
 // ---------------------------------------------------------------------------

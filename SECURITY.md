@@ -81,6 +81,7 @@
 | **A01 — Broken Access Control** | Probe forge résultat cross-monitor | `POST /probes/results` : la sonde ne peut pousser un résultat que pour un monitor de son `network_scope` (scope `all` = servi par toutes) — sinon 403 ; idem `serves_monitor` sur `/probes/diagnostics` | `api/v1/probes.py`, `test_probe_trust.py` |
 | **A02 — Cryptographic Failures** | Secrets en clair | Fernet AES-128 sur tous secrets channels + OIDC + scenario, bcrypt 12-rounds, refresh tokens hashés SHA-256 | `core/security.py`, `_validate_production_settings()` |
 | **A03 — Injection** | SQL / cmd / XSS | SQLAlchemy ORM exclusif, Pydantic v2 `extra="forbid"`, Vue 3 auto-escape, pas de `v-html` non-safe | CodeQL `security-extended`, code review |
+| **A03 — Injection** | Sorties générées (SMTP, HTML, code) | Destinataires validés + `EmailMessage` (refus CR/LF en en-tête), `html.escape()` sur toute valeur utilisateur dans un corps HTML, export Playwright : `_escJs` (littéraux) + `_num` (positions non quotées) | `core/validators.py`, `services/reports.py`, `services/channels/email.py`, `extension/background.js`, `test_content_injection.py` |
 | **A04 — Insecure Design** | Modèle d'accès | Threat model documenté (ce fichier), invite-only, escalade priv. silencieusement bloquée | Tests `test_me_update_*` |
 | **A05 — Security Misconfiguration** | Defaults faibles | `validate_production_settings` refuse SECRET_KEY défaut, FERNET_KEY requis, CORS `*` interdit, server bind 127.0.0.1 | Démarrage prod ✓ |
 | **A06 — Vulnerable Components** | CVE deps | Dependabot + pip-audit + npm audit hebdo + CodeQL | Workflows `security-audit.yml`, `codeql.yml` |
@@ -134,6 +135,7 @@
 - [ ] **SSRF** : `_validate_webhook_url(url)` avant tout `httpx` sortant non-CDN
 - [ ] **Fernet** : `encrypt_channel_config()` avant DB sur tout secret canal ; `encrypt_custom_headers()` sur `Monitor.custom_headers` (valeurs = credentials)
 - [ ] **Erreurs de canal** : jamais `str(exc)` brut dans un log ou une réponse API → `redact_secrets(str(exc), config)`
+- [ ] **Email** : destinataire validé (`is_valid_email`), message construit avec `EmailMessage`, sujet aplati, `html.escape()` sur toute valeur utilisateur dans un corps HTML
 - [ ] **WebSocket** : auth par message `{"type":"auth","token"}`, jamais en URL
 - [ ] **CORS** : si nouvelle origin → ajout dans `CORS_ALLOWED_ORIGINS` (jamais `*` avec credentials)
 - [ ] **Tests** : test de privilège (autre user reçoit 404 ou 403, jamais 200)

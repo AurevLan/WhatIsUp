@@ -1,24 +1,104 @@
 # Plumber CI/CD compliance policy — https://getplumber.io
 # Scans .github/workflows/* for supply-chain hardening gaps.
 # Run locally: plumber analyze   (CLI: https://getplumber.io/docs/cli)
+#
+# Every control Plumber ships is enabled below. `plumber config generate`
+# writes the annotated reference template if you need the full rationale
+# for a rule; only the deviations are commented here.
 version: "2.0"
 
 github:
   controls:
+    # ── Supply chain: what runs, and from where ───────────────────────
+
     # Every external action must be pinned to a full commit SHA (no mutable tags).
     # No `trustedOwners` exemption: `actions/*` and `github/*` are SHA-pinned too,
     # so the control applies to every action without exception.
     actionsMustBePinnedByCommitSha:
       enabled: true
 
+    # Allowlist of action sources. `actions/*` + `github/*` (first-party) and
+    # `AurevLan/*` (this repo's own org) are trusted implicitly; everything
+    # else this repo actually uses is listed explicitly.
+    githubActionMustComeFromAuthorizedSources:
+      enabled: true
+      trustGithubOfficialActions: true
+      trustSameOrgActions: true
+      minimumStars: 0
+      trustedGithubActions:
+        - getplumber/plumber                # this compliance gate
+        - googleapis/release-please-action  # release-please.yml
+        - softprops/action-gh-release       # release.yml + mobile-release.yml
+        - android-actions/setup-android     # mobile-release.yml
+        - docker/setup-buildx-action        # release.yml
+        - docker/login-action               # release.yml
+        - docker/metadata-action            # release.yml
+        - docker/build-push-action          # release.yml
+
+    # An action pinned to a SHA the upstream repo does not have (typo, removed
+    # commit) silently falls back to the default branch.
+    actionRefsMustExistUpstream:
+      enabled: true
+
+    # A ref that resolves as both a tag and a branch upstream is ambiguous.
+    externalRefsMustNotCollide:
+      enabled: true
+
+    # Archived upstreams stop receiving fixes; the namespace stays writable.
+    actionsMustNotBeArchived:
+      enabled: true
+
+    # Actions with a known CVE in the pinned revision.
+    actionsMustNotCarryKnownCVEs:
+      enabled: true
+
+    # Actions that fetch and execute remote code at runtime — SHA pinning buys
+    # nothing when the pinned code pulls a mutable payload.
+    actionsMustNotExecuteMutableRemoteCode:
+      enabled: true
+
+    # ── Secrets and token scope ───────────────────────────────────────
+
     # Every workflow must declare an explicit top-level `permissions:` block
     # (least privilege); jobs elevate per-job only where required.
     workflowsMustDeclarePermissions:
       enabled: true
 
+    # `permissions: write-all` hands GITHUB_TOKEN every scope at once.
+    workflowMustNotGrantPermissionsWriteAll:
+      enabled: true
+
+    # `secrets: inherit` on a `workflow_call` forwards every secret the caller
+    # can see. release.yml and mobile-release.yml are both called that way.
+    reusableWorkflowsMustNotInheritSecrets:
+      enabled: true
+
+    # `toJson(secrets)` serialises the whole secret store into one string that
+    # GitHub's log redaction does not mask.
+    workflowMustNotExportEntireSecretsContext:
+      enabled: true
+
+    # ── Untrusted input reaching the runner ───────────────────────────
+
     # Reject privilege-escalating triggers (pull_request_target, etc.).
     workflowMustNotUseDangerousTriggers:
       enabled: true
+
+    # `pull_request_target` + checkout of the PR head = attacker code holding
+    # the caller's secrets. Belt and braces with the trigger control above.
+    pullRequestTargetMustNotCheckoutHead:
+      enabled: true
+
+    # `${{ github.event.* }}` interpolated straight into a `run:` shell.
+    workflowMustNotInjectUserInputInScripts:
+      enabled: true
+
+    # Attacker-controlled writes to $GITHUB_ENV / $GITHUB_PATH are sticky:
+    # every later step inherits them.
+    workflowMustNotWriteUntrustedContentToGitHubEnv:
+      enabled: true
+
+    # ── Job hygiene ───────────────────────────────────────────────────
 
     # No mutable container image tags (latest/dev) in workflows.
     containerImageMustNotUseForbiddenTags:
@@ -27,11 +107,63 @@ github:
         - latest
         - dev
 
-    # The default branch must be protected. `main` is already branch-protected,
-    # so this control passes (100%); it guards against protection being removed.
+    # Docker-in-Docker / an exposed daemon socket breaks job isolation.
+    pipelineMustNotUseDockerInDocker:
+      enabled: true
+      detectInsecureDaemon: true
+
+    # curl | sh, download-then-exec, base64-then-exec in a `run:` step.
+    pipelineMustNotExecuteUnverifiedScripts:
+      enabled: true
+      trustedUrls: []
+
+    # A release job restoring a cache an untrusted branch could have poisoned.
+    releaseWorkflowsMustNotRestoreUntrustedCache:
+      enabled: true
+
+    # ACTIONS_STEP_DEBUG / `set -x` style tracing leaks masked values into logs.
+    pipelineMustNotEnableDebugTrace:
+      enabled: true
+
+    # The security scanners must stay load-bearing: no `continue-on-error`,
+    # no manual-dispatch-only, no redefined rules on the jobs that gate merges.
+    securityJobsMustNotBeWeakened:
+      enabled: true
+      securityJobPatterns:
+        - "*codeql*"
+        - "*dependency-review*"
+        - "*trufflehog*"
+        - "*gitleaks*"
+        - "*osv-scanner*"
+        - "*-sast"
+        - "*-sast-*"
+        - "*-scan"
+        - "*scan*"
+        - "*-security"
+        - "*-security-*"
+        - "*-audit"
+        - "*-audit-*"
+      allowFailureMustBeFalse:
+        enabled: true
+      rulesMustNotBeRedefined:
+        enabled: true
+      whenMustNotBeManual:
+        enabled: true
+
+    # ── Repository settings ───────────────────────────────────────────
+
+    # The default branch must be protected. `main` is ruleset-protected
+    # (PR required + required status checks), so this control passes; it
+    # guards against protection being removed.
     branchMustBeProtected:
       enabled: true
       defaultMustBeProtected: true
       namePatterns:
         - main
       allowForcePush: false
+
+    # Off deliberately: this one enforces that every workflow wires up a named
+    # set of org-wide actions. Single-repo project, no such baseline to check.
+    workflowMustIncludeRequiredActions:
+      enabled: false
+      requiredGroups: []

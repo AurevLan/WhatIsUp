@@ -1,8 +1,8 @@
 # WhatIsUp — Inventaire des Fonctionnalités
 
 > **Source de vérité** des features livrées. À amender à chaque release.
-> Référence : **v1.16.2** (2026-07-21) — vague fiabilité post-état-des-lieux (SEC-2 + R-1/R-2/R-4) : SSRF probe HTTP (portage du pinning IP SA1 côté probe — transport httpx épinglé, re-validation par hop de redirect), fail-open Redis sur l'auth API-key (panne Redis ⇒ fallback bcrypt, plus de 500), atomicité renotify (commit par incident), unification du matching des conditions d'alerte (prédicats purs partagés dispatch/preview, simulateur 7/7 conditions + garde-fou anti-divergence, enum morte `tls_grade_below` supprimée). Précédent : **v1.16.0** (2026-07-20) — 2e vague sécurité post-audit (SA1-SA7 + S1/S2/S4) : SSRF anti-DNS-rebinding (IP résolue épinglée sur le transport httpx), lockout compte par utilisateur + anti-énumération timing, rotation `FERNET_KEY` (MultiFernet + outil `rotate_fernet`), scoping cross-tenant des payloads WS (`correlated_monitor_ids`) et `incident-groups`, durcissement cache auth probe **et** API-key utilisateur (fingerprint + révocation immédiate), SSRF sur le checker `ping`, comblement rate-limit sur 19 endpoints (teams, alerts rules, onboarding, audit + sweep). Précédent : **v1.15.0** (2026-07-03) — durcissement sécurité post-audit 2026-07 (WebSocket scopé par tenant, confiance probe scope-bindée + rotation de clé, couverture audit log des mutations de config), leader election Redis, logs JSON structurés + X-Request-ID, perf (auth probe par préfixe indexé, `GET /monitors/` 7869 → 0,6 ms) et quick wins UX (toast erreurs global, tri persistant, undo bulk delete) & mobile (back Android, WS en arrière-plan, POST_NOTIFICATIONS). Socle : design system consolidé + responsive (v1.14), VELOURS + a11y gates CI (v1.13), 2FA TOTP + sessions actives (v1.12), Health Engine V2 (M0-M5, en prod sur 17/17 monitors depuis 2026-05-06).
-> Dernière release : **v1.16.2** (2026-07-21). Précédente : **v1.16.1** (2026-07-20) — docs (FEATURES.md v1.16.0).
+> Référence : **v1.17.2** (2026-07-29) — audit `claude-security` du 2026-07-24 soldé en 7 lots (20 findings, 1 HIGH / 14 MEDIUM / 5 LOW) : chaîne de confiance IP reprise de bout en bout (nginx écrase `X-Forwarded-For`, `TRUSTED_PROXY_IPS`), fin des fuites de secrets dans les erreurs de canaux et les résultats de scénario, chiffrement des valeurs de `custom_headers`, échappement des contenus utilisateur en email/HTML/code généré, sonde épinglée sur l'IP validée pour tous ses collecteurs (traceroute/openssl/curl/TLS) et travail CPU fourni par un tenant borné (moteur `regex` interruptible + pool de threads isolé), `/api/metrics` fail-closed en production, secrets de premier boot séparés (volume `probe_secrets`, `ADMIN_PASSWORD` effacé au 1er login superadmin), et connexion SSO liée au navigateur qui l'a initiée (cookie nonce + code d'échange à usage unique, plus de jetons dans l'URL). Précédent : **v1.17.0** (2026-07-21) — état des lieux vagues A/B/C : portées de clé API (`read`/`write`), rate-limit sur **tous** les GET `api/v1` (SEC-3), abonnements status page fonctionnels de bout en bout (double opt-in + notifications + désinscription), endpoints `incident-groups` supprimés, `monitors.py` éclaté en sous-routeurs, refactos frontend (tokens de statut, `MonitorFormFields`, `useAsyncResource`). Précédent : **v1.16.2** (2026-07-21) — vague fiabilité post-état-des-lieux (SEC-2 + R-1/R-2/R-4) : SSRF probe HTTP (portage du pinning IP SA1 côté probe — transport httpx épinglé, re-validation par hop de redirect), fail-open Redis sur l'auth API-key (panne Redis ⇒ fallback bcrypt, plus de 500), atomicité renotify (commit par incident), unification du matching des conditions d'alerte (prédicats purs partagés dispatch/preview, simulateur 7/7 conditions + garde-fou anti-divergence, enum morte `tls_grade_below` supprimée). Précédent : **v1.16.0** (2026-07-20) — 2e vague sécurité post-audit (SA1-SA7 + S1/S2/S4) : SSRF anti-DNS-rebinding (IP résolue épinglée sur le transport httpx), lockout compte par utilisateur + anti-énumération timing, rotation `FERNET_KEY` (MultiFernet + outil `rotate_fernet`), scoping cross-tenant des payloads WS (`correlated_monitor_ids`) et `incident-groups`, durcissement cache auth probe **et** API-key utilisateur (fingerprint + révocation immédiate), SSRF sur le checker `ping`, comblement rate-limit sur 19 endpoints (teams, alerts rules, onboarding, audit + sweep). Précédent : **v1.15.0** (2026-07-03) — durcissement sécurité post-audit 2026-07 (WebSocket scopé par tenant, confiance probe scope-bindée + rotation de clé, couverture audit log des mutations de config), leader election Redis, logs JSON structurés + X-Request-ID, perf (auth probe par préfixe indexé, `GET /monitors/` 7869 → 0,6 ms) et quick wins UX (toast erreurs global, tri persistant, undo bulk delete) & mobile (back Android, WS en arrière-plan, POST_NOTIFICATIONS). Socle : design system consolidé + responsive (v1.14), VELOURS + a11y gates CI (v1.13), 2FA TOTP + sessions actives (v1.12), Health Engine V2 (M0-M5, en prod sur 17/17 monitors depuis 2026-05-06).
+> Dernière release : **v1.17.2** (2026-07-29). Précédente : **v1.17.1** (2026-07-24) — `tag_selector` d'une règle d'alerte scopé aux propriétaires du monitor (F1, HIGH).
 > Pour la chronologie détaillée, voir `CHANGELOG.md`.
 
 **Légende** : ✅ livré · 🔬 livré + tests automatisés · 🚧 partiel (voir notes).
@@ -57,6 +57,8 @@
 - ✅ Account linking via `user.oidc_sub` (unique)
 - ✅ Scopes configurables (défaut : `openid email profile`)
 - ✅ `OidcCallbackView` côté frontend
+- 🔬 **`email_verified` exigé pour lier ou provisionner** (v1.17.2, audit S1/F16) — helper `_email_is_verified` (claim absent = non vérifié, tolère `"true"`/`"1"`) appliqué à la liaison par email **et** à l'auto-provisioning : un IdP qui laisse déclarer une adresse non vérifiée ne permet plus de reprendre un compte local existant. Note de migration dans `UPGRADING.md`
+- 🔬 **Connexion SSO liée au navigateur** (v1.17.2, audit S7/F11) — le `state` ne prouvait que « ce flux vient de ce serveur », jamais « de ce navigateur », et la paire de jetons voyageait dans le fragment d'URL : un attaquant terminait *sa* connexion et envoyait à la victime un `/oidc-callback#access_token=…` qui ouvrait **sa** session dans le navigateur de la victime (login CSRF / fixation). Cookie nonce `wiu_oidc_nonce` (HttpOnly, `Path=/api/v1/auth/oidc`, TTL 5 min) posé avant la redirection et exigé au retour (Redis ne garde que son empreinte SHA-256, aux côtés du `code_verifier`) ; le callback renvoie `#code=<opaque>` à usage unique (TTL 60 s) échangé via `POST /auth/oidc/exchange` (20/min), l'échange étant lui aussi lié au **même cookie**. Bascule automatique `SameSite=none; Secure` quand le front est sur un hôte distinct de l'API (sinon toute connexion SSO casserait). Effet de bord : `store_refresh_session` enregistre l'UA/IP du navigateur qui ouvre réellement la session
 
 ### Inscription & profils
 - ✅ Mode invite-only par défaut (`/auth/register` → 403)
@@ -80,7 +82,7 @@
 
 ### API keys
 - ✅ Personal API keys utilisateur (`wiu_u_<32 chars>`, bcrypt, expiry, revoke, last_used_at, prefix)
-- 🔬 **Portées de clé (C2)** — colonne `scopes` : une clé sans `write` n'autorise que les méthodes de lecture (GET/HEAD/OPTIONS), tout le reste renvoie 403. Vérifié dans `get_current_user`, passage obligé de toute route authentifiée — donc aucune route ne peut être oubliée, contrairement à un décorateur par endpoint. Les sessions JWT ne sont pas concernées. Défaut `["read","write"]` et clés existantes migrées à l'identique : la restriction est un choix explicite à la création, jamais une conséquence de la mise à jour
+- 🔬 **Portées de clé** (v1.17.0, C2) — colonne `scopes` : une clé sans `write` n'autorise que les méthodes de lecture (GET/HEAD/OPTIONS), tout le reste renvoie 403. Vérifié dans `get_current_user`, passage obligé de toute route authentifiée — donc aucune route ne peut être oubliée, contrairement à un décorateur par endpoint. Les sessions JWT ne sont pas concernées. Défaut `["read","write"]` et clés existantes migrées à l'identique : la restriction est un choix explicite à la création, jamais une conséquence de la mise à jour
 - 🔬 **Cache d'auth API-key durci** (v1.16, audit S4, portage du pattern SA6 probe) — valeur cache empreinte `user_id|key_id|SHA-256[:16]` du hash bcrypt vérifié ; le fast-path recharge la clé live (`is_revoked`/`expires_at`) et compare l'empreinte en temps constant (`hmac.compare_digest`), évince sur mismatch → **révocation immédiate**, plus d'attente du TTL (60 s) ; slow-path relit la clé juste avant l'écriture cache et l'ignore si elle n'est plus valide (ferme la race bcrypt-en-vol pendant une révocation)
 - 🔬 Probe API keys — format `wiu_<prefix>.<secret>` (v1.15) : préfixe non-secret 64 bits indexé en DB + bcrypt sur la clé entière → **1 seule vérification bcrypt** au lieu du scan O(n) de la flotte ; fallback legacy `wiu_<secret>` avec auto-cicatrisation vers le nouveau format ; cache Redis SHA-256[:32]
 - 🔬 Rotation `POST /probes/{id}/rotate-key` (v1.15, superadmin, 10/min, audit-loggé) — éviction immédiate du cache Redis via index inverse (l'ancienne clé cesse de fonctionner sans attendre le TTL)
@@ -114,6 +116,8 @@
 - `runbook_enabled` + `runbook_markdown` (renderer maison safe HTML escape)
 - `slo_target` + `slo_window_days`
 - `tags` + `team_id` + `group_id`
+- 🔬 **Valeurs de `custom_headers` chiffrées Fernet** (v1.17.2, audit S3/F18) — les noms d'en-têtes restent en clair (la config doit rester inspectable), les valeurs sont chiffrées sur les 5 chemins d'écriture/lecture (create, update, import JSON, import/export IaC, sync probe). **Aucune migration** : le déchiffrement retombe sur la valeur brute par entrée, les lignes antérieures se rechiffrent à la prochaine écriture. Pas de masquage en lecture, contrairement aux variables de scénario — le formulaire d'édition relit puis resoumet ces valeurs
+- 🔬 **`json_schema` plafonné à 64 Ko** (v1.17.2, audit S5) — sans cap, un schéma géant était accepté à la création puis échouait à chaque cycle côté sonde
 
 ---
 
@@ -223,6 +227,8 @@
 - ✅ SSRF guard sur webhooks + redirects re-validés
 - ✅ Test `POST /alerts/channels/{id}/test`
 - ✅ `AlertEvent` audit trail (sent/failed)
+- 🔬 **Plus de secret de canal dans les erreurs** (v1.17.2, audit S3/F6) — le Bot API Telegram n'accepte son credential que dans le chemin d'URL et httpx met l'URL dans `HTTPStatusError` : un simple 401/429 écrivait le `bot_token` en clair dans les logs. Helper `telegram._post()` qui ne lève que sur le code HTTP, plus un filet `redact_secrets(str(exc), config)` sur les trois sorties d'erreur (`test_channel`, `_flush_digest`, `dispatch_alert`). `webhook_url` fait partie des clés masquées bien qu'il ne soit pas chiffré — une URL Slack/Discord fuitée suffit à poster à la place de l'intégration. `_flush_digest` réimplémentait l'appel Telegram (même fuite, non signalée par l'audit) : rebranché sur le helper
+- 🔬 **`tag_selector` scopé aux propriétaires du monitor** (v1.17.1, audit F1 — HIGH) — les noms de tags forment un pool global : une règle `{tag_selector:['prod'], channel: webhook perso}` matchait le monitor de n'importe quel tenant portant ce tag et en recevait les détails de panne (nom, URL interne, état, sonde). Le scoping s'applique dans la requête SQL des règles candidates **et** dans le filtre en mémoire (propriétaire du monitor + membres de son équipe, comme `check_resource_access`)
 
 ---
 
@@ -232,7 +238,7 @@
 - ✅ Customisation par `MonitorGroup` : logo, title, description, accent color, custom CSS, announcement banner
 - ✅ Historique incidents 30 j
 - ✅ Uptime bars 90 j par composant (`UptimeHistoryBars.vue`)
-- ✅ Subscriptions visiteurs (token unsubscribe sécurisé) — `StatusSubscription` model
+- 🔬 **Abonnements email de bout en bout** (v1.17.0, C1) — `StatusSubscription` était une impasse : la table se remplissait sans jamais être relue, aucun abonné ne recevait rien, et le jeton de désinscription n'étant délivré par aucun canal, l'endpoint d'unsubscribe restait inatteignable. Désormais : **double opt-in** (`confirm_token` / `confirmed_at`, jeton effacé à la confirmation, réinscription possible si le mail se perd) — la page étant publique, cela ferme aussi l'abonnement d'une adresse tierce ; `notify_subscribers()` prévient les abonnés confirmés à l'ouverture **et** à la résolution, branché dans `fire_alerts` (point de passage commun à tous les chemins : composite, ponctuel, promu, standard) ; lien de désinscription dans chaque mail. Envoi best-effort (une panne SMTP n'interrompt ni la résolution d'incident ni les autres envois). Migration : les lignes existantes sont marquées confirmées. Nouveau réglage `PUBLIC_BASE_URL` pour construire les liens derrière un reverse proxy
 - ✅ WS public `/ws/public/{slug}` (sans auth, isolé du WS dashboard)
 
 ---
@@ -251,6 +257,10 @@
 - ✅ Couleurs **runtime JS thémées** (`lib/themeColors.js` : `cssVar`/`withAlpha`) : ApexCharts, marqueurs/popups Leaflet, graphe de dépendances SVG suivent le thème actif ; palette probes 8 teintes chaudes ; filtre de tuiles limité au fond de carte
 - ✅ Favicon SVG (barres d'uptime sauge/or sur encre) + fallback .ico ; matière : cartes 18 px, ombres douces double-couche, hover lift
 - ✅ **Consolidation composants (v1.14)** : échelle de tailles boutons unique (`.btn-sm` / md / `.btn-lg` + `.btn-icon`) au lieu des surcharges inline ad-hoc ; couleurs boutons **et** badges entièrement tokenisées (plus aucun hex en dur, dérivées des tokens dans les 2 thèmes) ; composant `<StatusBadge>` canonique à libellés i18n remplaçant les badges de statut dupliqués (corrige des libellés figés en anglais) ; suppression des classes-boutons mortes/concurrentes (`.ack-btn`, `.filter-btn`) et du code mort
+
+- 🔬 **Dernières couleurs de statut tokenisées + échelle d'uptime partagée** (v1.17.0, B1) — les seuils d'uptime et les couleurs de statut monitor étaient réimplémentés par vue ; source unique partagée, plus aucun hex résiduel hors tokens
+- 🔬 **`MonitorFormFields` extrait des modales create/edit** (v1.17.0, B2) — les deux formulaires divergeaient champ par champ ; un composant unique, deux hôtes
+- 🔬 **`useAsyncResource` — réponses périmées ignorées** (v1.17.0, B3) — un filtre changé pendant qu'une requête est en vol ne peut plus se faire écraser par la réponse de la requête précédente ; formatage des durées d'incident unifié au passage
 
 ### Responsive / mobile (v1.14)
 - ✅ Shell `AppLayout` : drawer off-canvas + hamburger + overlay + scroll-lock (`< 1024px`)
@@ -330,6 +340,7 @@
 - ✅ **Python 3.12** côté server/probe ; Node 22 LTS côté frontend
 - ✅ Nginx reverse proxy avec security headers + CSP stricte
 - ✅ Server bind sur `127.0.0.1:8000` (TLS au reverse proxy)
+- 🔬 **Secrets de premier boot séparés** (v1.17.2, audit S6/F15) — `probe-local` montait tout `/shared`, donc aussi l'`ADMIN_PASSWORD` du superadmin. Nouveau volume `probe_secrets` (clé d'API de la sonde seule), seul volume monté côté sonde ; `shared` redevient serveur-only. La clé n'étant écrite qu'à la *création* de la sonde et non récupérable ensuite (seul son hash est en base), le serveur migre automatiquement `/shared/PROBE_API_KEY` → `/probe-secrets/` au démarrage — un volume vide couperait la sonde locale des installations existantes. **`ADMIN_PASSWORD` est effacé à la première connexion superadmin réussie** (avec et sans MFA) : le moment où l'opérateur a prouvé qu'il avait lu le fichier
 
 ### Données
 - ✅ Migrations Alembic versionnées et reversibles
@@ -339,6 +350,7 @@
 
 ### Observabilité
 - ✅ Prometheus exporter `/metrics` (`prometheus-fastapi-instrumentator`)
+- 🔬 **`/api/metrics` fail-closed en production** (v1.17.2, audit S6/F5) — les deux remèdes, pas un seul : `nginx.conf` refuse la route (bloc `= `, qui l'emporte sur le préfixe `/api/` quel que soit l'ordre) **et** le serveur répond 401 en production tant que `METRICS_AUTH_TOKEN` est vide. Hors production l'endpoint reste ouvert (outil de mise au point) ; un scraper légitime tourne sur le réseau Docker et interroge `server:8000` directement, il lui suffit d'un jeton. **Changement de comportement documenté dans `UPGRADING.md`**
 - 🔬 **Logs JSON structurés en production** (v1.15) — `structlog` + bridge stdlib (uvicorn/sqlalchemy/apscheduler inclus, `uvicorn.run(log_config=None)`) : une seule ligne JSON par évènement, parsable par tout agrégateur ; format console lisible en dev
 - 🔬 **Middleware X-Request-ID** (v1.15) — réutilise l'en-tête entrant s'il est bien formé (validation `^[A-Za-z0-9._-]{1,128}$`), sinon UUID généré ; injecté dans tous les logs de la requête et écho dans la réponse **y compris sur les 500** ; exposé via CORS `expose_headers`
 
@@ -359,7 +371,7 @@
 ## 11. Sécurité
 
 ### Crypto au repos
-- ✅ **Fernet** AES-128-CBC + HMAC-SHA256 sur secrets canaux (bot_token, webhook_secret, webhook_url, integration_key, api_key Opsgenie, OIDC client_secret, scenario `secret: true` variables)
+- ✅ **Fernet** AES-128-CBC + HMAC-SHA256 sur secrets canaux (bot_token, webhook_secret, webhook_url, integration_key, api_key Opsgenie, OIDC client_secret, scenario `secret: true` variables, **valeurs de `custom_headers`** depuis v1.17.2)
 - ✅ Bcrypt 12-rounds (passwords + probe API keys)
 - ✅ SHA-256 sur refresh tokens (jamais en clair)
 
@@ -380,11 +392,30 @@
 - 🔬 **Fan-out WebSocket scopé par tenant** (v1.15, audit M1) — le WS dashboard ne pousse que les évènements des monitors accessibles à l'utilisateur (`build_access_filter`), le WS public que ceux du groupe du slug ; scope rafraîchi périodiquement, **close 4001 si l'utilisateur est révoqué** en cours de session
 - 🔬 **`correlated_monitor_ids` filtré par destinataire** (v1.16, audit SA5) — le scoping WS ne gatait que sur le `monitor_id` primaire de l'évènement `common_cause_detected` ; sa liste `correlated_monitor_ids` (corrélation globale sur sondes partagées) pouvait référencer des monitors d'autres tenants. `ConnectionManager.broadcast` réécrit désormais le payload par destinataire (intersection avec le scope de la connexion, dashboard **et** WS public), superadmin conservant la liste complète ; variantes sérialisées mémoïsées par forme filtrée distincte pour rester sur le hot path
 - 🔬 **Lockout compte + anti-énumération** (v1.16, audit SA2) — détail §1
+- 🔬 **SSO lié au navigateur + jetons hors URL** (v1.17.2, audit S7/F11) — cookie nonce + code d'échange à usage unique, détail §1
+- 🔬 **OIDC : `email_verified` exigé** (v1.17.2, audit S1/F16) — détail §1
+
+### Chaîne de confiance IP (v1.17.2, audit S2 — F4/F13/F14)
+- 🔬 **`X-Forwarded-For` écrasé au bord** — nginx pose `$remote_addr` (et non `$proxy_add_x_forwarded_for`, qui *ajoute* à l'en-tête fourni par le client) sur `/api/` **et** `/ws/`. `/ws/` ne posait aucun `proxy_set_header` : nginx relayait donc l'en-tête du client tel quel et `ws.py` lit `websocket.client.host` — trou non mentionné par l'audit, trouvé en corrigeant F13
+- 🔬 **`TRUSTED_PROXY_IPS`** (défaut : loopback + plages privées) passé à `ProxyHeadersMiddleware` — uvicorn remonte la chaîne **par la droite** et s'arrête au premier hop non listé, au lieu de retenir l'entrée la plus à gauche (celle que le client contrôle). `*` refusé au démarrage en production
+- 🔬 **Portée du correctif** : rate-limits par IP (login inclus — le bypass était trivial), IP d'audit log, métadonnées de session refresh, `client_ip` WebSocket, et l'IP publique observée des sondes (→ enrichissement ASN)
+
+### Injection de contenu (v1.17.2, audit S4)
+- 🔬 **CRLF dans `report_emails`** (F7) — validation stricte au bord (`MonitorGroupCreate/Update`, max 20) **et** au point d'usage : l'import IaC `PUT /config/` prend un `dict[str, Any]` brut sans passer par aucun schéma (trou non signalé par l'audit) et les lignes déjà en base restent hostiles. Passage de `MIMEMultipart` (compat32, sérialise le CR/LF brut) à `EmailMessage` ; sujet aplati (`" ".join(s.split())`) — il porte le nom du groupe, et une policy qui lève à l'envoi transformerait un nom hostile en blocage de tous les rapports. Helper partagé `core/validators.is_valid_email`
+- 🔬 **HTML non échappé dans les emails** (F17) — `html.escape()` sur nom de monitor, type de check et portée dans les corps HTML d'alerte **et dans le rapport SLA** (`reports.py`, non signalé par l'audit)
+- 🔬 **Code Playwright généré** (F12) — `_num()` sur les positions **non entourées de guillemets** (`x`, `y`, `ms`), les seules que `_escJs` ne peut pas protéger puisqu'il protège l'intérieur des littéraux ; un type de step inconnu n'est plus interpolé tel quel dans un commentaire, et `_escJs` neutralise désormais les sauts de ligne
+
+### Travail CPU fourni par un tenant (v1.17.2, audit S5)
+- 🔬 **ReDoS `body_regex`** (F19) — le défaut n'était pas l'absence de timeout mais son inefficacité : `asyncio.wait_for` annule la coroutine qui attend, pas le thread qui calcule. Moteur `regex` avec `timeout=`, vérifié *pendant* le parcours, donc le thread est réellement rendu (`checkers/_regex_guard.py`)
+- 🔬 **`jsonschema.validate` hors boucle** (F8) — déporté dans le même pool, `pattern`/`patternProperties` routés vers le moteur borné (jsonschema les évalue avec `re` en interne), échéance partagée par toute la validation (sinon N motifs × T secondes se cumulent) ; la classe de validateur est étendue à partir de celle que `jsonschema` aurait choisie, donc le draft déclaré par l'utilisateur reste respecté
+- 🔬 **Pool de threads isolé** — ce travail non fiable ne tourne plus dans l'executor par défaut (celui du DNS, de l'épinglage SSRF et de l'extraction TLS) : c'est ce qui borne l'impact au tenant fautif
 
 ### Autorisation
 - ✅ Ownership enforcement par JOIN sur tous endpoints mutants
 - ✅ Superadmin bypass explicite
 - ✅ `AlertRule` delete + `list_events` + `delete_channel` filtrent par owner
+- 🔬 **`tag_selector` scopé aux propriétaires du monitor** (v1.17.1, audit F1 — HIGH) — détail §5
+- 🔬 **`import_monitors` ne peut plus s'attribuer un `group_id` tiers** (v1.17.2, audit S1/F2) — `assert_can_assign_group` + parsing UUID sur les deux branches (création **et** upsert par nom) ; une entrée refusée échoue seule, sans abandonner l'import complet. **Bug adjacent trouvé en corrigeant F2** : le chemin d'import stockait les `scenario_variables` `secret: true` en clair, là où create/update les chiffrent
 - 🔬 **`create_channel` vérifie le `team_id`** (v1.15, audit) — `assert_can_assign_team` : impossible de rattacher un canal d'alerte à une équipe dont on n'est pas membre
 - 🔬 **Confiance probe scope-bindée** (v1.15, audit H1/H2) — résultats hors scope rejetés + rotation de clé superadmin avec éviction cache immédiate (détail §3)
 - ✅ Privilege escalation auto bloquée (`UserSelfUpdate` Pydantic n'expose pas `is_superadmin` / `can_create_monitors`)
@@ -401,6 +432,8 @@
 - 🔬 **IP résolue épinglée — anti DNS rebinding** (v1.16, audit SA1) — la validation DNS avait lieu au moment du check mais httpx re-résolvait l'hostname à la requête réelle, laissant une fenêtre de rebinding (DNS qui bascule vers une IP privée entre validation et connexion). `_PinnedHostTransport` (transport httpx custom) résout une seule fois, rejette privé/loopback/link-local/multicast, réécrit l'URL vers l'IP validée tout en conservant le hostname d'origine en `Host` header et SNI (extension `sni_hostname`) — la vérification du certificat cible toujours le vrai hostname. Câblé sur `ssrf_safe_client()` : slack/discord/mattermost/teams/signal/webhook + digest (`services/alert.py`)
 - 🔬 **SSRF sur le checker `ping`** (v1.16, audit S1) — `validate_host_ssrf()` câblé dans `PingChecker.check()` (même pattern que TCP/UDP/SMTP/DNS) ; seule la regex anti-injection protégeait auparavant le host passé au sous-processus `ping`, laissant sonder des adresses internes/metadata cloud (`probe/whatisup_probe/checkers/ping.py`)
 - 🔬 **IP pinning côté probe — checker HTTP** (v1.16.2, SEC-2) — portage du pattern SA1 serveur : `_SSRFPinnedTransport` sur le client httpx partagé de la probe — chaque requête **et chaque hop de redirect** résout l'hôte une fois, rejette interne/metadata, épingle l'IP validée dans l'URL (Host header + SNI conservés sur le vrai hostname, URL restaurée après coup pour `final_url` et les redirects relatifs) ; ferme la fenêtre de rebinding validation→connexion et les hops intermédiaires non re-validés ; `SSRFBlockedError` → `CheckResult` en erreur « SSRF blocked » (`probe/whatisup_probe/checkers/_shared.py`)
+- 🔬 **Collecteurs de diagnostic épinglés sur l'IP validée** (v1.17.2, audit S5/F9) — `run_collection` résout et valide la cible **une fois** (`_ssrf_resolve_pinned_sync`) puis épingle chaque collecteur : traceroute/ping reçoivent l'IP, `openssl -connect ip:port -servername host`, `curl --resolve host:port:ip` (URL, `Host` et SNI inchangés). Seul `dig +trace` garde le nom — il interroge des résolveurs, il ne se connecte pas à la cible. Fail-closed : une résolution qui échoue annule la collecte
+- 🔬 **Audit TLS / `ssl_info` épinglés** (v1.17.2, audit S5/F20) — les deux rouvraient une connexion avec leur propre résolution *après* le check HTTP déjà épinglé (fenêtre de rebinding). Même épinglage, et un blocage est loggé explicitement : sans ça, un audit TLS absent ressemble à une panne réseau
 - ✅ **SEC-B3** (v1.10.2) : `_extract_host()` (probe diagnostics) rejette tout host commençant par `-` — passé en argv positionnel à `traceroute`/`dig`/`ping`, il serait sinon interprété comme un flag (pas de shell, mais flag-injection). `run_collection` log + skip (`probe/whatisup_probe/diagnostics.py`)
 
 ### Anti-XSS / Clickjacking
@@ -419,7 +452,7 @@
 | `/auth/register` | — (endpoint désactivé, 403 invite-only) |
 | `/auth/refresh` | 30/min |
 | `/auth/me` PATCH | 30/min |
-| `/auth/oidc/login` + `/auth/oidc/callback` | 20/min |
+| `/auth/oidc/login` + `/auth/oidc/callback` + `/auth/oidc/exchange` | 20/min |
 | `/auth/totp/*` (setup/enable/verify/disable) | 10/min |
 | `/auth/sessions/list` + DELETE | 30/min |
 | `/auth/sessions/revoke-all` | 10/min |
@@ -447,7 +480,7 @@
 | `/monitors` + `/monitors/{id}` + `/monitors/{id}/results` GET | 120/min (chemins chauds dashboard) |
 | `/monitors/{id}/incidents/{inc}/postmortem` GET | 30/min |
 | `/auth/oidc/config` + `/push/vapid-public-key` GET | 30/min (publics statiques) |
-| `/api/health` + `/api/metrics` | — (health checks + scrape Prometheus, hors routers v1) |
+| `/api/health` + `/api/metrics` | — (health checks + scrape Prometheus, hors routers v1) ; `/api/metrics` **401 en production** sans `METRICS_AUTH_TOKEN`, et refusé par nginx |
 
 - ✅ **Gate CI toutes méthodes** (`test_rate_limit_coverage.py`) : depuis SEC-3, un endpoint `api/v1` ajouté sans `@limiter.limit` fait échouer la CI, GET compris (exemptions documentées SECURITY.md §12)
 
@@ -464,6 +497,8 @@
 - ✅ Redis healthcheck sans password en argv
 - ✅ Secrets channels masqués (`***`) dans réponses API
 - ✅ OIDC client_secret jamais retourné
+- 🔬 **Variables de scénario `secret` masquées dans les résultats** (v1.17.2, audit S3/F10) — `_substitute_vars` interpole les variables `secret: true` dans les params d'étape : une assertion en échec embarquait donc le mot de passe verbatim dans `error_message` / `scenario_result`, stockés serveur et relisibles via l'API — ce qui annulait le masquage write-only appliqué à ces mêmes valeurs. `_redact_secrets()` sur `error_message`, `final_url`, erreurs d'étape et logs ; seuil de 4 caractères (en dessous, la valeur n'est pas assez distinctive pour être remplacée sans mutiler du texte sans rapport)
+- 🔬 **Secrets de premier boot séparés du volume de la sonde** (v1.17.2, audit S6/F15) — détail §10
 
 ### Docker hardening (recommandé prod)
 - ✅ Non-root user (`USER 1000:1000`)
@@ -487,9 +522,9 @@
 | `release-please.yml` | push main | Auto-versioning + CHANGELOG + tag SemVer (conventional commits) ; sur `release_created`, **chaîne `release.yml` (Docker) + `mobile-release.yml` (APK signé)** via `workflow_call` → release publiée de bout en bout sans dispatch manuel (1er run réel : v1.14.2) |
 
 ### Tests
-- ✅ **Backend** : ~745 tests pytest (auth, 2FA TOTP, sessions, monitors, probes, alerts, incidents, SLO, OIDC, maintenance, config, bulk, snooze, silences, ws, leader election, request-ID, audit coverage)
-- ✅ **Frontend** : ~346 tests vitest (composants, composables, stores, fuzzy, skeleton, empty states, hotkeys, push, toast erreurs, tri persistant, undo bulk)
-- ✅ **Probe** : ~145 tests (HTTP/TCP/DNS/SMTP/scenario + SSRF host validation + config + contrats heartbeat/perform_check)
+- ✅ **Backend** : ~930 tests pytest sur 88 fichiers (auth, 2FA TOTP, sessions, monitors, probes, alerts, incidents, SLO, OIDC, maintenance, config, bulk, snooze, silences, ws, leader election, request-ID, audit coverage) — dont `test_security_lot1.py`, `test_security_hardening.py`, `test_security_oidc_handoff.py` (11 cas : pose du cookie, origines séparées, callback sans/avec mauvais cookie, format d'état hérité, absence de jeton dans l'URL, rejeu du code, compte désactivé)
+- ✅ **Frontend** : ~375 tests vitest sur 45 fichiers (composants, composables, stores, fuzzy, skeleton, empty states, hotkeys, push, toast erreurs, tri persistant, undo bulk, handoff OIDC)
+- ✅ **Probe** : ~180 tests (HTTP/TCP/DNS/SMTP/scenario + SSRF host validation + épinglage des collecteurs de diagnostic + bornes ReDoS/json-schema + config + contrats heartbeat/perform_check)
 
 ### Supply chain
 - ✅ Dependabot configuré (`.github/dependabot.yml`)
@@ -639,12 +674,12 @@
 | Probes | 12 axes (+ASN +outbound IP +auth préfixe/rotation clé +scope-binding v1.15 +cache fingerprinté v1.16) | `probe.py`, `probes.py`, `probe_group.py`, `probe_enrichment.py`, `ProbeMap.vue` |
 | Incidents | 11 axes (+playback +diagnostic engine +incident-groups tenant-scopé v1.16) | `incident.py`, `correlation.py`, `anomaly.py`, `diagnostics.py`, `incident_diagnostic.py` |
 | Alerting | 14 axes (+silences +network suppress +matrix preview +pont détection→alerte) | `alert.py`, `alerts.py`, `silences.py`, `useDetectionAlertBridge.js`, `services/channels/*.py` (11 canaux) |
-| Status pages | 4 axes | `public.py`, `PublicPageView.vue` |
+| Status pages | 4 axes (+abonnements email de bout en bout v1.17.0) | `public.py`, `PublicPageView.vue` |
 | Dashboard UX | 18 axes (+design system VELOURS +a11y gates +consolidation composants +responsive mobile +quick wins v1.15 : toast erreurs, tri persistant, undo bulk, EmptyState ×6) | `ws.py`, `stats.py`, `style.css`, `lib/themeColors.js`, `StatusBadge.vue`, components shared/* + monitors/* |
 | Maintenance | 4 axes | `maintenance.py` × 2 |
 | Audit/Compliance | 6 axes (+couverture complète mutations config v1.15) | `audit_log.py`, `retention.py`, `reports.py` |
 | Infra | 10 axes (+leader election +logs JSON/X-Request-ID v1.15) | `docker-compose.yml`, Dockerfiles, deploy.sh, `core/leader.py` |
-| Sécurité | 17 axes (+SC-07 distributed RL +WS tenant scoping v1.15 +SSRF anti-rebinding +lockout +rotation FERNET_KEY +WS correlated_ids scopé +incident-groups scopé +cache probe/API-key fingerprinté +ping SSRF +19 rate-limits v1.16 +SSRF probe pinning +fail-open Redis auth v1.16.2) | `security.py`, `middleware.py`, `_helpers.py`, `core/limiter.py`, `lockout.py`, `tools/rotate_fernet.py`, `checkers/_shared.py` |
+| Sécurité | 21 axes (+SC-07 distributed RL +WS tenant scoping v1.15 +SSRF anti-rebinding +lockout +rotation FERNET_KEY +WS correlated_ids scopé +incident-groups scopé +cache probe/API-key fingerprinté +ping SSRF +19 rate-limits v1.16 +SSRF probe pinning +fail-open Redis auth v1.16.2 +portées de clé API +rate-limit GET v1.17.0 +tag_selector scopé v1.17.1 **+audit 2026-07-24 soldé v1.17.2** : chaîne de confiance IP, fuites de secrets, injections de contenu, épinglage sonde + bornes CPU, métriques fail-closed, SSO lié au navigateur) | `security.py`, `middleware.py`, `validators.py`, `_helpers.py`, `core/limiter.py`, `lockout.py`, `tools/rotate_fernet.py`, `checkers/_shared.py`, `checkers/_regex_guard.py` |
 | CI/CD | 6 workflows + release-please | `.github/workflows/*.yml` |
 | Mobile | 7 axes (+quick wins Android v1.15 : back button, WS background, POST_NOTIFICATIONS) | Capacitor 8, FCM, biometrics, mobile-release.yml |
 | Extensions | 5 axes | extension/, config IaC, web_push, templates, prometheus |
@@ -673,4 +708,4 @@
 > 4. Si la PR introduit un nouveau type de check ou canal → reporter dans §2 ou §5.
 > 5. Si la PR touche le Health Engine ou les V2-02 → reporter dans §16 ou §17.
 
-*Dernière revue exhaustive : 2026-05-10 (v1.8.0 + Health Engine V2). Dernier amendement : 2026-07-21 (v1.16.2 — vague fiabilité SEC-2 + R-1/R-2/R-4 : SSRF probe IP pinning, fail-open Redis auth, atomicité renotify, matching conditions d'alerte unifié + preview 7/7).*
+*Dernière revue exhaustive : 2026-05-10 (v1.8.0 + Health Engine V2). Dernier amendement : 2026-07-29 (v1.17.0 → v1.17.2 — portées de clé API, rate-limit GET, abonnements status page, `tag_selector` scopé, et les 7 lots de l'audit `claude-security` 2026-07-24 : chaîne de confiance IP, fuites de secrets, injections de contenu, épinglage sonde + bornes CPU, métriques fail-closed + secrets de boot, SSO lié au navigateur).*

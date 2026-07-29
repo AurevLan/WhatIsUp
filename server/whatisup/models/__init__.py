@@ -27,6 +27,17 @@ from whatisup.models.monitor import (
 )
 from whatisup.models.monitor_health import MonitorHealthState, SLORule, SLORuleType
 from whatisup.models.monitor_template import MonitorTemplate
+from whatisup.models.oncall import (
+    ContactMethod,
+    EscalationLevel,
+    EscalationPolicy,
+    EscalationTargetType,
+    OnCallOverride,
+    OnCallParticipant,
+    OnCallSchedule,
+    RotationType,
+    UserContact,
+)
 from whatisup.models.probe import Probe
 from whatisup.models.probe_group import ProbeGroup, probe_group_members, user_probe_group_access
 from whatisup.models.result import CheckResult, CheckStatus
@@ -81,6 +92,15 @@ __all__ = [
     "SLORuleType",
     "MonitorTemplate",
     "Team",
+    "ContactMethod",
+    "EscalationLevel",
+    "EscalationPolicy",
+    "EscalationTargetType",
+    "OnCallOverride",
+    "OnCallParticipant",
+    "OnCallSchedule",
+    "RotationType",
+    "UserContact",
     "TeamMembership",
     "TeamRole",
     "WebPushSubscription",

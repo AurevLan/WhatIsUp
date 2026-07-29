@@ -23,7 +23,7 @@
     "@capacitor/push-notifications": "^8.1.2",
     "@capgo/capacitor-native-biometric": "^8.6.2",
     "@tailwindcss/vite": "^4.3.3",
-    "apexcharts": "^5.16.0",
+    "apexcharts": "^6.6.1",
     "axios": "^1.18.1",
     "capacitor-secure-storage-plugin": "^0.13.0",
     "leaflet": "^1.9.4",

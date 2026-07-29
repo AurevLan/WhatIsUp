@@ -18,6 +18,7 @@ from sqlalchemy import (
     Integer,
     Text,
     Uuid,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -91,7 +92,20 @@ class CheckResult(Base):
     monitor: Mapped[Monitor] = relationship("Monitor", back_populates="check_results")
     probe: Mapped[Probe] = relationship("Probe", back_populates="check_results")
 
+    # Kept in sync with what the database actually holds (plan V2, A-0 bis):
+    # migration f2a3b4c5d6e7 dropped ix_cr_monitor_checked_at (redundant with the
+    # DESC index below) and ix_cr_probe_checked_at (never scanned). The two
+    # survivors were created by migrations outside this model — declaring them
+    # here stops `alembic revision --autogenerate` from proposing to drop them.
+    #
+    # The DESC ordering is part of the declaration on purpose: autogenerate does
+    # compare index expressions, so spelling the index as a plain (monitor_id,
+    # checked_at) pair makes it propose a rebuild of a 428 MB index — and one
+    # that silently loses the ordering ``fetch_latest_results`` relies on.
+    # ``postgresql_using`` is *not* compared, so the BRIN options stay in
+    # migration c5d6e7f8a9b0.
     __table_args__ = (
-        Index("ix_cr_monitor_checked_at", "monitor_id", "checked_at"),
-        Index("ix_cr_probe_checked_at", "probe_id", "checked_at"),
+        Index("ix_check_results_monitor_checked", "monitor_id", text("checked_at DESC")),
+        # c5d6e7f8a9b0 — BRIN, WITH (pages_per_range = 32)
+        Index("ix_cr_checked_at_brin", "checked_at", postgresql_using="brin"),
     )

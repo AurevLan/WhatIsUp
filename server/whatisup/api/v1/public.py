@@ -1,5 +1,6 @@
 """Public status page endpoints — no authentication required."""
 
+import json
 import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -12,6 +13,7 @@ from starlette.responses import Response
 
 from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
+from whatisup.core.redis import redis_get_safe, redis_setex_safe
 from whatisup.models.incident import Incident
 from whatisup.models.incident_update import IncidentUpdate
 from whatisup.models.monitor import Monitor, MonitorGroup
@@ -25,6 +27,13 @@ from whatisup.services.stats import (
 from whatisup.services.status_subscription import send_confirmation_email
 
 router = APIRouter(prefix="/public", tags=["public"])
+
+# Public status pages are unauthenticated and rate-limited at 60 req/min, while
+# their monitor payload costs a 90-day aggregation over the raw check_results
+# table (~9.5 s measured on 4.9M rows — plan V2, constat n°3). Without a cache
+# the endpoint is a trivial amplification vector, so the whole payload is
+# memoised per group; 60 s of staleness is invisible on a 90-day history.
+PUBLIC_MONITORS_CACHE_TTL = 60
 
 
 # ── Badge SVG helper ──────────────────────────────────────────────
@@ -143,6 +152,11 @@ async def get_public_monitors(
 ) -> list[dict]:
     group = await _get_group_by_slug(slug, db)
 
+    cache_key = f"whatisup:public:monitors:{group.id}"
+    cached = await redis_get_safe(cache_key)
+    if cached:
+        return json.loads(cached)
+
     monitors = (
         (
             await db.execute(
@@ -157,6 +171,8 @@ async def get_public_monitors(
     )
 
     if not monitors:
+        # Deliberately not cached: an empty page costs two indexed lookups, and
+        # caching it would leave a freshly-populated page blank for a full TTL.
         return []
 
     monitor_ids = [m.id for m in monitors]
@@ -228,6 +244,8 @@ async def get_public_monitors(
                 "history_90d": history_90d,
             }
         )
+
+    await redis_setex_safe(cache_key, PUBLIC_MONITORS_CACHE_TTL, json.dumps(results))
     return results
 
 

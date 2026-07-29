@@ -24,6 +24,18 @@ networks:
 services:
   postgres:
     image: postgres:16-alpine
+    # Stock PostgreSQL defaults (shared_buffers=128MB, work_mem=4MB) are sized
+    # for a toy database. check_results reaches multiple GB at the default 90-day
+    # retention, so analytics queries re-read from disk on every call and sorts
+    # spill to a temp file (measured: 1.4 GB read + external merge on a 90-day
+    # history — plan_v2.md § A-0). Raise every knob via .env on a bigger host;
+    # keep POSTGRES_MEM_LIMIT ≳ 3× shared_buffers.
+    command: >
+      postgres
+      -c shared_buffers=${POSTGRES_SHARED_BUFFERS:-256MB}
+      -c effective_cache_size=${POSTGRES_EFFECTIVE_CACHE_SIZE:-768MB}
+      -c work_mem=${POSTGRES_WORK_MEM:-16MB}
+      -c maintenance_work_mem=${POSTGRES_MAINTENANCE_WORK_MEM:-128MB}
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-whatisup}
       POSTGRES_USER: ${POSTGRES_USER:-whatisup}
@@ -36,8 +48,8 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512m
-          cpus: "1.0"
+          memory: ${POSTGRES_MEM_LIMIT:-1g}
+          cpus: "${POSTGRES_CPU_LIMIT:-1.0}"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-whatisup}"]
       interval: 10s

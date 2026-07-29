@@ -86,6 +86,31 @@ def _substitute_vars(text: str, variables: list[dict]) -> str:
     return text
 
 
+# A secret shorter than this is not distinctive enough to search for — blanking
+# every occurrence of it would mangle unrelated text without protecting much.
+_MIN_REDACTABLE_SECRET_LEN = 4
+
+
+def _redact_secrets(text: str | None, variables: list[dict]) -> str | None:
+    """Blank out secret variable values before a string leaves the probe.
+
+    `_substitute_vars` interpolates secret variables into step params, so a
+    failing assertion used to embed a login password verbatim into
+    `error_message` / `scenario_result` — stored server-side and readable
+    through the results API, defeating the write-only masking the server
+    applies to those same values (audit F10).
+    """
+    if not text:
+        return text
+    for var in variables:
+        if not var.get("secret"):
+            continue
+        value = var.get("value")
+        if isinstance(value, str) and len(value) >= _MIN_REDACTABLE_SECRET_LEN:
+            text = text.replace(value, "***")
+    return text
+
+
 class ScenarioChecker(BaseChecker):
     name = "scenario"
 
@@ -290,7 +315,7 @@ class ScenarioChecker(BaseChecker):
                                 step_label,
                                 dur,
                                 status="warned",
-                                error=str(step_err)[:300],
+                                error=_redact_secrets(str(step_err), variables)[:300],
                                 screenshot=None,
                                 continue_on_fail=True,
                             )
@@ -303,7 +328,7 @@ class ScenarioChecker(BaseChecker):
                             step_label,
                             dur,
                             status="failed",
-                            error=str(step_err)[:300],
+                            error=_redact_secrets(str(step_err), variables)[:300],
                             screenshot=None,
                         )
                     )
@@ -315,8 +340,10 @@ class ScenarioChecker(BaseChecker):
                         checked_at=checked_at,
                         status="down",
                         response_time_ms=round(elapsed_ms, 2),
-                        final_url=current_url,
-                        error_message=f"Step {i + 1} ({step_type}) failed: {step_err}",
+                        final_url=_redact_secrets(current_url, variables),
+                        error_message=_redact_secrets(
+                            f"Step {i + 1} ({step_type}) failed: {step_err}", variables
+                        ),
                         scenario_result={
                             "steps_total": steps_total,
                             "steps_passed": steps_passed,
@@ -332,7 +359,7 @@ class ScenarioChecker(BaseChecker):
                     logger.warning(
                         "unexpected_scenario_error",
                         error=type(step_err).__name__,
-                        detail=str(step_err),
+                        detail=_redact_secrets(str(step_err), variables),
                     )
                     page.set_default_timeout(timeout_seconds * 1000)
                     dur = (time.perf_counter() - step_t0) * 1000
@@ -343,7 +370,7 @@ class ScenarioChecker(BaseChecker):
                             step_label,
                             dur,
                             status="failed",
-                            error=str(step_err)[:300],
+                            error=_redact_secrets(str(step_err), variables)[:300],
                             screenshot=None,
                         )
                     )
@@ -355,8 +382,11 @@ class ScenarioChecker(BaseChecker):
                         checked_at=checked_at,
                         status="down",
                         response_time_ms=round(elapsed_ms, 2),
-                        final_url=current_url,
-                        error_message=f"Step {i + 1} ({step_type}) unexpected error: {step_err}",
+                        final_url=_redact_secrets(current_url, variables),
+                        error_message=_redact_secrets(
+                            f"Step {i + 1} ({step_type}) unexpected error: {step_err}",
+                            variables,
+                        ),
                         scenario_result={
                             "steps_total": steps_total,
                             "steps_passed": steps_passed,
@@ -378,7 +408,7 @@ class ScenarioChecker(BaseChecker):
                 checked_at=checked_at,
                 status="up",
                 response_time_ms=round(elapsed_ms, 2),
-                final_url=current_url,
+                final_url=_redact_secrets(current_url, variables),
                 scenario_result={
                     "steps_total": steps_total,
                     "steps_passed": steps_passed,
@@ -411,7 +441,9 @@ class ScenarioChecker(BaseChecker):
                         await browser.close()
         except Exception as exc:
             elapsed_ms = (time.perf_counter() - t0) * 1000
-            err_msg = f"Scenario error: {type(exc).__name__}: {str(exc)[:300]}"
+            err_msg = _redact_secrets(
+                f"Scenario error: {type(exc).__name__}: {str(exc)}", variables
+            )[:300]
             return CheckResult(
                 monitor_id=monitor_id,
                 checked_at=checked_at,

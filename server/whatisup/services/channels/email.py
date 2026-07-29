@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 from email.message import EmailMessage
 from typing import Any
 
@@ -48,9 +49,14 @@ class EmailChannel(BaseAlertChannel):
         scope = scope_label_fr(incident, ctx)
 
         is_resolved = event_type == "incident_resolved"
-        subject = (
-            f"[WhatIsUp] {'RÉSOLU' if is_resolved else 'ALERTE'}: "
-            f"{monitor_name} ({check_type.upper()}) — {scope}"
+        # Aplati : la policy moderne d'`EmailMessage` lève sur un CR/LF dans un
+        # en-tête, donc un monitor nommé avec un saut de ligne empêcherait
+        # l'envoi de toute alerte le concernant.
+        subject = " ".join(
+            (
+                f"[WhatIsUp] {'RÉSOLU' if is_resolved else 'ALERTE'}: "
+                f"{monitor_name} ({check_type.upper()}) — {scope}"
+            ).split()
         )
         body = _build_email_body(incident, event_type, monitor_name, check_type, ctx)
 
@@ -79,8 +85,15 @@ def _build_email_body(
     check_type: str,
     ctx: dict,
 ) -> str:
+    # Le nom d'un monitor n'a aucune restriction de caractères et les
+    # destinataires du canal peuvent être des tiers qui ne l'ont pas choisi :
+    # sans échappement, un nom comme `<a href="…">Confirm your account</a>`
+    # s'affiche comme du contenu du système de supervision, depuis un
+    # expéditeur aligné SPF/DKIM (audit F17).
     status_emoji = "✅" if event_type == "incident_resolved" else "🔴"
-    scope = scope_label_fr(incident, ctx)
+    scope = html.escape(scope_label_fr(incident, ctx))
+    monitor_name = html.escape(str(monitor_name))
+    check_type = html.escape(str(check_type))
     resolved_line = ""
     if incident.resolved_at:
         resolved_line = (

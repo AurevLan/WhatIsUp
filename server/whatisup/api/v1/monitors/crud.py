@@ -20,7 +20,11 @@ from whatisup.api.deps import (
 from whatisup.api.v1.monitors._common import _get_monitor_or_404
 from whatisup.core.database import dialect_name, get_db
 from whatisup.core.limiter import limiter
-from whatisup.core.security import encrypt_scenario_variables, generate_heartbeat_token
+from whatisup.core.security import (
+    encrypt_custom_headers,
+    encrypt_scenario_variables,
+    generate_heartbeat_token,
+)
 from whatisup.models.monitor import Monitor, MonitorGroup, monitor_tags
 from whatisup.models.result import CheckResult
 from whatisup.models.tag import Tag
@@ -271,7 +275,7 @@ async def create_monitor(
         body_regex=payload.body_regex,
         expected_headers=payload.expected_headers,
         json_schema=payload.json_schema,
-        custom_headers=payload.custom_headers,
+        custom_headers=encrypt_custom_headers(payload.custom_headers),
         slo_target=payload.slo_target,
         slo_window_days=payload.slo_window_days,
         dns_drift_alert=payload.dns_drift_alert,
@@ -466,6 +470,8 @@ async def update_monitor(
             # (empty value means "unchanged" when the UI re-submits masked data)
             non_empty = [v for v in value if not (v.get("secret") and not v.get("value"))]
             value = encrypt_scenario_variables(non_empty)
+        elif field == "custom_headers" and value is not None:
+            value = encrypt_custom_headers(value)
         setattr(monitor, field, value)
 
     # Backfill heartbeat_token whenever a slug is set without a token

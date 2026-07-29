@@ -35,6 +35,21 @@ on:
         description: "Tag to release (e.g. v1.9.0). Must already exist on the repo."
         required: true
         type: string
+    # Declared explicitly so the caller can forward exactly these and nothing
+    # else (`secrets: inherit` would hand over every secret in the repo).
+    secrets:
+      ANDROID_KEYSTORE_BASE64:
+        description: "base64 of release.keystore — required to sign the release APK"
+        required: true
+      ANDROID_KEYSTORE_PASSWORD:
+        required: true
+      ANDROID_KEY_ALIAS:
+        required: true
+      ANDROID_KEY_PASSWORD:
+        required: true
+      GOOGLE_SERVICES_JSON_BASE64:
+        description: "base64 of google-services.json — optional, FCM push only"
+        required: false
   workflow_dispatch:
     inputs:
       tag:
@@ -51,7 +66,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           ref: ${{ inputs.tag || github.ref }}
 
@@ -129,7 +144,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           ref: ${{ inputs.tag || github.ref_name }}
 
@@ -207,7 +222,7 @@ jobs:
             -Pandroid.injected.signing.key.password=$ANDROID_KEY_PASSWORD
 
       - name: Attach APK to GitHub release
-        uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b  # v3
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228  # v3
         with:
           tag_name: ${{ inputs.tag || github.ref_name }}
           files: frontend/android/app/build/outputs/apk/release/app-release.apk

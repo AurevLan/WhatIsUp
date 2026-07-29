@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+from email.message import EmailMessage
+from html import escape
 
 import aiosmtplib
 from sqlalchemy import select
 
 from whatisup.core.config import get_settings
+from whatisup.core.validators import is_valid_email
 from whatisup.models.monitor import Monitor, MonitorGroup
 
 logger = logging.getLogger(__name__)
@@ -41,9 +42,9 @@ async def generate_group_report(db, group: MonitorGroup) -> str:
         rows_html += (
             f"<tr>"
             f'<td style="padding:8px 12px;border-bottom:1px solid #1e2d3d;color:#e4ecf4;">'
-            f"{m.name}</td>"
+            f"{escape(m.name or '')}</td>"
             f'<td style="padding:8px 12px;border-bottom:1px solid #1e2d3d;color:#e4ecf4;">'
-            f"{m.check_type}</td>"
+            f"{escape(str(m.check_type))}</td>"
             f'<td style="padding:8px 12px;border-bottom:1px solid #1e2d3d;'
             f'color:{color};font-weight:600;">{uptime:.2f}%</td>'
             f"</tr>"
@@ -58,7 +59,7 @@ async def generate_group_report(db, group: MonitorGroup) -> str:
         f'<h1 style="font-size:20px;color:#4f9cf9;margin-bottom:4px;">'
         f"WhatIsUp &mdash; {period_label} SLA Report</h1>"
         f'<p style="font-size:13px;color:#8899aa;margin-bottom:24px;">'
-        f"Group: <strong>{group.name}</strong> &mdash; "
+        f"Group: <strong>{escape(group.name or '')}</strong> &mdash; "
         f"{datetime.now(UTC).strftime('%Y-%m-%d')}</p>"
         '<table style="width:100%;border-collapse:collapse;background:#131920;'
         'border-radius:8px;overflow:hidden;">'
@@ -85,12 +86,29 @@ async def send_report_email(emails: list[str], subject: str, html_body: str) -> 
         logger.warning("report_email_skipped_no_smtp")
         return
 
+    # Le sujet porte le nom du groupe, libre de caractères : on aplatit les
+    # sauts de ligne plutôt que de laisser la policy lever au moment de
+    # l'envoi — un nom hostile ne doit pas empêcher la livraison du rapport.
+    subject = " ".join(subject.split())
+
     for recipient in emails:
-        msg = MIMEMultipart("alternative")
+        # Second garde-fou, après le validateur de schéma : l'import IaC
+        # (`PUT /config/`) écrit `report_emails` depuis un dict brut, sans
+        # passer par `MonitorGroupCreate/Update`, et les lignes écrites avant
+        # ce correctif sont toujours en base (audit F7).
+        if not is_valid_email(recipient):
+            logger.warning("report_email_recipient_rejected", extra={"group_subject": subject})
+            continue
+
+        # `EmailMessage` (policy moderne) refuse un CR/LF dans un en-tête, là
+        # où `MIMEMultipart` (compat32) sérialisait la valeur brute — c'est ce
+        # qui permettait d'injecter un `Bcc:` par le nom du groupe ou une
+        # adresse destinataire.
+        msg = EmailMessage()
         msg["Subject"] = subject
         msg["From"] = settings.smtp_from
         msg["To"] = recipient
-        msg.attach(MIMEText(html_body, "html"))
+        msg.set_content(html_body, subtype="html")
 
         try:
             await aiosmtplib.send(

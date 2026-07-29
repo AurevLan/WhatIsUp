@@ -7,7 +7,7 @@
 #
 # On first boot, the server automatically:
 #   - Creates admin@local with a random password (check: docker compose logs server)
-#   - Registers Central-Probe and writes its API key to /shared/PROBE_API_KEY
+#   - Registers Central-Probe and writes its API key to /probe-secrets/PROBE_API_KEY
 #
 # SSL: nginx/ssl/cert.pem + key.pem requis (générez-les avec deploy.sh ou openssl)
 #
@@ -68,7 +68,11 @@ services:
       context: ./server
       dockerfile: Dockerfile
     volumes:
+      # `shared` reste réservé au serveur : il porte le mot de passe superadmin
+      # du premier boot. Seule la clé de la sonde transite par `probe_secrets`,
+      # le seul volume monté dans la sonde (audit F15).
       - shared:/shared
+      - probe_secrets:/probe-secrets
       - ./extension:/app/extension:ro
       # FCM service account (gitignored). The path is configured in env so the
       # server falls back gracefully when the file is missing.
@@ -169,7 +173,9 @@ services:
     build:
       context: ./probe
     volumes:
-      - shared:/shared:ro
+      # Uniquement la clé d'API : la sonde exécute des checks sortants contre
+      # des cibles hostiles, elle ne doit pas pouvoir lire /shared (audit F15).
+      - probe_secrets:/probe-secrets:ro
     environment:
       CENTRAL_API_URL: http://server:8000
       PROBE_API_KEY: ${PROBE_API_KEY:-}
@@ -245,3 +251,4 @@ volumes:
   postgres_data:
   redis_data:
   shared:
+  probe_secrets:

@@ -1,6 +1,7 @@
 """Monitor configuration export / import."""
 
 import logging
+import uuid
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
@@ -9,13 +10,18 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.api.deps import (
+    assert_can_assign_group,
     build_access_filter,
     get_current_user,
     get_user_team_ids,
 )
 from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
-from whatisup.core.security import generate_heartbeat_token
+from whatisup.core.security import (
+    encrypt_custom_headers,
+    encrypt_scenario_variables,
+    generate_heartbeat_token,
+)
 from whatisup.models.monitor import Monitor
 from whatisup.models.user import User
 from whatisup.schemas.monitor import (
@@ -164,8 +170,34 @@ async def import_monitors(
             errors.append(f"Entry {idx} ({name}): missing 'url' field")
             continue
 
+        # SEC-M1 / audit F2: the import payload is raw attacker-controlled JSON.
+        # ``group_id`` is a config field, so without this check a user could
+        # attach their own monitor to another tenant's group and have it render
+        # on the victim's public status page. Mirrors create_monitor /
+        # update_monitor, which both call assert_can_assign_group.
+        group_id = entry.get("group_id")
+        if group_id is not None:
+            try:
+                group_uuid = uuid.UUID(str(group_id))
+            except ValueError:
+                errors.append(f"Entry {idx} ({name}): invalid 'group_id'")
+                continue
+            try:
+                await assert_can_assign_group(db, current_user, group_uuid)
+            except HTTPException:
+                errors.append(f"Entry {idx} ({name}): group not found or not accessible")
+                continue
+            entry = {**entry, "group_id": group_uuid}
+
         try:
             data = {k: v for k, v in entry.items() if k in config_fields and v is not None}
+            # Credential-bearing fields are encrypted at rest by the typed
+            # endpoints; the raw-JSON import must do the same (audit F18 pour
+            # custom_headers, bug adjacent du lot S1 pour scenario_variables).
+            if data.get("scenario_variables"):
+                data["scenario_variables"] = encrypt_scenario_variables(data["scenario_variables"])
+            if data.get("custom_headers"):
+                data["custom_headers"] = encrypt_custom_headers(data["custom_headers"])
 
             if name in existing_by_name:
                 # Update existing

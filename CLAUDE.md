@@ -99,7 +99,13 @@ get_current_probe   # X-Probe-Api-Key (bcrypt + cache Redis SHA-256[:32], TTL 60
 - JWT WebSocket : auth par message `{"type":"auth","token":"..."}` — jamais `?token=` dans l'URL (ANSSI)
 - Secrets alert : `encrypt_channel_config(config)` avant DB, `decrypt_channel_config(config)` au dispatch
 - Champs chiffrés Fernet (`_SECRET_FIELDS` dans `core/security.py`) : `secret` (dont HMAC webhook), `bot_token`, `password`, `integration_key` (PagerDuty), `api_key` (Opsgenie) — PAS `webhook_url` (non chiffré, choix assumé)
+- `Monitor.custom_headers` : valeurs chiffrées via `encrypt_custom_headers()` / `decrypt_custom_headers()` (noms en clair). Tout nouveau chemin d'écriture (CRUD, import JSON, import IaC) doit chiffrer ; tout chemin de lecture destiné à la probe ou à l'export doit déchiffrer. Pas de masquage : le formulaire d'édition relit et resoumet ces valeurs
+- Erreurs de canaux d'alerte : jamais `str(exc)` brut dans un log ou une réponse (l'URL httpx peut porter le token) → `redact_secrets(str(exc), decrypted_config)` de `services/channels/_helpers.py`. Côté probe, `_redact_secrets(text, variables)` avant tout `error_message` / `final_url` de scénario
 - URLs HTTP sortantes : appeler `_validate_webhook_url(url)` avant tout `httpx.post` (SSRF)
+- Emails : destinataires validés par `core/validators.is_valid_email` (aucun CR/LF → pas d'injection d'en-tête), construction via `EmailMessage` (jamais `MIMEMultipart`/compat32), sujet aplati (`" ".join(s.split())`), et `html.escape()` sur toute valeur utilisateur interpolée dans un corps HTML (nom de monitor/groupe, type, portée)
+- Code généré destiné à être exécuté (export Playwright de l'extension) : `_escJs()` pour l'intérieur des littéraux, `_num()` pour les positions **non entourées de guillemets** — une valeur non numérique y devient du code
+- Sonde — toute connexion sortante (socket, subprocess, httpx) passe par `_ssrf_resolve_pinned_sync(host)` puis vise **l'IP retournée**, jamais le nom : une seconde résolution rouvre une fenêtre de rebinding. Pour les binaires : `curl --resolve host:port:ip`, `openssl -connect ip:port -servername host`
+- Sonde — motifs et `json_schema` fournis par un tenant : jamais `re`/`jsonschema.validate` en direct → `safe_search` / `validate_json_schema_sync` de `checkers/_regex_guard.py` (moteur `regex` interruptible + pool de threads isolé de l'executor par défaut). `asyncio.wait_for` autour d'un `run_in_executor` n'arrête pas le thread
 - `AlertRule` delete / `list_events` : toujours vérifier `owner_id` via JOIN — sans filtre = fuite cross-user
 - Nouveaux endpoints : `@limiter.limit("X/minute")` + `request: Request` (slowapi)
 - CORS production : pas de wildcard `*` ; origines HTTP rejetées au démarrage (`config.py`)

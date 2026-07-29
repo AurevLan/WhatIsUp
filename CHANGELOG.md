@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.17.2](https://github.com/AurevLan/WhatIsUp/compare/v1.17.1...v1.17.2) (2026-07-29)
+
+
+### Fixed
+
+* **security:** bind the SSO login to the browser that started it — S7 (F11) ([#323](https://github.com/AurevLan/WhatIsUp/issues/323)) ([37d166a](https://github.com/AurevLan/WhatIsUp/commit/37d166ad9a6a982821eb0e670806887245155966))
+* **security:** cross-tenant import + OIDC identity binding — audit S1 (F2, F16) ([#302](https://github.com/AurevLan/WhatIsUp/issues/302)) ([a975215](https://github.com/AurevLan/WhatIsUp/commit/a975215b8e019e7800047c062e9b8c6c34db5f38))
+* **security:** escape user content in generated emails and specs — S4 ([#320](https://github.com/AurevLan/WhatIsUp/issues/320)) ([678886a](https://github.com/AurevLan/WhatIsUp/commit/678886a11690ad8d12f0db6fb1b8761c3e30bca2))
+* **security:** fail closed on metrics and split first-boot secrets — S6 ([#322](https://github.com/AurevLan/WhatIsUp/issues/322)) ([bf7f615](https://github.com/AurevLan/WhatIsUp/commit/bf7f6151b6e204c63a8b6ea2f603f7b8589c1ea2))
+* **security:** pin probe egress and bound tenant-supplied CPU work — S5 ([#321](https://github.com/AurevLan/WhatIsUp/issues/321)) ([bd8f179](https://github.com/AurevLan/WhatIsUp/commit/bd8f179cf761d615f1790913d5e5315781d8fa4a))
+* **security:** stop leaking channel and scenario secrets — S3 ([#319](https://github.com/AurevLan/WhatIsUp/issues/319)) ([a84f8ba](https://github.com/AurevLan/WhatIsUp/commit/a84f8ba2930c99944dd2a6e6a685d64aa277a4e1))
+* **security:** stop trusting client-supplied X-Forwarded-For — F4/F13/F14 ([#303](https://github.com/AurevLan/WhatIsUp/issues/303)) ([3f7683e](https://github.com/AurevLan/WhatIsUp/commit/3f7683eccccd00ac57b6a878dc1671d28b6d983f))
+
+
+### Docs
+
+* **security:** solder l'audit 2026-07-24 et remettre SECURITY.md d'aplomb ([#325](https://github.com/AurevLan/WhatIsUp/issues/325)) ([87cb59e](https://github.com/AurevLan/WhatIsUp/commit/87cb59ec441db65beb04cb458cf5ef72f7adaf7e))
+
 ## [1.17.1](https://github.com/AurevLan/WhatIsUp/compare/v1.17.0...v1.17.1) (2026-07-24)
 
 

@@ -1,17 +1,20 @@
 """Authentication endpoints: register, login, refresh, logout, me, OIDC."""
 
 import hashlib
+import json
 import os
+import secrets as _secrets
 import uuid
 from base64 import urlsafe_b64encode
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 
 import httpx
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from jwt.exceptions import InvalidTokenError
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -186,6 +189,12 @@ async def login(
     from whatisup.services.audit import log_action
 
     await log_action(db, "user.login", "user", user.id, user.username, None)
+    if user.is_superadmin:
+        # Le mot de passe du premier boot a servi : on retire le fichier au lieu
+        # d'en conseiller la suppression (audit F15).
+        from whatisup.init_data import consume_admin_password_file
+
+        consume_admin_password_file()
     return LoginResponse(access_token=access, refresh_token=refresh)
 
 
@@ -364,6 +373,81 @@ async def _oidc_discover(issuer: str) -> dict:
         return resp.json()
 
 
+def _email_is_verified(userinfo: dict) -> bool:
+    """Whether the provider asserts the ``email`` claim was verified.
+
+    OIDC core defines ``email_verified`` as a boolean, but providers in the wild
+    also send the strings ``"true"`` / ``"1"``. A missing claim is treated as
+    *not* verified: an IdP that never asserts verification cannot be used to
+    bind an email address to an account (audit F16).
+    """
+    raw = userinfo.get("email_verified")
+    if isinstance(raw, bool):
+        return raw
+    if isinstance(raw, str):
+        return raw.strip().lower() in ("true", "1", "yes")
+    return raw == 1
+
+
+# ── Liaison de la connexion OIDC au navigateur qui l'a initiée ───────────────
+#
+# Le callback renvoyait la paire de jetons dans le fragment d'URL. N'importe
+# qui pouvait donc terminer sa propre connexion OIDC, récupérer le fragment, et
+# envoyer à une victime un lien `/oidc-callback#access_token=…` : le navigateur
+# de la victime enregistrait la session de l'attaquant (login CSRF / fixation
+# de session), et tout ce que la victime saisissait ensuite atterrissait dans
+# le compte de l'attaquant (audit F11).
+#
+# Deux changements, indissociables :
+#   1. un nonce en cookie HttpOnly posé avant la redirection vers l'IdP, exigé
+#      au retour — un flux qui n'a pas commencé dans ce navigateur est refusé ;
+#   2. plus aucun jeton dans une URL : le callback ne renvoie qu'un code opaque
+#      à usage unique, échangé par le front contre les jetons, échange lui-même
+#      lié au même cookie.
+#
+# Le seul code ne suffirait pas : un attaquant peut fabriquer un lien portant
+# *son* code frais. C'est le cookie qui ferme la porte, aux deux étapes.
+_OIDC_NONCE_COOKIE = "wiu_oidc_nonce"
+_OIDC_NONCE_PATH = "/api/v1/auth/oidc"
+_OIDC_STATE_TTL = 300  # secondes — durée de vie d'une tentative de connexion
+_OIDC_HANDOFF_TTL = 60  # secondes — le front échange le code immédiatement
+
+
+def _hash_nonce(value: str) -> str:
+    """Empreinte du nonce : Redis ne stocke jamais la valeur du cookie."""
+    return hashlib.sha256(value.encode()).hexdigest()
+
+
+def _nonce_matches(request: Request, expected_hash: str) -> bool:
+    cookie = request.cookies.get(_OIDC_NONCE_COOKIE)
+    if not cookie or not expected_hash:
+        return False
+    return _secrets.compare_digest(_hash_nonce(cookie), expected_hash)
+
+
+def _nonce_cookie_samesite(request: Request) -> str:
+    """`lax` dans le déploiement livré, `none` si le front est sur un autre hôte.
+
+    nginx sert le front et proxifie `/api` : l'échange est alors same-origin et
+    `lax` suffit (le retour de l'IdP est une navigation GET de premier niveau,
+    que `lax` autorise). Si l'opérateur héberge le front sur un hôte distinct
+    de l'API, l'échange devient une requête cross-site que `lax` bloquerait :
+    le cookie ne partirait jamais et *toute* connexion SSO échouerait.
+    `none` exige `Secure`, donc HTTPS — garanti en production, où les origines
+    HTTP sont refusées au démarrage ; hors production on reste en `lax`, un
+    cookie `SameSite=None` non sécurisé étant ignoré par les navigateurs.
+
+    Ce n'est pas SameSite qui protège ici : le nonce est imprévisible et
+    HttpOnly, et c'est sa valeur qui est vérifiée aux deux étapes.
+    """
+    settings = get_settings()
+    if not settings.is_production:
+        return "lax"
+    origins = settings.cors_allowed_origins
+    frontend_host = urlparse(origins[0]).hostname if origins else None
+    return "none" if frontend_host and frontend_host != request.url.hostname else "lax"
+
+
 @router.get("/oidc/login")
 @limiter.limit("20/minute")
 async def oidc_login(request: Request, db: AsyncSession = Depends(get_db)) -> RedirectResponse:
@@ -381,16 +465,21 @@ async def oidc_login(request: Request, db: AsyncSession = Depends(get_db)) -> Re
             detail="OIDC provider unreachable",
         )
 
-    # Generate state + PKCE code_verifier
+    # Generate state + PKCE code_verifier + nonce de liaison navigateur
     state = urlsafe_b64encode(os.urandom(32)).rstrip(b"=").decode()
     code_verifier = urlsafe_b64encode(os.urandom(32)).rstrip(b"=").decode()
+    nonce = urlsafe_b64encode(os.urandom(32)).rstrip(b"=").decode()
     code_challenge = (
         urlsafe_b64encode(hashlib.sha256(code_verifier.encode()).digest()).rstrip(b"=").decode()
     )
 
     # Persist in Redis (5-minute TTL)
     redis = get_redis()
-    await redis.setex(f"whatisup:oidc:state:{state}", 300, code_verifier)
+    await redis.setex(
+        f"whatisup:oidc:state:{state}",
+        _OIDC_STATE_TTL,
+        json.dumps({"verifier": code_verifier, "nonce": _hash_nonce(nonce)}),
+    )
 
     base = str(request.base_url).rstrip("/")
     redirect_uri = cfg["redirect_uri"] or f"{base}/api/v1/auth/oidc/callback"
@@ -405,7 +494,17 @@ async def oidc_login(request: Request, db: AsyncSession = Depends(get_db)) -> Re
         "code_challenge_method": "S256",
     }
     auth_url = discovery["authorization_endpoint"] + "?" + urlencode(params)
-    return RedirectResponse(url=auth_url, status_code=302)
+    redirect = RedirectResponse(url=auth_url, status_code=302)
+    redirect.set_cookie(
+        _OIDC_NONCE_COOKIE,
+        nonce,
+        max_age=_OIDC_STATE_TTL,
+        httponly=True,
+        secure=get_settings().is_production,
+        samesite=_nonce_cookie_samesite(request),
+        path=_OIDC_NONCE_PATH,
+    )
+    return redirect
 
 
 @router.get("/oidc/callback")
@@ -447,12 +546,27 @@ async def oidc_callback(
     # Validate state and retrieve code_verifier
     redis = get_redis()
     redis_key = f"whatisup:oidc:state:{state}"
-    code_verifier = await redis.get(redis_key)
-    if not code_verifier:
+    raw_state = await redis.get(redis_key)
+    if not raw_state:
         return _fail("invalid_state")
     await redis.delete(redis_key)
-    if isinstance(code_verifier, bytes):
-        code_verifier = code_verifier.decode()
+    if isinstance(raw_state, bytes):
+        raw_state = raw_state.decode()
+
+    try:
+        state_data = json.loads(raw_state)
+        code_verifier = state_data["verifier"]
+        nonce_hash = state_data["nonce"]
+    except (ValueError, TypeError, KeyError):
+        # Format d'avant la liaison navigateur : une tentative de connexion
+        # entamée juste avant la mise à jour. On refuse plutôt que d'accepter
+        # sans nonce — l'utilisateur relance la connexion (fenêtre : 5 min).
+        return _fail("invalid_state")
+
+    # Ce flux a-t-il commencé dans *ce* navigateur ? (audit F11)
+    if not _nonce_matches(request, nonce_hash):
+        logger.warning("oidc_nonce_mismatch")
+        return _fail("state_mismatch")
 
     try:
         discovery = await _oidc_discover(cfg["issuer_url"])
@@ -505,6 +619,15 @@ async def oidc_callback(
     user = (await db.execute(select(User).where(User.oidc_sub == sub))).scalar_one_or_none()
 
     if user is None:
+        # Audit F16: binding an identity by email address is only safe when the
+        # provider asserts the address was verified. Without this check, an IdP
+        # that allows unverified-email signups lets an attacker register
+        # victim@corp.com there and take over the victim's local account (or
+        # squat their address through auto-provisioning).
+        if not _email_is_verified(userinfo):
+            logger.warning("oidc_email_not_verified", sub=sub)
+            return _fail("email_not_verified")
+
         # Try to find by email (link existing account)
         user = (await db.execute(select(User).where(User.email == email))).scalar_one_or_none()
         if user:
@@ -539,6 +662,69 @@ async def oidc_callback(
 
     await db.flush()
 
+    # Code opaque à usage unique au lieu des jetons : rien de porteur ne
+    # transite par une URL, et l'échange reste lié au même cookie (audit F11).
+    # Les jetons sont émis à l'échange, donc les métadonnées de session (UA/IP)
+    # décrivent le navigateur qui ouvre réellement la session.
+    handoff = urlsafe_b64encode(os.urandom(32)).rstrip(b"=").decode()
+    await redis.setex(
+        f"whatisup:oidc:handoff:{handoff}",
+        _OIDC_HANDOFF_TTL,
+        json.dumps({"user_id": str(user.id), "nonce": nonce_hash}),
+    )
+
+    logger.info("oidc_callback_ok", user_id=str(user.id))
+    return RedirectResponse(
+        url=f"{frontend_url}/oidc-callback#code={handoff}",
+        status_code=302,
+    )
+
+
+class OidcExchangeIn(BaseModel):
+    code: str = Field(min_length=16, max_length=128)
+
+
+@router.post("/oidc/exchange", response_model=TokenResponse)
+@limiter.limit("20/minute")
+async def oidc_exchange(
+    request: Request,
+    payload: OidcExchangeIn,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+) -> TokenResponse:
+    """Échange le code opaque du callback contre la paire de jetons.
+
+    Refuse tout appel qui ne vient pas du navigateur ayant initié la connexion :
+    c'est cette vérification qui rend inopérant un lien `/oidc-callback#code=…`
+    fabriqué par un tiers (audit F11).
+    """
+    invalid = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired login code"
+    )
+
+    redis = get_redis()
+    key = f"whatisup:oidc:handoff:{payload.code}"
+    raw = await redis.get(key)
+    if not raw:
+        raise invalid
+    await redis.delete(key)  # usage unique, consommé même si la suite échoue
+
+    if isinstance(raw, bytes):
+        raw = raw.decode()
+    try:
+        data = json.loads(raw)
+        user_id = uuid.UUID(data["user_id"])
+    except (ValueError, TypeError, KeyError):
+        raise invalid
+
+    if not _nonce_matches(request, data.get("nonce", "")):
+        logger.warning("oidc_exchange_nonce_mismatch")
+        raise invalid
+
+    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if user is None or not user.is_active:
+        raise invalid
+
     access = create_access_token(str(user.id))
     refresh = create_refresh_token(str(user.id))
     # Same session bookkeeping as the classic login flow: UA/IP/created_at
@@ -546,13 +732,19 @@ async def oidc_callback(
     # with a hardcoded 7-day TTL, invisible in the active-sessions UI).
     await store_refresh_session(user.id, refresh, request)
 
-    logger.info("oidc_login_success", user_id=str(user.id))
     from whatisup.services.audit import log_action
 
     await log_action(db, "user.login_oidc", "user", user.id, user.username, None)
+    logger.info("oidc_login_success", user_id=str(user.id))
 
-    # Use URL fragment (#) to avoid token leakage in server logs and Referer headers
-    return RedirectResponse(
-        url=f"{frontend_url}/oidc-callback#access_token={access}&refresh_token={refresh}",
-        status_code=302,
+    # Le nonce a servi : il ne doit pas pouvoir couvrir un second échange.
+    # Mêmes attributs qu'à la pose, sinon le navigateur garde le cookie posé
+    # en Secure/SameSite=None et ne voit pas la suppression.
+    response.delete_cookie(
+        _OIDC_NONCE_COOKIE,
+        path=_OIDC_NONCE_PATH,
+        httponly=True,
+        secure=get_settings().is_production,
+        samesite=_nonce_cookie_samesite(request),
     )
+    return TokenResponse(access_token=access, refresh_token=refresh)

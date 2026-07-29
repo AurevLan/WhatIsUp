@@ -69,7 +69,13 @@ class _FakeResponse:
 
 
 class _FakeHttpxClient:
-    """Stands in for httpx.AsyncClient inside oidc_callback (token + userinfo)."""
+    """Stands in for httpx.AsyncClient inside oidc_callback (token + userinfo).
+
+    ``userinfo_overrides`` lets a test tweak the claims the fake IdP returns
+    (e.g. drop ``email_verified``).
+    """
+
+    userinfo_overrides: dict = {}
 
     def __init__(self, *args, **kwargs) -> None:
         pass
@@ -88,8 +94,10 @@ class _FakeHttpxClient:
             {
                 "sub": "oidc-sub-123",
                 "email": "sso.user@test.com",
+                "email_verified": True,
                 "preferred_username": "sso_user",
                 "name": "SSO User",
+                **self.userinfo_overrides,
             }
         )
 
@@ -126,19 +134,35 @@ async def test_oidc_callback_stores_session_metadata(
     monkeypatch.setattr(auth_module, "_oidc_discover", _fake_discover)
     monkeypatch.setattr(auth_module.httpx, "AsyncClient", _FakeHttpxClient)
 
-    # Seed the PKCE state exactly as /oidc/login would
-    await fake_redis.setex("whatisup:oidc:state:teststate", 300, "verifier123")
+    # Seed the PKCE state exactly as /oidc/login would (verifier + nonce
+    # fingerprint — the browser binding added by S7, see
+    # test_security_oidc_handoff.py)
+    nonce = "nonce-session-parity"
+    await fake_redis.setex(
+        "whatisup:oidc:state:teststate",
+        300,
+        json.dumps(
+            {"verifier": "verifier123", "nonce": hashlib.sha256(nonce.encode()).hexdigest()}
+        ),
+    )
 
     resp = await client.get(
         "/api/v1/auth/oidc/callback",
         params={"code": "authcode", "state": "teststate"},
-        headers={"User-Agent": "OIDC-Device"},
+        headers={"User-Agent": "OIDC-Device", "Cookie": f"wiu_oidc_nonce={nonce}"},
         follow_redirects=False,
     )
     assert resp.status_code == 302, resp.text
-    location = resp.headers["location"]
-    assert "#access_token=" in location and "refresh_token=" in location
-    refresh_token = location.split("refresh_token=")[1].split("&")[0]
+    # Tokens are minted at the exchange, so that is where the session metadata
+    # is recorded — the callback only hands back a one-time code.
+    code = resp.headers["location"].split("#code=")[1]
+    exchange = await client.post(
+        "/api/v1/auth/oidc/exchange",
+        json={"code": code},
+        headers={"User-Agent": "OIDC-Device", "Cookie": f"wiu_oidc_nonce={nonce}"},
+    )
+    assert exchange.status_code == 200, exchange.text
+    refresh_token = exchange.json()["refresh_token"]
 
     user = (
         await db_session.execute(select(User).where(User.oidc_sub == "oidc-sub-123"))
@@ -153,3 +177,135 @@ async def test_oidc_callback_stores_session_metadata(
     assert meta["ua"] == "OIDC-Device"
     assert meta["created_at"]
     assert "ip" in meta
+
+
+# ── F16 — email_verified gate on identity binding ────────────────────────────
+
+
+async def _fake_oidc_settings(db) -> dict:
+    return {
+        "enabled": True,
+        "issuer_url": "https://idp.example.com",
+        "client_id": "whatisup",
+        "client_secret": "secret",
+        "redirect_uri": None,
+        "scopes": "openid email profile",
+        "auto_provision": True,
+    }
+
+
+async def _fake_oidc_discover(issuer: str) -> dict:
+    return {
+        "authorization_endpoint": "https://idp.example.com/authorize",
+        "token_endpoint": "https://idp.example.com/token",
+        "userinfo_endpoint": "https://idp.example.com/userinfo",
+    }
+
+
+async def _run_callback(
+    client: AsyncClient,
+    fake_redis: FakeRedis,
+    monkeypatch: pytest.MonkeyPatch,
+    userinfo_overrides: dict,
+    state: str = "f16state",
+):
+    monkeypatch.setattr(auth_module, "_resolve_oidc_settings", _fake_oidc_settings)
+    monkeypatch.setattr(auth_module, "_oidc_discover", _fake_oidc_discover)
+    monkeypatch.setattr(_FakeHttpxClient, "userinfo_overrides", userinfo_overrides)
+    monkeypatch.setattr(auth_module.httpx, "AsyncClient", _FakeHttpxClient)
+    # État au format S7 : verifier + empreinte du nonce, et le cookie posé par
+    # /oidc/login doit accompagner le retour — sans lui le callback s'arrête sur
+    # `invalid_state` avant même de regarder les claims (voir
+    # test_security_oidc_handoff.py).
+    nonce = f"nonce-{state}"
+    await fake_redis.setex(
+        f"whatisup:oidc:state:{state}",
+        300,
+        json.dumps(
+            {"verifier": "verifier123", "nonce": hashlib.sha256(nonce.encode()).hexdigest()}
+        ),
+    )
+    return await client.get(
+        "/api/v1/auth/oidc/callback",
+        params={"code": "authcode", "state": state},
+        headers={"Cookie": f"wiu_oidc_nonce={nonce}"},
+        follow_redirects=False,
+    )
+
+
+@pytest.mark.asyncio
+async def test_oidc_callback_refuses_unverified_email(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    fake_redis: FakeRedis,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An IdP that does not assert email_verified must not bind an identity.
+
+    Otherwise an attacker who signs up at the IdP with the victim's address
+    takes over the victim's local account (audit F16).
+    """
+    victim = User(
+        email="sso.user@test.com",
+        username="victim_local",
+        hashed_password="x",
+    )
+    db_session.add(victim)
+    await db_session.commit()
+
+    resp = await _run_callback(
+        client, fake_redis, monkeypatch, {"email_verified": False}, state="f16-false"
+    )
+    assert resp.status_code == 302
+    assert "error=email_not_verified" in resp.headers["location"]
+    assert "access_token" not in resp.headers["location"]
+
+    await db_session.refresh(victim)
+    assert victim.oidc_sub is None  # no identity was bound to the local account
+
+
+@pytest.mark.asyncio
+async def test_oidc_callback_refuses_missing_email_verified_claim(
+    client: AsyncClient,
+    fake_redis: FakeRedis,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+) -> None:
+    """A missing email_verified claim is treated as unverified (fail closed)."""
+    resp = await _run_callback(
+        client,
+        fake_redis,
+        monkeypatch,
+        {"email_verified": None},
+        state="f16-missing",
+    )
+    assert resp.status_code == 302
+    assert "error=email_not_verified" in resp.headers["location"]
+
+    user = (
+        await db_session.execute(select(User).where(User.email == "sso.user@test.com"))
+    ).scalar_one_or_none()
+    assert user is None  # auto-provisioning did not run either
+
+
+@pytest.mark.asyncio
+async def test_oidc_callback_accepts_string_true_email_verified(
+    client: AsyncClient,
+    fake_redis: FakeRedis,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+) -> None:
+    """Providers that serialise email_verified as the string "true" still work."""
+    resp = await _run_callback(
+        client, fake_redis, monkeypatch, {"email_verified": "true"}, state="f16-str"
+    )
+    assert resp.status_code == 302
+    # Le callback ne rend qu'un code opaque : la liaison a bien eu lieu, mais
+    # aucun jeton ne transite par l'URL (S7).
+    assert "#code=" in resp.headers["location"]
+    assert "access_token" not in resp.headers["location"]
+
+    user = (
+        await db_session.execute(select(User).where(User.oidc_sub == "oidc-sub-123"))
+    ).scalar_one()
+    assert user.email == "sso.user@test.com"

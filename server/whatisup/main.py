@@ -265,14 +265,19 @@ def create_app() -> FastAPI:
     # logs / test client exactly as before.
     app.add_exception_handler(Exception, unhandled_exception_handler)
 
-    # Trust proxy headers from nginx — `trusted_hosts` expects client IPs (the
-    # reverse proxy's IP), not CORS origin URLs. Passing a list like
-    # ['https://whatisup.aurevan.com'] silently disables the middleware and
-    # breaks X-Forwarded-Proto: redirects (e.g. FastAPI's trailing-slash 307 on
-    # `/probes` → `/probes/`) are then emitted with scheme `http`, which the
-    # browser blocks under HTTPS. The API container is only reachable via nginx
-    # on the internal docker network, so wildcard trust is safe here.
-    app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
+    # Trust proxy headers only from the configured reverse proxy (audit
+    # F4/F13/F14). `trusted_hosts` expects client IPs or CIDRs — never CORS
+    # origin URLs: a list like ['https://whatisup.aurevan.com'] silently
+    # disables the middleware and breaks X-Forwarded-Proto, so redirects (e.g.
+    # FastAPI's trailing-slash 307 on `/probes` → `/probes/`) come out with
+    # scheme `http` and the browser blocks them under HTTPS.
+    #
+    # It used to be "*", which makes uvicorn take the *leftmost* X-Forwarded-For
+    # entry — the one the client itself supplied. Every per-IP rate limit (login
+    # throttle included) and every audit-log source IP was therefore forgeable
+    # by rotating a header. With a restricted list, uvicorn walks the chain from
+    # the right and stops at the first untrusted hop: the real peer.
+    app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=settings.trusted_proxy_list)
 
     # Request size limit (5 MB)
     app.add_middleware(MaxRequestSizeMiddleware)
@@ -376,18 +381,31 @@ def create_app() -> FastAPI:
         from prometheus_fastapi_instrumentator import Instrumentator
 
         def _require_metrics_access(authorization: str | None = Header(default=None)) -> None:
-            """Defence-in-depth gate on /api/metrics.
+            """Gate on /api/metrics — fail-closed en production (audit F5).
 
-            No-op unless ``METRICS_AUTH_TOKEN`` is configured (deployments already
-            restrict this endpoint at the reverse proxy — SECURITY.md §8). When
-            set, a constant-time bearer-token match is required.
+            L'ancienne version ne faisait rien tant que ``METRICS_AUTH_TOKEN``
+            était vide, en supposant que le reverse proxy filtrait déjà. Cette
+            hypothèse était fausse pour l'installation par défaut : le
+            `nginx.conf` livré routait `/api/metrics` par le bloc `/api/`
+            générique, et l'inventaire complet des routes, latences et codes de
+            retour était servi à n'importe qui. Le proxy livré refuse désormais
+            cet endpoint, et sans jeton configuré la production refuse aussi.
             """
-            token = get_settings().metrics_auth_token
+            settings = get_settings()
+            token = settings.metrics_auth_token
             if not token:
-                return
+                if settings.is_production:
+                    raise HTTPException(status_code=401, detail="Unauthorized")
+                return  # dev / test : ouvert, c'est un outil de mise au point
             expected = f"Bearer {token}"
             if not authorization or not _secrets.compare_digest(authorization, expected):
                 raise HTTPException(status_code=401, detail="Unauthorized")
+
+        if get_settings().is_production and not get_settings().metrics_auth_token:
+            logger.warning(
+                "metrics_endpoint_closed",
+                detail="METRICS_AUTH_TOKEN is unset — /api/metrics returns 401 in production",
+            )
 
         Instrumentator().instrument(app).expose(
             app,

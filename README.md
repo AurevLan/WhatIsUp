@@ -11,9 +11,9 @@
 <p align="center">
   <a href="https://github.com/AurevLan/WhatIsUp/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/AurevLan/WhatIsUp/actions/workflows/ci.yml/badge.svg?branch=main"></a>
   <a href="https://github.com/AurevLan/WhatIsUp/actions/workflows/codeql.yml"><img alt="CodeQL" src="https://github.com/AurevLan/WhatIsUp/actions/workflows/codeql.yml/badge.svg?branch=main"></a>
-  <a href="https://github.com/AurevLan/WhatIsUp/actions/workflows/plumber.yml"><img alt="Plumber compliance" src="https://github.com/AurevLan/WhatIsUp/actions/workflows/plumber.yml/badge.svg?branch=main"></a>
+  <a href="https://score.getplumber.io/github.com/AurevLan/WhatIsUp"><img alt="Plumber Score" src="https://score.getplumber.io/github.com/AurevLan/WhatIsUp.svg"></a>
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg"></a>
-  <img alt="Version" src="https://img.shields.io/badge/version-1.17.1"> <!-- x-release-please-version -->
+  <img alt="Version" src="https://img.shields.io/badge/version-1.17.2"> <!-- x-release-please-version -->
 </p>
 
 <p align="center">
@@ -337,12 +337,10 @@ docker compose ps
 | API (FastAPI) | http://localhost:8000 |
 | API docs (Swagger UI) | http://localhost:8000/docs |
 
-On first start an **admin account** and a **local probe** are created automatically. The admin password is written to `/shared/ADMIN_PASSWORD` inside the server container:
+On first start an **admin account** and a **local probe** are created automatically. The admin password is written to `/shared/ADMIN_PASSWORD` inside the server container — a volume the probe cannot read — and the file is **deleted automatically on the first successful admin login**:
 
 ```bash
 docker compose exec server cat /shared/ADMIN_PASSWORD
-# Delete the file after reading
-docker compose exec server rm /shared/ADMIN_PASSWORD
 ```
 
 ### Production deploy
@@ -694,7 +692,7 @@ bash deploy.sh
 
 - **JWT** — HS256, access 15 min + refresh 7 days, Redis-revocable; refresh tokens carry per-session metadata and are individually revocable
 - **2FA (TOTP)** — opt-in second factor (RFC 6238), recovery codes hashed at rest
-- **CI/CD supply chain** — every GitHub Actions workflow is SHA-pinned with least-privilege `permissions`; a [Plumber](https://getplumber.io) compliance gate (100% / A) runs on every PR (SARIF → Code Scanning); `main` is ruleset-protected (PR + required checks)
+- **CI/CD supply chain** — every GitHub Actions workflow is SHA-pinned with least-privilege `permissions`; a [Plumber](https://getplumber.io) compliance gate (100% / A) runs on every PR (SARIF → Code Scanning) and publishes the [live score](https://score.getplumber.io/github.com/AurevLan/WhatIsUp) badged at the top of this README; `main` is ruleset-protected (PR + required checks)
 - **OIDC / SSO** — PKCE authorization-code flow; `oidc_client_secret` encrypted at rest with Fernet; secret never returned by the API
 - **Probe auth** — `X-Probe-Api-Key` bcrypt 12 rounds + Redis cache 300 s
 - **WebSocket auth** — JSON message frame (`{"type":"auth","token":"…"}`), never URL parameter

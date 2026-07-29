@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import uuid
 from datetime import datetime
@@ -9,7 +10,41 @@ from typing import Literal
 
 from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from whatisup.core.validators import validate_email_list
 from whatisup.schemas.tag import TagOut
+
+# Aligné sur `EmailChannelConfig.to` : au-delà, la liste n'est plus une liste de
+# destinataires mais un relais de diffusion.
+_MAX_REPORT_EMAILS = 20
+
+
+def _validate_report_emails(v: list[str] | None) -> list[str] | None:
+    """Rejette toute adresse malformée dans `report_emails` (audit F7).
+
+    Ces valeurs sont posées telles quelles dans l'en-tête `To` du rapport SLA :
+    sans ce filtre, un CR/LF encapsulé injecte des en-têtes arbitraires (`Bcc`)
+    dans un mail émis depuis l'identité SMTP du serveur.
+    """
+    if v is None:
+        return v
+    if len(v) > _MAX_REPORT_EMAILS:
+        raise ValueError(f"report_emails: at most {_MAX_REPORT_EMAILS} recipients allowed")
+    return validate_email_list(v)
+
+
+# Le probe évalue ce schéma contre le corps de la réponse, avec un budget CPU
+# borné (`checkers/_regex_guard.py`, audit F8). Le refuser ici donne un 422 au
+# lieu d'un check qui échoue silencieusement à chaque cycle.
+_MAX_JSON_SCHEMA_BYTES = 64_000
+
+
+def _validate_json_schema_size(v: dict | None) -> dict | None:
+    if v is None:
+        return v
+    if len(json.dumps(v)) > _MAX_JSON_SCHEMA_BYTES:
+        raise ValueError(f"json_schema: at most {_MAX_JSON_SCHEMA_BYTES} bytes once serialized")
+    return v
+
 
 # ---------------------------------------------------------------------------
 # Scenario sub-schemas
@@ -151,6 +186,11 @@ class MonitorCreate(BaseModel):
     def valid_custom_headers(cls, v: dict[str, str] | None) -> dict[str, str] | None:
         return _validate_custom_headers(v)
 
+    @field_validator("json_schema")
+    @classmethod
+    def valid_json_schema_size(cls, v: dict | None) -> dict | None:
+        return _validate_json_schema_size(v)
+
     @field_validator("url", mode="before")
     @classmethod
     def url_to_string(cls, v):
@@ -242,6 +282,11 @@ class MonitorUpdate(BaseModel):
     @classmethod
     def valid_custom_headers(cls, v: dict[str, str] | None) -> dict[str, str] | None:
         return _validate_custom_headers(v)
+
+    @field_validator("json_schema")
+    @classmethod
+    def valid_json_schema_size(cls, v: dict | None) -> dict | None:
+        return _validate_json_schema_size(v)
 
 
 class MonitorOut(BaseModel):
@@ -340,6 +385,20 @@ class MonitorOut(BaseModel):
             for var in decrypted
         ]
 
+    @field_validator("custom_headers", mode="before")
+    @classmethod
+    def decrypt_custom_header_values(cls, v: dict | None) -> dict | None:
+        """Decrypt header values stored under Fernet (audit F18).
+
+        Not masked, unlike secret scenario variables: the edit form reads these
+        back and re-submits them, so masking would wipe them on every save.
+        """
+        if not v:
+            return v
+        from whatisup.core.security import decrypt_custom_headers
+
+        return decrypt_custom_headers(dict(v))
+
     model_config = {"from_attributes": True}
 
 
@@ -364,6 +423,11 @@ class MonitorGroupCreate(BaseModel):
     )
     public_custom_css: str | None = None
 
+    @field_validator("report_emails")
+    @classmethod
+    def valid_report_emails(cls, v: list[str] | None) -> list[str] | None:
+        return _validate_report_emails(v)
+
 
 class MonitorGroupUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -386,6 +450,11 @@ class MonitorGroupUpdate(BaseModel):
         default=None, max_length=7, pattern=r"^#[0-9a-fA-F]{6}$"
     )
     public_custom_css: str | None = None
+
+    @field_validator("report_emails")
+    @classmethod
+    def valid_report_emails(cls, v: list[str] | None) -> list[str] | None:
+        return _validate_report_emails(v)
 
 
 class MonitorGroupOut(BaseModel):

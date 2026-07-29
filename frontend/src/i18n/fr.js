@@ -1528,6 +1528,8 @@ export default {
     back_to_login: '← Retour à la connexion',
     signing_in: 'Connexion en cours…',
     missing_params: 'Paramètres manquants dans la réponse SSO.',
+    exchange_failed:
+      "Ce lien de connexion n'est plus valable. Relancez la connexion depuis ce navigateur.",
     profile_error: 'Impossible de récupérer le profil utilisateur.',
   },
 

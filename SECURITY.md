@@ -2,7 +2,9 @@
 
 > Garde-fou exécutif du projet : **chaque contrôle listé ici doit être actif en production**.
 > Conforme : OWASP Top 10 2021 · ANSSI RGS · NIST SP 800-63B · CWE Top 25.
-> Dernière revue exhaustive : **2026-04-29** (v1.5.0). Référence canonique : `FEATURES.md` §11.
+> Dernière revue exhaustive : **2026-07-28** — audit `claude-security` du 2026-07-24 (20 findings),
+> soldé par les lots S1→S7 (PRs #302, #303, #319, #320, #321, #322, #323).
+> Référence canonique : `FEATURES.md` §11.
 
 ---
 
@@ -30,9 +32,9 @@
 
 | Version | Support sécurité | Notes |
 |---|---|---|
-| `1.5.x` | ✅ Actif | Branche courante (toutes CVE patchées) |
-| `1.4.x` | ⚠️ Critiques uniquement | EOL au prochain mineur |
-| `1.3.x` et antérieur | ❌ Non supportée | Migration vers 1.5.x requise |
+| `1.17.x` | ✅ Actif | Branche courante (toutes CVE patchées) |
+| `1.16.x` | ⚠️ Critiques uniquement | EOL au prochain mineur |
+| `1.15.x` et antérieur | ❌ Non supportée | Migration vers 1.17.x requise |
 | `0.x` | ❌ Non supportée | Beta, pas de support |
 
 ### SLA de remédiation
@@ -81,13 +83,18 @@
 | **A01 — Broken Access Control** | Probe forge résultat cross-monitor | `POST /probes/results` : la sonde ne peut pousser un résultat que pour un monitor de son `network_scope` (scope `all` = servi par toutes) — sinon 403 ; idem `serves_monitor` sur `/probes/diagnostics` | `api/v1/probes.py`, `test_probe_trust.py` |
 | **A02 — Cryptographic Failures** | Secrets en clair | Fernet AES-128 sur tous secrets channels + OIDC + scenario, bcrypt 12-rounds, refresh tokens hashés SHA-256 | `core/security.py`, `_validate_production_settings()` |
 | **A03 — Injection** | SQL / cmd / XSS | SQLAlchemy ORM exclusif, Pydantic v2 `extra="forbid"`, Vue 3 auto-escape, pas de `v-html` non-safe | CodeQL `security-extended`, code review |
+| **A03 — Injection** | Sorties générées (SMTP, HTML, code) | Destinataires validés + `EmailMessage` (refus CR/LF en en-tête), `html.escape()` sur toute valeur utilisateur dans un corps HTML, export Playwright : `_escJs` (littéraux) + `_num` (positions non quotées) | `core/validators.py`, `services/reports.py`, `services/channels/email.py`, `extension/background.js`, `test_content_injection.py` |
 | **A04 — Insecure Design** | Modèle d'accès | Threat model documenté (ce fichier), invite-only, escalade priv. silencieusement bloquée | Tests `test_me_update_*` |
 | **A05 — Security Misconfiguration** | Defaults faibles | `validate_production_settings` refuse SECRET_KEY défaut, FERNET_KEY requis, CORS `*` interdit, server bind 127.0.0.1 | Démarrage prod ✓ |
 | **A06 — Vulnerable Components** | CVE deps | Dependabot + pip-audit + npm audit hebdo + CodeQL | Workflows `security-audit.yml`, `codeql.yml` |
 | **A07 — Auth Failures** | Brute-force, JWT | slowapi rate-limit, JWT 15min + refresh révocable, MFA biométrique mobile, OIDC PKCE | Table §12 |
+| **A07 — Auth Failures** | Login CSRF / fixation de session (retour SSO) | Aucun jeton dans une URL : le callback rend un code opaque à usage unique (TTL 60 s), échangé contre les jetons ; cookie nonce HttpOnly exigé au callback **et** à l'échange | `api/v1/auth.py`, `test_security_oidc_handoff.py`, §6 |
+| **A07 — Auth Failures** | Takeover par email non vérifié (SSO) | Liaison d'identité refusée si le provider n'affirme pas `email_verified` (claim absent = non vérifié), auto-provisioning inclus | `_email_is_verified`, `test_oidc.py` |
 | **A08 — Software & Data Integrity** | CI/CD compromise | GHCR images signées via OIDC (à activer), workflows pinned actions `@v6`, supply-chain audit | Workflows + §10 |
 | **A09 — Logging & Monitoring** | Détection | `AuditLog` immuable, structlog JSON + request ID, Prometheus metrics | `audit_log.py`, `/metrics` |
 | **A10 — SSRF** | Webhooks/scenario | `_validate_webhook_url()` rejette RFC 1918/loopback/link-local, redirects re-validés, applied to HTTP/TCP/UDP/SMTP/DNS | `services/channels/_helpers.py`, `probe/.../_shared.py` |
+| **A10 — SSRF** | Sonde : audit TLS, diagnostics | Résolution validée **une fois** puis connexion sur l'IP épinglée (SNI/Host préservés) : audit TLS + info SSL, et collecteurs traceroute/ping/`openssl -connect`/`curl --resolve` | `probe/.../_shared.py`, `probe/.../diagnostics.py`, `test_probe_ssrf_dos_guards.py` |
+| **A06 — DoS applicatif** | ReDoS (`body_regex`, `json_schema`) | Moteur `regex` interruptible (`timeout=`) + pool de threads isolé de l'executor par défaut ; `json_schema` plafonné à 64 Ko côté API | `probe/.../checkers/_regex_guard.py`, `schemas/monitor.py` |
 
 ---
 
@@ -97,9 +104,10 @@
 
 | Workflow | Trigger | Garde-fous |
 |---|---|---|
-| `ci.yml` | push/PR `main` | ruff lint + tests pytest serveur (`--cov-fail-under=50`) + tests probe (`--cov-fail-under=35`) + Alembic upgrade/downgrade |
+| `ci.yml` | push/PR `main` | ruff lint + tests pytest serveur (`--cov-fail-under=65`) + tests probe (`--cov-fail-under=40`) + tests vitest frontend + Alembic upgrade/downgrade |
 | `codeql.yml` | push/PR + lundi 06h UTC | CodeQL `security-extended` Python + JS/TS |
 | `security-audit.yml` | push/PR + lundi 08h UTC | `pip-audit` server + probe + `npm audit --audit-level=moderate` frontend |
+| `plumber.yml` | push/PR `main` | Hardening supply-chain des workflows (actions SHA-pinnées, `permissions` déclaré, triggers dangereux, tags d'image mutables) — gate **bloquant** à 100 % / grade A, SARIF vers Code Scanning |
 | `release.yml` | tag `v[0-9]+.[0-9]+.[0-9]+*` | CI gate obligatoire avant build & push GHCR + GH Release |
 | `mobile-release.yml` | push main + tag v* | APK debug + APK release signée (keystore secrets) |
 | `release-please.yml` | push `main` | Auto-versioning SemVer + génération CHANGELOG + tag (déclenche `release.yml`) |
@@ -108,9 +116,10 @@
 
 - Vulnérabilité **High/Critical** détectée par `pip-audit` ou `npm audit`
 - Finding **error-level** par CodeQL
-- Couverture < seuil (50% server / 35% probe)
+- Couverture < seuil (65% server / 40% probe)
 - `ruff check` non vert
 - Migration Alembic non rétro-compatible (downgrade KO)
+- Score Plumber < 100 % (action non SHA-pinnée, workflow sans bloc `permissions`, trigger dangereux)
 
 ### Alertes non-bloquantes (à traiter sous SLA)
 
@@ -126,13 +135,17 @@
 
 - [ ] **Pydantic** : tout body/query/path/header validé avec `extra="forbid"` sur `*In`/`*Update`
 - [ ] **Ownership** : `current_user.id` dans le `where` de toute requête mutante (ou `require_superadmin`)
+- [ ] **Mass-assignment** : tout endpoint qui écrit depuis du JSON brut (import, bulk) rejoue les mêmes gardes que l'endpoint typé (`assert_can_assign_group`, `assert_can_assign_team`) et chiffre les mêmes champs
 - [ ] **Pas de secret** dans le code, les logs, les messages d'erreur API, les commits
 - [ ] **`.is_(True)`** / `.is_(False)` (jamais `is True`) dans tous les filtres SQLAlchemy
 - [ ] **Rate-limit** `@limiter.limit("X/minute")` + `request: Request` sur tout endpoint public ou sensible
 - [ ] **Audit** : `log_action()` sur les opérations sensibles (CRUD config, escalation)
 - [ ] **SSRF** : `_validate_webhook_url(url)` avant tout `httpx` sortant non-CDN
-- [ ] **Fernet** : `encrypt_channel_config()` avant DB sur tout secret canal
+- [ ] **Fernet** : `encrypt_channel_config()` avant DB sur tout secret canal ; `encrypt_custom_headers()` sur `Monitor.custom_headers` (valeurs = credentials)
+- [ ] **Erreurs de canal** : jamais `str(exc)` brut dans un log ou une réponse API → `redact_secrets(str(exc), config)`
+- [ ] **Email** : destinataire validé (`is_valid_email`), message construit avec `EmailMessage`, sujet aplati, `html.escape()` sur toute valeur utilisateur dans un corps HTML
 - [ ] **WebSocket** : auth par message `{"type":"auth","token"}`, jamais en URL
+- [ ] **Jetons hors URL** : aucun `access_token`/`refresh_token` dans une query, un fragment ou une redirection — un code opaque à usage unique, lié au navigateur par cookie, sinon
 - [ ] **CORS** : si nouvelle origin → ajout dans `CORS_ALLOWED_ORIGINS` (jamais `*` avec credentials)
 - [ ] **Tests** : test de privilège (autre user reçoit 404 ou 403, jamais 200)
 - [ ] **Tests** : test de validation (input invalide → 422)
@@ -150,6 +163,8 @@
 - 🔴 Token dans URL WebSocket (`?token=...`) → apparaît dans logs reverse proxy
 - 🔴 Nouveau channel sans `encrypt_channel_config()` à l'écriture
 - 🔴 Webhook sortant sans SSRF guard
+- 🔴 Endpoint d'import/bulk qui applique un `group_id`/`team_id` du payload sans `assert_can_assign_*` → poisoning de la status page d'un autre tenant
+- 🔴 Liaison d'identité SSO sur un `email` dont le provider n'affirme pas `email_verified` → takeover de compte local
 
 ---
 
@@ -185,6 +200,29 @@ const ws = new WebSocket(`/ws/dashboard?token=${token}`)
 const ws = new WebSocket('/ws/dashboard')
 ws.onopen = () => ws.send(JSON.stringify({ type: 'auth', token }))
 ```
+
+### Jetons de session dans une URL (retour SSO)
+
+```python
+# ❌ INTERDIT — n'importe qui peut terminer *sa* connexion SSO et envoyer le
+# lien à une victime : le navigateur de la victime ouvre la session de
+# l'attaquant (login CSRF / fixation de session). Le fragment ne protège que
+# des logs serveur, pas de la victime.
+return RedirectResponse(f"{front}/oidc-callback#access_token={access}&refresh_token={refresh}")
+
+# ✅ OK — code opaque à usage unique, échangé contre les jetons, l'échange
+# étant lié au cookie nonce HttpOnly posé avant la redirection vers l'IdP
+return RedirectResponse(f"{front}/oidc-callback#code={handoff}")
+```
+
+Le cookie `wiu_oidc_nonce` (HttpOnly, `Path=/api/v1/auth/oidc`, TTL 5 min) est
+exigé **aux deux étapes** — callback *et* échange. Le code seul ne suffirait
+pas : un attaquant peut toujours fabriquer un lien portant son propre code
+frais. Les jetons sont émis à l'échange, donc les métadonnées de session
+(UA/IP) décrivent le navigateur qui ouvre réellement la session.
+`SameSite=lax` dans le déploiement livré (front et API derrière le même
+nginx) ; `none` + `Secure` si le front est hébergé sur un hôte distinct de
+l'API, sans quoi le cookie ne partirait pas sur l'échange cross-site.
 
 ### Secrets en base
 
@@ -234,6 +272,38 @@ class UserSelfUpdate(BaseModel):
     full_name: str | None = None
     timezone: str | None = None
 ```
+
+### Mass-assignment depuis du JSON brut (import / bulk)
+
+```python
+# ❌ INTERDIT — group_id vient du payload, aucune vérification d'accès
+data = {k: v for k, v in entry.items() if k in config_fields}
+monitor = Monitor(owner_id=current_user.id, **data)   # ← group_id d'un autre tenant
+
+# ✅ OK — mêmes gardes que create_monitor / update_monitor
+await assert_can_assign_group(db, current_user, uuid.UUID(entry["group_id"]))
+data["scenario_variables"] = encrypt_scenario_variables(data["scenario_variables"])
+```
+
+Un endpoint qui contourne les schemas Pydantic (`list[dict[str, Any]]`) contourne
+aussi tous les validateurs : rejouer explicitement les contrôles d'accès **et**
+le chiffrement des secrets.
+
+### Liaison d'identité SSO (OIDC)
+
+```python
+# ❌ INTERDIT — l'email suffit à lier/créer un compte
+user = await db.scalar(select(User).where(User.email == userinfo["email"]))
+user.oidc_sub = sub
+
+# ✅ OK — le provider doit affirmer la vérification de l'adresse
+if not _email_is_verified(userinfo):      # claim absent = non vérifié
+    return _fail("email_not_verified")
+```
+
+Sans ce contrôle, un IdP qui autorise l'inscription sans vérification d'adresse
+permet à un attaquant de s'inscrire avec `victime@corp.com` et de récupérer le
+compte local de la victime.
 
 ### Refresh post-mutation
 
@@ -287,7 +357,7 @@ VAPID_PUBLIC_KEY=...   VAPID_PRIVATE_KEY=...             # web push (opt-in)
 
 #### Rotation `FERNET_KEY` (zéro downtime)
 
-Le déchiffrement est **multi-clés** (MultiFernet) : `FERNET_KEY` = clé **primaire** (seule clé utilisée pour chiffrer) ; `FERNET_KEY_PREVIOUS` = ancienne(s) clé(s), séparées par des virgules, acceptées **en déchiffrement uniquement** pendant la transition. Données concernées : `alert_channels.config` (champs secrets), `monitors.scenario_variables` (variables `secret: true`), `users.totp_secret`, `system_settings.oidc_client_secret`.
+Le déchiffrement est **multi-clés** (MultiFernet) : `FERNET_KEY` = clé **primaire** (seule clé utilisée pour chiffrer) ; `FERNET_KEY_PREVIOUS` = ancienne(s) clé(s), séparées par des virgules, acceptées **en déchiffrement uniquement** pendant la transition. Données concernées : `alert_channels.config` (champs secrets), `monitors.scenario_variables` (variables `secret: true`), `monitors.custom_headers` (valeurs uniquement — les noms d'en-tête restent en clair), `users.totp_secret`, `system_settings.oidc_client_secret`.
 
 1. **Générer** la nouvelle clé : `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`.
 2. **Redéployer** avec les deux clés : `FERNET_KEY=<nouvelle>` + `FERNET_KEY_PREVIOUS=<ancienne>`. Aucune coupure : les secrets existants restent lisibles via l'ancienne clé, tout nouveau secret est chiffré avec la nouvelle.
@@ -349,9 +419,35 @@ Les clés sonde utilisent le format **`wiu_<prefix>.<secret>`** :
 - 🔒 Postgres et Redis : **jamais** exposés publiquement (`expose:` interne uniquement)
 - 🔒 Server FastAPI : `bind 127.0.0.1:8000` (déjà appliqué `docker-compose.yml`)
 - 🔒 Reverse proxy Nginx unique entrée publique
-- 🔒 Healthcheck `/api/health` accessible sans auth ; `/metrics` réservé réseau interne (à protéger ou IP-whitelist)
+- 🔒 Healthcheck `/api/health` accessible sans auth ; **`/api/metrics` fail-closed** — le `nginx.conf` livré le refuse (`location = /api/metrics { deny all; }`) et le serveur répond `401` en production tant que `METRICS_AUTH_TOKEN` est vide. Un scraper légitime interroge `http://server:8000/api/metrics` sur le réseau Docker avec `Authorization: Bearer <jeton>`
 - 🔒 HSTS preload activé (`max-age=31536000; includeSubDomains; preload`)
 - 🔒 Certs Let's Encrypt rotation automatique (`certbot --nginx`)
+- 🔒 `X-Forwarded-For` **écrasé** au bord, jamais appendé (voir ci-dessous)
+
+#### Chaîne de confiance de l'IP client
+
+L'IP client sert de clé à **tous** les rate-limits par IP (dont le throttle de login)
+et d'IP source dans l'audit log et les sessions refresh. C'est une donnée de
+sécurité : elle ne doit jamais provenir d'un en-tête que le client contrôle.
+
+Deux réglages, à garder cohérents :
+
+| Où | Réglage | Pourquoi |
+|----|---------|----------|
+| nginx (`location /api/` **et** `/ws/`) | `proxy_set_header X-Forwarded-For $remote_addr;` | `$proxy_add_x_forwarded_for` **appende** : la valeur envoyée par le client reste en tête de liste. Sans `proxy_set_header` du tout (cas de `/ws/` avant le fix), nginx relaie tel quel l'en-tête du client. |
+| server (`TRUSTED_PROXY_IPS`) | IP/CIDR du reverse proxy — jamais `*` | Avec `*`, uvicorn prend l'entrée **la plus à gauche** = celle du client. Avec une liste restreinte, il remonte la chaîne par la droite et s'arrête au premier hop non listé = le vrai pair. |
+
+Défaut livré : loopback + plages privées (réseaux docker), ce qui couvre la stack
+`docker-compose` telle quelle. Proxy sur un autre hôte ou LB cloud → ajouter sa
+plage. `TRUSTED_PROXY_IPS=*` fait **refuser le démarrage** en production.
+
+Vérification rapide après déploiement — l'IP loguée doit être l'IP réelle, pas `9.9.9.9` :
+
+```bash
+curl -sk -H 'X-Forwarded-For: 9.9.9.9' https://<host>/api/v1/auth/login \
+     -d 'username=nobody@example.com&password=wrong'
+docker compose logs server | tail -5
+```
 
 ### Docker production
 
@@ -383,6 +479,23 @@ add_header X-Content-Type-Options "nosniff" always;
 add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()" always;
 ```
+
+### Secrets de premier boot
+
+Deux volumes distincts, et non un seul : la sonde est le composant le plus
+exposé (elle exécute des checks sortants contre des cibles hostiles) et n'a
+besoin que de sa clé d'API.
+
+| Volume | Contenu | Monté dans |
+|---|---|---|
+| `shared` | `/shared/ADMIN_PASSWORD` (premier boot) | serveur uniquement |
+| `probe_secrets` | `/probe-secrets/PROBE_API_KEY` | serveur (rw) + `probe-local` (ro) |
+
+- Le fichier `ADMIN_PASSWORD` est **supprimé automatiquement** à la première
+  connexion superadmin réussie — la suppression est appliquée, plus seulement
+  recommandée.
+- Une clé de sonde écrite avant cette séparation est migrée automatiquement au
+  démarrage du serveur (`/shared/PROBE_API_KEY` → `/probe-secrets/`).
 
 ### Backup
 
@@ -462,7 +575,9 @@ redis-cli DEL "whatisup:lockout:lock:${IDX}"
 - ✅ pip-audit hebdo — `security-audit.yml`
 - ✅ npm audit hebdo — `security-audit.yml`
 - ✅ CodeQL `security-extended` — `codeql.yml`
+- ✅ Hardening des workflows — `plumber.yml` (gate bloquant, cf. §4)
 - ⏳ **À ajouter** : génération SBOM (`anchore/sbom-action`) sur `release.yml`
+- ⏳ **À ajouter** : détection de secrets commités — secret scanning GitHub + push protection (gratuits sur ce repo public, actuellement **désactivés**), complétés par un scan `trufflehog --only-verified` en CI
 - ⏳ **À ajouter** : signature des images GHCR via Cosign keyless (OIDC GitHub)
 
 ### Verrouillage versions
@@ -470,8 +585,7 @@ redis-cli DEL "whatisup:lockout:lock:${IDX}"
 - ✅ Server : `pyproject.toml` borne haute (`fastapi>=0.125,<0.140`)
 - ✅ Probe : idem
 - ✅ Frontend : `package-lock.json` versionné
-- ✅ GH Actions pinnées `@v6` minimum (jamais `@main`)
-- ⏳ **À durcir** : pin par SHA pour les actions critiques (`actions/checkout@<sha>`)
+- ✅ GH Actions **pinnées par SHA** sur tous les workflows (jamais `@main`, jamais un tag mutable) — vérifié à chaque PR par le gate `plumber.yml`
 
 ### Vérification reporter (extension probe Docker)
 
@@ -516,6 +630,7 @@ Toute modification de cette table doit être reportée dans `FEATURES.md` §11.
 | `/auth/me` | PATCH | **30/min** | Self-update |
 | `/auth/oidc/login` | GET | **20/min** | Anti spam redirect provider |
 | `/auth/oidc/callback` | GET | **20/min** | Anti brute-force state/code |
+| `/auth/oidc/exchange` | POST | **20/min** | Anti brute-force code de handoff (usage unique, TTL 60 s) |
 | `/probes/heartbeat` | POST | **120/min** | Probe health beats |
 | `/probes/results` | POST | **600/min** | Probe results push (bursts ok) |
 | `/probes/register` | POST | *sans limite* | Superadmin only (JWT) — pas de limite explicite |
@@ -548,7 +663,7 @@ Toute modification de cette table doit être reportée dans `FEATURES.md` §11.
 | `/monitors` + `/monitors/{id}` + `/monitors/{id}/results` | GET | **120/min** | Chemins chauds dashboard (vue principale, détail, polling results 3 s pendant un test) |
 | `/monitors/{id}/incidents/{inc}/postmortem` | GET | **30/min** | Génération markdown coûteuse |
 | `/auth/oidc/config` + `/push/vapid-public-key` | GET | **30/min** | Publics sans auth mais réponse statique triviale |
-| `/api/health` + `/api/metrics` | GET | *sans limite* | Health checks LB/probe/app native + scrape Prometheus — hors routers v1, hors gate CI |
+| `/api/health` + `/api/metrics` | GET | *sans limite* | Health checks LB/probe/app native + scrape Prometheus — hors routers v1, hors gate CI. `/api/metrics` n'est pas pour autant ouvert : refusé par le `nginx.conf` livré, et `401` en production sans `METRICS_AUTH_TOKEN` (cf. §8) |
 
 > **Tout nouvel endpoint public ou écrit DOIT avoir un rate-limit explicite.** Le défaut implicite n'existe pas. **Depuis SEC-3 (2026-07-21), les GET aussi** : le gate CI couvre désormais toutes les méthodes sous `api/v1/`.
 >
@@ -594,9 +709,8 @@ Ce document est **vivant**. Il doit être mis à jour :
 ### TODO / améliorations identifiées
 
 - [ ] Publier `/.well-known/security.txt` (RFC 9116)
-- [ ] Ajouter un rate-limit explicite sur `GET /config` (export) et `POST /probes/register` (actuellement protégés uniquement par JWT / superadmin — cf. §12)
+- [ ] Activer le secret scanning GitHub + push protection, puis un scan `trufflehog` en CI (cf. §10)
 - [ ] Activer signature Cosign keyless sur images GHCR
-- [ ] Pin GH Actions par SHA (au minimum sur `release.yml` et `mobile-release.yml`)
 - [ ] Générer SBOM (CycloneDX) à chaque release
 - [ ] Mettre en place 2FA TOTP côté serveur (mobile = biometric, web = TOTP)
 - [ ] Chiffrement at-rest Postgres (TDE ou disque chiffré LUKS)

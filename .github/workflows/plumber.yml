@@ -11,6 +11,11 @@ name: Plumber compliance
 # regression — an unpinned action, a workflow missing a permissions block,
 # a dangerous trigger — fails the check. To temporarily downgrade to
 # report-only, set `soft-fail: "true"`.
+#
+# The grade is also published to the hosted badge service on every push to
+# `main` (`score-push`), which is what the README's Plumber Score badge reads.
+# That makes the repo name and its score public — deliberate, the repo is
+# public anyway. Set `score-push: "false"` to stop publishing.
 
 on:
   push:
@@ -20,18 +25,24 @@ on:
 
 permissions:
   contents: read
-  security-events: write   # upload SARIF to Code Scanning
 
 jobs:
   plumber:
     name: Plumber scan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write   # upload SARIF to Code Scanning
+      id-token: write          # OIDC token for score-push (no secret involved)
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
-      - uses: getplumber/plumber@7970e5df1e7d217de41b2880832b63a6f2152b97  # v0.4.8
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: getplumber/plumber@87ca135cc4566ba8e9065ea95b5d897232cdb208  # v0.4.16
         with:
           config-file: .plumber.yaml
           threshold: "100"
           score: "true"
           upload-sarif: "true"
           soft-fail: "false"   # blocking gate — see header note
+          # Only the default branch's score is displayed by the badge service,
+          # and a fork PR cannot mint the OIDC token — so publish on push only.
+          score-push: ${{ github.event_name == 'push' }}

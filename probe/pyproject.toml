@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "whatisup-probe"
-version = "1.17.1"
+version = "1.17.2"
 description = "WhatIsUp — remote probe agent"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -41,6 +41,11 @@ dependencies = [
     # JSON Schema validation (advanced HTTP assertions)
     "jsonschema>=4.26.0,<5",
 
+    # Moteur regex interruptible (`timeout=`) : `re` ne peut pas être arrêté,
+    # donc un motif à backtracking catastrophique fourni par un tenant brûlait
+    # un thread de l'executor jusqu'au bout. Voir checkers/_regex_guard.py.
+    "regex>=2024.11.6",
+
     # Domain WHOIS expiry checks
     "python-whois>=0.9.4,<1",
 
@@ -54,7 +59,7 @@ dev = [
     "pytest-asyncio>=0.25.0,<1.5",
     "pytest-cov>=6.0.0,<8",
     "respx>=0.22.0,<0.24",
-    "ruff>=0.9.0,<0.16",
+    "ruff>=0.9.0,<0.17",
     "pip-audit>=2.10.0,<3",
 ]
 

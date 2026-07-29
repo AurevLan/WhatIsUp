@@ -35,6 +35,9 @@ docker run --rm -v $(pwd)/frontend:/app -w /app node:22-alpine \
 
 # Docker
 docker compose --env-file .env up -d         # démarrer la stack complète
+# Tuning Postgres via .env (défauts : 256MB shared_buffers / 16MB work_mem / limite conteneur 1g).
+# Sur un hôte plus gros : POSTGRES_SHARED_BUFFERS=1GB POSTGRES_EFFECTIVE_CACHE_SIZE=3GB
+# POSTGRES_WORK_MEM=32MB POSTGRES_MEM_LIMIT=3g — garder MEM_LIMIT ≳ 3× SHARED_BUFFERS.
 docker compose --env-file .env build server  # rebuild après modif pyproject.toml
 docker compose --env-file .env build probe   # rebuild probe
 docker compose --env-file .env logs server | grep -E "admin|api_key|created"  # credentials premier boot
@@ -81,6 +84,7 @@ frontend/src/
 - Imports : `or_`, `func`, `select` en top-level — jamais inline dans les fonctions
 - `uuid.UUID(str)` : utiliser l'import top-level `import uuid` — pas d'alias `import uuid as _uuid`
 - `func.date_trunc` + asyncpg : utiliser `text("'day'")` comme premier argument — la version string provoque un `GroupingError` PostgreSQL
+- Index déclarés dans `__table_args__` : alembic **compare les expressions**. Un index créé `DESC` par migration doit être déclaré `Index(..., text("col DESC"))` dans le modèle, sinon `autogenerate` propose de le reconstruire en ASC (cf. `models/result.py`). `postgresql_using` (BRIN) n'est pas comparé. Après toute migration d'index : relancer `autogenerate` sur une base migrée et vérifier qu'il ne propose rien
 
 ## Dépendances API (deps.py)
 

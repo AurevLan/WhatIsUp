@@ -16,7 +16,7 @@ dependencies = [
     # Le bug _IncludedRouter (routing cassé en 0.137-0.138, AttributeError côté
     # Starlette) est corrigé depuis 0.139 : plus aucun blocage connu. Le cap <0.140
     # n'est donc qu'une borne haute prudente, à réévaluer/relever librement.
-    "fastapi>=0.125.0,<0.140",
+    "fastapi>=0.125.0,<0.141",
     "starlette>=0.49.1",
     "uvicorn[standard]>=0.32.0,<0.52",
 

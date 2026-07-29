@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.17.3](https://github.com/AurevLan/WhatIsUp/compare/v1.17.2...v1.17.3) (2026-07-29)
+
+
+### Performance
+
+* **db:** quick wins A-0 bis — index morts, cache page publique, tuning PG ([#328](https://github.com/AurevLan/WhatIsUp/issues/328)) ([1fea9fc](https://github.com/AurevLan/WhatIsUp/commit/1fea9fca17b2e7214571fa30a5b0aeec2e9a0fba))
+
+
+### Docs
+
+* **features:** amender FEATURES.md pour v1.17.0 → v1.17.2 ([#326](https://github.com/AurevLan/WhatIsUp/issues/326)) ([88b3f2d](https://github.com/AurevLan/WhatIsUp/commit/88b3f2db99ba4130952dfde23eef4085d754c914))
+
 ## [1.17.2](https://github.com/AurevLan/WhatIsUp/compare/v1.17.1...v1.17.2) (2026-07-29)
 
 

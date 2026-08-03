@@ -24,7 +24,7 @@
     "@capgo/capacitor-native-biometric": "^8.6.2",
     "@tailwindcss/vite": "^4.3.3",
     "apexcharts": "^6.6.1",
-    "axios": "^1.18.1",
+    "axios": "^1.19.0",
     "capacitor-secure-storage-plugin": "^0.13.0",
     "leaflet": "^1.9.4",
     "lucide-vue-next": "^0.577.0",
@@ -46,9 +46,9 @@
     "eslint-plugin-vue": "^10.10.0",
     "globals": "^17.8.0",
     "jsdom": "^29.1.1",
-    "postcss": "^8.5.23",
+    "postcss": "^8.5.25",
     "tailwindcss": "^4.2.2",
-    "vite": "^8.1.5",
+    "vite": "^8.2.0",
     "vitest": "^4.1.10"
   },
   "overrides": {

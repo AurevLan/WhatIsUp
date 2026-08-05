@@ -27,11 +27,11 @@ from pathlib import Path
 # compares the schema against a stale package and invents differences.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from alembic.autogenerate import compare_metadata  # noqa: E402
+from alembic.migration import MigrationContext  # noqa: E402
 from sqlalchemy import Connection  # noqa: E402
 from sqlalchemy.ext.asyncio import create_async_engine  # noqa: E402
 
-from alembic.autogenerate import compare_metadata  # noqa: E402
-from alembic.migration import MigrationContext  # noqa: E402
 from whatisup.models import Base  # noqa: E402
 
 

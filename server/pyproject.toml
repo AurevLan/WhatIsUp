@@ -93,6 +93,13 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
 
+[tool.ruff.lint.isort]
+# `server/alembic/` is the migrations directory, not the `alembic` library. Older
+# ruff versions see the directory and classify the import as first-party, newer
+# ones (no `__init__.py`) as third-party — the two then disagree on import order
+# and fight over the same file. Say it explicitly: the imports are the library.
+known-third-party = ["alembic"]
+
 [tool.ruff.lint.per-file-ignores]
 # Alembic migrations use Union[...] and typing imports from autogenerate template
 "alembic/versions/*.py" = ["UP007", "UP035", "F401", "I001", "E501"]

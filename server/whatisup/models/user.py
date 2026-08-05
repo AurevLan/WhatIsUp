@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from whatisup.models.alert import AlertChannel
     from whatisup.models.api_key import UserApiKey
     from whatisup.models.device_token import DeviceToken
+    from whatisup.models.oncall import UserContact
     from whatisup.models.team import TeamMembership
     from whatisup.models.web_push import WebPushSubscription
 
@@ -68,6 +69,9 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     team_memberships: Mapped[list[TeamMembership]] = relationship(
         "TeamMembership", back_populates="user", cascade="all, delete-orphan"
+    )
+    contacts: Mapped[list[UserContact]] = relationship(
+        "UserContact", back_populates="user", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:

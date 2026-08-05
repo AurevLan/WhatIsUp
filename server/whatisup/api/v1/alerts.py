@@ -327,6 +327,7 @@ async def create_rule(
         await check_resource_access(group, current_user, db, min_role=TeamRole.editor)
 
     channels = await _fetch_channels_by_ids(db, current_user, payload.channel_ids)
+    await _assert_can_use_escalation_policy(db, current_user, payload.escalation_policy_id)
 
     rule = AlertRule(
         owner_id=current_user.id,
@@ -341,7 +342,13 @@ async def create_rule(
         storm_window_seconds=payload.storm_window_seconds,
         storm_max_alerts=payload.storm_max_alerts,
         baseline_factor=payload.baseline_factor,
+        # anomaly_zscore_threshold and schedule were declared on AlertRuleCreate
+        # but never assigned here: the single-rule endpoints silently dropped
+        # them and only the matrix endpoint honoured them.
+        anomaly_zscore_threshold=payload.anomaly_zscore_threshold,
+        schedule=payload.schedule,
         suppress_on_network_partition=payload.suppress_on_network_partition,
+        escalation_policy_id=payload.escalation_policy_id,
         channels=channels,
     )
     db.add(rule)
@@ -359,6 +366,28 @@ async def create_rule(
         diff={"monitor_id": str(rule.monitor_id) if rule.monitor_id else None},
     )
     return rule
+
+
+async def _assert_can_use_escalation_policy(
+    db: AsyncSession, user: User, policy_id: uuid.UUID | None
+) -> None:
+    """Reject attaching a rule to an escalation policy the caller cannot access.
+
+    Unchecked, this would let any account borrow another tenant's ladder — and
+    through it, their alert channels and on-call roster.
+    """
+    if policy_id is None:
+        return
+    from whatisup.models.oncall import EscalationPolicy
+
+    policy = (
+        await db.execute(select(EscalationPolicy).where(EscalationPolicy.id == policy_id))
+    ).scalar_one_or_none()
+    if policy is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Escalation policy not found"
+        )
+    await check_resource_access(policy, user, db)
 
 
 async def _load_rule_for_owner(rule_id: uuid.UUID, user: User, db: AsyncSession) -> AlertRule:
@@ -414,8 +443,17 @@ async def update_rule(
         rule.storm_max_alerts = payload.storm_max_alerts
     if payload.baseline_factor is not None:
         rule.baseline_factor = payload.baseline_factor
+    if payload.anomaly_zscore_threshold is not None:
+        rule.anomaly_zscore_threshold = payload.anomaly_zscore_threshold
+    if payload.schedule is not None:
+        rule.schedule = payload.schedule
     if payload.suppress_on_network_partition is not None:
         rule.suppress_on_network_partition = payload.suppress_on_network_partition
+    # `exclude_unset` rather than a None test: None is a meaningful value here —
+    # it detaches the ladder and returns the rule to the channel fan-out.
+    if "escalation_policy_id" in payload.model_fields_set:
+        await _assert_can_use_escalation_policy(db, current_user, payload.escalation_policy_id)
+        rule.escalation_policy_id = payload.escalation_policy_id
 
     if payload.channel_ids is not None:
         rule.channels = await _fetch_channels_by_ids(db, current_user, payload.channel_ids)

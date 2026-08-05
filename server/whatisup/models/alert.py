@@ -32,6 +32,7 @@ _JSON = JSON().with_variant(JSONB(), "postgresql")
 if TYPE_CHECKING:
     from whatisup.models.incident import Incident
     from whatisup.models.monitor import Monitor
+    from whatisup.models.oncall import EscalationPolicy
     from whatisup.models.user import User
 
 
@@ -157,6 +158,17 @@ class AlertRule(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     suppress_on_network_partition: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False, server_default="false"
     )
+    # B-0 — optional escalation ladder. NULL keeps the historical behaviour
+    # (fan out to `channels`, then rely on renotify). Set, it hands the incident
+    # to the escalation engine, which pages `levels` in order until an ack.
+    # ON DELETE SET NULL: deleting a policy must degrade the rule to the legacy
+    # path, never cascade-delete the alert rule itself.
+    escalation_policy_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("escalation_policies.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
     monitor: Mapped[Monitor | None] = relationship(
         "Monitor", back_populates="alert_rules", foreign_keys=[monitor_id]
@@ -164,6 +176,7 @@ class AlertRule(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     channels: Mapped[list[AlertChannel]] = relationship(
         "AlertChannel", secondary=alert_rule_channels, back_populates="rules"
     )
+    escalation_policy: Mapped[EscalationPolicy | None] = relationship("EscalationPolicy")
 
 
 class AlertEvent(Base):

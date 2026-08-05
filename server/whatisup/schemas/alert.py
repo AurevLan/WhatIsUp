@@ -232,6 +232,8 @@ class AlertRuleCreate(BaseModel):
     schedule: dict | None = None
     # V2-02-02 — opt-in: skip dispatch when incident.network_verdict is a partition
     suppress_on_network_partition: bool = False
+    # B-0 — opt-in escalation ladder. None keeps the channel fan-out + renotify.
+    escalation_policy_id: uuid.UUID | None = None
 
 
 class AlertRuleUpdate(BaseModel):
@@ -251,6 +253,7 @@ class AlertRuleUpdate(BaseModel):
     anomaly_zscore_threshold: float | None = Field(default=None, ge=1.0, le=10.0)
     schedule: dict | None = None
     suppress_on_network_partition: bool | None = None
+    escalation_policy_id: uuid.UUID | None = None
 
 
 class AlertRuleOut(BaseModel):
@@ -271,6 +274,7 @@ class AlertRuleOut(BaseModel):
     schedule: dict | None = None
     enabled: bool = True
     suppress_on_network_partition: bool = False
+    escalation_policy_id: uuid.UUID | None = None
 
     model_config = {"from_attributes": True}
 

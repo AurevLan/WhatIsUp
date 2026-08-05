@@ -8,12 +8,16 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import JSON, Boolean, DateTime, Double, Integer, String, Text
 from sqlalchemy import Enum as SQLEnum
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from whatisup.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 
 if TYPE_CHECKING:
     from whatisup.models.result import CheckResult
+
+# Use JSONB on PostgreSQL (indexable), fall back to JSON on SQLite (tests)
+_JSON = JSON().with_variant(JSONB(), "postgresql")
 
 
 class NetworkType(enum.StrEnum):
@@ -53,7 +57,7 @@ class Probe(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     public_ip: Mapped[str | None] = mapped_column(String(45), nullable=True, index=True)
     asn: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     asn_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    ixp_membership: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    ixp_membership: Mapped[list[str] | None] = mapped_column(_JSON, nullable=True)
     asn_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # V2-02-07 — Outbound IP intelligence.

@@ -11,6 +11,7 @@ from whatisup.models.alert import (
 from whatisup.models.alert_matrix_template import AlertMatrixTemplate
 from whatisup.models.annotation import MonitorAnnotation
 from whatisup.models.api_key import UserApiKey
+from whatisup.models.audit_log import AuditLog
 from whatisup.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 from whatisup.models.correlation_pattern import CorrelationPattern
 from whatisup.models.custom_metric import CustomMetric
@@ -19,6 +20,7 @@ from whatisup.models.digest_window import DigestWindow
 from whatisup.models.incident import Incident, IncidentGroup, IncidentScope
 from whatisup.models.incident_diagnostic import DIAGNOSTIC_KINDS, IncidentDiagnostic
 from whatisup.models.incident_update import IncidentUpdate, IncidentUpdateStatus
+from whatisup.models.maintenance import MaintenanceWindow
 from whatisup.models.monitor import (
     CompositeMonitorMember,
     Monitor,
@@ -79,6 +81,8 @@ __all__ = [
     "AlertRule",
     "AlertMatrixTemplate",
     "AlertSilence",
+    "AuditLog",
+    "MaintenanceWindow",
     "CorrelationPattern",
     "DigestWindow",
     "MonitorAnnotation",

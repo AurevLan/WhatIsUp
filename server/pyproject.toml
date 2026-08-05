@@ -50,7 +50,7 @@ dependencies = [
     "slowapi>=0.1.9,<0.2",
 
     # SSL certificate parsing
-    "cryptography>=46.0.5,<50",
+    "cryptography>=50.0.0,<51",
 
     # Async email
     "aiosmtplib>=3.0.0,<6",

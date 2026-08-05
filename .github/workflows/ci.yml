@@ -99,6 +99,14 @@ jobs:
           DATABASE_URL: postgresql+asyncpg://whatisup:whatisup@localhost:5432/whatisup_test
           SECRET_KEY: ci-test-secret-32-chars-minimum-x
           ENVIRONMENT: test
+      # Guard: at head, autogenerate must have nothing to propose. Without this,
+      # model↔schema drift accumulates silently and autogenerate becomes unusable.
+      - name: no model/schema drift
+        run: python scripts/check_model_drift.py
+        env:
+          DATABASE_URL: postgresql+asyncpg://whatisup:whatisup@localhost:5432/whatisup_test
+          SECRET_KEY: ci-test-secret-32-chars-minimum-x
+          ENVIRONMENT: test
 
   # ── Frontend tests + i18n parity ─────────────────────────────────────────────
   test-frontend:

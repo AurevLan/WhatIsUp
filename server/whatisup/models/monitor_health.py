@@ -88,11 +88,12 @@ class SLORule(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     __tablename__ = "slo_rules"
 
+    # No `index=True`: ``ix_slo_rules_monitor_enabled`` below already leads on
+    # ``monitor_id``, so a standalone index on it would never be chosen.
     monitor_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True),
         ForeignKey("monitors.id", ondelete="CASCADE"),
         nullable=False,
-        index=True,
     )
     rule_type: Mapped[SLORuleType] = mapped_column(
         Enum(SLORuleType, name="slo_rule_type"), nullable=False

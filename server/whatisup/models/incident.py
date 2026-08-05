@@ -7,7 +7,18 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import JSON, Boolean, DateTime, Enum, ForeignKey, Index, Integer, String, Uuid
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Uuid,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from whatisup.models.base import Base
@@ -136,8 +147,28 @@ class Incident(Base):
     __table_args__ = (
         Index("ix_incidents_monitor_started", "monitor_id", "started_at"),
         Index("ix_incidents_resolved", "resolved_at"),
-        # Partial unique index (PostgreSQL only) — created via Alembic migration
-        # to prevent duplicate open incidents for the same monitor.
+        # The two indexes below are PostgreSQL-only and were previously created
+        # by migration alone. Undeclared, they were invisible to
+        # ``autogenerate``, which proposed dropping them on every run — the
+        # partial unique one being the only thing preventing duplicate open
+        # incidents for a monitor. ``ddl_if`` keeps them out of the SQLite
+        # ``create_all`` used by the tests while leaving them in the metadata
+        # that Alembic compares against.
+        Index(
+            "uq_incidents_monitor_open",
+            "monitor_id",
+            unique=True,
+            postgresql_where=text("resolved_at IS NULL"),
+        ).ddl_if(dialect="postgresql"),
+        # The operator class goes in ``postgresql_ops``, not inline in the
+        # expression: Alembic gives up on comparing an expression that carries
+        # one, and an index it cannot compare is an index it cannot vouch for.
+        Index(
+            "ix_incidents_affected_probes_gin",
+            text("((affected_probe_ids)::jsonb)"),
+            postgresql_using="gin",
+            postgresql_ops={"((affected_probe_ids)::jsonb)": "jsonb_path_ops"},
+        ).ddl_if(dialect="postgresql"),
     )
 
     @property

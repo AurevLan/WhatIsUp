@@ -86,6 +86,28 @@ frontend/src/
 - `func.date_trunc` + asyncpg : utiliser `text("'day'")` comme premier argument — la version string provoque un `GroupingError` PostgreSQL
 - Index déclarés dans `__table_args__` : alembic **compare les expressions**. Un index créé `DESC` par migration doit être déclaré `Index(..., text("col DESC"))` dans le modèle, sinon `autogenerate` propose de le reconstruire en ASC (cf. `models/result.py`). `postgresql_using` (BRIN) n'est pas comparé. Après toute migration d'index : relancer `autogenerate` sur une base migrée et vérifier qu'il ne propose rien
 
+### Dérive modèle ↔ schéma — tolérance zéro (gate CI)
+
+Le job CI `Alembic migrations` termine par `python scripts/check_model_drift.py` : sur une base à `head`,
+`compare_metadata` doit retourner **0 diff**. Toute PR qui fait diverger les deux côtés casse le build.
+Règles qui en découlent :
+
+- **Tout nouveau modèle doit être importé dans `models/__init__.py`** (+ `__all__`). C'est le seul point
+  d'entrée qu'`alembic/env.py` charge : un modèle absent de `Base.metadata` fait proposer à `autogenerate`
+  de **dropper sa table**.
+- Un index **PostgreSQL-only** (GIN, unique partiel) créé par migration doit quand même être déclaré dans
+  `__table_args__`, avec `.ddl_if(dialect="postgresql")` pour rester hors du `create_all` SQLite des tests
+  (cf. `models/incident.py`). Classe d'opérateurs (`jsonb_path_ops`) → `postgresql_ops`, jamais inline dans
+  l'expression : alembic renonce à comparer une expression qui en contient une.
+- Contrainte `UNIQUE` nommée en base → `UniqueConstraint(..., name="uq_...")` dans `__table_args__`.
+  `unique=True` sur la colonne demande un *index unique* `ix_...`, ce n'est pas la même chose.
+- Types JSON : sur PG on veut du `jsonb` → `JSON().with_variant(JSONB(), "postgresql")` (helper `_JSON`
+  local au module), jamais `JSON` nu.
+- **Pas d'`index=True` sur une PK** : la contrainte PK fournit déjà un btree unique.
+- Lancer alembic/les scripts avec le repo en tête de `sys.path`. Un `python <script>` depuis un sous-dossier
+  importe le `whatisup` **installé** (potentiellement périmé) et compare alors contre le mauvais modèle,
+  **sans erreur** — on croit à une dérive massive qui n'existe pas.
+
 ## Dépendances API (deps.py)
 
 ```python

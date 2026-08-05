@@ -14,11 +14,15 @@ class Base(DeclarativeBase):
 
 
 class UUIDPrimaryKeyMixin:
+    # No `index=True`: the primary key already carries a unique btree index.
+    # A second one on the same column is pure write and disk overhead — and
+    # since this mixin is inherited widely, one `index=True` here minted a dead
+    # `ix_<table>_id` on every table that used it (16 of them, dropped by the
+    # migration that removed this flag).
     id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True),
         primary_key=True,
         default=uuid.uuid4,
-        index=True,
     )
 
 

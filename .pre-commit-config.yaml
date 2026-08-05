@@ -20,7 +20,9 @@ exclude: |
 repos:
   # ─ Python lint (cohérent avec ci.yml) ───────────────────────────────────────
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.11.12
+    # Doit suivre la version épinglée dans ci.yml : deux versions de ruff ne
+    # trient pas les imports pareil, et le hook défait alors ce que la CI exige.
+    rev: v0.15.12
     hooks:
       - id: ruff
         args: [--fix]

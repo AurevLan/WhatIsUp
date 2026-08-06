@@ -107,6 +107,36 @@ Règles qui en découlent :
 - Lancer alembic/les scripts avec le repo en tête de `sys.path`. Un `python <script>` depuis un sous-dossier
   importe le `whatisup` **installé** (potentiellement périmé) et compare alors contre le mauvais modèle,
   **sans erreur** — on croit à une dérive massive qui n'existe pas.
+- **Ne jamais interroger la connexion dans `alembic/env.py` avant `context.begin_transaction()`.** Une simple
+  requête ouvre une transaction implicite ; alembic considère alors qu'elle appartient à quelqu'un d'autre et
+  **ne commite jamais**. `alembic upgrade head` déroule toutes les migrations, sort en 0, et laisse la base
+  intacte. C'est pourquoi le filtre `include_object` de `core/partitions.py` est **paresseux**.
+
+### `check_results` est partitionné (plan V2, A-1)
+
+`PARTITION BY RANGE (checked_at)`, une partition par mois UTC. Conséquences à connaître avant d'y toucher :
+
+- **PK composite `(id, checked_at)`** — obligatoire (la clé de partition doit figurer dans toute contrainte
+  unique). `id` seul n'est donc plus unique globalement : uuid4 côté client, aucune FK ne le référence.
+- **Les partitions ne sont pas déclarées dans les modèles**, elles sont créées à l'exécution par
+  `core/partitions.py` (boucle `partition_maintainer`, 6 h + au démarrage, 3 mois d'avance). **Si aucune
+  partition ne couvre l'instant courant, tous les INSERT de résultats échouent** — c'est la seule tâche de
+  fond dont la panne casse le produit, pas juste une commodité.
+- **Partition `DEFAULT`** = filet anti-perte (sonde à l'horloge décalée). `ensure_check_result_partitions`
+  la *draine* quand elle crée enfin le mois concerné : PG refuse de créer une partition dont la plage a des
+  lignes coincées dans la `DEFAULT`, sans ce drainage le mois serait à jamais incréable.
+- **Partition `check_results_legacy`** : l'ancienne table, attachée telle quelle (aucune copie de données).
+  Couvre `[MINVALUE, début du mois suivant la migration)` et s'éteint d'elle-même une fois hors rétention.
+- **Rétention** : `retention.py` droppe les partitions entièrement expirées, avec un cutoff calculé sur la
+  rétention **la plus longue en vigueur** (`max(global, tous les `Monitor.data_retention_days`)) — un
+  cutoff global détruirait l'historique d'un moniteur configuré pour le garder. Le `DELETE` ligne à ligne
+  subsiste pour ce que le drop ne sait pas exprimer (rétention par moniteur).
+- **Une requête non bornée dans le temps n'élague rien** : `ORDER BY checked_at DESC LIMIT 1` (le LATERAL de
+  `fetch_latest_results`) devient un `Merge Append` sur toutes les partitions. Toujours des index scans, mais
+  borner par `checked_at` quand c'est possible reste la bonne réponse si le nombre de partitions grossit.
+- **Alembic** : les partitions sont des relations réelles absentes de `Base.metadata` → `env.py` et
+  `scripts/check_model_drift.py` les masquent via `make_alembic_include_object` (filtre `relispartition`).
+  Sans ça, `autogenerate` propose de **dropper toutes les partitions**.
 
 ## Dépendances API (deps.py)
 
@@ -252,7 +282,9 @@ cd frontend && npm run dev -- --host
 - `services/probe_enrichment.py` : ASN lookup Team Cymru DNS (refresh opportuniste sur heartbeat, TTL 24 h)
 - `services/diagnostics.py` : V2-01-01 enqueue/drain Redis pour traceroute/dig/openssl/ping/curl à l'ouverture d'incident
 - `services/heartbeat.py` : tâche de fond — ouvre incidents si ping absent > `interval + grace`
-- `services/retention.py` : purge nightly des `CheckResult` > `DATA_RETENTION_DAYS` (défaut 90)
+- `services/retention.py` : purge nightly des `CheckResult` > `DATA_RETENTION_DAYS` (défaut 90) — drop de
+  partition d'abord, `DELETE` résiduel ensuite (cf. § `check_results` est partitionné)
+- `core/partitions.py` : création/drop des partitions mensuelles de `check_results` + filtre alembic
 - `api/v1/ws.py` : WebSocket dashboard (auth message) + `public/{slug}` (sans auth)
 - `core/security.py` : JWT, bcrypt, Fernet (`encrypt_channel_config` / `decrypt_channel_config`)
 

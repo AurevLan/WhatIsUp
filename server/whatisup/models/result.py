@@ -50,7 +50,14 @@ class CheckResult(Base):
     probe_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("probes.id", ondelete="CASCADE"), nullable=True
     )
-    checked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    # Part of the primary key since plan V2, A-1: a partitioned table's unique
+    # constraints must contain the partition key. ``id`` alone is therefore no
+    # longer globally unique — PostgreSQL cannot enforce that across partitions.
+    # It is a client-side uuid4 and nothing in the schema references it, so this
+    # is a formality rather than a risk (see migration e6f7a8b9c0d1).
+    checked_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), primary_key=True, nullable=False
+    )
 
     # HTTP result
     status: Mapped[CheckStatus] = mapped_column(
@@ -104,8 +111,14 @@ class CheckResult(Base):
     # that silently loses the ordering ``fetch_latest_results`` relies on.
     # ``postgresql_using`` is *not* compared, so the BRIN options stay in
     # migration c5d6e7f8a9b0.
+    #
+    # ``postgresql_partition_by`` (plan V2, A-1) only affects CREATE TABLE, so
+    # it is inert for migrations and ignored outright by SQLite — the model
+    # stays identical on both backends. The partitions themselves are managed
+    # at runtime by whatisup.core.partitions, not declared here.
     __table_args__ = (
         Index("ix_check_results_monitor_checked", "monitor_id", text("checked_at DESC")),
         # c5d6e7f8a9b0 — BRIN, WITH (pages_per_range = 32)
         Index("ix_cr_checked_at_brin", "checked_at", postgresql_using="brin"),
+        {"postgresql_partition_by": "RANGE (checked_at)"},
     )

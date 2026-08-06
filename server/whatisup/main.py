@@ -119,6 +119,21 @@ async def lifespan(app: FastAPI):
     # Start nightly data retention job (self-gates via LeaderLock).
     retention_task = asyncio.create_task(_retention_job())
 
+    # check_results partition maintenance (plan V2, A-1). Runs immediately then
+    # every 6 h. This one is not housekeeping: if no partition covers the
+    # current instant, *every* check result insert fails and the product stops
+    # recording anything. It creates three months of head-room ahead.
+    async def _partition_work():
+        from whatisup.core.database import get_session_factory
+        from whatisup.core.partitions import ensure_check_result_partitions
+
+        async with get_session_factory()() as bg_db:
+            await ensure_check_result_partitions(bg_db)
+
+    partition_task = asyncio.create_task(
+        run_leader_loop("partition_maintainer", _partition_work, interval=6 * 3600)
+    )
+
     # Heartbeat monitor checker (every 30s)
     async def _heartbeat_work():
         from whatisup.services.heartbeat import check_heartbeats
@@ -200,6 +215,12 @@ async def lifespan(app: FastAPI):
     retention_task.cancel()
     try:
         await retention_task
+    except asyncio.CancelledError:
+        pass
+
+    partition_task.cancel()
+    try:
+        await partition_task
     except asyncio.CancelledError:
         pass
 

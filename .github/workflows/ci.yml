@@ -107,6 +107,16 @@ jobs:
           DATABASE_URL: postgresql+asyncpg://whatisup:whatisup@localhost:5432/whatisup_test
           SECRET_KEY: ci-test-secret-32-chars-minimum-x
           ENVIRONMENT: test
+      # check_results partitioning (plan V2, A-1): routing, the DEFAULT
+      # partition safety net and DROP-based purge cannot be exercised on the
+      # SQLite suite. This is the only job with a real PostgreSQL at head.
+      - name: partition behaviour (PostgreSQL)
+        run: pytest tests/test_partitions_pg.py -q
+        env:
+          PG_TEST_DATABASE_URL: postgresql+asyncpg://whatisup:whatisup@localhost:5432/whatisup_test
+          DATABASE_URL: postgresql+asyncpg://whatisup:whatisup@localhost:5432/whatisup_test
+          SECRET_KEY: ci-test-secret-32-chars-minimum-x
+          ENVIRONMENT: test
 
   # ── Frontend tests + i18n parity ─────────────────────────────────────────────
   test-frontend:

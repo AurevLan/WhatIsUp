@@ -328,6 +328,11 @@
 - ✅ SLO target / window par monitor (`GET /monitors/{id}/slo`) + burn rate
 - ✅ SLA reports custom range (uptime %, P95 RT, incidents, JSON download)
 - ✅ Data retention globale + override par monitor (purge nightly `services/retention.py`)
+- 🔬 **`check_results` partitionné par mois** (plan V2 A-1, `PARTITION BY RANGE (checked_at)`) — la purge
+  devient un `DROP TABLE` de partition (O(1), zéro bloat autovacuum) au lieu d'un `DELETE` massif nightly,
+  et toute requête bornée dans le temps élague les mois hors fenêtre. Partitions créées 3 mois d'avance par
+  `core/partitions.py` + partition `DEFAULT` de sécurité (une sonde à l'horloge décalée ne peut pas casser
+  l'ingestion). Migration sans copie de données : l'ancienne table est attachée telle quelle
 
 ---
 

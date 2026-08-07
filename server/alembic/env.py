@@ -12,6 +12,7 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 # Import all models so Alembic autogenerate picks them up
+from whatisup.core.partitions import make_alembic_include_object
 from whatisup.models import Base  # noqa: F401
 
 config = context.config
@@ -43,6 +44,10 @@ def do_run_migrations(connection: Connection) -> None:
         connection=connection,
         target_metadata=target_metadata,
         compare_type=True,
+        # Partitions of check_results are real relations but are absent from
+        # Base.metadata on purpose — without this, autogenerate proposes to drop
+        # every one of them (plan V2, A-1).
+        include_object=make_alembic_include_object(connection),
     )
     with context.begin_transaction():
         context.run_migrations()

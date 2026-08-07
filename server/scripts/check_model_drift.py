@@ -32,11 +32,20 @@ from alembic.migration import MigrationContext  # noqa: E402
 from sqlalchemy import Connection  # noqa: E402
 from sqlalchemy.ext.asyncio import create_async_engine  # noqa: E402
 
+from whatisup.core.partitions import make_alembic_include_object  # noqa: E402
 from whatisup.models import Base  # noqa: E402
 
 
 def _compare(connection: Connection) -> list:
-    context = MigrationContext.configure(connection, opts={"compare_type": True})
+    context = MigrationContext.configure(
+        connection,
+        opts={
+            "compare_type": True,
+            # Same filter as alembic/env.py: check_results' partitions are not
+            # in the metadata by design and must not read as drift.
+            "include_object": make_alembic_include_object(connection),
+        },
+    )
     return compare_metadata(context, Base.metadata)
 
 

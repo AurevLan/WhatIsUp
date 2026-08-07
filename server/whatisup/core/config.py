@@ -101,6 +101,17 @@ class Settings(BaseSettings):
     # Data retention
     data_retention_days: int = 90  # 0 = keep forever
 
+    # Hourly rollups (plan V2, A-2) — pre-aggregation of check_results.
+    # Disabling only stops the builder; nothing reads the table yet (A-3).
+    rollup_enabled: bool = True
+    rollup_interval_seconds: int = 300
+    # Hours folded per run: caps how much raw data one iteration reads, and
+    # therefore how fast an initial backfill catches up (168 h = a week per run).
+    rollup_max_buckets_per_run: int = 168
+    # Hours rebuilt behind the watermark, to fold in results that arrived after
+    # their hour closed.
+    rollup_recompute_hours: int = 3
+
     # OIDC / SSO
     oidc_enabled: bool = False
     oidc_issuer_url: str = ""  # e.g. https://accounts.google.com

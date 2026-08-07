@@ -333,6 +333,10 @@
   et toute requête bornée dans le temps élague les mois hors fenêtre. Partitions créées 3 mois d'avance par
   `core/partitions.py` + partition `DEFAULT` de sécurité (une sonde à l'horloge décalée ne peut pas casser
   l'ingestion). Migration sans copie de données : l'ancienne table est attachée telle quelle
+- 🔬 **Rollups horaires `check_rollups_1h`** (plan V2 A-2) — agrégat par monitor et par heure (compteurs de
+  statut, fenêtres de consensus d'uptime, avg/min/max, p50/p95/p99), construit en incrémental par
+  `services/rollup.py` sur la boucle de fond. 90 jours d'historique passent de ~115 k lignes brutes à ~2 200
+  par monitor. Pas encore branché sur les statistiques exposées (A-3)
 
 ---
 

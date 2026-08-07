@@ -134,6 +134,36 @@ async def lifespan(app: FastAPI):
         run_leader_loop("partition_maintainer", _partition_work, interval=6 * 3600)
     )
 
+    # Hourly rollup builder (plan V2, A-2). Folds closed hours of check_results
+    # into check_rollups_1h; on a fresh deployment the first runs also backfill
+    # existing history, a week at a time. Pure housekeeping: nothing reads the
+    # table until A-3, and a run that never happens costs precision, not data.
+    async def _rollup_work():
+        from whatisup.core.database import get_session_factory
+        from whatisup.services.rollup import build_rollups
+
+        async with get_session_factory()() as bg_db:
+            await build_rollups(
+                bg_db,
+                max_buckets=settings.rollup_max_buckets_per_run,
+                recompute_hours=settings.rollup_recompute_hours,
+            )
+
+    rollup_task = (
+        asyncio.create_task(
+            run_leader_loop(
+                "rollup_builder",
+                _rollup_work,
+                interval=settings.rollup_interval_seconds,
+                # After the partition loop, and after the app has settled: the
+                # backfill is the heaviest read in the process.
+                initial_delay=180,
+            )
+        )
+        if settings.rollup_enabled
+        else None
+    )
+
     # Heartbeat monitor checker (every 30s)
     async def _heartbeat_work():
         from whatisup.services.heartbeat import check_heartbeats
@@ -223,6 +253,13 @@ async def lifespan(app: FastAPI):
         await partition_task
     except asyncio.CancelledError:
         pass
+
+    if rollup_task is not None:
+        rollup_task.cancel()
+        try:
+            await rollup_task
+        except asyncio.CancelledError:
+            pass
 
     heartbeat_task.cancel()
     try:

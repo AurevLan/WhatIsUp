@@ -141,7 +141,7 @@ Règles qui en découlent :
 ### Rollups horaires `check_rollups_1h` (plan V2, A-2)
 
 Agrégat horaire de `check_results`, construit par `services/rollup.py` (boucle leader, 5 min).
-**Rien ne le lit encore** — A-3 rebranchera `stats.py` dessus.
+Lu par `stats.py` depuis A-3 (cf. § suivant).
 
 - **Grain `(monitor_id, bucket)`**, pas `(monitor_id, probe_id, bucket)` : l'uptime est un **consensus
   cross-probe** (`_aggregate_consensus` = « minute up si *une* sonde de la vue l'a vue up »), qu'une ligne
@@ -163,6 +163,26 @@ Agrégat horaire de `check_results`, construit par `services/rollup.py` (boucle 
   par run, ce qui cadence le backfill initial), `ROLLUP_RECOMPUTE_HOURS` (3).
 - Rebuild manuel d'une plage (import a posteriori, bug d'agrégation corrigé) : `rebuild_range(db, start, end)`.
 - **Aucune purge** pour l'instant (~140 k lignes/an à la volumétrie mesurée) — c'est A-4.
+
+### `stats.py` lit rollups + brut (plan V2, A-3)
+
+`compute_daily_history(_bulk)`, `compute_percentile_timeseries` et `compute_uptime_in_range` servent les
+heures couvertes depuis `check_rollups_1h` et le reste depuis le brut. À savoir avant d'y toucher :
+
+- **Frontière dérivée, pas configurée** : `max(bucket) + 1 h` (`_rollup_boundary`). Table de rollups vide
+  → tout retombe sur le brut, c'est-à-dire le comportement d'avant A-3. Aucun knob à régler.
+- **Le découpage est toujours sur une frontière d'heure** (`_rollup_window` arrondit start au ceil, end au
+  floor). C'est ce qui rend l'addition exacte : une fenêtre de consensus (vue, minute) tient dans une seule
+  heure, donc dans une seule source. Un découpage à la minute double-compterait.
+- **Un seul accumulateur** (`_Aggregate`) reçoit les deux sources ; le brut y est replié en fenêtres minute
+  exactement comme `_aggregate_consensus`. Toute nouvelle statistique doit passer par lui, sinon elle ne
+  saura traiter que l'une des deux moitiés.
+- **Seule approximation : le p95 au-delà d'une heure** (moyenne des p95 horaires pondérée par les
+  échantillons) → `compute_uptime_in_range` renvoie `p95_is_estimate`, affiché en `≈` côté SLA. Le chemin
+  tout-brut garde le p95 nearest-rank historique (`_legacy_p95`) pour ne rien décaler sans rollups.
+- `compute_percentile_timeseries` **n'approxime rien** : grain rollup == grain bucket, relecture verbatim.
+- Parité garantie par `tests/test_stats_rollup_parity.py` : chaque figure calculée deux fois (rollups vides
+  puis remplis) et comparée, dont le cas builder **en retard** (l'historique ne doit pas se tronquer).
 
 ## Dépendances API (deps.py)
 
@@ -300,7 +320,8 @@ cd frontend && npm run dev -- --host
 
 ## Services clés
 
-- `services/stats.py` : `compute_uptime()`, `compute_daily_history()`, `latest_results_subq()`
+- `services/stats.py` : `compute_uptime()`, `compute_daily_history()`, `latest_results_subq()` — lit
+  `check_rollups_1h` + brut depuis A-3 (cf. § `stats.py` lit rollups + brut)
 - `services/incident.py` : pipeline post-check (flapping → incident → renotify → common_cause). Bridge SLO via Health Engine si `Monitor.health_engine_enabled=True` (et flag env `LEGACY_INCIDENT_ENGINE` non set)
 - `services/alert.py` : dispatch email/webhook/Telegram/Slack/Discord/Mattermost/Teams/PagerDuty/Opsgenie/Signal + SSRF guard + digest Redis + `suppress_on_network_partition`
 - `services/health.py` + `services/slo.py` : **Health Engine V2** — agrégation 5 min p50/p95/p99, quorum_down/quorum_slow, divergence_score probe (seuil 0.5)

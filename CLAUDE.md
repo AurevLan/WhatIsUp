@@ -138,6 +138,32 @@ Règles qui en découlent :
   `scripts/check_model_drift.py` les masquent via `make_alembic_include_object` (filtre `relispartition`).
   Sans ça, `autogenerate` propose de **dropper toutes les partitions**.
 
+### Rollups horaires `check_rollups_1h` (plan V2, A-2)
+
+Agrégat horaire de `check_results`, construit par `services/rollup.py` (boucle leader, 5 min).
+**Rien ne le lit encore** — A-3 rebranchera `stats.py` dessus.
+
+- **Grain `(monitor_id, bucket)`**, pas `(monitor_id, probe_id, bucket)` : l'uptime est un **consensus
+  cross-probe** (`_aggregate_consensus` = « minute up si *une* sonde de la vue l'a vue up »), qu'une ligne
+  par sonde ne sait pas exprimer ; et des percentiles ne se réagrègent pas entre sondes. Les fenêtres de
+  consensus sont donc résolues à la construction et stockées en compteurs **additifs** (24 lignes horaires
+  sommées = exactement le chiffre du jour).
+- **Exact à toute largeur** : compteurs de statuts, uptime consensus, avg/min/max (`rt_sum`/`rt_count`, pas
+  une moyenne stockée). **Approché au-delà d'une heure** : p50/p95/p99, réagrégés depuis les percentiles
+  horaires. `percentile_cont` est réimplémenté en Python à l'identique (test de parité PG) pour ne pas
+  décaler les courbes le jour du rebranchement.
+- **Agrégation en Python, pas en SQL** : la règle de consensus n'est pas un GROUP BY, et SQLite (tests) n'a
+  ni `date_trunc` ni `percentile_cont` — deux implémentations dériveraient et c'est celle de PG qui serait
+  non testée. Coût borné : une heure de lignes par run en régime stable.
+- **Heure courante jamais agrégée** (elle bouge encore) → le temps réel reste servi par le brut.
+- **Pas de table de watermark** : reprise déduite de `max(bucket)`, moins `rollup_recompute_hours` (résultats
+  arrivés après la clôture de leur heure), et **avancée au premier `checked_at` réel** — sans ce saut, un
+  trou de données plus long que `rollup_max_buckets_per_run` bloquerait la boucle définitivement.
+- Knobs : `ROLLUP_ENABLED`, `ROLLUP_INTERVAL_SECONDS` (300), `ROLLUP_MAX_BUCKETS_PER_RUN` (168 = 1 semaine
+  par run, ce qui cadence le backfill initial), `ROLLUP_RECOMPUTE_HOURS` (3).
+- Rebuild manuel d'une plage (import a posteriori, bug d'agrégation corrigé) : `rebuild_range(db, start, end)`.
+- **Aucune purge** pour l'instant (~140 k lignes/an à la volumétrie mesurée) — c'est A-4.
+
 ## Dépendances API (deps.py)
 
 ```python
@@ -284,6 +310,8 @@ cd frontend && npm run dev -- --host
 - `services/heartbeat.py` : tâche de fond — ouvre incidents si ping absent > `interval + grace`
 - `services/retention.py` : purge nightly des `CheckResult` > `DATA_RETENTION_DAYS` (défaut 90) — drop de
   partition d'abord, `DELETE` résiduel ensuite (cf. § `check_results` est partitionné)
+- `services/rollup.py` : **plan V2, A-2** — `build_rollups` (boucle fond) / `rebuild_range` (plage forcée),
+  agrégat horaire `check_rollups_1h` (cf. § Rollups horaires)
 - `core/partitions.py` : création/drop des partitions mensuelles de `check_results` + filtre alembic
 - `api/v1/ws.py` : WebSocket dashboard (auth message) + `public/{slug}` (sans auth)
 - `core/security.py` : JWT, bcrypt, Fernet (`encrypt_channel_config` / `decrypt_channel_config`)

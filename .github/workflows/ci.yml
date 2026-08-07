@@ -107,11 +107,12 @@ jobs:
           DATABASE_URL: postgresql+asyncpg://whatisup:whatisup@localhost:5432/whatisup_test
           SECRET_KEY: ci-test-secret-32-chars-minimum-x
           ENVIRONMENT: test
-      # check_results partitioning (plan V2, A-1): routing, the DEFAULT
-      # partition safety net and DROP-based purge cannot be exercised on the
-      # SQLite suite. This is the only job with a real PostgreSQL at head.
-      - name: partition behaviour (PostgreSQL)
-        run: pytest tests/test_partitions_pg.py -q
+      # Behaviour the SQLite suite cannot reach: partition routing, the DEFAULT
+      # partition safety net and DROP-based purge (A-1); rollup percentiles
+      # against PostgreSQL's own percentile_cont and the ON CONFLICT path (A-2).
+      # This is the only job with a real PostgreSQL at head.
+      - name: partition + rollup behaviour (PostgreSQL)
+        run: pytest tests/test_partitions_pg.py tests/test_rollups_pg.py -q
         env:
           PG_TEST_DATABASE_URL: postgresql+asyncpg://whatisup:whatisup@localhost:5432/whatisup_test
           DATABASE_URL: postgresql+asyncpg://whatisup:whatisup@localhost:5432/whatisup_test

@@ -52,7 +52,7 @@ from whatisup.models.probe import NetworkType, Probe
 from whatisup.models.result import CheckResult, CheckStatus
 from whatisup.models.rollup import CheckRollup1h
 from whatisup.schemas.result import UptimeStats
-from whatisup.services.rollup import floor_hour, percentile_cont
+from whatisup.services.rollup import floor_hour, percentile_cont, rollup_boundary
 
 
 def latest_results_subq(*where_clauses: Any, group_col: Any) -> Any:
@@ -337,22 +337,6 @@ def _ceil_hour(moment: datetime) -> datetime:
     return floored if floored == moment else floored + timedelta(hours=1)
 
 
-async def _rollup_boundary(db: AsyncSession) -> datetime | None:
-    """First instant *not* covered by the rollups, or None if there are none.
-
-    The builder walks forward in time from the oldest raw row and never folds
-    the hour in progress, so every hour below ``max(bucket) + 1 h`` has been
-    processed — written if it held results, legitimately absent otherwise.
-    Above it, only the raw table knows.
-    """
-    watermark = (await db.execute(select(func.max(CheckRollup1h.bucket)))).scalar_one_or_none()
-    if watermark is None:
-        return None
-    if watermark.tzinfo is None:  # SQLite hands back naive datetimes
-        watermark = watermark.replace(tzinfo=UTC)
-    return floor_hour(watermark) + timedelta(hours=1)
-
-
 async def _rollup_window(
     db: AsyncSession, start: datetime, end: datetime
 ) -> tuple[datetime, datetime]:
@@ -361,7 +345,7 @@ async def _rollup_window(
     Empty (``start, start``) when there is nothing usable — no rollups at all,
     or a window too narrow to contain a whole covered hour.
     """
-    boundary = await _rollup_boundary(db)
+    boundary = await rollup_boundary(db)
     if boundary is None:
         return start, start
     rollup_start = _ceil_hour(start)

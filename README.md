@@ -386,7 +386,8 @@ docker compose --env-file .env exec server alembic upgrade head
 | `CORS_ALLOWED_ORIGINS` | ✅ prod | `http://localhost:5173` | Comma-separated HTTPS origins |
 | `ENVIRONMENT` | — | `production` | Set to `development` to relax security checks |
 | `REGISTRATION_OPEN` | — | `true` | `false` = invite-only after first user |
-| `DATA_RETENTION_DAYS` | — | `90` | Days to keep check results (0 = keep forever) |
+| `DATA_RETENTION_DAYS` | — | `90` | Days to keep **raw** check results (0 = keep forever). Shortening it drops the per-result detail (scenario trace, TLS audit, DNS answers); uptime history survives in the rollups |
+| `ROLLUP_RETENTION_MONTHS` | — | `13` | Months to keep the hourly rollups — the long-term uptime/latency history (0 = keep forever) |
 | `SMTP_HOST` | — | `localhost` | SMTP server for email alerts |
 | `SMTP_PORT` | — | `587` | SMTP port |
 | `SMTP_USER` | — | — | SMTP username |

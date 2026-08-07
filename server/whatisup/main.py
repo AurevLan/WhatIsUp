@@ -43,7 +43,7 @@ async def _retention_job() -> None:
     releases it on shutdown.
     """
     from whatisup.core.leader import LeaderLock
-    from whatisup.services.retention import purge_old_results
+    from whatisup.services.retention import purge_old_results, purge_old_rollups
 
     settings = get_settings()
     lock = LeaderLock("retention")
@@ -62,7 +62,11 @@ async def _retention_job() -> None:
                 continue
             try:
                 async with track_background_task("retention"):
+                    # Raw first: its purge is floored by the rollup frontier, so
+                    # running it before the rollup purge keeps both horizons
+                    # derived from the same instant.
                     await purge_old_results(settings.data_retention_days)
+                    await purge_old_rollups(settings.rollup_retention_months)
             except Exception as exc:
                 logger.error("retention_job_failed", error_type=type(exc).__name__, error=str(exc))
     finally:

@@ -105,6 +105,12 @@ class Settings(BaseSettings):
     # rollups do not carry), never something an upgrade should do behind the
     # operator's back.
     data_retention_days: int = 90  # 0 = keep forever
+    # Metrics pushed by the tenant's own application (plan V2, C-2). Same
+    # horizon as the raw results by default — a pushed metric is raw per-push
+    # detail of the same kind. Before C-2 this table was never purged at all,
+    # so the first nightly run after upgrading does delete what predates the
+    # window; set to 0 to keep the previous keep-forever behaviour.
+    metrics_retention_days: int = 90  # 0 = keep forever
 
     # Hourly rollups (plan V2, A-2) — pre-aggregation of check_results, read by
     # services/stats.py since A-3. Disabling stops the builder; stats then fall

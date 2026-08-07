@@ -1,10 +1,11 @@
-"""Declarative range partitioning for ``check_results`` (plan V2, A-1).
+"""Declarative range partitioning for the time-driven tables (plan V2, A-1/C-2).
 
-``check_results`` is the only table in the product whose size is driven by time
-rather than by what the user configures: ~60 500 rows/day for 16 monitors, 3 GB
-at a 90-day retention (measured, see plan_v2.md § "Résultats A-0"). It is now
-``PARTITION BY RANGE (checked_at)`` with one partition per calendar month
-(UTC), which buys two things:
+Two tables have a size driven by time rather than by what the user configures,
+and they are the only ones: ``check_results`` (~60 500 rows/day for 16 monitors,
+3 GB at a 90-day retention — measured, see plan_v2.md § "Résultats A-0") and
+``custom_metrics``, whose ceiling is whatever the tenant's own application
+chooses to push. Both are ``PARTITION BY RANGE`` on their timestamp with one
+partition per calendar month (UTC), which buys two things:
 
 * **Purge becomes ``DROP TABLE``** — O(1), no bloat, no autovacuum debt. The
   nightly ``DELETE`` of :mod:`whatisup.services.retention` was the worst
@@ -15,14 +16,15 @@ at a 90-day retention (measured, see plan_v2.md § "Résultats A-0"). It is now
 Two invariants this module exists to hold:
 
 1. **A partition must always exist for "now"**, otherwise every INSERT fails
-   and the product stops recording anything. :func:`ensure_check_result_partitions`
-   creates months ahead of time and runs both at startup and on a background
-   loop.
+   and the product stops recording anything. :func:`ensure_partitions` creates
+   months ahead of time and runs both at startup and on a background loop, for
+   every spec in :data:`ALL_SPECS`.
 2. **An out-of-range row must never be lost.** A probe with a broken clock can
-   report a ``checked_at`` years away; a DEFAULT partition catches it instead
-   of rejecting the whole batch. The cost is that creating the real partition
-   for that month later requires draining the default first — which is exactly
-   what :func:`ensure_check_result_partitions` falls back to.
+   report a ``checked_at`` years away, and a tenant's own agent can push a
+   ``pushed_at`` from anywhere; a DEFAULT partition catches it instead of
+   rejecting the whole batch. The cost is that creating the real partition for
+   that month later requires draining the default first — which is exactly what
+   :func:`ensure_partitions` falls back to.
 
 Everything here is a no-op outside PostgreSQL: the test suite runs on SQLite,
 which has no notion of partitions, and the ORM model is deliberately identical
@@ -32,6 +34,7 @@ on both (the ``postgresql_partition_by`` dialect kwarg is simply ignored).
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 import structlog
@@ -43,14 +46,57 @@ from whatisup.core.database import dialect_name
 
 logger = structlog.get_logger(__name__)
 
-PARENT_TABLE = "check_results"
-DEFAULT_PARTITION = "check_results_default"
 
-#: Partition holding everything that predates the cut-over migration. It spans
-#: up to one full retention window, so it can only be dropped as a whole once
-#: *all* of it has expired — until then the row-level DELETE still applies to
-#: it. It ages out on its own and is never recreated.
-LEGACY_PARTITION = "check_results_legacy"
+@dataclass(frozen=True)
+class PartitionSpec:
+    """One monthly-partitioned table: its name, its key, and its two fixed parts.
+
+    Everything in this module is driven by a spec rather than hard-coded, so a
+    second table costs a declaration instead of a copy of the whole file. What
+    must *not* differ between specs is the shape — monthly ranges on a single
+    ``timestamptz`` column, a DEFAULT catch-all, and a legacy partition holding
+    whatever predates the cut-over — because the retention job and the alembic
+    filter reason about all of them the same way.
+    """
+
+    #: Partitioned parent table.
+    parent: str
+    #: Partition key: the ``timestamptz`` column the monthly ranges cut on.
+    time_column: str
+
+    @property
+    def default_partition(self) -> str:
+        return f"{self.parent}_default"
+
+    @property
+    def legacy_partition(self) -> str:
+        """Partition holding everything that predates the cut-over migration.
+
+        It spans up to one full retention window, so it can only be dropped as a
+        whole once *all* of it has expired — until then the row-level DELETE
+        still applies to it. It ages out on its own and is never recreated.
+        """
+        return f"{self.parent}_legacy"
+
+    def partition_name(self, start: datetime) -> str:
+        """Deterministic partition name for the month beginning at ``start``."""
+        return f"{self.parent}_{start.year:04d}_{start.month:02d}"
+
+
+#: plan V2, A-1 — the check results themselves.
+CHECK_RESULTS = PartitionSpec(parent="check_results", time_column="checked_at")
+#: plan V2, C-2 — metrics pushed by the tenant's own application.
+CUSTOM_METRICS = PartitionSpec(parent="custom_metrics", time_column="pushed_at")
+
+#: Every partitioned table, in the order the startup/maintenance loop provisions
+#: them. check_results first: a missing partition there stops the product from
+#: recording anything, a missing one on custom_metrics only rejects pushes.
+ALL_SPECS = (CHECK_RESULTS, CUSTOM_METRICS)
+
+# Kept as module constants for the callers and tests that predate the spec.
+PARENT_TABLE = CHECK_RESULTS.parent
+DEFAULT_PARTITION = CHECK_RESULTS.default_partition
+LEGACY_PARTITION = CHECK_RESULTS.legacy_partition
 
 #: Months of head-room created ahead of the current one. Three months means a
 #: server that never restarts *and* whose background loop dies still records
@@ -122,8 +168,8 @@ def next_month(start: datetime) -> datetime:
 
 
 def partition_name(start: datetime) -> str:
-    """Deterministic partition name for the month beginning at ``start``."""
-    return f"{PARENT_TABLE}_{start.year:04d}_{start.month:02d}"
+    """Deterministic partition name for ``check_results``' month at ``start``."""
+    return CHECK_RESULTS.partition_name(start)
 
 
 def _literal(moment: datetime) -> str:
@@ -154,8 +200,10 @@ def _parse_upper_bound(bound: str) -> datetime | None:
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
 
 
-async def list_check_result_partitions(db: AsyncSession) -> list[tuple[str, datetime | None]]:
-    """(name, upper bound) for every partition of ``check_results``.
+async def list_partitions(
+    db: AsyncSession, spec: PartitionSpec = CHECK_RESULTS
+) -> list[tuple[str, datetime | None]]:
+    """(name, upper bound) for every partition of ``spec.parent``.
 
     The upper bound is None for the DEFAULT partition and for any bound this
     module cannot parse.
@@ -168,16 +216,23 @@ async def list_check_result_partitions(db: AsyncSession) -> list[tuple[str, date
                 "SELECT c.relname, pg_get_expr(c.relpartbound, c.oid) "
                 "FROM pg_class c "
                 "JOIN pg_inherits i ON i.inhrelid = c.oid "
-                f"WHERE i.inhparent = '{PARENT_TABLE}'::regclass "
+                "WHERE i.inhparent = to_regclass(:parent) "
                 "ORDER BY c.relname"
-            )
+            ),
+            {"parent": spec.parent},
         )
     ).all()
     return [(name, _parse_upper_bound(bound or "")) for name, bound in rows]
 
 
-async def ensure_check_result_partitions(
+async def list_check_result_partitions(db: AsyncSession) -> list[tuple[str, datetime | None]]:
+    """:func:`list_partitions` for ``check_results``."""
+    return await list_partitions(db, CHECK_RESULTS)
+
+
+async def ensure_partitions(
     db: AsyncSession,
+    spec: PartitionSpec = CHECK_RESULTS,
     *,
     months_ahead: int = DEFAULT_MONTHS_AHEAD,
     now: datetime | None = None,
@@ -195,16 +250,16 @@ async def ensure_check_result_partitions(
         return []
 
     now = now or datetime.now(UTC)
-    existing = {name for name, _ in await list_check_result_partitions(db)}
+    existing = {name for name, _ in await list_partitions(db, spec)}
     created: list[str] = []
 
     start = month_start(now)
     for _ in range(months_ahead + 1):
         end = next_month(start)
-        name = partition_name(start)
+        name = spec.partition_name(start)
         if name not in existing:
             try:
-                await _create_partition(db, name, start, end)
+                await _create_partition(db, spec, name, start, end)
             except SQLAlchemyError as exc:
                 # Never let one bad month stop the others: the current month is
                 # created first, so the critical one is already in place. The
@@ -226,7 +281,36 @@ async def ensure_check_result_partitions(
     return created
 
 
-async def _create_partition(db: AsyncSession, name: str, start: datetime, end: datetime) -> None:
+async def ensure_check_result_partitions(
+    db: AsyncSession,
+    *,
+    months_ahead: int = DEFAULT_MONTHS_AHEAD,
+    now: datetime | None = None,
+) -> list[str]:
+    """:func:`ensure_partitions` for ``check_results``."""
+    return await ensure_partitions(db, CHECK_RESULTS, months_ahead=months_ahead, now=now)
+
+
+async def ensure_all_partitions(
+    db: AsyncSession,
+    *,
+    months_ahead: int = DEFAULT_MONTHS_AHEAD,
+    now: datetime | None = None,
+) -> dict[str, list[str]]:
+    """Provision every partitioned table, in :data:`ALL_SPECS` order.
+
+    One spec failing must not stop the next: ``ensure_partitions`` already logs
+    and swallows a per-month failure, and the specs are independent tables.
+    """
+    return {
+        spec.parent: await ensure_partitions(db, spec, months_ahead=months_ahead, now=now)
+        for spec in ALL_SPECS
+    }
+
+
+async def _create_partition(
+    db: AsyncSession, spec: PartitionSpec, name: str, start: datetime, end: datetime
+) -> None:
     """Attach one monthly partition, draining the default partition if needed.
 
     The fast path is a plain ``CREATE TABLE … PARTITION OF``. It fails with a
@@ -237,11 +321,12 @@ async def _create_partition(db: AsyncSession, name: str, start: datetime, end: d
     attaches *that*, so the rows end up where they belong instead of blocking
     partition creation forever.
     """
+    parent, column = spec.parent, spec.time_column
     bounds = f"FOR VALUES FROM ({_literal(start)}) TO ({_literal(end)})"
     try:
         async with db.begin_nested():
             await db.execute(
-                text(f'CREATE TABLE IF NOT EXISTS "{name}" PARTITION OF {PARENT_TABLE} {bounds}')
+                text(f'CREATE TABLE IF NOT EXISTS "{name}" PARTITION OF {parent} {bounds}')
             )
         return
     except SQLAlchemyError as exc:
@@ -254,14 +339,14 @@ async def _create_partition(db: AsyncSession, name: str, start: datetime, end: d
         await db.execute(
             text(
                 f'CREATE TABLE IF NOT EXISTS "{name}" '
-                f"(LIKE {PARENT_TABLE} INCLUDING DEFAULTS INCLUDING STORAGE)"
+                f"(LIKE {parent} INCLUDING DEFAULTS INCLUDING STORAGE)"
             )
         )
         moved = await db.execute(
             text(
                 f"WITH moved AS ("
-                f"  DELETE FROM {DEFAULT_PARTITION} "
-                f"  WHERE checked_at >= {_literal(start)} AND checked_at < {_literal(end)} "
+                f"  DELETE FROM {spec.default_partition} "
+                f"  WHERE {column} >= {_literal(start)} AND {column} < {_literal(end)} "
                 f"  RETURNING *"
                 f') INSERT INTO "{name}" SELECT * FROM moved'
             )
@@ -271,16 +356,18 @@ async def _create_partition(db: AsyncSession, name: str, start: datetime, end: d
         await db.execute(
             text(
                 f'ALTER TABLE "{name}" ADD CONSTRAINT "{name}_range" '
-                f"CHECK (checked_at >= {_literal(start)} AND checked_at < {_literal(end)})"
+                f"CHECK ({column} >= {_literal(start)} AND {column} < {_literal(end)})"
             )
         )
-        await db.execute(text(f'ALTER TABLE {PARENT_TABLE} ATTACH PARTITION "{name}" {bounds}'))
+        await db.execute(text(f'ALTER TABLE {parent} ATTACH PARTITION "{name}" {bounds}'))
         await db.execute(text(f'ALTER TABLE "{name}" DROP CONSTRAINT "{name}_range"'))
     logger.info("partition_drained_default", partition=name, rows=moved.rowcount)
 
 
-async def drop_expired_check_result_partitions(db: AsyncSession, cutoff: datetime) -> list[str]:
-    """Drop every partition whose whole range predates ``cutoff``.
+async def drop_expired_partitions(
+    db: AsyncSession, cutoff: datetime, spec: PartitionSpec = CHECK_RESULTS
+) -> list[str]:
+    """Drop every partition of ``spec.parent`` whose whole range predates ``cutoff``.
 
     ``cutoff`` must be the *longest* retention in force, not the global one:
     a monitor with a longer ``data_retention_days`` still has its rows spread
@@ -294,7 +381,7 @@ async def drop_expired_check_result_partitions(db: AsyncSession, cutoff: datetim
         return []
 
     dropped: list[str] = []
-    for name, upper in await list_check_result_partitions(db):
+    for name, upper in await list_partitions(db, spec):
         if upper is None or upper > cutoff:
             continue
         await db.execute(text(f'DROP TABLE IF EXISTS "{name}"'))
@@ -303,3 +390,13 @@ async def drop_expired_check_result_partitions(db: AsyncSession, cutoff: datetim
     if dropped:
         await db.commit()
     return dropped
+
+
+async def drop_expired_check_result_partitions(db: AsyncSession, cutoff: datetime) -> list[str]:
+    """:func:`drop_expired_partitions` for ``check_results``."""
+    return await drop_expired_partitions(db, cutoff, CHECK_RESULTS)
+
+
+async def drop_expired_custom_metric_partitions(db: AsyncSession, cutoff: datetime) -> list[str]:
+    """:func:`drop_expired_partitions` for ``custom_metrics``."""
+    return await drop_expired_partitions(db, cutoff, CUSTOM_METRICS)

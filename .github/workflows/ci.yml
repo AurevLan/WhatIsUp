@@ -112,7 +112,9 @@ jobs:
       # against PostgreSQL's own percentile_cont and the ON CONFLICT path (A-2).
       # This is the only job with a real PostgreSQL at head.
       - name: partition + rollup behaviour (PostgreSQL)
-        run: pytest tests/test_partitions_pg.py tests/test_rollups_pg.py -q
+        run: >-
+          pytest tests/test_partitions_pg.py tests/test_partitions_metrics_pg.py
+          tests/test_rollups_pg.py -q
         env:
           PG_TEST_DATABASE_URL: postgresql+asyncpg://whatisup:whatisup@localhost:5432/whatisup_test
           DATABASE_URL: postgresql+asyncpg://whatisup:whatisup@localhost:5432/whatisup_test

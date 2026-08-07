@@ -316,14 +316,19 @@ async def test_drop_expired_drops_exactly_what_it_can_prove_has_expired(
     await p.ensure_check_result_partitions(pg_db, months_ahead=1, now=base)
     cutoff = p.next_month(base)
 
-    async def _scoped(_db):
+    # Patched on ``list_partitions``, the function the drop actually calls since
+    # the module was generalised to several tables (plan V2, C-2). Patching the
+    # check_results-shaped wrapper instead would leave the real, unnarrowed list
+    # in play — and this test issues real DROP TABLEs, so it would take the
+    # legacy partition and the rest of the schema with it.
+    async def _scoped(_db, _spec=None):
         return [
             (expired, cutoff),  # upper bound == cutoff → fully in the past
             (alive, p.next_month(cutoff)),  # still holds rows within retention
             (p.DEFAULT_PARTITION, None),  # no bound, nothing proves expiry
         ]
 
-    monkeypatch.setattr(p, "list_check_result_partitions", _scoped)
+    monkeypatch.setattr(p, "list_partitions", _scoped)
     try:
         assert await p.drop_expired_check_result_partitions(pg_db, cutoff) == [expired]
         monkeypatch.undo()

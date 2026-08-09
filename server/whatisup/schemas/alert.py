@@ -44,6 +44,9 @@ class WebhookChannelConfig(BaseModel):
 class TelegramChannelConfig(BaseModel):
     bot_token: str = Field(min_length=1, max_length=256)
     chat_id: str = Field(min_length=1, max_length=64)
+    # B-3 — the `secret_token` pinned on setWebhook, echoed back by Telegram in
+    # X-Telegram-Bot-Api-Secret-Token. Same rule as Slack: no secret, no button.
+    signing_secret: str | None = Field(default=None, max_length=256)
 
     @field_validator("bot_token")
     @classmethod
@@ -56,6 +59,10 @@ class TelegramChannelConfig(BaseModel):
 
 class SlackChannelConfig(BaseModel):
     webhook_url: str = Field(min_length=8, max_length=2048)
+    # B-3 — the Slack app's signing secret. Optional: without it the channel
+    # still sends alerts, it just carries no acknowledge button, because a
+    # callback we cannot verify is one we will refuse.
+    signing_secret: str | None = Field(default=None, max_length=256)
 
     @field_validator("webhook_url")
     @classmethod

@@ -255,7 +255,16 @@ def _get_fernet():
 
 
 # Fields in alert channel config that contain secrets and must be encrypted
-_SECRET_FIELDS = {"secret", "bot_token", "password", "integration_key", "api_key"}
+# `signing_secret` (B-3) joins the list: it is what verifies an inbound ack
+# callback, so leaking it would let anyone acknowledge — i.e. silence — a page.
+_SECRET_FIELDS = {
+    "secret",
+    "bot_token",
+    "password",
+    "integration_key",
+    "api_key",
+    "signing_secret",
+}
 
 
 def encrypt_channel_config(config: dict) -> dict:

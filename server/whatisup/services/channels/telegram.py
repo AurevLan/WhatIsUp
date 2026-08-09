@@ -6,6 +6,8 @@ from typing import Any
 
 import httpx
 
+from whatisup.services.channel_ack import make_ack_token, signing_secret_configured
+
 from ._helpers import scope_label_fr
 from .base import BaseAlertChannel
 
@@ -69,10 +71,28 @@ class TelegramChannel(BaseAlertChannel):
 
         text = "\n".join(lines)
 
-        return await _post(
-            config,
-            {"chat_id": config["chat_id"], "text": text, "parse_mode": "HTML"},
-        )
+        body: dict[str, Any] = {
+            "chat_id": config["chat_id"],
+            "text": text,
+            "parse_mode": "HTML",
+        }
+        # B-3 — acknowledge button, same rule as Slack: only when the channel
+        # carries the `secret_token` we pinned on setWebhook, since without it
+        # the callback cannot be verified and would be refused.
+        if (
+            not is_resolved
+            and channel is not None
+            and signing_secret_configured(config)
+            and getattr(incident, "acked_at", None) is None
+        ):
+            token = make_ack_token(incident.id, channel.id)
+            # No prefix: `callback_data` caps at 64 bytes and the token
+            # already uses 62 of them.
+            body["reply_markup"] = {
+                "inline_keyboard": [[{"text": "✅ Acquitter", "callback_data": token}]]
+            }
+
+        return await _post(config, body)
 
 
 def setup(register):

@@ -340,6 +340,7 @@ Advanced assertions across types: regex body check, response header validation (
 - **Alerting templates** — Standard / Strict-Paging / Low-noise presets in one click; superadmins manage their own
 - **Conditions** — `any_down`, `all_down`, `ssl_expiry`, `response_time_above`, `response_time_above_baseline`, `anomaly_detection` (z-score against the same ±3 h window of day), `schema_drift`, `metric_above`, `metric_below`, `metric_absent`
 - **Tag-scoped rules** — one rule targets every monitor carrying a tag
+- **Acknowledge from Slack / Telegram** — a button in the alert itself. Every button carries a token we minted binding the incident to the channel, verified *before* the provider signature: a provider signature proves the request came from Slack, not which incident the button was for
 - **On-call page** — rotations, escalation policies and a "who is on call right now" widget. An uncovered rotation says so rather than rendering blank
 - **On-call rotations & timed escalation** — daily / weekly / custom rotations with one-off overrides, and a ladder that pages *different* targets in order (L1, then L2 if nobody acked, then whoever is on call) rather than re-paging the same channels. Handoffs are computed in local calendar days, so a 09:00 rotation does not drift across DST. A rung that reaches nobody is skipped without spending its delay, and a ladder that reaches nobody at all falls back to the rule's channels — attaching a policy never makes an alert quieter than attaching none
 - **Quick-ack & snooze from mobile push** — act from the notification, no app round-trip
@@ -562,6 +563,7 @@ curl https://your-whatisup.example.com/api/v1/monitors/ -H "Authorization: Beare
 | `GET` | `/api/v1/metrics/{monitor_id}/series` | List the metric series a monitor reports |
 | `GET` | `/api/v1/incidents/{id}/metric-correlation` | Which pushed metrics moved around an incident |
 | `GET` | `/api/v1/oncall/schedules/on-call-now` | Who is on call right now, per schedule |
+| `POST` | `/api/v1/callbacks/slack` `…/telegram` | Acknowledge from a chat message (signed) |
 | `GET` | `/api/v1/public/pages/{slug}/monitors` | Public status page data (no auth) |
 | `POST` | `/api/v1/public/pages/{slug}/subscribe` | Subscribe to a status page |
 | `GET` | `/api/v1/ping/{slug}` | Heartbeat ping |
@@ -679,6 +681,7 @@ Contribution workflow, release process and the known CI pitfalls are in [CONTRIB
 - **SSRF protection** — every outbound request (webhooks, OIDC discovery, probe checks, scenario navigation) resolves the host once and **pins the resulting IP** for the connection, defeating DNS rebinding; redirect targets are re-validated per hop
 - **Probe auth** — `X-Probe-Api-Key`, bcrypt 12 rounds with a fingerprinted Redis cache that honours immediate revocation
 - **WebSocket auth** — a JSON message frame (`{"type":"auth","token":"…"}`), never a URL parameter; per-IP connection cap enforced before the handshake
+- **Chat ack callbacks** — the only unauthenticated mutating endpoints. Defended in depth: a token we minted binds the incident to its channel and is checked *first* (it selects which signing secret applies), then the provider signature, then the clicking user's chat identity, then their access to the monitor. A channel with no signing secret shows no button and refuses every callback — never "accept unsigned". All rejections answer identically
 - **Ownership enforcement** — every mutating endpoint verifies ownership through a JOIN; superadmin bypass is explicit
 - **Input validation** — Pydantic schemas use `extra="forbid"` on every create/update endpoint
 - **Rate limiting** — Redis-backed and shared across replicas; a CI gate fails the build if any `api/v1` endpoint ships without one

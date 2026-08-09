@@ -298,7 +298,27 @@ c'est ce lot qui l'allume.
   barreau dit qu'elle retombe sur les canaux de la règle.
 - **Positions assignées depuis l'ordre de liste** côté UI (participants et niveaux) : le serveur les exige
   contiguës, les faire saisir n'inviterait que des trous.
-- **Reste à faire** : B-3 (ack depuis le canal — surface d'attaque, signature obligatoire).
+- **Ack depuis le canal (B-3)** : `POST /callbacks/slack` et `/callbacks/telegram` —
+  **les seuls endpoints mutants non authentifiés du produit**. L'ordre des vérifications *est* la
+  conception :
+  1. **notre jeton d'abord** (`services/channel_ack.py`) — il nomme le canal, et sans le canal on ne sait
+     pas quel secret de signature vérifier ;
+  2. **signature du fournisseur** contre ce secret-là (temps constant, fenêtre anti-rejeu Slack) ;
+  3. **qui clique**, résolu depuis l'identité de messagerie via `UserContact` — jamais depuis le corps ;
+  4. **accès au moniteur** (propriétaire ou membre de l'équipe). **Pas de bypass superadmin** : ce chemin
+     n'est pas authentifié, et un superadmin a l'UI.
+- ⚠️ **Inverser 1 et 2 ouvre un trou cross-tenant** : un attaquant qui exploite sa propre app Slack connaît
+  son propre secret de signature et peut signer parfaitement. Choisir le canal depuis le corps *après*
+  avoir vérifié « une » signature acquitterait l'incident d'un inconnu — c'est-à-dire le faire taire.
+  Lier le jeton au canal en premier est ce qui ferme la faille (test dédié).
+- **Jamais « accepter du non signé »** : un canal sans `signing_secret` n'affiche **aucun bouton** et
+  refuse tout callback. `signing_secret` est dans `_SECRET_FIELDS` (chiffré Fernet).
+- **Toutes les erreurs répondent pareil** — ne jamais révéler si un incident existe, si un jeton était
+  expiré plutôt que forgé, ou si l'utilisateur est connu : un endpoint non authentifié qui distingue ces
+  cas est un oracle.
+- **Format du jeton contraint par Telegram** : `callback_data` plafonne à **64 octets**. D'où un encodage
+  binaire compact (16+16+4 + HMAC tronqué à 10 octets = 62 caractères) plutôt qu'un jeton lisible. Le
+  jeton n'est pas un porteur de session : il autorise **une action sur un incident**, sans identité.
 
 ### Corrélation métrique ↔ incident (plan V2, C-3)
 

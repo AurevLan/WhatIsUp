@@ -547,6 +547,7 @@ export default {
     sla_incidents: 'Incidents',
     sla_downtime: 'Downtime total',
     sla_p95: 'P95',
+    sla_p95_estimate: 'Estimated: re-aggregated from hourly percentiles over this window.',
     custom_metrics: 'Custom metrics',
     push_url: 'Show push URL',
     web_vitals: 'Core Web Vitals',

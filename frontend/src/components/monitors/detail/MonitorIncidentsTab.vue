@@ -371,8 +371,13 @@
       </div>
       <div class="bg-(--bg-surface-2) rounded-lg p-3 text-center">
         <p class="text-xs text-(--text-3)">{{ t('monitor_detail.sla_p95') }}</p>
-        <p class="text-xl font-bold text-(--text-2)">
-          {{ state.slaResult.value.p95_response_time_ms ? Math.round(state.slaResult.value.p95_response_time_ms) + 'ms' : '—' }}
+        <p
+          class="text-xl font-bold text-(--text-2)"
+          :title="state.slaResult.value.p95_is_estimate ? t('monitor_detail.sla_p95_estimate') : null"
+        >
+          {{ state.slaResult.value.p95_response_time_ms
+            ? (state.slaResult.value.p95_is_estimate ? '≈' : '') + Math.round(state.slaResult.value.p95_response_time_ms) + 'ms'
+            : '—' }}
         </p>
       </div>
     </div>

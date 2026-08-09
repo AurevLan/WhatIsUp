@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.20.0](https://github.com/AurevLan/WhatIsUp/compare/v1.19.0...v1.20.0) (2026-08-09)
+
+
+### Added
+
+* **incidents:** corréler les métriques poussées avec un incident (plan V2, C-3) ([#355](https://github.com/AurevLan/WhatIsUp/issues/355)) ([424c6ab](https://github.com/AurevLan/WhatIsUp/commit/424c6ab2ae71999916a80e48b4472feaa9d46a2c))
+
 ## [1.19.0](https://github.com/AurevLan/WhatIsUp/compare/v1.18.0...v1.19.0) (2026-08-09)
 
 

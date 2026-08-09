@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from whatisup.services.channel_ack import make_ack_token, signing_secret_configured
+
 from ._helpers import scope_label_en, ssrf_safe_client, validate_webhook_url
 from .base import BaseAlertChannel
 
@@ -62,7 +64,7 @@ class SlackChannel(BaseAlertChannel):
                 {"title": "Duration", "value": f"{incident.duration_seconds}s", "short": True}
             )
 
-        payload = {
+        payload: dict[str, Any] = {
             "attachments": [
                 {
                     "color": color,
@@ -73,6 +75,35 @@ class SlackChannel(BaseAlertChannel):
                 }
             ]
         }
+
+        # B-3 — acknowledge button. Only when the channel carries a signing
+        # secret: without one we could not verify the callback, and a button
+        # that silently fails to acknowledge is worse than no button at all —
+        # the engineer stops looking for another way to do it.
+        if (
+            not is_resolved
+            and channel is not None
+            and signing_secret_configured(config)
+            and getattr(incident, "acked_at", None) is None
+        ):
+            token = make_ack_token(incident.id, channel.id)
+            payload["blocks"] = [
+                {
+                    "type": "actions",
+                    "block_id": "whatisup_ack",
+                    "elements": [
+                        {
+                            "type": "button",
+                            "action_id": "whatisup_ack",
+                            "text": {"type": "plain_text", "text": "Acknowledge"},
+                            "style": "primary",
+                            # The token is the only thing the callback trusts to
+                            # say *which* incident this button was for.
+                            "value": token,
+                        }
+                    ],
+                }
+            ]
 
         await validate_webhook_url(config["webhook_url"])
         async with ssrf_safe_client(timeout=10) as client:

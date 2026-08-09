@@ -147,6 +147,7 @@
 - [ ] **WebSocket** : auth par message `{"type":"auth","token"}`, jamais en URL
 - [ ] **Jetons hors URL** : aucun `access_token`/`refresh_token` dans une query, un fragment ou une redirection — un code opaque à usage unique, lié au navigateur par cookie, sinon
 - [ ] **CORS** : si nouvelle origin → ajout dans `CORS_ALLOWED_ORIGINS` (jamais `*` avec credentials)
+- [ ] **Callback entrant non authentifié** : une signature de fournisseur ne prouve **que** l'origine de la requête, jamais *sur quoi* elle porte. Toute cible désignée dans le corps doit être liée par un jeton signé par nous, vérifié **avant** la signature (c'est lui qui désigne le secret applicable) ; puis identité de l'appelant, puis accès à la ressource. Aucun chemin qui accepte du non signé, et une réponse d'erreur identique dans tous les cas
 - [ ] **Tests** : test de privilège (autre user reçoit 404 ou 403, jamais 200)
 - [ ] **Tests** : test de validation (input invalide → 422)
 - [ ] **Migration** : `downgrade()` testé localement
@@ -165,6 +166,8 @@
 - 🔴 Webhook sortant sans SSRF guard
 - 🔴 Endpoint d'import/bulk qui applique un `group_id`/`team_id` du payload sans `assert_can_assign_*` → poisoning de la status page d'un autre tenant
 - 🔴 Liaison d'identité SSO sur un `email` dont le provider n'affirme pas `email_verified` → takeover de compte local
+- 🔴 Callback entrant dont la cible (incident, ressource) est lue **du corps** puis vérifiée contre « une » signature → un attaquant qui exploite sa propre app connaît son propre secret et signe parfaitement une requête visant la ressource d'un autre tenant. Lier la cible par un jeton à nous, vérifié en premier (cf. `services/channel_ack.py`)
+- 🔴 Callback accepté quand aucun secret n'est configuré (« accepter du non signé ») → refuser, et ne pas afficher le bouton du tout
 
 ---
 

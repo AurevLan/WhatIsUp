@@ -435,6 +435,7 @@ def create_app() -> FastAPI:
         audit,
         auth,
         bgp,
+        callbacks,
         config,
         extension,
         groups,
@@ -460,6 +461,10 @@ def create_app() -> FastAPI:
         ws,
     )
 
+    # B-3 — the only unauthenticated mutating endpoints in the product.
+    # Their defence is inside: our own ack token, then the provider
+    # signature, then the user's access to the monitor.
+    app.include_router(callbacks.router, prefix="/api/v1")
     app.include_router(admin.router, prefix="/api/v1")
     app.include_router(auth.router, prefix="/api/v1")
     app.include_router(totp.router, prefix="/api/v1")

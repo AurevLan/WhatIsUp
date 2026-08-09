@@ -272,6 +272,33 @@ zéro copie — migration `c2d3e4f5a6b7`).
 - **Pas d'événement WebSocket** pour l'instant : le dashboard temps réel les lirait comme des pannes.
   Ils apparaissent dans la liste d'incidents au rafraîchissement.
 
+## Conditions d'alerte — registre (`services/conditions/`)
+
+> Troisième point d'extension à registre du dépôt, après `services/channels/` (canaux) et
+> `probe/whatisup_probe/checkers/` (types de check). **Ajouter une condition = une classe, un fichier.**
+
+`AlertCondition` était dispatché par trois chaînes `if/elif` parallèles — `fire_alerts` (ce qui alerte
+vraiment), `simulate_rule` (l'aperçu UI), `compute_preview` (le badge « ≈ N / 30 j »). Toute divergence
+entre elles est **silencieuse** : l'aperçu répond « ne se déclencherait pas » pour une règle qui page
+toutes les nuits, et rien n'échoue. Ce n'est pas théorique — R-1 (v1.16.2) a corrigé exactement cette
+dérive. R-1 avait factorisé les **prédicats** ; le registre factorise la **structure**.
+
+- Un handler = une classe dans `services/conditions/`, portant **le dispatch et l'aperçu côte à côte**.
+  C'est le vrai garde-fou : on peut toujours les écrire divergents, mais il faut regarder l'autre en face.
+- Les prédicats purs restent dans `services/alert_conditions.py` — les handlers les appellent. Ne pas
+  réimplémenter une comparaison dans un handler.
+- **`needs_check_result` ≠ `preview_reads_checks`.** Le premier gouverne le dispatch (un `ssl_expiry` sans
+  `CheckResult` est inévaluable), le second l'aperçu. `any_down` les a différents : il alerte à partir de
+  l'incident seul, mais prévisualise en lisant le statut courant de chaque moniteur. Les confondre a fait
+  répondre « tout va bien » sur un moniteur down (attrapé par `test_simulate_rule_any_down_fires`).
+- **Gate CI** : `tests/test_condition_registry.py` échoue si un membre de l'enum n'a pas de handler, ou
+  l'inverse. `tests/test_alert_conditions.py::test_every_condition_has_preview_support` reste en second
+  filet côté sémantique.
+- `fires_on` déclare les types d'événement. `incident_renotify` est traité en amont dans `fire_alerts`,
+  aucun handler ne doit le revendiquer.
+- **Divergence assumée et documentée** : l'aperçu des conditions métrique ignore `min_duration_seconds`
+  (l'opérateur demande « et là, maintenant ? » en tapant un seuil) — le délai est dit dans le `reason`.
+
 ## Dépendances API (deps.py)
 
 ```python

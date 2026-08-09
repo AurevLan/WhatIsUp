@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.18.0](https://github.com/AurevLan/WhatIsUp/compare/v1.17.3...v1.18.0) (2026-08-09)
+
+
+### Added
+
+* **alerts:** conditions d'alerte sur métrique poussée (plan V2, C-4) ([#348](https://github.com/AurevLan/WhatIsUp/issues/348)) ([0a1c672](https://github.com/AurevLan/WhatIsUp/commit/0a1c67251bb6e0c8652fc2777131dec99ed0bb8d))
+* **oncall:** modèle astreinte + escalade + contacts (plan V2, B-0) ([#329](https://github.com/AurevLan/WhatIsUp/issues/329)) ([8258923](https://github.com/AurevLan/WhatIsUp/commit/8258923f9189e0a3b153ba32980754cd06632ce1))
+
+
+### Fixed
+
+* **db:** resynchroniser les modèles ORM et le schéma migré (plan V2, A-0 ter) ([#339](https://github.com/AurevLan/WhatIsUp/issues/339)) ([0fdbd02](https://github.com/AurevLan/WhatIsUp/commit/0fdbd02a637417b4b8672dedacec9182d89e96d0))
+* **deps:** bump nanoid 3.3.18 — GHSA-2v37-7h3g-55p8 bloque la CI ([#347](https://github.com/AurevLan/WhatIsUp/issues/347)) ([8cdac1a](https://github.com/AurevLan/WhatIsUp/commit/8cdac1ac56496641993a28530d1e0070df539465))
+* **deps:** solder les avis de sécurité qui bloquent la CI ([#341](https://github.com/AurevLan/WhatIsUp/issues/341)) ([a9e0b3c](https://github.com/AurevLan/WhatIsUp/commit/a9e0b3cddbf6ae95666780309d8d5ad2d886c56f))
+
+
+### Performance
+
+* **db:** agrégat horaire check_rollups_1h (plan V2, A-2) ([#343](https://github.com/AurevLan/WhatIsUp/issues/343)) ([4ae9e83](https://github.com/AurevLan/WhatIsUp/commit/4ae9e8377f4430a2087774eefe3885b02dce089e))
+* **db:** partitionner check_results par mois (plan V2, A-1) ([#342](https://github.com/AurevLan/WhatIsUp/issues/342)) ([e2f0449](https://github.com/AurevLan/WhatIsUp/commit/e2f044965c72404b3c18ae005be76833c705083d))
+* **db:** partitionner custom_metrics + lui donner une rétention (plan V2, C-2) ([#346](https://github.com/AurevLan/WhatIsUp/issues/346)) ([691d149](https://github.com/AurevLan/WhatIsUp/commit/691d149e0984cfa1d7ddbdcce511adf944e49de9))
+* **db:** rétention différenciée brut / rollups (plan V2, A-4) ([#345](https://github.com/AurevLan/WhatIsUp/issues/345)) ([7e93cd1](https://github.com/AurevLan/WhatIsUp/commit/7e93cd170dbead57f76fddfb91aed75970c5494d))
+* **stats:** servir les stats analytiques depuis les rollups horaires (plan V2, A-3) ([#344](https://github.com/AurevLan/WhatIsUp/issues/344)) ([204c911](https://github.com/AurevLan/WhatIsUp/commit/204c911714f0702566b6c4b90ec6fd3b57de5791))
+
 ## [1.17.3](https://github.com/AurevLan/WhatIsUp/compare/v1.17.2...v1.17.3) (2026-07-29)
 
 

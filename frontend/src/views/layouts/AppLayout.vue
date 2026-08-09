@@ -35,6 +35,7 @@
         <NavLink to="/alerts" :icon="Bell" :label="t('nav.alerts')" />
         <NavLink to="/maintenance" :icon="CalendarClock" :label="t('nav.maintenance')" />
         <NavLink to="/silences" :icon="BellOff" :label="t('nav.silences')" />
+        <NavLink to="/oncall" :icon="Users" :label="t('nav.oncall')" />
         <NavLink to="/incidents" :icon="Clock" :label="t('nav.incidents')" :badge="openIncidentCount" />
         <NavLink to="/templates" :icon="Copy" :label="t('nav.templates')" />
         <NavLink to="/tls-fleet" :icon="ShieldCheck" :label="t('nav.tls_fleet')" />
@@ -151,7 +152,7 @@ import { useI18n } from 'vue-i18n'
 import {
   Activity, Bell, BellOff, CalendarClock, ClipboardList, Clock, Copy,
   KeyRound, LayoutDashboard, Layers, LogOut, MapPin, Moon, Network, Search, Settings,
-  ShieldCheck, Sun, WifiOff,
+  ShieldCheck, Sun, Users, WifiOff,
 } from 'lucide-vue-next'
 import { useAuthStore } from '../../stores/auth'
 import { useWebSocketStore } from '../../stores/websocket'

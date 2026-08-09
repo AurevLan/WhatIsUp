@@ -87,6 +87,12 @@ const routes = [
         meta: { titleKey: 'nav.silences' },
       },
       {
+        path: 'oncall',
+        name: 'OnCall',
+        component: () => import('../views/OnCallView.vue'),
+        meta: { titleKey: 'nav.oncall' },
+      },
+      {
         path: 'audit',
         name: 'Audit',
         component: () => import('../views/AuditView.vue'),

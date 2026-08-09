@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.19.0](https://github.com/AurevLan/WhatIsUp/compare/v1.18.0...v1.19.0) (2026-08-09)
+
+
+### Added
+
+* **metrics:** batch, labels et quotas d'ingestion (plan V2, C-1) ([#353](https://github.com/AurevLan/WhatIsUp/issues/353)) ([081ffee](https://github.com/AurevLan/WhatIsUp/commit/081ffeedb411f20b8a63bbade3452f0f867c7c1a))
+
 ## [1.18.0](https://github.com/AurevLan/WhatIsUp/compare/v1.17.3...v1.18.0) (2026-08-09)
 
 

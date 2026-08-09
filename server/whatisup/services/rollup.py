@@ -146,6 +146,26 @@ class _Bucket:
         }
 
 
+async def rollup_boundary(db: AsyncSession) -> datetime | None:
+    """First instant *not* covered by the rollups, or None if there are none.
+
+    The builder walks forward in time and never folds the hour in progress, so
+    every hour below ``max(bucket) + 1 h`` has been processed — written if it
+    held results, legitimately absent otherwise. Above it, only the raw table
+    knows.
+
+    Two callers, for opposite reasons: ``stats.py`` reads *below* it (that part
+    is aggregated), ``retention.py`` refuses to purge raw rows *above* it (that
+    part is not aggregated yet, so deleting it would destroy history for good).
+    """
+    watermark = (await db.execute(select(func.max(CheckRollup1h.bucket)))).scalar_one_or_none()
+    if watermark is None:
+        return None
+    if watermark.tzinfo is None:  # SQLite hands back naive datetimes
+        watermark = watermark.replace(tzinfo=UTC)
+    return floor_hour(watermark) + timedelta(hours=1)
+
+
 async def _resume_point(db: AsyncSession, *, recompute_hours: int) -> datetime | None:
     """First hour to (re)build, or None when there is nothing to fold.
 

@@ -98,11 +98,18 @@ class Settings(BaseSettings):
     probe_result_rate_limit: str = "30/minute"
     probe_heartbeat_interval_seconds: int = 30
 
-    # Data retention
+    # Data retention. Since A-4 this governs the **raw** check_results only —
+    # history beyond it is carried by the rollups, at their own horizon below.
+    # Left at 90 days on purpose: shortening it is a per-deployment call (it
+    # drops the per-result detail — scenario_result, tls_audit, dns_*, which the
+    # rollups do not carry), never something an upgrade should do behind the
+    # operator's back.
     data_retention_days: int = 90  # 0 = keep forever
 
-    # Hourly rollups (plan V2, A-2) — pre-aggregation of check_results.
-    # Disabling only stops the builder; nothing reads the table yet (A-3).
+    # Hourly rollups (plan V2, A-2) — pre-aggregation of check_results, read by
+    # services/stats.py since A-3. Disabling stops the builder; stats then fall
+    # back to scanning the raw table, and retention loses its safety interlock
+    # (see services/retention.py).
     rollup_enabled: bool = True
     rollup_interval_seconds: int = 300
     # Hours folded per run: caps how much raw data one iteration reads, and
@@ -111,6 +118,11 @@ class Settings(BaseSettings):
     # Hours rebuilt behind the watermark, to fold in results that arrived after
     # their hour closed.
     rollup_recompute_hours: int = 3
+    # How long rollups are kept (plan V2, A-4). Longer than the raw window on
+    # purpose — outliving it is the entire point of the table. 13 months covers
+    # a rolling year plus the month in progress, so a year-on-year comparison
+    # never falls off the edge mid-month.
+    rollup_retention_months: int = 13  # 0 = keep forever
 
     # OIDC / SSO
     oidc_enabled: bool = False

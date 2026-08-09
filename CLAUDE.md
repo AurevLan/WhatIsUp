@@ -130,7 +130,8 @@ Règles qui en découlent :
 - **Rétention** : `retention.py` droppe les partitions entièrement expirées, avec un cutoff calculé sur la
   rétention **la plus longue en vigueur** (`max(global, tous les `Monitor.data_retention_days`)) — un
   cutoff global détruirait l'historique d'un moniteur configuré pour le garder. Le `DELETE` ligne à ligne
-  subsiste pour ce que le drop ne sait pas exprimer (rétention par moniteur).
+  subsiste pour ce que le drop ne sait pas exprimer (rétention par moniteur). Depuis A-4 tous ces cutoffs
+  sont **plafonnés par la frontière du builder de rollups** (cf. § Rétention différenciée).
 - **Une requête non bornée dans le temps n'élague rien** : `ORDER BY checked_at DESC LIMIT 1` (le LATERAL de
   `fetch_latest_results`) devient un `Merge Append` sur toutes les partitions. Toujours des index scans, mais
   borner par `checked_at` quand c'est possible reste la bonne réponse si le nombre de partitions grossit.
@@ -162,15 +163,16 @@ Lu par `stats.py` depuis A-3 (cf. § suivant).
 - Knobs : `ROLLUP_ENABLED`, `ROLLUP_INTERVAL_SECONDS` (300), `ROLLUP_MAX_BUCKETS_PER_RUN` (168 = 1 semaine
   par run, ce qui cadence le backfill initial), `ROLLUP_RECOMPUTE_HOURS` (3).
 - Rebuild manuel d'une plage (import a posteriori, bug d'agrégation corrigé) : `rebuild_range(db, start, end)`.
-- **Aucune purge** pour l'instant (~140 k lignes/an à la volumétrie mesurée) — c'est A-4.
+- **Purge** : `ROLLUP_RETENTION_MONTHS` (13 mois par défaut), cf. § Rétention différenciée.
 
 ### `stats.py` lit rollups + brut (plan V2, A-3)
 
 `compute_daily_history(_bulk)`, `compute_percentile_timeseries` et `compute_uptime_in_range` servent les
 heures couvertes depuis `check_rollups_1h` et le reste depuis le brut. À savoir avant d'y toucher :
 
-- **Frontière dérivée, pas configurée** : `max(bucket) + 1 h` (`_rollup_boundary`). Table de rollups vide
-  → tout retombe sur le brut, c'est-à-dire le comportement d'avant A-3. Aucun knob à régler.
+- **Frontière dérivée, pas configurée** : `max(bucket) + 1 h` (`rollup_boundary()` dans `services/rollup.py`,
+  partagée avec la rétention). Table de rollups vide → tout retombe sur le brut, c'est-à-dire le comportement
+  d'avant A-3. Aucun knob à régler.
 - **Le découpage est toujours sur une frontière d'heure** (`_rollup_window` arrondit start au ceil, end au
   floor). C'est ce qui rend l'addition exacte : une fenêtre de consensus (vue, minute) tient dans une seule
   heure, donc dans une seule source. Un découpage à la minute double-compterait.
@@ -183,6 +185,28 @@ heures couvertes depuis `check_rollups_1h` et le reste depuis le brut. À savoir
 - `compute_percentile_timeseries` **n'approxime rien** : grain rollup == grain bucket, relecture verbatim.
 - Parité garantie par `tests/test_stats_rollup_parity.py` : chaque figure calculée deux fois (rollups vides
   puis remplis) et comparée, dont le cas builder **en retard** (l'historique ne doit pas se tronquer).
+
+### Rétention différenciée brut / rollups (plan V2, A-4)
+
+Deux horizons, parce que les deux tables répondent à des questions différentes : le brut porte le **détail
+par résultat** (`scenario_result`, `tls_audit`, `dns_*`, horodatage exact) et coûte cher ; les rollups
+portent la **forme de l'historique** (uptime, compteurs, percentiles horaires) pour deux ordres de grandeur
+de moins.
+
+- `DATA_RETENTION_DAYS` (90 j) ne régit plus que `check_results`. **Ne pas le raccourcir par défaut** :
+  c'est un choix par déploiement, jamais quelque chose qu'une mise à jour fait dans le dos de l'exploitant.
+- `ROLLUP_RETENTION_MONTHS` (13 mois, 0 = infini) régit `check_rollups_1h`. `DELETE` simple, pas de
+  partitionnement : à ~140 k lignes/an la table entière pèse moins qu'un jour de brut. **Mois calendaires**
+  (`_months_before`), pas `mois × 30 j` — sinon une comparaison année/année dérive de deux semaines.
+- **Interlock : le purge du brut ne dépasse jamais le builder.** Tous les cutoffs (drop de partition,
+  `DELETE` global, `DELETE` par moniteur) sont plafonnés par `rollup_boundary()`. Supprimer une ligne brute
+  non encore repliée la perd dans **les deux** tables — le rollup qui devait lui survivre n'est jamais
+  écrit. C'est ce qui rend sûr de descendre `DATA_RETENTION_DAYS` à 7 j pendant un backfill.
+- Pas d'interlock dans deux cas où la frontière ne veut rien dire : `ROLLUP_ENABLED=false` (un watermark
+  figé gèlerait le purge pour toujours → disque plein) et table de rollups **vide** (builder qui n'a pas
+  encore écrit son premier bucket ; log `retention_no_rollup_floor` si ça persiste = builder cassé).
+- La rétention par moniteur (`Monitor.data_retention_days`) reste **brut uniquement** : « je n'ai pas besoin
+  du détail de ce moniteur » ≠ « efface son historique d'uptime ».
 
 ## Dépendances API (deps.py)
 
@@ -329,8 +353,9 @@ cd frontend && npm run dev -- --host
 - `services/probe_enrichment.py` : ASN lookup Team Cymru DNS (refresh opportuniste sur heartbeat, TTL 24 h)
 - `services/diagnostics.py` : V2-01-01 enqueue/drain Redis pour traceroute/dig/openssl/ping/curl à l'ouverture d'incident
 - `services/heartbeat.py` : tâche de fond — ouvre incidents si ping absent > `interval + grace`
-- `services/retention.py` : purge nightly des `CheckResult` > `DATA_RETENTION_DAYS` (défaut 90) — drop de
-  partition d'abord, `DELETE` résiduel ensuite (cf. § `check_results` est partitionné)
+- `services/retention.py` : purge nightly — `purge_old_results` (brut > `DATA_RETENTION_DAYS`, défaut 90 :
+  drop de partition d'abord, `DELETE` résiduel ensuite) puis `purge_old_rollups`
+  (> `ROLLUP_RETENTION_MONTHS`, défaut 13). Cf. §§ `check_results` est partitionné + Rétention différenciée
 - `services/rollup.py` : **plan V2, A-2** — `build_rollups` (boucle fond) / `rebuild_range` (plage forcée),
   agrégat horaire `check_rollups_1h` (cf. § Rollups horaires)
 - `core/partitions.py` : création/drop des partitions mensuelles de `check_results` + filtre alembic

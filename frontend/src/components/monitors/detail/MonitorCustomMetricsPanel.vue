@@ -11,11 +11,14 @@
       </button>
     </div>
 
-    <!-- Charts by metric_name -->
+    <!-- One chart per metric name; one line per series inside it (C-1) -->
     <div v-if="state.names.value.length" class="space-y-6">
       <div v-for="mName in state.names.value" :key="mName">
         <p class="text-xs font-mono text-(--text-2) mb-2">{{ mName }}
           <span v-if="state.unit(mName)" class="text-(--text-3) ml-1">({{ state.unit(mName) }})</span>
+          <span v-if="state.labelSets(mName).length > 1" class="text-(--text-3) ml-1">
+            · {{ t('sweep.series_count', { n: state.labelSets(mName).length }) }}
+          </span>
         </p>
         <apexchart
           type="line"
@@ -49,8 +52,17 @@
   -H "Content-Type: application/json" \
   -d '{"metric_name":"orders_per_minute","value":42,"unit":"req/min"}'</pre>
       </div>
-      <div class="text-xs text-(--text-3)">
-        <p>{{ t('sweep.available_fields') }} <code class="text-(--text-2)">metric_name</code> ({{ t('sweep.required') }}), <code class="text-(--text-2)">value</code> ({{ t('sweep.required') }}), <code class="text-(--text-2)">unit</code> ({{ t('sweep.optional') }}), <code class="text-(--text-2)">pushed_at</code> (ISO 8601, {{ t('sweep.optional') }}).</p>
+      <div>
+        <p class="text-xs text-(--text-3) mb-1">{{ t('sweep.batch_example') }}</p>
+        <pre class="text-xs font-mono bg-(--bg-surface-2) text-(--text-2) px-3 py-2 rounded overflow-x-auto whitespace-pre">-d '[
+  {"metric_name":"http_latency","value":42,"labels":{"route":"/api"}},
+  {"metric_name":"http_latency","value":12,"labels":{"route":"/health"}}
+]'</pre>
+        <p class="text-xs text-(--text-3) mt-1">{{ t('sweep.batch_help') }}</p>
+      </div>
+      <div class="text-xs text-(--text-3) space-y-1">
+        <p>{{ t('sweep.available_fields') }} <code class="text-(--text-2)">metric_name</code> ({{ t('sweep.required') }}), <code class="text-(--text-2)">value</code> ({{ t('sweep.required') }}), <code class="text-(--text-2)">unit</code> ({{ t('sweep.optional') }}), <code class="text-(--text-2)">labels</code> ({{ t('sweep.optional') }}), <code class="text-(--text-2)">pushed_at</code> (ISO 8601, {{ t('sweep.optional') }}).</p>
+        <p>{{ t('sweep.labels_help') }}</p>
       </div>
     </div>
   </BaseModal>

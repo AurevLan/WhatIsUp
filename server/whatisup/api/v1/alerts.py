@@ -354,6 +354,7 @@ async def create_rule(
         # them and only the matrix endpoint honoured them.
         anomaly_zscore_threshold=payload.anomaly_zscore_threshold,
         metric_name=payload.metric_name,
+        metric_labels=payload.metric_labels,
         metric_window_seconds=payload.metric_window_seconds,
         schedule=payload.schedule,
         suppress_on_network_partition=payload.suppress_on_network_partition,
@@ -456,6 +457,8 @@ async def update_rule(
         rule.anomaly_zscore_threshold = payload.anomaly_zscore_threshold
     if payload.metric_name is not None:
         rule.metric_name = payload.metric_name
+    if payload.metric_labels is not None:
+        rule.metric_labels = payload.metric_labels or None
     if payload.metric_window_seconds is not None:
         rule.metric_window_seconds = payload.metric_window_seconds
     if payload.schedule is not None:

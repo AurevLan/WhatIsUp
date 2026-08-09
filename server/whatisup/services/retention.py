@@ -36,7 +36,7 @@ from whatisup.core.partitions import (
     drop_expired_check_result_partitions,
     drop_expired_custom_metric_partitions,
 )
-from whatisup.models.custom_metric import CustomMetric
+from whatisup.models.custom_metric import CustomMetric, MetricSeries
 from whatisup.models.result import CheckResult
 from whatisup.models.rollup import CheckRollup1h
 from whatisup.services.rollup import rollup_boundary
@@ -217,6 +217,32 @@ async def purge_old_metrics(retention_days: int) -> int:
             floor=None,
             label="custom_metrics",
         )
+
+
+async def purge_stale_metric_series(retention_days: int) -> int:
+    """Forget series whose last point has aged out of the window (plan V2, C-1).
+
+    The registry is what enforces the per-monitor cardinality cap, so a series
+    that stops reporting must eventually free its slot — otherwise a monitor
+    that renames its metrics once a quarter drifts into a permanent 429 while
+    the points table holds nothing at all.
+
+    Cut on ``last_seen_at`` against the *metrics* retention window, so a series
+    disappears from the registry at the same moment its last point disappears
+    from the table. Deleting it earlier would leave orphan points that no label
+    selector can reach; later would keep charging a monitor for data it no
+    longer has.
+    """
+    if retention_days <= 0:
+        return 0
+    cutoff = datetime.now(UTC) - timedelta(days=retention_days)
+    async with get_session_factory()() as db:
+        result = await db.execute(delete(MetricSeries).where(MetricSeries.last_seen_at < cutoff))
+        await db.commit()
+        deleted = result.rowcount
+        if deleted > 0:
+            logger.info("metric_series_purged", deleted=deleted, cutoff=cutoff.isoformat())
+        return deleted
 
 
 async def purge_old_rollups(retention_months: int) -> int:

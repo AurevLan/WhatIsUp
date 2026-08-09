@@ -20,7 +20,7 @@ vi.mock('../src/api/monitors', () => ({
   groupsApi: { list: vi.fn() },
 }))
 vi.mock('../src/api/metrics', () => ({
-  metricsApi: { summary: vi.fn() },
+  metricsApi: { summary: vi.fn(), series: vi.fn() },
 }))
 vi.mock('../src/stores/auth', () => ({ useAuthStore: () => ({ isSuperadmin: false }) }))
 vi.mock('../src/composables/useToast', () => ({
@@ -52,7 +52,16 @@ async function mountView() {
   })
   monitorsApi.list.mockResolvedValue({ data: [{ id: 'mon-1', name: 'API', check_type: 'http' }] })
   groupsApi.list.mockResolvedValue({ data: [{ id: 'grp-1', name: 'Prod' }] })
-  metricsApi.summary.mockResolvedValue({ data: [{ metric_name: 'queue_depth' }] })
+  metricsApi.summary.mockResolvedValue({ data: [] })
+  // The rule form reads the series registry, not the points: a series that has
+  // gone quiet must still be pickable for a `metric_absent` rule.
+  metricsApi.series.mockResolvedValue({
+    data: [
+      { metric_name: 'queue_depth', labels: {} },
+      { metric_name: 'http_latency', labels: { route: '/api', method: 'GET' } },
+      { metric_name: 'http_latency', labels: { route: '/health', method: 'GET' } },
+    ],
+  })
 
   const wrapper = mount(AlertsView, { global: { plugins: [i18n], stubs: globalStubs } })
   await flushPromises()
@@ -95,10 +104,59 @@ describe('AlertsView — pushed-metric conditions', () => {
     w.vm.ruleForm.target_id = 'mon-1'
     await flushPromises()
 
-    expect(metricsApi.summary).toHaveBeenCalledWith('mon-1', { hours: 720 })
-    expect(w.find('#metric-name-options').findAll('option').map((o) => o.attributes('value'))).toEqual([
-      'queue_depth',
-    ])
+    expect(metricsApi.series).toHaveBeenCalledWith('mon-1')
+    // Distinct names, not one entry per series.
+    expect(
+      w.find('#metric-name-options').findAll('option').map((o) => o.attributes('value')),
+    ).toEqual(['queue_depth', 'http_latency'])
+  })
+
+  it('offers a series picker only when the name covers several (C-1)', async () => {
+    const w = await mountView()
+    w.vm.openCreateRule()
+    w.vm.ruleForm.condition = 'metric_above'
+    w.vm.ruleForm.target_id = 'mon-1'
+    await flushPromises()
+
+    // A label-less metric is a single series: nothing to choose.
+    w.vm.ruleForm.metric_name = 'queue_depth'
+    await flushPromises()
+    expect(w.text()).not.toContain(en.alerts.metric_labels_label)
+
+    w.vm.ruleForm.metric_name = 'http_latency'
+    await flushPromises()
+    expect(w.text()).toContain(en.alerts.metric_labels_label)
+    expect(w.findAll('option').map((o) => o.attributes('value'))).toContain(
+      '{method="GET",route="/api"}',
+    )
+  })
+
+  it('sends the selected series labels, and none when watching them all', async () => {
+    const w = await mountView()
+    api.post.mockResolvedValue({ data: {} })
+    w.vm.openCreateRule()
+    Object.assign(w.vm.ruleForm, {
+      target_type: 'monitor',
+      target_id: 'mon-1',
+      condition: 'metric_above',
+      threshold_value: 100,
+      metric_name: 'http_latency',
+      channel_ids: ['ch-1'],
+    })
+    await flushPromises()
+
+    w.vm.selectedSeriesKey = '{method="GET",route="/api"}'
+    await w.vm.saveRule()
+    let [, payload] = api.post.mock.calls.find(([url]) => url === '/alerts/rules')
+    expect(payload.metric_labels).toEqual({ route: '/api', method: 'GET' })
+
+    // Back to "any series": the selector must be dropped rather than sent
+    // empty, so the stored rule reads as "watch them all".
+    api.post.mockClear()
+    w.vm.selectedSeriesKey = ''
+    await w.vm.saveRule()
+    ;[, payload] = api.post.mock.calls.find(([url]) => url === '/alerts/rules')
+    expect(payload.metric_labels).toBeUndefined()
   })
 
   it('sends metric_name and metric_window_seconds when creating the rule', async () => {

@@ -14,7 +14,7 @@ from whatisup.models.api_key import UserApiKey
 from whatisup.models.audit_log import AuditLog
 from whatisup.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 from whatisup.models.correlation_pattern import CorrelationPattern
-from whatisup.models.custom_metric import CustomMetric
+from whatisup.models.custom_metric import CustomMetric, MetricSeries
 from whatisup.models.device_token import DevicePlatform, DeviceToken
 from whatisup.models.digest_window import DigestWindow
 from whatisup.models.incident import Incident, IncidentGroup, IncidentScope
@@ -70,6 +70,7 @@ __all__ = [
     "CheckStatus",
     "CheckRollup1h",
     "CustomMetric",
+    "MetricSeries",
     "Incident",
     "IncidentGroup",
     "IncidentScope",

@@ -167,6 +167,11 @@ class AlertRule(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # and `metric_absent` fires precisely when no sample is that fresh.
     metric_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     metric_window_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # C-1 — which series inside the family named by `metric_name`. Subset match:
+    # `{"route": "/api"}` selects every series carrying that label, whatever else
+    # it carries. NULL means "no selector", which is only unambiguous while the
+    # name has a single series — see services/conditions/metrics.py.
+    metric_labels: Mapped[dict | None] = mapped_column(_JSON, nullable=True)
     # Business hours schedule: {timezone, days: [0-6], start/end: "HH:MM", offhours_suppress: bool}
     schedule: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     # Tag selector: list of tag names; rule fires for monitors carrying any matching tag.

@@ -267,6 +267,9 @@ class AlertRuleCreate(BaseModel):
     # api/v1/metrics.py: a rule that cannot name an acceptable metric is a rule
     # that can never match.
     metric_name: str | None = Field(default=None, max_length=100, pattern=r"^[a-zA-Z0-9_.\-]+$")
+    # C-1 — which series inside the family named above. Subset match; absent
+    # means "every series of that name", firing on any of them.
+    metric_labels: dict[str, str] | None = Field(default=None, max_length=10)
     metric_window_seconds: int | None = Field(default=None, ge=30, le=86400)
     # Business hours schedule
     schedule: dict | None = None
@@ -299,6 +302,7 @@ class AlertRuleUpdate(BaseModel):
     baseline_factor: float | None = Field(default=None, ge=1.1, le=100.0)
     anomaly_zscore_threshold: float | None = Field(default=None, ge=1.0, le=10.0)
     metric_name: str | None = Field(default=None, max_length=100, pattern=r"^[a-zA-Z0-9_.\-]+$")
+    metric_labels: dict[str, str] | None = Field(default=None, max_length=10)
     metric_window_seconds: int | None = Field(default=None, ge=30, le=86400)
     schedule: dict | None = None
     suppress_on_network_partition: bool | None = None
@@ -321,6 +325,7 @@ class AlertRuleOut(BaseModel):
     baseline_factor: float | None = None
     anomaly_zscore_threshold: float | None = None
     metric_name: str | None = None
+    metric_labels: dict[str, str] | None = None
     metric_window_seconds: int | None = None
     schedule: dict | None = None
     enabled: bool = True

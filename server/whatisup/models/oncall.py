@@ -44,6 +44,7 @@ from whatisup.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 
 if TYPE_CHECKING:
     from whatisup.models.alert import AlertChannel
+    from whatisup.models.incident import Incident
     from whatisup.models.user import User
 
 
@@ -324,3 +325,67 @@ class EscalationLevel(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     def __repr__(self) -> str:
         return f"<EscalationLevel {self.position} → {self.target_type}>"
+
+
+class EscalationState(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Where one incident stands on its ladder (plan V2, B-1).
+
+    One row per incident, created when ``fire_alerts`` hands the incident to a
+    policy and deleted when the incident stops needing one. Persisted rather
+    than held in memory for the same reason the digest windows are: a server
+    restart in the middle of a night-time escalation must not leave an incident
+    stuck between two rungs, silently un-escalated.
+
+    ``next_fire_at`` is the whole scheduler. The background loop asks for rows
+    whose turn has come rather than re-deriving every incident's position, so
+    the cost of the loop tracks the number of *escalating* incidents, not the
+    number of open ones.
+    """
+
+    __tablename__ = "escalation_states"
+
+    # One ladder per incident. Unique rather than merely indexed: two states for
+    # the same incident would page twice and advance independently.
+    incident_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("incidents.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+    )
+    # CASCADE, unlike ``AlertRule.escalation_policy_id`` which is SET NULL:
+    # a rule outliving its policy degrades to its channels, but an in-flight
+    # ladder whose policy just vanished has nothing left to walk.
+    policy_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("escalation_policies.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    #: The rule that armed this ladder. Needed to fall back to its channels when
+    #: the ladder turns out to reach nobody.
+    rule_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("alert_rules.id", ondelete="SET NULL"), nullable=True
+    )
+
+    #: Position of the level to fire next. Equal to the ladder length means the
+    #: ladder is exhausted for this pass.
+    next_position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    #: How many full passes have already been replayed (``repeat_count``).
+    repeats_done: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    #: When the next rung is due. Indexed — it is the loop's only filter.
+    next_fire_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
+    last_fired_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    incident: Mapped[Incident] = relationship("Incident")
+    policy: Mapped[EscalationPolicy] = relationship("EscalationPolicy")
+
+    __table_args__ = (
+        CheckConstraint("next_position >= 0", name="ck_escalation_state_position"),
+        CheckConstraint("repeats_done >= 0", name="ck_escalation_state_repeats"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<EscalationState incident={self.incident_id} pos={self.next_position}>"

@@ -340,7 +340,7 @@ Advanced assertions across types: regex body check, response header validation (
 - **Alerting templates** — Standard / Strict-Paging / Low-noise presets in one click; superadmins manage their own
 - **Conditions** — `any_down`, `all_down`, `ssl_expiry`, `response_time_above`, `response_time_above_baseline`, `anomaly_detection` (z-score against the same ±3 h window of day), `schema_drift`, `metric_above`, `metric_below`, `metric_absent`
 - **Tag-scoped rules** — one rule targets every monitor carrying a tag
-- **Escalation policies** — ladder of levels paged in order until an ack
+- **On-call rotations & timed escalation** — daily / weekly / custom rotations with one-off overrides, and a ladder that pages *different* targets in order (L1, then L2 if nobody acked, then whoever is on call) rather than re-paging the same channels. Handoffs are computed in local calendar days, so a 09:00 rotation does not drift across DST. A rung that reaches nobody is skipped without spending its delay, and a ladder that reaches nobody at all falls back to the rule's channels — attaching a policy never makes an alert quieter than attaching none
 - **Quick-ack & snooze from mobile push** — act from the notification, no app round-trip
 - **Auto post-mortem** — Markdown report on resolution (timeline, alerts, metrics)
 - **Alert channels** — 11 built-in: Email (SMTP), Webhook (HMAC-SHA256), Telegram, Slack, Discord, Mattermost, Microsoft Teams (Adaptive Card), PagerDuty, Opsgenie, [Signal](#signal-alerts), FCM (native mobile push)
@@ -419,6 +419,7 @@ Every singleton loop is leader-elected through Redis, so N API replicas run each
 | **Metric alert evaluator** | 60 s | Pushed-metric rules never fire — nothing else evaluates them |
 | Rollup builder | 5 min | Stats fall back to the raw table; retention loses its interlock |
 | Heartbeat checker | 30 s | Late cron jobs go unnoticed |
+| **Escalation engine** | 30 s | **On-call ladders stop advancing** — the operator believes they are covered |
 | Renotify | 60 s | No periodic re-alerting on open incidents |
 | Digest flusher | 30 s | Grouped alerts stay queued |
 | Retention purge | nightly | Disk grows |

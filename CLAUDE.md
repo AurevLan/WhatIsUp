@@ -260,6 +260,38 @@ Migration `e4f5a6b7c8d9`. `POST /metrics/{monitor_id}` accepte un objet **ou** u
 - **Rétrocompatibilité** : la forme objet renvoie le point stocké comme avant ; seule la liste renvoie
   `{accepted: N}`.
 
+### Astreinte et escalade (plan V2, B-1/B-2)
+
+`services/oncall.py` (qui est d'astreinte) + `services/escalation.py` (échelle temporisée).
+Migration `f5a6b7c8d9e0` (`escalation_states`). B-0 avait posé le modèle et l'avait laissé **inerte** ;
+c'est ce lot qui l'allume.
+
+- **`renotify` relance les mêmes canaux, une échelle en page de différents** : L1, puis L2 si personne
+  n'a acquitté, puis la rotation. C'est tout le delta.
+- **Armée depuis `fire_alerts`** — funnel unique — quand une règle porte un `escalation_policy_id`, et
+  **uniquement à l'ouverture** : un avis de résolution n'a rien à escalader et doit repartir sur les
+  canaux où les gens ont été paginés. `escalation_policy_id` NULL = comportement historique inchangé.
+- **Maths de rotation en jours calendaires locaux, jamais en secondes.** `floor((now - start) / period)`
+  dérive d'une heure à chaque changement d'heure : un relais à 09:00 Paris changerait de titulaire du
+  mauvais côté de la matinée. On compte des dates locales, donc un jour de 23 h ou 25 h vaut un jour.
+- **Un échelon qui ne joint personne ne consomme pas son délai** — sinon une échelle à trois barreaux
+  avec un milieu cassé mettrait deux fois plus longtemps à atteindre la personne joignable.
+- **Une échelle qui ne joint personne du tout retombe sur les canaux de la règle.** Attacher une
+  politique ne doit jamais rendre une alerte plus silencieuse que ne pas en attacher — ce serait
+  transformer une erreur de configuration en silence.
+- **Repli e-mail sur `User.email`** quand la personne n'a déclaré aucun contact : quelqu'un nommé sur une
+  échelle ne doit pas être injoignable faute de ligne en base.
+- **État persisté, pas en mémoire** (même raison que les fenêtres de digest) : un redémarrage en pleine
+  escalade nocturne ne doit pas laisser un incident coincé entre deux barreaux. `next_fire_at` **est**
+  l'ordonnanceur — la boucle sélectionne les échéances dues, son coût suit le nombre d'incidents *en
+  escalade*, pas le nombre d'incidents ouverts.
+- **Arrêt** sur ack / resolve / snooze / maintenance, en **déléguant** aux helpers existants plutôt qu'en
+  les redupliquant. `cancel_escalation` est appelé à la résolution pour que l'état disparaisse à
+  l'instant même, et non un tick plus tard.
+- ⚠️ **Ne jamais faire `db.rollback()` nu dans un chemin appelé depuis `fire_alerts`** : ça annule toute
+  la session, incident compris. Utiliser `db.begin_nested()` pour borner le repli (piège vécu ici).
+- **Reste à faire** : B-3 (ack depuis le canal — surface d'attaque, signature obligatoire) et B-4 (UI).
+
 ### Corrélation métrique ↔ incident (plan V2, C-3)
 
 `services/metric_correlation.py`. Le blackbox dit *que* c'est cassé ; les métriques poussées disent
@@ -513,6 +545,9 @@ cd frontend && npm run dev -- --host
   chose qui déclenche `metric_above` / `metric_below` / `metric_absent` (cf. § Alertes sur métrique poussée)
 - `services/metric_ingest.py` : **plan V2, C-1** — `ingest_points`, batch + quotas débit/cardinalité
 - `services/metric_series.py` : **plan V2, C-1** — résolution d'un sélecteur de labels vers ses séries
+- `services/oncall.py` : **plan V2, B-2** — rotation, overrides, résolution vers des contacts livrables
+- `services/escalation.py` : **plan V2, B-1** — échelle temporisée (`arm_escalation`,
+  `run_due_escalations`), boucle leader 30 s
 - `services/metric_correlation.py` : **plan V2, C-3** — classement des séries par mouvement autour d'un
   incident + rendu markdown pour le post-mortem (cf. § Corrélation métrique ↔ incident)
 - `services/retention.py` : purge nightly — `purge_old_results` (brut > `DATA_RETENTION_DAYS`, défaut 90 :

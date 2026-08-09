@@ -235,6 +235,10 @@ docker compose --env-file .env exec server alembic upgrade head
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `METRICS_MAX_POINTS_PER_MINUTE` | `6000` | Ingestion rate ceiling per monitor (0 = unlimited). Refused with 429, never dropped silently |
+| `METRICS_MAX_SERIES_PER_MONITOR` | `1000` | Distinct label combinations per monitor (0 = unlimited). This is the ceiling that actually protects the database — one unbounded label and the row count stops being a function of how often you push |
+| `METRICS_MAX_BATCH_SIZE` | `1000` | Largest accepted batch |
+| `METRICS_MAX_LABELS_PER_POINT` | `10` | Labels are a dimension, not a payload |
 | `METRIC_ALERTS_ENABLED` | `true` | Pushed-metric conditions. This loop is the **only** thing that fires them |
 | `METRIC_ALERTS_INTERVAL_SECONDS` | `60` | Worst-case alerting delay for pushed metrics. Evaluation is deliberately off the ingestion path so a slow webhook cannot throttle the agent that pushes |
 | `LEGACY_INCIDENT_ENGINE` | unset | Set to `true` to bypass the Health Engine SLO bridge globally. No migration involved — a rollback switch |
@@ -474,7 +478,18 @@ curl -X POST https://your-whatisup.example.com/api/v1/metrics/{monitor_id} \
   -d '{"metric_name": "orders_per_minute", "value": 42.5, "unit": "req/min"}'
 ```
 
-Metrics are graphed per `metric_name` on the monitor detail view, and can be alerted on with the `metric_*` conditions. A personal API key (`X-Api-Key: wiu_u_…`) works here too, so an application doesn't need a user password.
+The same endpoint takes a **batch**, and points carry **labels** so one metric can be broken down by dimension:
+
+```bash
+  -d '[
+    {"metric_name": "http_latency", "value": 42, "labels": {"route": "/api"}},
+    {"metric_name": "http_latency", "value": 12, "labels": {"route": "/health"}}
+  ]'
+```
+
+A batch is all-or-nothing: if it would breach a quota, nothing is stored and the response is a 429 saying which ceiling was hit. Keep label *values* bounded — a label carrying a user or request id creates one series per value and will hit the cardinality ceiling, which is exactly what that ceiling is for.
+
+Metrics are graphed per series on the monitor detail view, and can be alerted on with the `metric_*` conditions. A personal API key (`X-Api-Key: wiu_u_…`) works here too, so an application doesn't need a user password.
 
 ### Signal alerts
 
@@ -541,6 +556,7 @@ curl https://your-whatisup.example.com/api/v1/monitors/ -H "Authorization: Beare
 | `POST` | `/api/v1/alerts/rules/{id}/simulate` | "Would this fire right now?" |
 | `POST` | `/api/v1/metrics/{monitor_id}` | Push a custom metric |
 | `GET` | `/api/v1/metrics/{monitor_id}` `…/summary` | List / aggregate custom metrics |
+| `GET` | `/api/v1/metrics/{monitor_id}/series` | List the metric series a monitor reports |
 | `GET` | `/api/v1/public/pages/{slug}/monitors` | Public status page data (no auth) |
 | `POST` | `/api/v1/public/pages/{slug}/subscribe` | Subscribe to a status page |
 | `GET` | `/api/v1/ping/{slug}` | Heartbeat ping |

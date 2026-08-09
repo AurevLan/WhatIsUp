@@ -396,6 +396,10 @@ export default {
   // Last batch of the i18n sweep (B3). Several of these panels shipped their
   // labels hard-coded in French inside an otherwise-English codebase.
   sweep: {
+    series_count: '{n} series',
+    batch_example: 'Batch (labels + several points in one request)',
+    batch_help: 'A batch is all-or-nothing: if it exceeds a quota nothing is stored and the response is a 429 saying which ceiling was hit.',
+    labels_help: 'Labels break a metric down by dimension. Keep their values bounded — a label carrying a user or request id creates one series per value and will hit the cardinality ceiling.',
     close: 'Close',
     loading_row: 'Loading row',
     main_navigation: 'Main navigation',
@@ -900,6 +904,11 @@ export default {
     metric_name_placeholder: 'queue_depth',
     metric_name_help: 'The name your application pushes to POST /metrics/{monitor_id}. Names already seen on this monitor are suggested.',
     metric_threshold_label: 'Threshold',
+    metric_labels_label: 'Series',
+    metric_labels_hint: '— which one, when the name covers several',
+    metric_labels_all: 'Any of the {n} series ({n} watched)',
+    metric_labels_help_one: 'Only this series is watched.',
+    metric_labels_help_any: 'Every series of that name is watched; the rule fires as soon as one of them matches.',
     metric_window_label: 'Freshness window (s)',
     metric_window_hint: '— default 300',
     metric_window_help: 'Only a sample newer than this counts. Set it above your push interval, otherwise the rule sees no value and never fires.',

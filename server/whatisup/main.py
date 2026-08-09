@@ -47,6 +47,7 @@ async def _retention_job() -> None:
         purge_old_metrics,
         purge_old_results,
         purge_old_rollups,
+        purge_stale_metric_series,
     )
 
     settings = get_settings()
@@ -72,6 +73,9 @@ async def _retention_job() -> None:
                     await purge_old_results(settings.data_retention_days)
                     await purge_old_rollups(settings.rollup_retention_months)
                     await purge_old_metrics(settings.metrics_retention_days)
+                    # After the points, never before: a series must not lose its
+                    # registry row while it still has points nothing can select.
+                    await purge_stale_metric_series(settings.metrics_retention_days)
             except Exception as exc:
                 logger.error("retention_job_failed", error_type=type(exc).__name__, error=str(exc))
     finally:

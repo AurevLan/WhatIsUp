@@ -229,6 +229,37 @@ zéro copie — migration `c2d3e4f5a6b7`).
 - Faire C-2 **avant** C-1 est le point : convertir la table plate une fois le batch/labels en place serait
   une migration de données, alors qu'aujourd'hui c'est un rename instantané.
 
+### Ingestion des métriques : batch, labels, quotas (plan V2, C-1)
+
+Migration `e4f5a6b7c8d9`. `POST /metrics/{monitor_id}` accepte un objet **ou** une liste.
+
+- **Une série = `(monitor_id, metric_name, labels)`**, identifiée par `series_hash` (sha256 tronqué du
+  JSON canonique **clés triées**). Sans le tri, `{a,b}` et `{b,a}` seraient deux séries — la même donnée
+  coupée en deux, chacune avec sa courbe et son alerte. Le hash est dénormalisé sur le point pour que la
+  lecture d'une série soit une égalité sur colonne indexée, pas une containment JSON sur toutes les
+  partitions.
+- **`metric_series` est un registre**, une ligne par série. Il sert trois choses : plafond de cardinalité
+  par un `COUNT(*)` sur petite table (au lieu d'un `COUNT(DISTINCT)` sur toutes les partitions), liste des
+  séries pour l'UI (**y compris celles devenues muettes** — indispensable pour configurer un
+  `metric_absent`), et résolution du sélecteur de C-4.
+- **Deux quotas, tous deux en refus 429** : débit (`METRICS_MAX_POINTS_PER_MINUTE`, compteur Redis fenêtre
+  fixe) et cardinalité (`METRICS_MAX_SERIES_PER_MONITOR`). **Un lot est tout-ou-rien** : accepter la moitié
+  laisserait l'appelant incapable de dire quoi renvoyer. Le refus de cardinalité **nomme la série fautive**.
+- **Le compteur de quota ne fail-open PAS.** Contrairement aux caches (`core/redis` § fail-open), Redis est
+  ici la source de vérité : sans compteur il n'y a plus de plafond, et un endpoint d'ingestion sans plafond
+  est la façon de remplir la base. Il échoue *fermé* avec un `Retry-After` court.
+- **La cardinalité est le vrai danger** : un label à valeurs non bornées (id d'utilisateur, de requête) et
+  le nombre de lignes cesse d'être gouverné par la fréquence de push. Ni le partitionnement (C-2) ni la
+  rétention n'y peuvent quoi que ce soit — seul un plafond.
+- **`series_hash` a un `default` Python calculé depuis la ligne** (`ctx.get_current_parameters()`), pas un
+  simple `server_default` : ce dernier force SQLAlchemy à relire la ligne (RETURNING), et l'insert par lot
+  casse alors sur cette table (PK composite + datetime que SQLite rend naïf).
+- **Purge du registre** : `purge_stale_metric_series` dans le job nocturne, **après** la purge des points,
+  sur `last_seen_at` et la même fenêtre. Avant, on laisserait des points qu'aucun sélecteur n'atteint ;
+  jamais, un moniteur qui renomme ses métriques dériverait vers un 429 permanent.
+- **Rétrocompatibilité** : la forme objet renvoie le point stocké comme avant ; seule la liste renvoie
+  `{accepted: N}`.
+
 ### Alertes sur métrique poussée (plan V2, C-4)
 
 `metric_above` / `metric_below` / `metric_absent`, évaluées par `services/metric_alerts.py`
@@ -264,6 +295,14 @@ zéro copie — migration `c2d3e4f5a6b7`).
 - **Hors matrice d'alertes** : la matrice indexe une règle *par condition* et supprime ce qu'elle ne voit
   pas ; un moniteur a légitimement plusieurs `metric_above`. Rejetées en entrée et exclues du balayage
   de suppression.
+- **Sélection de série depuis C-1** : `AlertRule.metric_labels` (sous-ensemble). Une règle **sans**
+  sélecteur surveille **toutes** les séries du nom et se déclenche si l'une correspond. L'alternative —
+  ne surveiller que la série sans labels — rendrait une alerte existante définitivement silencieuse le jour
+  où l'application se met à labelliser : le bruit se voit et se corrige, le silence non. Cf.
+  `services/metric_series.py`.
+- **L'évaluateur dépend du registre `metric_series`** : un point inséré sans passer par l'ingestion est
+  invisible pour l'alerting. Les fixtures de test doivent appeler `ingest_points`, pas construire un
+  `CustomMetric` à la main (piège vécu : les tests C-4 passaient contre un évaluateur devenu aveugle).
 - **Cible = un moniteur** (`monitor_id` obligatoire) : les métriques sont poussées sur
   `POST /metrics/{monitor_id}`. Validé par `assert_metric_rule_is_fireable`, appelé à la création **et**
   sur l'état fusionné du PATCH — un PATCH qui bascule la condition sans `metric_name` passerait sinon.
@@ -446,6 +485,8 @@ cd frontend && npm run dev -- --host
 - `services/heartbeat.py` : tâche de fond — ouvre incidents si ping absent > `interval + grace`
 - `services/metric_alerts.py` : **plan V2, C-4** — `evaluate_metric_alerts` (boucle fond, 60 s), seule
   chose qui déclenche `metric_above` / `metric_below` / `metric_absent` (cf. § Alertes sur métrique poussée)
+- `services/metric_ingest.py` : **plan V2, C-1** — `ingest_points`, batch + quotas débit/cardinalité
+- `services/metric_series.py` : **plan V2, C-1** — résolution d'un sélecteur de labels vers ses séries
 - `services/retention.py` : purge nightly — `purge_old_results` (brut > `DATA_RETENTION_DAYS`, défaut 90 :
   drop de partition d'abord, `DELETE` résiduel ensuite) puis `purge_old_rollups`
   (> `ROLLUP_RETENTION_MONTHS`, défaut 13). Cf. §§ `check_results` est partitionné + Rétention différenciée

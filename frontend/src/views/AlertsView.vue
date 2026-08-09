@@ -189,7 +189,7 @@
                 <span v-if="rule.renotify_after_minutes" class="text-xs text-(--text-3)">{{ t('alerts.rule_renotify_minutes', { n: rule.renotify_after_minutes }) }}</span>
                 <span v-if="rule.digest_minutes" class="text-xs text-(--accent)">{{ t('alerts.rule_digest_minutes', { n: rule.digest_minutes }) }}</span>
                 <span v-if="rule.anomaly_zscore_threshold" class="text-xs text-(--accent)">· z={{ rule.anomaly_zscore_threshold }}</span>
-                <span v-if="rule.metric_name" class="text-xs text-(--accent) font-mono">· {{ rule.metric_name }}</span>
+                <span v-if="rule.metric_name" class="text-xs text-(--accent) font-mono">· {{ rule.metric_name }}{{ labelKey(rule.metric_labels) }}</span>
                 <span v-if="rule.metric_name && rule.metric_window_seconds" class="text-xs text-(--text-3)">{{ t('alerts.rule_metric_window', { n: rule.metric_window_seconds }) }}</span>
                 <span v-if="rule.schedule?.offhours_suppress" class="text-xs text-(--warn)">{{ t('alerts.rule_business_hours') }}</span>
               </div>
@@ -324,6 +324,21 @@
                 <option v-for="name in knownMetricNames" :key="name" :value="name" />
               </datalist>
               <p class="text-xs text-(--text-3) mt-1">{{ t('alerts.metric_name_help') }}</p>
+            </div>
+            <!-- Label selector (C-1). A name can now cover several series; without
+                 a selector the rule watches all of them and fires on any. -->
+            <div v-if="matchingSeries.length">
+              <label class="block text-sm font-medium text-(--text-2) mb-1">
+                {{ t('alerts.metric_labels_label') }}
+                <span class="text-(--text-3) font-normal">{{ t('alerts.metric_labels_hint') }}</span>
+              </label>
+              <select v-model="selectedSeriesKey" class="input w-full">
+                <option value="">{{ t('alerts.metric_labels_all', { n: matchingSeries.length }) }}</option>
+                <option v-for="s in matchingSeries" :key="s.key" :value="s.key">{{ s.key }}</option>
+              </select>
+              <p class="text-xs text-(--text-3) mt-1">
+                {{ selectedSeriesKey ? t('alerts.metric_labels_help_one') : t('alerts.metric_labels_help_any') }}
+              </p>
             </div>
             <div v-if="ruleForm.condition !== 'metric_absent'">
               <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('alerts.metric_threshold_label') }} *</label>
@@ -636,6 +651,7 @@ function defaultRuleForm() {
     anomaly_zscore_threshold: null,
     baseline_factor: null,
     metric_name: '',
+    metric_labels: null,
     metric_window_seconds: null,
     showSchedule: false,
     schedule: { ...DEFAULT_SCHEDULE },
@@ -651,18 +667,43 @@ const isMonitorTarget = computed(() => ruleForm.value.target_type === 'monitor')
 // silent, so the UI shows what actually exists rather than asking the operator
 // to remember it.
 const knownMetricNames = ref([])
+// Every series the monitor has ever reported, from the registry — quiet ones
+// included, which is precisely what a `metric_absent` rule needs to pick from.
+const knownSeries = ref([])
+
+function labelKey(labels) {
+  const entries = Object.entries(labels || {}).sort(([a], [b]) => a.localeCompare(b))
+  return entries.length ? `{${entries.map(([k, v]) => `${k}="${v}"`).join(',')}}` : ''
+}
+
+const matchingSeries = computed(() =>
+  knownSeries.value
+    .filter((s) => s.metric_name === ruleForm.value.metric_name && labelKey(s.labels))
+    .map((s) => ({ key: labelKey(s.labels), labels: s.labels })),
+)
+
+const selectedSeriesKey = computed({
+  get: () => labelKey(ruleForm.value.metric_labels),
+  set: (key) => {
+    ruleForm.value.metric_labels =
+      matchingSeries.value.find((s) => s.key === key)?.labels ?? null
+  },
+})
 
 watch(
   () => [ruleForm.value.target_id, isMetricCondition.value],
   async ([monitorId, wanted]) => {
     if (!wanted || !monitorId || !isMonitorTarget.value) {
+      knownSeries.value = []
       knownMetricNames.value = []
       return
     }
     try {
-      const { data } = await metricsApi.summary(monitorId, { hours: 720 })
-      knownMetricNames.value = data.map((m) => m.metric_name)
+      const { data } = await metricsApi.series(monitorId)
+      knownSeries.value = data
+      knownMetricNames.value = [...new Set(data.map((m) => m.metric_name))]
     } catch {
+      knownSeries.value = []
       knownMetricNames.value = []
     }
   },
@@ -870,6 +911,7 @@ function openEditRule(rule) {
     anomaly_zscore_threshold: rule.anomaly_zscore_threshold ?? null,
     baseline_factor: rule.baseline_factor ?? null,
     metric_name: rule.metric_name ?? '',
+    metric_labels: rule.metric_labels ?? null,
     metric_window_seconds: rule.metric_window_seconds ?? null,
     showSchedule: hasSchedule,
     schedule: rule.schedule ? { ...rule.schedule } : { ...DEFAULT_SCHEDULE },
@@ -904,6 +946,7 @@ async function saveRule() {
         anomaly_zscore_threshold: ruleForm.value.anomaly_zscore_threshold || undefined,
         baseline_factor: ruleForm.value.baseline_factor || undefined,
         metric_name: ruleForm.value.metric_name || undefined,
+        metric_labels: ruleForm.value.metric_labels || undefined,
         metric_window_seconds: ruleForm.value.metric_window_seconds || undefined,
         schedule: schedulePayload,
       }
@@ -926,6 +969,7 @@ async function saveRule() {
       if (ruleForm.value.anomaly_zscore_threshold) payload.anomaly_zscore_threshold = ruleForm.value.anomaly_zscore_threshold
       if (ruleForm.value.baseline_factor) payload.baseline_factor = ruleForm.value.baseline_factor
       if (ruleForm.value.metric_name) payload.metric_name = ruleForm.value.metric_name
+      if (ruleForm.value.metric_labels) payload.metric_labels = ruleForm.value.metric_labels
       if (ruleForm.value.metric_window_seconds) payload.metric_window_seconds = ruleForm.value.metric_window_seconds
       await api.post('/alerts/rules', payload, { skipErrorToast: true })
     }

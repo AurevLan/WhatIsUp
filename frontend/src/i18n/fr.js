@@ -386,6 +386,10 @@ export default {
   // Dernier lot du sweep i18n (B3). Plusieurs de ces panneaux avaient leurs
   // libellés codés en dur en français dans une base par ailleurs anglaise.
   sweep: {
+    series_count: '{n} séries',
+    batch_example: 'Lot (labels + plusieurs points en une requête)',
+    batch_help: "Un lot est tout-ou-rien : s'il dépasse un quota, rien n'est enregistré et la réponse est un 429 qui dit quel plafond a été atteint.",
+    labels_help: "Les labels ventilent une métrique par dimension. Gardez leurs valeurs bornées — un label portant un identifiant d'utilisateur ou de requête crée une série par valeur et atteindra le plafond de cardinalité.",
     close: 'Fermer',
     loading_row: 'Ligne en chargement',
     main_navigation: 'Navigation principale',
@@ -883,6 +887,11 @@ export default {
     metric_name_placeholder: 'queue_depth',
     metric_name_help: 'Le nom que votre application pousse sur POST /metrics/{monitor_id}. Les noms déjà vus sur ce moniteur sont proposés.',
     metric_threshold_label: 'Seuil',
+    metric_labels_label: 'Série',
+    metric_labels_hint: '— laquelle, quand le nom en couvre plusieurs',
+    metric_labels_all: "N'importe laquelle des {n} séries ({n} surveillées)",
+    metric_labels_help_one: 'Seule cette série est surveillée.',
+    metric_labels_help_any: "Toutes les séries de ce nom sont surveillées ; la règle se déclenche dès que l'une correspond.",
     metric_window_label: 'Fenêtre de fraîcheur (s)',
     metric_window_hint: '— 300 par défaut',
     metric_window_help: "Seul un échantillon plus récent que cette durée est pris en compte. À régler au-dessus de votre intervalle de push, sinon la règle ne voit aucune valeur et ne se déclenche jamais.",

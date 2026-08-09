@@ -139,6 +139,26 @@ class Settings(BaseSettings):
     metric_alerts_enabled: bool = True
     metric_alerts_interval_seconds: int = 60
 
+    # Pushed-metric ingestion quotas (plan V2, C-1). Both refuse with 429 rather
+    # than dropping quietly: a silently discarded metric is the worst failure a
+    # monitoring product can have.
+    #
+    # Rate is the easy one to reason about — points per minute per monitor.
+    # Cardinality is the one that actually protects the database: a single
+    # unbounded label (user id, request id) makes the row count a function of
+    # what the application observes rather than of how often it pushes, and
+    # neither partitioning (C-2) nor retention helps against that.
+    metrics_max_points_per_minute: int = 6000  # 0 = unlimited
+    metrics_max_series_per_monitor: int = 1000  # 0 = unlimited
+    #: Largest accepted batch. Bounds the memory a single request can pin and
+    #: keeps one caller from spending a monitor's whole minute in one shot.
+    metrics_max_batch_size: int = 1000
+    #: Per-point label ceilings. Labels are a dimension, not a payload: a metric
+    #: carrying twenty of them is nearly always an event log in disguise.
+    metrics_max_labels_per_point: int = 10
+    metrics_max_label_key_length: int = 64
+    metrics_max_label_value_length: int = 200
+
     # OIDC / SSO
     oidc_enabled: bool = False
     oidc_issuer_url: str = ""  # e.g. https://accounts.google.com

@@ -63,6 +63,7 @@ from whatisup.services.alert_conditions import (
     metric_below_matches,
 )
 from whatisup.services.maintenance import is_in_maintenance
+from whatisup.services.metric_series import resolve_series
 
 logger = structlog.get_logger(__name__)
 
@@ -89,17 +90,23 @@ def _matches(condition: AlertCondition, value: float | None, rule: AlertRule, ev
 async def _latest_sample(
     db: AsyncSession,
     monitor_id: uuid.UUID,
-    metric_name: str,
+    hashes: list[str],
     cutoff: datetime,
     now: datetime,
 ) -> tuple[float, datetime] | None:
-    """Most recent sample inside ``[cutoff, now]``, or None when the series is stale."""
+    """Most recent sample of any selected series inside ``[cutoff, now]``.
+
+    Filtered on ``series_hash`` rather than on ``metric_name``: since C-1 a name
+    can cover several series, and the rule watches the ones its selector picked.
+    """
+    if not hashes:
+        return None
     row = (
         await db.execute(
             select(CustomMetric.value, CustomMetric.pushed_at)
             .where(
                 CustomMetric.monitor_id == monitor_id,
-                CustomMetric.metric_name == metric_name,
+                CustomMetric.series_hash.in_(hashes),
                 CustomMetric.pushed_at >= cutoff,
                 # Bounded above as well: a client is free to send a pushed_at in
                 # the future, and one such row would otherwise pin this query's
@@ -118,18 +125,77 @@ async def _latest_sample(
     return float(row.value), pushed_at
 
 
-async def _ever_pushed(db: AsyncSession, monitor_id: uuid.UUID, metric_name: str, now: datetime):
+async def _latest_per_series(
+    db: AsyncSession,
+    monitor_id: uuid.UUID,
+    hashes: list[str],
+    cutoff: datetime,
+    now: datetime,
+) -> dict[str, tuple[float, datetime]]:
+    """Freshest sample of each selected series inside ``[cutoff, now]``.
+
+    One query for the whole selection rather than one per series: a rule with no
+    selector can legitimately cover hundreds of series, and this runs every
+    ``METRIC_ALERTS_INTERVAL_SECONDS``. Series with nothing fresh are simply
+    absent from the result — which is exactly what ``metric_absent`` reads.
+
+    Bounded by ``cutoff``/``now`` on both sides, so it prunes partitions (A-1,
+    C-2) instead of walking the whole retention window.
+    """
+    if not hashes:
+        return {}
+    in_window = (
+        CustomMetric.monitor_id == monitor_id,
+        CustomMetric.series_hash.in_(hashes),
+        CustomMetric.pushed_at >= cutoff,
+        # Bounded above as well: a client is free to send a pushed_at in the
+        # future, and one such row would otherwise pin this query's answer.
+        CustomMetric.pushed_at <= now,
+    )
+    freshest = (
+        select(
+            CustomMetric.series_hash.label("h"),
+            func.max(CustomMetric.pushed_at).label("m"),
+        )
+        .where(*in_window)
+        .group_by(CustomMetric.series_hash)
+        .subquery()
+    )
+    rows = (
+        await db.execute(
+            select(CustomMetric.series_hash, CustomMetric.value, CustomMetric.pushed_at)
+            .join(
+                freshest,
+                (CustomMetric.series_hash == freshest.c.h)
+                & (CustomMetric.pushed_at == freshest.c.m),
+            )
+            .where(*in_window)
+        )
+    ).all()
+
+    out: dict[str, tuple[float, datetime]] = {}
+    for row in rows:
+        pushed_at = row.pushed_at
+        if pushed_at.tzinfo is None:  # SQLite hands back naive datetimes
+            pushed_at = pushed_at.replace(tzinfo=UTC)
+        out[row.series_hash] = (float(row.value), pushed_at)
+    return out
+
+
+async def _ever_pushed(db: AsyncSession, monitor_id: uuid.UUID, hashes: list[str], now: datetime):
     """True when the series was written at least once inside the horizon.
 
     This is the guard that keeps a typo in ``metric_name`` from paging forever:
     a series nobody ever wrote is not a series that stopped reporting.
     """
+    if not hashes:
+        return False
     return (
         await db.execute(
             select(CustomMetric.id)
             .where(
                 CustomMetric.monitor_id == monitor_id,
-                CustomMetric.metric_name == metric_name,
+                CustomMetric.series_hash.in_(hashes),
                 CustomMetric.pushed_at >= now - EVER_PUSHED_HORIZON,
                 CustomMetric.pushed_at <= now,
             )
@@ -142,6 +208,7 @@ async def _sustained_since(
     db: AsyncSession,
     rule: AlertRule,
     monitor_id: uuid.UUID,
+    hashes: list[str],
     now: datetime,
 ) -> datetime | None:
     """When the current breach started, or None if it has not lasted long enough.
@@ -175,7 +242,7 @@ async def _sustained_since(
 
     in_range = (
         CustomMetric.monitor_id == monitor_id,
-        CustomMetric.metric_name == rule.metric_name,
+        CustomMetric.series_hash.in_(hashes),
         CustomMetric.pushed_at >= horizon,
         CustomMetric.pushed_at <= now,
     )
@@ -213,7 +280,13 @@ async def _open_incident_for_rule(
 
 
 async def _evaluate_rule(db: AsyncSession, rule: AlertRule, monitor: Monitor, now: datetime) -> int:
-    """Open or resolve this rule's incident for one monitor. Returns 1 on change."""
+    """Open or resolve this rule's incident for one monitor. Returns 1 on change.
+
+    Since C-1 a rule watches a *set* of series — those its ``metric_labels``
+    selector picks out of the family named by ``metric_name`` — and fires when
+    **any** of them matches. See ``services/metric_series`` for why "any", and
+    for what a rule with no selector watches.
+    """
     from whatisup.services.incident_alerts import fire_alerts
 
     window = _window_seconds(rule)
@@ -224,41 +297,71 @@ async def _evaluate_rule(db: AsyncSession, rule: AlertRule, monitor: Monitor, no
         # exactly that, and keeps one code path instead of two.
         cutoff -= timedelta(seconds=max(rule.min_duration_seconds, 0))
 
-    sample = await _latest_sample(db, monitor.id, rule.metric_name, cutoff, now)
-    value = sample[0] if sample else None
+    series = await resolve_series(db, monitor.id, rule.metric_name, rule.metric_labels)
+    hashes = [s.series_hash for s in series]
+    by_hash = {s.series_hash: s for s in series}
+    latest = await _latest_per_series(db, monitor.id, hashes, cutoff, now)
 
-    ever = False
-    if rule.condition is AlertCondition.metric_absent and sample is None:
-        ever = await _ever_pushed(db, monitor.id, rule.metric_name, now)
+    # Which selected series currently match, and with what value. `matching`
+    # empty means the rule does not fire; its first entry is what the alert
+    # message names.
+    matching: list[tuple[str, float | None]] = []
+    if rule.condition is AlertCondition.metric_absent:
+        silent = [h for h in hashes if h not in latest]
+        if silent:
+            ever = await _ever_pushed(db, monitor.id, silent, now)
+            matching = [(h, None) for h in silent] if ever else []
+    else:
+        for h in hashes:
+            value = latest.get(h, (None, None))[0]
+            if _matches(rule.condition, value, rule, False):
+                matching.append((h, value))
 
-    matched = _matches(rule.condition, value, rule, ever)
+    matched = bool(matching)
+    # "Did we observe anything at all?" — for the resolve path below. A rule
+    # whose whole selection went quiet must not resolve on that silence.
+    saw_a_sample = bool(latest)
     existing = await _open_incident_for_rule(db, monitor.id, rule.id)
 
     if matched and existing is None:
+        fired_hash, fired_value = matching[0]
         if rule.condition is AlertCondition.metric_absent:
             started_at = cutoff
         else:
-            started_at = await _sustained_since(db, rule, monitor.id, now)
+            started_at = await _sustained_since(db, rule, monitor.id, [h for h, _ in matching], now)
             if started_at is None:
                 return 0  # breaching, but not for long enough yet
         if await is_in_maintenance(db, monitor.id, monitor.group_id):
             return 0
-        return await _open(db, rule, monitor, started_at, value, now, fire_alerts)
+        return await _open(
+            db,
+            rule,
+            monitor,
+            started_at,
+            fired_value,
+            now,
+            fire_alerts,
+            series=by_hash.get(fired_hash),
+            matching_count=len(matching),
+        )
 
-    if not matched and existing is not None and sample is not None:
-        # `sample is not None` is the "on evidence" part, and it is load-bearing
-        # rather than redundant: once the agent goes quiet, `value` is None and
-        # every threshold predicate answers False, so testing `not matched`
+    if not matched and existing is not None and saw_a_sample:
+        # `saw_a_sample` is the "on evidence" part, and it is load-bearing
+        # rather than redundant: once the agent goes quiet, every value is None
+        # and every threshold predicate answers False, so testing `not matched`
         # alone would resolve the incident on silence — announcing recovery at
         # the exact moment the system stopped being able to observe anything.
         # For metric_absent the same test reads naturally: it is False precisely
-        # because a sample came back.
-        return await _resolve(db, rule, monitor, existing, value, now, fire_alerts)
+        # because samples came back.
+        recovered = next(iter(latest.values()))[0] if latest else None
+        return await _resolve(db, rule, monitor, existing, recovered, now, fire_alerts)
 
     return 0
 
 
-async def _open(db, rule, monitor, started_at, value, now, fire_alerts) -> int:
+async def _open(
+    db, rule, monitor, started_at, value, now, fire_alerts, *, series=None, matching_count=1
+) -> int:
     incident = Incident(
         monitor_id=monitor.id,
         alert_rule_id=rule.id,
@@ -289,6 +392,8 @@ async def _open(db, rule, monitor, started_at, value, now, fire_alerts) -> int:
         incident_id=str(incident.id),
         condition=rule.condition.value,
         metric_name=rule.metric_name,
+        labels=(series.labels if series else None),
+        matching_series=matching_count,
         value=value,
         threshold=rule.threshold_value,
     )
@@ -298,7 +403,7 @@ async def _open(db, rule, monitor, started_at, value, now, fire_alerts) -> int:
         monitor,
         None,
         "incident_opened",
-        extra_ctx=_ctx(rule, value, now),
+        extra_ctx=_ctx(rule, value, now, series=series, matching_count=matching_count),
     )
     return 1
 
@@ -330,9 +435,23 @@ async def _resolve(db, rule, monitor, incident, value, now, fire_alerts) -> int:
     return 1
 
 
-def _ctx(rule: AlertRule, value: float | None, now: datetime) -> dict:
-    """Channel-message context. Mirrors the keys the other conditions inject."""
+def _ctx(
+    rule: AlertRule,
+    value: float | None,
+    now: datetime,
+    *,
+    series=None,
+    matching_count: int = 1,
+) -> dict:
+    """Channel-message context. Mirrors the keys the other conditions inject.
+
+    ``metric_labels`` are the *firing series*' labels, not the rule's selector:
+    a rule watching ``queue_depth`` with no selector can fire on
+    ``queue_depth{shard="3"}``, and the alert has to say which one.
+    """
     return {
+        "metric_labels": (series.labels if series is not None else None),
+        "metric_matching_series": matching_count,
         "metric_name": rule.metric_name,
         "metric_value": value,
         "metric_threshold": rule.threshold_value,

@@ -18,7 +18,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.models.alert import AlertCondition, AlertRule
-from whatisup.models.custom_metric import CustomMetric
 from whatisup.models.incident import Incident
 from whatisup.models.monitor import Monitor
 from whatisup.models.probe import Probe
@@ -31,15 +30,42 @@ from whatisup.services.alert_conditions import (
     metric_below_matches,
 )
 from whatisup.services.metric_alerts import evaluate_metric_alerts
+from whatisup.services.metric_ingest import IngestPoint, ingest_points
 
 pytestmark = pytest.mark.asyncio
 
 NOW = datetime(2026, 8, 9, 12, 0, tzinfo=UTC)
 
 
-async def _push(db: AsyncSession, monitor: Monitor, name: str, value: float, at: datetime) -> None:
-    db.add(CustomMetric(monitor_id=monitor.id, metric_name=name, value=value, pushed_at=at))
-    await db.flush()
+async def _push(
+    db: AsyncSession,
+    monitor: Monitor,
+    name: str,
+    value: float,
+    at: datetime,
+    labels: dict[str, str] | None = None,
+) -> None:
+    """Push through the real ingestion path.
+
+    Deliberately not a hand-built ``CustomMetric``: since C-1 the evaluator
+    resolves series through the ``metric_series`` registry, which only ingestion
+    populates. A fixture that inserted points directly would leave the registry
+    empty and every one of these tests would pass against an evaluator that can
+    no longer see anything.
+    """
+    await ingest_points(
+        db,
+        monitor.id,
+        [
+            IngestPoint(
+                metric_name=name,
+                value=value,
+                unit=None,
+                labels=labels or {},
+                pushed_at=at,
+            )
+        ],
+    )
 
 
 async def _rule(

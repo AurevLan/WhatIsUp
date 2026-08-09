@@ -206,7 +206,28 @@ de moins.
   figé gèlerait le purge pour toujours → disque plein) et table de rollups **vide** (builder qui n'a pas
   encore écrit son premier bucket ; log `retention_no_rollup_floor` si ça persiste = builder cassé).
 - La rétention par moniteur (`Monitor.data_retention_days`) reste **brut uniquement** : « je n'ai pas besoin
-  du détail de ce moniteur » ≠ « efface son historique d'uptime ».
+  du détail de ce moniteur » ≠ « efface son historique d'uptime ». Elle s'applique en revanche aux
+  **métriques poussées** (C-2) : une métrique push *est* du détail brut.
+
+### `custom_metrics` est partitionné aussi (plan V2, C-2)
+
+Deuxième table pilotée par le temps, et la seule dont le plafond est fixé par l'application du tenant.
+`PARTITION BY RANGE (pushed_at)`, PK composite `(id, pushed_at)`, même bascule que A-1 (rename + attach,
+zéro copie — migration `c2d3e4f5a6b7`).
+
+- **`core/partitions.py` est générique depuis C-2** : tout passe par une `PartitionSpec(parent, time_column)`
+  — `CHECK_RESULTS`, `CUSTOM_METRICS`, `ALL_SPECS`. Les fonctions `*_check_result_*` restent comme wrappers.
+  Une nouvelle table partitionnée = une déclaration, pas une copie du module.
+- **Le seam de test a bougé** : `drop_expired_partitions` appelle `list_partitions`, pas le wrapper.
+  Un test qui neutralise `list_check_result_partitions` pour borner les candidats ne borne plus rien et
+  **droppe réellement** legacy + mois (constaté en écrivant C-2) → patcher `list_partitions`.
+- **Rétention** : `METRICS_RETENTION_DAYS` (90 j, 0 = infini), purge par `purge_old_metrics` dans le job
+  nocturne. Avant C-2 la table n'était purgée **nulle part** — le premier run après mise à jour supprime
+  donc ce qui dépasse la fenêtre ; `0` restaure le comportement d'avant.
+- **Pas de rollups pour les métriques** (donc pas d'interlock) : rien ne les agrège encore. Le grain
+  d'agrégation dépend des labels que C-1 introduira — les figer avant serait à refaire.
+- Faire C-2 **avant** C-1 est le point : convertir la table plate une fois le batch/labels en place serait
+  une migration de données, alors qu'aujourd'hui c'est un rename instantané.
 
 ## Dépendances API (deps.py)
 

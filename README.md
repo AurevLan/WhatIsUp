@@ -388,6 +388,7 @@ docker compose --env-file .env exec server alembic upgrade head
 | `REGISTRATION_OPEN` | — | `true` | `false` = invite-only after first user |
 | `DATA_RETENTION_DAYS` | — | `90` | Days to keep **raw** check results (0 = keep forever). Shortening it drops the per-result detail (scenario trace, TLS audit, DNS answers); uptime history survives in the rollups |
 | `ROLLUP_RETENTION_MONTHS` | — | `13` | Months to keep the hourly rollups — the long-term uptime/latency history (0 = keep forever) |
+| `METRICS_RETENTION_DAYS` | — | `90` | Days to keep pushed custom metrics (0 = keep forever). Before this setting existed they were never purged, so the first nightly run after upgrading removes what predates the window |
 | `SMTP_HOST` | — | `localhost` | SMTP server for email alerts |
 | `SMTP_PORT` | — | `587` | SMTP port |
 | `SMTP_USER` | — | — | SMTP username |

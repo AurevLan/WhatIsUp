@@ -43,7 +43,11 @@ async def _retention_job() -> None:
     releases it on shutdown.
     """
     from whatisup.core.leader import LeaderLock
-    from whatisup.services.retention import purge_old_results, purge_old_rollups
+    from whatisup.services.retention import (
+        purge_old_metrics,
+        purge_old_results,
+        purge_old_rollups,
+    )
 
     settings = get_settings()
     lock = LeaderLock("retention")
@@ -67,6 +71,7 @@ async def _retention_job() -> None:
                     # derived from the same instant.
                     await purge_old_results(settings.data_retention_days)
                     await purge_old_rollups(settings.rollup_retention_months)
+                    await purge_old_metrics(settings.metrics_retention_days)
             except Exception as exc:
                 logger.error("retention_job_failed", error_type=type(exc).__name__, error=str(exc))
     finally:
@@ -123,16 +128,17 @@ async def lifespan(app: FastAPI):
     # Start nightly data retention job (self-gates via LeaderLock).
     retention_task = asyncio.create_task(_retention_job())
 
-    # check_results partition maintenance (plan V2, A-1). Runs immediately then
-    # every 6 h. This one is not housekeeping: if no partition covers the
-    # current instant, *every* check result insert fails and the product stops
-    # recording anything. It creates three months of head-room ahead.
+    # Partition maintenance for check_results (A-1) and custom_metrics (C-2).
+    # Runs immediately then every 6 h. This one is not housekeeping: if no
+    # partition covers the current instant, *every* insert into that table fails
+    # — for check_results the product stops recording anything at all. It
+    # creates three months of head-room ahead.
     async def _partition_work():
         from whatisup.core.database import get_session_factory
-        from whatisup.core.partitions import ensure_check_result_partitions
+        from whatisup.core.partitions import ensure_all_partitions
 
         async with get_session_factory()() as bg_db:
-            await ensure_check_result_partitions(bg_db)
+            await ensure_all_partitions(bg_db)
 
     partition_task = asyncio.create_task(
         run_leader_loop("partition_maintainer", _partition_work, interval=6 * 3600)

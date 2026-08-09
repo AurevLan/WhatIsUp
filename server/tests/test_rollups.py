@@ -197,7 +197,12 @@ async def test_daily_uptime_matches_raw_path(
     service_db: AsyncSession, test_monitor: Monitor, test_probe: Probe
 ):
     """Rollup-derived daily uptime == ``compute_daily_history`` on the same data."""
-    day = (NOW - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    # The only test here that cross-checks against a function reading the wall
+    # clock: ``compute_daily_history`` windows on ``now - days``. Anchoring on
+    # the module's frozen NOW would slide the day out of that window as real
+    # time passes, and the comparison would then be against a truncated day.
+    now = datetime.now(UTC).replace(minute=30, second=0, microsecond=0)
+    day = (now - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
     for hour in range(24):
         for minute in (0, 30):
             moment = day + timedelta(hours=hour, minutes=minute)
@@ -212,7 +217,7 @@ async def test_daily_uptime_matches_raw_path(
                 probe=test_probe,
             )
 
-    await build_rollups(service_db, now=NOW)
+    await build_rollups(service_db, now=now)
     rows = [r for r in await _rows(service_db) if r.bucket.replace(tzinfo=UTC).date() == day.date()]
 
     windows = sum(r.external_windows + r.internal_windows for r in rows)

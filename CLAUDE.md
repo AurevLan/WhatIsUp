@@ -170,8 +170,9 @@ Lu par `stats.py` depuis A-3 (cf. § suivant).
 `compute_daily_history(_bulk)`, `compute_percentile_timeseries` et `compute_uptime_in_range` servent les
 heures couvertes depuis `check_rollups_1h` et le reste depuis le brut. À savoir avant d'y toucher :
 
-- **Frontière dérivée, pas configurée** : `max(bucket) + 1 h` (`_rollup_boundary`). Table de rollups vide
-  → tout retombe sur le brut, c'est-à-dire le comportement d'avant A-3. Aucun knob à régler.
+- **Frontière dérivée, pas configurée** : `max(bucket) + 1 h` (`rollup_boundary()` dans `services/rollup.py`,
+  partagée avec la rétention). Table de rollups vide → tout retombe sur le brut, c'est-à-dire le comportement
+  d'avant A-3. Aucun knob à régler.
 - **Le découpage est toujours sur une frontière d'heure** (`_rollup_window` arrondit start au ceil, end au
   floor). C'est ce qui rend l'addition exacte : une fenêtre de consensus (vue, minute) tient dans une seule
   heure, donc dans une seule source. Un découpage à la minute double-compterait.

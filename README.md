@@ -13,7 +13,7 @@
   <a href="https://github.com/AurevLan/WhatIsUp/actions/workflows/codeql.yml"><img alt="CodeQL" src="https://github.com/AurevLan/WhatIsUp/actions/workflows/codeql.yml/badge.svg?branch=main"></a>
   <a href="https://score.getplumber.io/github.com/AurevLan/WhatIsUp"><img alt="Plumber Score" src="https://score.getplumber.io/github.com/AurevLan/WhatIsUp.svg"></a>
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg"></a>
-  <img alt="Version" src="https://img.shields.io/badge/version-1.20.0"> <!-- x-release-please-version -->
+  <img alt="Version" src="https://img.shields.io/badge/version-1.21.0"> <!-- x-release-please-version -->
 </p>
 
 <p align="center">

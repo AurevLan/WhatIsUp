@@ -209,6 +209,19 @@ async def lifespan(app: FastAPI):
         else None
     )
 
+    # On-call escalation engine (plan V2, B-1). Walks each escalating incident
+    # to its next rung. Like the metric evaluator, this is not housekeeping: a
+    # tick that never runs is a rung that never pages, and the operator believes
+    # they are covered.
+    async def _escalation_work():
+        from whatisup.services.escalation import check_escalations
+
+        await check_escalations()
+
+    escalation_task = asyncio.create_task(
+        run_leader_loop("escalation_engine", _escalation_work, interval=30)
+    )
+
     # Autonomous renotify checker (every 60s)
     async def _renotify_work():
         from whatisup.services.renotify import check_renotify
@@ -308,6 +321,12 @@ async def lifespan(app: FastAPI):
             await metric_alerts_task
         except asyncio.CancelledError:
             pass
+
+    escalation_task.cancel()
+    try:
+        await escalation_task
+    except asyncio.CancelledError:
+        pass
 
     renotify_task.cancel()
     try:

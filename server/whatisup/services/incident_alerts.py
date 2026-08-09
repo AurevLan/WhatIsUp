@@ -27,6 +27,7 @@ from whatisup.models.result import CheckResult
 from whatisup.models.team import TeamMembership
 from whatisup.services.alert import dispatch_alert, maybe_digest_or_dispatch
 from whatisup.services.conditions import DispatchContext, get_handler
+from whatisup.services.escalation import arm_escalation, cancel_escalation
 
 logger = structlog.get_logger(__name__)
 
@@ -115,6 +116,12 @@ async def fire_alerts(
         from whatisup.services.status_subscription import notify_subscribers
 
         await notify_subscribers(db, monitor, resolved=event_type == "incident_resolved")
+
+    # A resolved incident has no ladder to walk. Dropped here rather than only
+    # in the loop so the state disappears at the moment of resolution, not up to
+    # one tick later — and so a resolve that races a rung cannot page after it.
+    if event_type == "incident_resolved":
+        await cancel_escalation(db, incident.id)
 
     if not rules:
         return
@@ -252,6 +259,22 @@ async def fire_alerts(
         if not decision.fire:
             continue
         rule_ctx = {**ctx, **decision.ctx_extra} if decision.ctx_extra else ctx
+
+        # B-1 — a rule carrying an escalation policy hands the incident to the
+        # ladder instead of fanning out to its own channels. The ladder pages
+        # different targets in order (L1, then L2 if nobody acked, then the
+        # rotation), which is what `renotify` cannot do: it re-pages the same
+        # channels. NULL policy keeps the historical behaviour untouched.
+        #
+        # Only on open: a resolution notice has nothing to escalate, and the
+        # people already paged need to hear it on the channels they were paged
+        # on — so it goes out through the normal fan-out.
+        if (
+            rule.escalation_policy_id is not None
+            and event_type == "incident_opened"
+            and await arm_escalation(db, incident, rule)
+        ):
+            continue
 
         for channel in rule.channels:
             await maybe_digest_or_dispatch(db, incident, channel, rule, event_type, ctx=rule_ctx)

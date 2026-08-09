@@ -340,6 +340,7 @@ Advanced assertions across types: regex body check, response header validation (
 - **Alerting templates** — Standard / Strict-Paging / Low-noise presets in one click; superadmins manage their own
 - **Conditions** — `any_down`, `all_down`, `ssl_expiry`, `response_time_above`, `response_time_above_baseline`, `anomaly_detection` (z-score against the same ±3 h window of day), `schema_drift`, `metric_above`, `metric_below`, `metric_absent`
 - **Tag-scoped rules** — one rule targets every monitor carrying a tag
+- **On-call page** — rotations, escalation policies and a "who is on call right now" widget. An uncovered rotation says so rather than rendering blank
 - **On-call rotations & timed escalation** — daily / weekly / custom rotations with one-off overrides, and a ladder that pages *different* targets in order (L1, then L2 if nobody acked, then whoever is on call) rather than re-paging the same channels. Handoffs are computed in local calendar days, so a 09:00 rotation does not drift across DST. A rung that reaches nobody is skipped without spending its delay, and a ladder that reaches nobody at all falls back to the rule's channels — attaching a policy never makes an alert quieter than attaching none
 - **Quick-ack & snooze from mobile push** — act from the notification, no app round-trip
 - **Auto post-mortem** — Markdown report on resolution (timeline, alerts, metrics)
@@ -560,6 +561,7 @@ curl https://your-whatisup.example.com/api/v1/monitors/ -H "Authorization: Beare
 | `GET` | `/api/v1/metrics/{monitor_id}` `…/summary` | List / aggregate custom metrics |
 | `GET` | `/api/v1/metrics/{monitor_id}/series` | List the metric series a monitor reports |
 | `GET` | `/api/v1/incidents/{id}/metric-correlation` | Which pushed metrics moved around an incident |
+| `GET` | `/api/v1/oncall/schedules/on-call-now` | Who is on call right now, per schedule |
 | `GET` | `/api/v1/public/pages/{slug}/monitors` | Public status page data (no auth) |
 | `POST` | `/api/v1/public/pages/{slug}/subscribe` | Subscribe to a status page |
 | `GET` | `/api/v1/ping/{slug}` | Heartbeat ping |

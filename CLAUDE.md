@@ -290,7 +290,15 @@ c'est ce lot qui l'allume.
   l'instant même, et non un tick plus tard.
 - ⚠️ **Ne jamais faire `db.rollback()` nu dans un chemin appelé depuis `fire_alerts`** : ça annule toute
   la session, incident compris. Utiliser `db.begin_nested()` pour borner le repli (piège vécu ici).
-- **Reste à faire** : B-3 (ack depuis le canal — surface d'attaque, signature obligatoire) et B-4 (UI).
+- **UI (B-4)** : `OnCallView.vue` + `components/oncall/` (modales rotation et politique). Le widget
+  « d'astreinte en ce moment » consomme `GET /oncall/schedules/on-call-now`, déclaré **avant**
+  `/{schedule_id}` (sinon FastAPI matche « on-call-now » comme un UUID et rend un 422 — même piège que
+  `/metrics/{monitor_id}/summary`). L'UI **nomme explicitement l'absence de couverture** : une rotation
+  qui ne désigne personne affiche « personne d'astreinte », jamais une case vide, et une politique sans
+  barreau dit qu'elle retombe sur les canaux de la règle.
+- **Positions assignées depuis l'ordre de liste** côté UI (participants et niveaux) : le serveur les exige
+  contiguës, les faire saisir n'inviterait que des trous.
+- **Reste à faire** : B-3 (ack depuis le canal — surface d'attaque, signature obligatoire).
 
 ### Corrélation métrique ↔ incident (plan V2, C-3)
 

@@ -18,8 +18,10 @@ Two cross-tenant hazards are specific to this module and are guarded explicitly:
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -59,6 +61,7 @@ from whatisup.schemas.oncall import (
     UserContactOut,
     UserContactUpdate,
 )
+from whatisup.services.oncall import resolve_on_call_user
 
 contacts_router = APIRouter(prefix="/contacts", tags=["oncall"])
 schedules_router = APIRouter(prefix="/oncall/schedules", tags=["oncall"])
@@ -238,6 +241,92 @@ async def list_schedules(
         stmt = stmt.where(_visibility_filter(current_user, OnCallSchedule, team_ids))
     rows = (await db.execute(stmt.order_by(OnCallSchedule.name))).scalars().all()
     return list(rows)
+
+
+class OnCallNowEntry(BaseModel):
+    """Who a schedule designates right now (plan V2, B-4)."""
+
+    schedule_id: uuid.UUID
+    schedule_name: str
+    timezone: str
+    user_id: uuid.UUID | None = None
+    user_email: str | None = None
+    username: str | None = None
+    #: True when a one-off override is what put this person on duty, rather than
+    #: the computed rotation. Worth surfacing: someone reading the widget needs
+    #: to know whether they are looking at the plan or at an exception to it.
+    via_override: bool = False
+
+
+@schedules_router.get("/on-call-now", response_model=list[OnCallNowEntry])
+@limiter.limit("60/minute")
+async def on_call_now(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[OnCallNowEntry]:
+    """Who is on duty on each visible schedule, at this instant.
+
+    Declared before ``/{schedule_id}`` so FastAPI does not greedily match
+    "on-call-now" as a UUID and fail with a 422 — same trap as
+    ``/metrics/{monitor_id}/summary``.
+
+    ``user_id`` is null when a schedule designates nobody (empty rotation,
+    disabled schedule, departed participant). That is a real answer and the UI
+    renders it as such: a widget that quietly shows an empty list would let an
+    uncovered rotation pass for a covered one.
+    """
+    team_ids = await get_user_team_ids(current_user, db)
+    stmt = select(OnCallSchedule).options(selectinload(OnCallSchedule.participants))
+    if not current_user.is_superadmin:
+        stmt = stmt.where(_visibility_filter(current_user, OnCallSchedule, team_ids))
+    schedules = list((await db.execute(stmt.order_by(OnCallSchedule.name))).scalars().all())
+    if not schedules:
+        return []
+
+    now = datetime.now(UTC)
+    entries: list[OnCallNowEntry] = []
+    resolved: dict[uuid.UUID, uuid.UUID | None] = {}
+    for schedule in schedules:
+        user_id = await resolve_on_call_user(db, schedule, now)
+        resolved[schedule.id] = user_id
+        entries.append(
+            OnCallNowEntry(
+                schedule_id=schedule.id,
+                schedule_name=schedule.name,
+                timezone=schedule.timezone,
+                user_id=user_id,
+                via_override=await _is_override(db, schedule.id, now),
+            )
+        )
+
+    # One query for every named user rather than one per schedule.
+    user_ids = [uid for uid in resolved.values() if uid is not None]
+    if user_ids:
+        users = {
+            u.id: u
+            for u in (await db.execute(select(User).where(User.id.in_(user_ids)))).scalars().all()
+        }
+        for entry in entries:
+            user = users.get(entry.user_id) if entry.user_id else None
+            if user is not None:
+                entry.user_email = user.email
+                entry.username = user.username
+    return entries
+
+
+async def _is_override(db: AsyncSession, schedule_id: uuid.UUID, moment: datetime) -> bool:
+    return (
+        await db.execute(
+            select(OnCallOverride.id)
+            .where(
+                OnCallOverride.schedule_id == schedule_id,
+                OnCallOverride.starts_at <= moment,
+                OnCallOverride.ends_at > moment,
+            )
+            .limit(1)
+        )
+    ).scalar_one_or_none() is not None
 
 
 @schedules_router.post("/", response_model=OnCallScheduleOut, status_code=status.HTTP_201_CREATED)

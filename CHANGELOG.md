@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.22.0](https://github.com/AurevLan/WhatIsUp/compare/v1.21.0...v1.22.0) (2026-08-09)
+
+
+### Added
+
+* **oncall:** page Astreinte — rotations, politiques, « qui est d'astreinte » (plan V2, B-4) ([#359](https://github.com/AurevLan/WhatIsUp/issues/359)) ([c87846b](https://github.com/AurevLan/WhatIsUp/commit/c87846bbcdeefbb0adf2fdd71105cc1a4dba6f98))
+
 ## [1.21.0](https://github.com/AurevLan/WhatIsUp/compare/v1.20.0...v1.21.0) (2026-08-09)
 
 

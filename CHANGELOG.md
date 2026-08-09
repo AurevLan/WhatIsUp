@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.21.0](https://github.com/AurevLan/WhatIsUp/compare/v1.20.0...v1.21.0) (2026-08-09)
+
+
+### Added
+
+* **oncall:** moteur d'escalade et résolution d'astreinte (plan V2, B-1/B-2) ([#357](https://github.com/AurevLan/WhatIsUp/issues/357)) ([23f7015](https://github.com/AurevLan/WhatIsUp/commit/23f70154c255ca1e2878e0086ad3529147591e76))
+
 ## [1.20.0](https://github.com/AurevLan/WhatIsUp/compare/v1.19.0...v1.20.0) (2026-08-09)
 
 

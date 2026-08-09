@@ -2,7 +2,7 @@
 
 import logging
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import and_, func, select
@@ -106,13 +106,21 @@ async def get_monitor_probe_status(
     db: AsyncSession = Depends(get_db),
 ) -> list[dict]:
     """Last check result per probe for a given monitor."""
-    # Subquery: MAX(checked_at) per probe_id for this monitor
+    # Bounded to the last 24 h on purpose. Unbounded, the ``MAX(checked_at) per
+    # probe`` aggregate reads every partition of check_results (A-1) for this
+    # monitor — the whole retention window — to answer a question about the
+    # present. A probe that has reported nothing for a day is offline, and the
+    # UI already renders it as "no data", which is what the window now yields.
+    window_start = datetime.now(UTC) - timedelta(hours=24)
     max_ts_subq = (
         select(
             CheckResult.probe_id,
             func.max(CheckResult.checked_at).label("max_at"),
         )
-        .where(CheckResult.monitor_id == monitor_id)
+        .where(
+            CheckResult.monitor_id == monitor_id,
+            CheckResult.checked_at >= window_start,
+        )
         .group_by(CheckResult.probe_id)
         .subquery()
     )
@@ -131,6 +139,7 @@ async def get_monitor_probe_status(
                     CheckResult.probe_id == max_ts_subq.c.probe_id,
                     CheckResult.checked_at == max_ts_subq.c.max_at,
                     CheckResult.monitor_id == monitor_id,
+                    CheckResult.checked_at >= window_start,
                 ),
             )
         )
@@ -188,6 +197,9 @@ async def get_sla_report(
             Incident.monitor_id == monitor_id,
             Incident.started_at >= from_,
             Incident.started_at <= to,
+            # C-4 — same reason as the error budget: this is the outage count
+            # and total downtime of an SLA report, not a metric-breach count.
+            Incident.alert_rule_id.is_(None),
         )
     )
     inc_row = inc_result.one()

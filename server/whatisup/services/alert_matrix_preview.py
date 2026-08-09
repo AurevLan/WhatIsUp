@@ -20,7 +20,7 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from whatisup.models.incident import Incident, IncidentScope
+from whatisup.models.incident import IS_AVAILABILITY_INCIDENT, Incident, IncidentScope
 from whatisup.models.result import CheckResult, CheckStatus
 
 PREVIEW_WINDOW_DAYS = 30
@@ -43,6 +43,8 @@ async def compute_preview(
         Incident.monitor_id == monitor_id,
         Incident.started_at >= since,
         Incident.dependency_suppressed.is_(False),
+        # Only any_down / all_down read this list, and both mean "was it down?".
+        IS_AVAILABILITY_INCIDENT,
     )
     incidents = list((await db.execute(incidents_q)).scalars().all())
 

@@ -146,8 +146,43 @@ def redact_secrets(text: str, config: dict[str, Any] | None) -> str:
     return text
 
 
+def _metric_scope_label(incident: Incident, ctx: dict, *, fr: bool) -> str | None:
+    """Label for a pushed-metric incident (C-4), or None if this isn't one.
+
+    Every channel funnels through ``scope_label_fr`` / ``scope_label_en``, so
+    this single branch is what keeps eleven integrations from announcing
+    "Global outage (all probes)" for a queue-depth threshold — a metric
+    incident carries scope ``global_`` and no probes, which is exactly the
+    shape those labels read as a total outage.
+    """
+    if getattr(incident, "alert_rule_id", None) is None:
+        return None
+    name = ctx.get("metric_name") or "?"
+    condition = ctx.get("metric_condition")
+    value = ctx.get("metric_value")
+    threshold = ctx.get("metric_threshold")
+    window = ctx.get("metric_window_seconds")
+
+    if condition == "metric_absent":
+        return (
+            f"Métrique '{name}' muette depuis plus de {window}s"
+            if fr
+            else f"Metric '{name}' silent for more than {window}s"
+        )
+    comparator = ">" if condition == "metric_above" else "<"
+    measured = "aucune valeur récente" if fr else "no recent value"
+    if value is not None:
+        measured = f"{value:g}"
+    label = f"{name} = {measured} ({comparator} {threshold})"
+    return f"Seuil de métrique applicative — {label}" if fr else f"Application metric — {label}"
+
+
 def scope_label_fr(incident: Incident, ctx: dict) -> str:
     """French scope label for notifications."""
+    metric = _metric_scope_label(incident, ctx, fr=True)
+    if metric is not None:
+        return metric
+
     probe_names: dict = ctx.get("probe_names", {})
     affected = incident.affected_probe_ids or []
 
@@ -164,6 +199,10 @@ def scope_label_fr(incident: Incident, ctx: dict) -> str:
 
 def scope_label_en(incident: Incident, ctx: dict) -> str:
     """English scope label for notifications."""
+    metric = _metric_scope_label(incident, ctx, fr=False)
+    if metric is not None:
+        return metric
+
     probe_names: dict = ctx.get("probe_names", {})
     affected = incident.affected_probe_ids or []
 

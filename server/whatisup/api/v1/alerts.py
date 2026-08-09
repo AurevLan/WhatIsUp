@@ -18,7 +18,13 @@ from whatisup.api.deps import (
 from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
 from whatisup.core.security import encrypt_channel_config
-from whatisup.models.alert import AlertChannel, AlertCondition, AlertEvent, AlertRule
+from whatisup.models.alert import (
+    METRIC_CONDITIONS,
+    AlertChannel,
+    AlertCondition,
+    AlertEvent,
+    AlertRule,
+)
 from whatisup.models.alert_matrix_template import AlertMatrixTemplate
 from whatisup.models.incident import Incident
 from whatisup.models.monitor import Monitor, MonitorGroup
@@ -37,6 +43,7 @@ from whatisup.schemas.alert import (
     AlertRuleUpdate,
     TelegramResolveIn,
     TelegramResolveOut,
+    assert_metric_rule_is_fireable,
 )
 from whatisup.schemas.alert_matrix_template import (
     AlertMatrixTemplateIn,
@@ -346,6 +353,8 @@ async def create_rule(
         # but never assigned here: the single-rule endpoints silently dropped
         # them and only the matrix endpoint honoured them.
         anomaly_zscore_threshold=payload.anomaly_zscore_threshold,
+        metric_name=payload.metric_name,
+        metric_window_seconds=payload.metric_window_seconds,
         schedule=payload.schedule,
         suppress_on_network_partition=payload.suppress_on_network_partition,
         escalation_policy_id=payload.escalation_policy_id,
@@ -445,6 +454,10 @@ async def update_rule(
         rule.baseline_factor = payload.baseline_factor
     if payload.anomaly_zscore_threshold is not None:
         rule.anomaly_zscore_threshold = payload.anomaly_zscore_threshold
+    if payload.metric_name is not None:
+        rule.metric_name = payload.metric_name
+    if payload.metric_window_seconds is not None:
+        rule.metric_window_seconds = payload.metric_window_seconds
     if payload.schedule is not None:
         rule.schedule = payload.schedule
     if payload.suppress_on_network_partition is not None:
@@ -457,6 +470,18 @@ async def update_rule(
 
     if payload.channel_ids is not None:
         rule.channels = await _fetch_channels_by_ids(db, current_user, payload.channel_ids)
+
+    # Validated on the *merged* state, not on the payload: switching an existing
+    # rule to a metric condition without also sending metric_name would sail
+    # through a payload-only check and store a rule that can never fire.
+    try:
+        assert_metric_rule_is_fireable(
+            rule.condition, rule.metric_name, rule.threshold_value, rule.monitor_id
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
 
     await db.flush()
     await db.refresh(rule, ["channels"])
@@ -828,11 +853,25 @@ async def put_alert_matrix(
     """Upsert a monitor's alert rules from a matrix payload.
 
     One row per condition; rows absent from the payload are deleted.
+
+    Pushed-metric conditions (C-4) are deliberately out of the matrix: its whole
+    data model is one rule per condition, while a monitor legitimately has
+    several ``metric_above`` rules watching different metrics. They are rejected
+    on input *and* held out of the delete sweep below — a matrix save must not
+    wipe rules it was never able to display.
     """
     monitor = await _load_monitor_with_rules(monitor_id, current_user, db, min_role=TeamRole.editor)
 
     seen_conditions: set[AlertCondition] = set()
     for row in payload.rows:
+        if row.condition in METRIC_CONDITIONS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"Condition {row.condition} is managed per metric, not by the matrix — "
+                    "use POST /alerts/rules"
+                ),
+            )
         if row.condition in seen_conditions:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -850,7 +889,7 @@ async def put_alert_matrix(
     channels_by_id: dict[uuid.UUID, AlertChannel] = {c.id: c for c in fetched}
 
     existing_by_condition: dict[AlertCondition, AlertRule] = {
-        r.condition: r for r in monitor.alert_rules
+        r.condition: r for r in monitor.alert_rules if r.condition not in METRIC_CONDITIONS
     }
 
     deleted_conditions = [c for c in existing_by_condition if c not in seen_conditions]

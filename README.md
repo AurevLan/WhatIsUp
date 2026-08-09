@@ -1,7 +1,7 @@
 <h1 align="center">WhatIsUp</h1>
 
 <p align="center">
-  <strong>The self-hosted uptime platform that actually tells you <em>where</em> things break — and stops shouting when it shouldn't.</strong>
+  <strong>The self-hosted uptime platform that tells you <em>where</em> things break — and stops shouting when it shouldn't.</strong>
 </p>
 
 <p align="center">
@@ -26,10 +26,12 @@
 
 <p align="center">
   <a href="#quick-start">Quick start</a> ·
-  <a href="#whats-new-in-115--116">What's new</a> ·
-  <a href="#why-whatisup">Why WhatIsUp</a> ·
+  <a href="#why-whatisup">Why</a> ·
+  <a href="#recent-highlights">Recent highlights</a> ·
   <a href="#features">Features</a> ·
+  <a href="#operating-whatisup">Operating</a> ·
   <a href="#architecture">Architecture</a> ·
+  <a href="#development">Development</a> ·
   <a href="CHANGELOG.md">Changelog</a>
 </p>
 
@@ -39,124 +41,65 @@
 
 There's no shortage of uptime tools. WhatIsUp focuses on three things most of them don't do well at once:
 
-- 🌍 **Real multi-probe correlation** — deploy lightweight probes in any datacenter, office, or region, and let WhatIsUp tell you if an outage is global, regional, or probe-local. One failed probe no longer means one false page.
-- 🔕 **Alerting that shuts up** — flapping suppression, incident groups, dependency-aware cascade suppression, maintenance windows, storm protection, and a brand-new **impact preview** (see v1.1 below) so you calibrate thresholds with data instead of vibes.
-- 🎛 **Self-hosted, batteries included** — one `docker compose up`, no SaaS lock-in, no per-monitor pricing. Playwright scenarios, SSO/OIDC, teams & RBAC, IaC import/export, and a mobile app all ship in the box.
+- 🌍 **Real multi-probe correlation** — deploy lightweight probes in any datacenter, office, or region, and let WhatIsUp tell you whether an outage is global, regional, probe-local, or actually an upstream network partition. One failed probe no longer means one false page.
+- 🔕 **Alerting that shuts up** — flapping suppression, incident groups, dependency-aware cascade suppression, maintenance windows, storm protection, business-hours schedules, and an impact preview that replays your rules against the last 30 days so you calibrate thresholds with data instead of vibes.
+- 🎛 **Self-hosted, batteries included** — one `docker compose up`, no SaaS lock-in, no per-monitor pricing. Playwright scenarios, SSO/OIDC, teams & RBAC, IaC import/export, and an Android app all ship in the box.
 
-It's built for teams who want Datadog-grade monitoring without Datadog-grade bills, and who'd rather own their data than rent it.
-
----
-
-## What's new in 1.15 → 1.16
-
-The current release line focused on operational hardening and a two-wave security audit — all backward-compatible.
-
-- 🛡 **Security waves SA1-SA7 + S1-S4** (v1.16) — post-audit structural hardening: SSRF guard now **pins the resolved IP** (defeats DNS rebinding, per-hop redirect re-validation), per-account **login lockout** with anti-enumeration, **zero-downtime FERNET_KEY rotation** (MultiFernet + `rotate_fernet` tool), tenant-scoped incident-groups & WS broadcasts, hardened auth caches (immediate key-revocation, fingerprint guards), SSRF validation on the ping checker, and rate-limits closed on 19 remaining endpoints with a CI coverage gate.
-- ⚙️ **Ops: leader election + structured logs** (v1.15) — singleton background loops (heartbeat, retention, renotify…) elect a leader via Redis `SET NX` with fencing tokens, making multi-replica server deployments safe; production logs are structured JSON with `X-Request-ID` correlation end-to-end.
-- ⚡ **Performance** (v1.15.x) — `GET /monitors/` latest-status resolved via a PostgreSQL LATERAL join (7869 ms → 0.6 ms on large fleets, factored into `fetch_latest_results`); fonts self-hosted (Google Fonts CDN dropped).
-- 📱 **Mobile & UX** (v1.15) — Android back button, background WebSocket suspension, POST_NOTIFICATIONS permission; persistent sorting, undo on bulk delete, global API-error toast, EmptyState rollout.
-
-## Older highlights — 1.9 → 1.14
-
-That release line focused on identity, design, accessibility, and supply-chain hardening.
-
-- 🔐 **2FA TOTP + active session management** (v1.12) — opt-in time-based one-time-password second factor (enrol via QR, recovery codes), plus a **Sessions** card in Settings: every refresh token carries `created_at` / user-agent / IP metadata, shown as a revocable session list ("this device" badge, per-row revoke, "log out everywhere").
-- 🎨 **VELOURS design system + accessibility gates** (v1.13) — full visual refresh on a tokenised two-theme foundation (dark *encre* / light *ivoire*, self-hosted Fraunces), ~2300 colour occurrences migrated to design tokens. Two permanent CI accessibility gates (axe audit + anti-artisanal-overlay) lock in `prefers-reduced-motion`, focus-trap and ARIA correctness.
-- 🧩 **Design-system consolidation + detection→alert bridge + responsive** (v1.14) — a single button scale (`.btn-sm/md/lg` + `.btn-icon`) and a canonical `<StatusBadge>` replace ad-hoc styling; a unified **detection→notification bridge** wires DNS-drift / schema-drift detections to alert channels with a consistent "wired / not wired" indicator; mobile-first responsive pass across the app (Capacitor Android build included).
-- 🛡 **CI/CD supply-chain hardening** (v1.14.x) — every GitHub Actions workflow is SHA-pinned and declares least-privilege `permissions`; a **[Plumber](https://getplumber.io) compliance gate** (score 100% / A) audits the pipeline on every PR and uploads findings to Code Scanning. `main` is ruleset-protected (PR required + Plumber / lint / server-tests must pass).
-- 🩹 **Dependency-drift guardrails** — known-broken versions are excluded with CI in the loop: `fastapi < 0.140` (the 0.137-0.138 `_IncludedRouter` routing break is fixed in 0.139), `redis != 8.0.0` (pubsub socket-timeout crash) and `tzlocal != 5.4.2` (broken upstream wheel).
-
-Older highlights (1.1 → 1.8 + the V2 Global Health Engine) are kept below for reference. Full per-version detail: [CHANGELOG.md](CHANGELOG.md).
+Built for teams who want Datadog-grade monitoring without Datadog-grade bills, and who'd rather own their data than rent it.
 
 ---
 
-## What's new in 1.8 + V2
+## Recent highlights
 
-Three release lines have shipped since v1.5: **v1.6** (network intelligence), **v1.7** (custom headers + diagnostic engine foundation), **v1.8** (chat channels + distributed rate limit), and the **V2 Global Health Engine** (M0–M5, in production on every monitor since 2026-05-06).
+Full per-version detail lives in [CHANGELOG.md](CHANGELOG.md). This section covers what changed in the current line and why it matters operationally.
 
-- 🧠 **Global Health Engine V2** — refonte of the detection model: probes are now sensors, the server is the sole judge. New `MonitorHealthState` aggregator running 5-min rolling p50/p95/p99 + per-probe up/down state. Two SLO rule types: **`quorum_down`** ("≥ X% of probes see down for N min") and **`quorum_slow`** ("p95 fleet > threshold ms"). Per-monitor opt-in toggle (`Monitor.health_engine_enabled`), global rollback flag (`LEGACY_INCIDENT_ENGINE=true`), automatic exclusion of probes with `divergence_score > 0.5` from the quorum. Migration script `whatisup.scripts.migrate_to_health_engine` ships defaults (60% / 5 min / min 2 probes / 60 s cooldown).
-- 🌐 **Network intelligence (V2-02)** — every probe is auto-enriched with its **ASN + AS-name** via Team Cymru DNS. Every incident gets a **`network_verdict`** (`service_down` / `network_partition_asn` / `network_partition_geo` / `inconclusive`) recomputed every 5 min while open. Opt-in `AlertRule.suppress_on_network_partition` stops paging the on-call when an upstream operator is the actual culprit. Probes also report their **outbound public IP** — divergence with the server-observed IP yields a NAT/VPN badge in the UI.
-- 🛰 **TLS / DNS / BGP audit** — HTTP checks now grade the TLS handshake (A–F per Mozilla SSTLS), support **SHA-256 certificate pinning**, run **DNS consistency** across all NS of a domain, and resolve prefixes via a **BGP looking-glass** at incident time. New dedicated **TLS fleet dashboard** view.
-- 🔬 **Auto-traceroute on incident** (V2-01-01) — at incident open, every affected probe runs `traceroute`, `dig +trace`, `openssl s_client`, `ping`, `curl -v` in parallel. Persisted under `incident_diagnostics`, surfaced in a collapsible Diagnostic panel per incident.
-- 🗺 **ASN-aware probe map + incident playback** (V2-02-06) — markers now show ASN as outer ring (deterministic palette), uptime as inner colour, with an ASN filter chip and auto-legend. Click 📍 on any incident to scrub through a `play / pause` map of how the outage propagated across probes.
-- 🛠 **Custom headers per monitor + UA presets** (v1.7) — wire monitor-specific headers (auth tokens, custom UA) into HTTP / keyword / json_path checks without forking probes.
-- 💬 **Three new chat channels** (T2-10/11/12) — Discord, Mattermost, Microsoft Teams (Adaptive Card) join the alerting channel pool, all with Fernet-encrypted webhook URLs and SSRF guard.
-- ⚡ **Distributed rate-limit** (SC-07) — slowapi now backed by Redis with memory fallback, so multiple FastAPI instances share counters consistently.
+### Time-series foundation — the storage layer got serious
 
-Full per-version breakdown: see [CHANGELOG.md](CHANGELOG.md). Operational notes for the Health Engine (knobs, rollback, investigation queries) are in `plan_v2_global_health.md`.
+The check-result table used to be one flat, ever-growing heap. It now has a shape:
 
----
+- **Monthly partitioning** of `check_results` (`PARTITION BY RANGE (checked_at)`) — retention becomes `DROP TABLE` instead of a nightly `DELETE` that leaves bloat and autovacuum debt behind. Migrated in place: the old table is attached as the first partition, so no row is ever copied.
+- **Hourly rollups** (`check_rollups_1h`) — uptime, status counters and p50/p95/p99 pre-aggregated per monitor-hour. The public status page used to pay a 9.5 s scan to draw 90 days of history; it now reads the rollups for the covered hours and the raw table only for the tail. Exact at every width for uptime and counters; the p95 beyond one hour is an estimate and the API says so (`p95_is_estimate`, rendered as `≈`).
+- **Differentiated retention** — `DATA_RETENTION_DAYS` (90) now governs only the per-result detail (scenario traces, TLS audits, DNS answers). `ROLLUP_RETENTION_MONTHS` (13) governs the shape of history, two orders of magnitude cheaper. Dropping the raw window no longer costs you your uptime history — and an interlock stops the purge from ever overtaking the rollup builder, so shortening it mid-backfill can't lose data twice.
+- **`custom_metrics` partitioned too**, with `METRICS_RETENTION_DAYS`. Before this it was the one time-series table nothing ever purged.
 
-## What's new in 1.5
+### Alerting on pushed application metrics
 
-**Wave 1 Tier 1 complete** — eight ⭐ items shipped at once to close the SRE adoption + UX backlog. 100% backward-compatible, two additive migrations.
+`POST /api/v1/metrics/{monitor_id}` could always be written to and graphed — but no alert condition could see the series, so nothing ever fired. Three conditions now read it:
 
-- ⌨️ **Command palette v2 + global shortcuts** (T1-10 / T1-15) — Cmd/Ctrl+K opens fuzzy search across monitors, incidents, recent items and actions. Hover a row to **pause/resume a monitor** or **acknowledge an incident** without leaving the palette. New keyboard shortcuts (`g d/m/i/a/p/s` for navigation, `c` to create, `/` to search, `?` for the cheatsheet) wired everywhere. Recent visits persist in `localStorage` (capped at 12).
-- 🔕 **Programmable alert silences** (T1-01) — new `AlertSilence` resource and `Silences` page in the sidebar. Mute alerts for one monitor or all of them during a known-noisy window (cert renewal, deploy storm) without distorting uptime. Built-in 15 m / 1 h / 4 h / 1 d duration presets, status badges (Active / Scheduled / Past). Dispatch is short-circuited *before* any external IO.
-- 📱 **Quick-ack & snooze from mobile push** (T1-04) — FCM payload now ships `actions: [ack, snooze_1h, snooze_4h]`. The mobile app calls the matching endpoint on tap, no need to open the UI. New `Incident.snooze_until` field with auto-clear on resolve. Bounded duration (5 min – 24 h).
-- ✅ **Multi-select bulk actions enriched** (T1-12) — `MonitorsView` gets two new dropdowns: **Move to group** and **Add tag**. `IncidentsView` gains a per-row checkbox plus an **Acknowledge all** button — one round-trip via the new `POST /incidents/bulk-ack` endpoint.
-- 🪄 **CreateMonitor wizard** (T1-14) — new 3-step flow (type → target → review + notifications) replaces the legacy modal for the four most common types (HTTP, TCP, DNS, heartbeat). Mobile-scrollable body. Falls back to the advanced form for scenario / composite / keyword / json_path.
-- ✨ **Polish: skeletons, empty states, replayable tour** (T1-16 / T1-18) — generic `SkeletonBox` / `Row` / `Text` components replace `animate-pulse` placeholders on Dashboard, Monitors and MonitorDetail. Six empty states standardised with contextual CTAs and doc links. The onboarding wizard is now replayable from any empty state via `?tour=1`.
+| Condition | Fires when |
+|---|---|
+| `metric_above` | the latest **fresh** value exceeds the threshold |
+| `metric_below` | the latest **fresh** value falls under it |
+| `metric_absent` | nothing has been pushed for longer than the freshness window — the dead-agent case, previously invisible |
 
-See the full [CHANGELOG](CHANGELOG.md#150---2026-04-25) for the per-item breakdown, including 14 new pytest cases and 50 new vitest cases (suite at 161 green).
+Two properties worth knowing, because they are the ones that make this safe to page on: **silence never resolves** a threshold breach (without a fresh sample every predicate answers false, and resolving on that would announce recovery at the exact moment you stopped being able to observe), and `metric_absent` **never fires for a series that was never pushed**, so a typo in the metric name stays quiet instead of paging forever.
 
----
+Evaluated by a background loop rather than at push time — dispatching means an outbound HTTP call, which has no business on the ingestion path.
 
-## What's new in 1.4
+### Alert conditions are now a plugin registry
 
-- 🔗 **Shareable filter URLs** (T1-11) — MonitorsView and IncidentsView now persist their filters (search, status, type, group, days) via both the querystring *and* localStorage. Refresh keeps your view; copying the URL reproduces the exact same filtering for a teammate. A new generic `useFilterPreset` composable drives both views with 8 tests.
-- 🌍 **User timezone preference** (T1-13) — New `User.timezone` field (IANA, nullable). Default `null` means the browser's resolved zone is used. Settings page gets a "Preferences" card with a 45-zone picker + auto option. Dates across IncidentsView and MonitorDetailView now format in your selected zone; hover a date to see the absolute ISO + zone tooltip. Backend validates against `zoneinfo.available_timezones()` — invalid zones are rejected with 422.
-- 🆕 **`PATCH /auth/me`** — self-update endpoint limited to non-privileged fields (`full_name`, `timezone`). Escalation attempts are silently ignored.
+Conditions were dispatched by three parallel `if/elif` chains — what pages, the UI preview, and the impact badge. Every divergence between them was silent, and one had already shipped. Each condition is now a single class holding its dispatch decision and its preview side by side, registered like alert channels and check types already were. A CI gate fails the build if an `AlertCondition` has no handler.
 
-See the full [CHANGELOG](CHANGELOG.md#140---2026-04-24) for details.
+### Security & supply chain
 
----
+- Post-audit structural hardening: SSRF guards **pin the resolved IP** (defeating DNS rebinding, with per-hop redirect re-validation), per-account login lockout with anti-enumeration, zero-downtime `FERNET_KEY` rotation, tenant-scoped WebSocket broadcasts, hardened auth caches with immediate key revocation, and rate limits closed on every mutating endpoint with a CI coverage gate.
+- Every GitHub Actions workflow is SHA-pinned with least-privilege `permissions`; a [Plumber](https://getplumber.io) compliance gate (100% / A) runs on every PR and uploads findings to Code Scanning. `main` is ruleset-protected.
+- Model↔schema drift is a build failure: `compare_metadata` must return zero diff against a migrated database on every PR.
 
-## What's new in 1.3
+### Ops & platform
 
-- 📖 **Per-monitor runbooks** — attach an incident response procedure (markdown) to any monitor. A dedicated `Runbook` tab appears on the detail page *only* when enabled, and the rendered content is shown inline on open incidents in the incidents list — so the on-caller sees the steps-to-take without leaving the page. Unchecking the toggle wipes the content server-side (no orphan data). Built-in safe markdown renderer (headings, task checkboxes, code blocks, http/https links only) — no extra dependency.
-- ⚡ **Dashboard load-time — 8 s → < 200 ms** — the monitors list aggregated queries were scanning 1.6 M `check_results` rows on every request. Sparkline switched from a `row_number() OVER (PARTITION BY)` window function (7 s) to a `JOIN LATERAL ... LIMIT 20` (3 ms, index-only per monitor), plus a new BRIN index on `check_results.checked_at` for time-window aggregates (P95 288 ms → 75 ms, uptime bulk 147 ms → 30 ms).
-- 🩹 **Stability fixes** — FastAPI `X-Forwarded-Proto` handling (no more HTTPS → HTTP redirect breakage behind nginx), `/monitors/graph` route order (was 422), sidebar menu click (vue-router 5 slot navigate rewrite), charts rendering (`apexchart` global registration), stricter CSP with external theme init, Cache-Control hardening on `/index.html`.
-
-See the full [CHANGELOG](CHANGELOG.md#130---2026-04-23) for details.
-
----
-
-## What's new in 1.1
-
-<table>
-  <tr>
-    <td width="50%"><img src="docs/screenshots/alert-matrix-cards.svg" alt="Alert matrix with cards and impact preview"></td>
-    <td width="50%"><img src="docs/screenshots/alert-templates.svg" alt="One-click alerting templates"></td>
-  </tr>
-  <tr>
-    <td>
-      <strong>Alert matrix v2 — cards + impact preview</strong><br>
-      The per-monitor alerting panel is now a stack of collapsible cards: one card per condition, coloured channel chips, an "Advanced" section that hides noise, and a live <code>≈ N / 30j</code> badge that replays the last 30 days of data through your rules so you can calibrate thresholds <em>before</em> they page you.
-    </td>
-    <td>
-      <strong>One-click alerting templates</strong><br>
-      Apply a preset (Standard, Strict/Paging, Low noise) in a single click. Built-in templates ship seeded in the database and admins can create, edit and delete their own from a dedicated section in the Alerts page. Channels stay empty — you still decide where alerts fire.
-    </td>
-  </tr>
-  <tr>
-    <td colspan="2"><img src="docs/screenshots/tags-rbac.svg" alt="Monitor tags and tag-scoped RBAC"></td>
-  </tr>
-  <tr>
-    <td colspan="2">
-      <strong>Monitor tags & tag-scoped RBAC</strong><br>
-      Label monitors with <code>env:prod</code>, <code>team:backend</code>, <code>tier:critical</code>, whatever makes sense. Filter dashboards and lists by tag. Target alert rules at a tag (<code>AlertRule.tag_selector</code>) so one rule covers every monitor that carries it. Grant users <code>view</code>/<code>edit</code>/<code>admin</code> access scoped to a tag via <code>UserTagPermission</code>.
-    </td>
-  </tr>
-</table>
-
-See the full [CHANGELOG](CHANGELOG.md#110---2026-04-14) for the complete list, including the removal of the never-implemented `uptime_below` condition.
+- **Leader election** — singleton background loops (heartbeat, retention, rollups, renotify, digest flush, metric alerts…) elect a leader via Redis `SET NX` with fencing tokens, so running several API replicas is safe.
+- **Structured JSON logs** with `X-Request-ID` correlation end-to-end, plus Prometheus metrics.
+- **Global Health Engine V2** — probes are sensors, the server is the sole judge: a 5-minute rolling p50/p95/p99 aggregator with `quorum_down` / `quorum_slow` SLO rules, per-probe divergence scoring, and a global rollback flag.
+- **Network intelligence** — probes are auto-enriched with ASN via Team Cymru; every incident gets a verdict (`service_down` / `network_partition_asn` / `network_partition_geo` / `inconclusive`), and rules can opt out of paging on upstream operator failures.
+- **2FA (TOTP), active session management, teams & RBAC, tag-scoped permissions, OIDC/SSO** configured entirely from the admin GUI.
+- **VELOURS design system** on two tokenised themes, with permanent CI accessibility gates (axe audit + anti-artisanal-overlay), a mobile-first responsive pass, and an Android build via Capacitor 8.
 
 ---
 
 ## Screenshots
 
-> The first four pairs are **real captures** of the VELOURS design system taken during its development (June 2026, pre-v1.13-release UI) — dark *encre* and light *ivoire* themes; minor details may differ from the current release. The feature tiles further down (alert matrix, templates, tags & RBAC, scenario builder, extension) are **schematic mockups**.
+> The first three pairs are **real captures** of the VELOURS design system (dark *encre* and light *ivoire* themes); minor details may differ from the current release. The feature tiles below them are **schematic mockups**.
 
 | Dashboard (dark) | Dashboard (light) |
 |------------------|-------------------|
@@ -170,143 +113,13 @@ See the full [CHANGELOG](CHANGELOG.md#110---2026-04-14) for the complete list, i
 |--------|--------------------|
 | ![Probes](docs/screenshots/probes-view.png) | ![Status page](docs/screenshots/public-status.png) |
 
-| Scenario builder | |
-|------------------|--|
-| ![Scenario](docs/screenshots/scenario-builder.svg) | |
-
 | Alert matrix v2 | Alerting templates |
 |-----------------|-------------------|
 | ![Alert matrix](docs/screenshots/alert-matrix-cards.svg) | ![Templates](docs/screenshots/alert-templates.svg) |
 
-| Tags & RBAC | Browser extension recorder |
-|-------------|----------------------------|
-| ![Tags](docs/screenshots/tags-rbac.svg) | ![Extension](docs/screenshots/extension-recorder.svg) |
-
----
-
-## Features
-
-### Monitoring
-- **HTTP / HTTPS** — status codes, redirect following, response time, SSL certificate expiry
-- **TCP** — port reachability (databases, SSH, SMTP, custom services)
-- **UDP** — datagram probe; ICMP port-unreachable = down, timeout = filtered/open
-- **DNS** — record resolution with optional value assertion (A, AAAA, CNAME, MX, TXT, NS); drift detection (baseline auto-learn); cross-probe consistency check with split-horizon support
-- **Keyword** — response body scan with optional negate mode
-- **JSON Path** — structured response validation (e.g. `$.status == "ok"`)
-- **SMTP** — banner + EHLO handshake with optional STARTTLS; measures banner-to-ready time
-- **Ping** — ICMP round-trip time via system `ping`
-- **Domain expiry** — WHOIS lookup; configurable warning days before domain expiration
-- **Browser scenarios** — multi-step Playwright automation (navigate, click, fill, assert, extract, screenshot) with Core Web Vitals (LCP, CLS, INP)
-- **Composite monitors** — aggregate multiple monitors with `all_up`, `any_up`, `majority_up`, or `weighted_up` rules; drives the full incident pipeline
-- **Heartbeat / cron monitoring** — dead-man's switch for scheduled jobs; unique ping URL per monitor
-- **Advanced assertions** — regex body check, response header validation (exact or `/regex/`), JSON Schema validation
-
-### Infrastructure
-- **Multi-probe architecture** — deploy lightweight probe agents in any location; correlate outages geographically
-- **Network type** — tag each probe as `external` (public internet) or `internal` (corporate LAN) to distinguish internal vs external failures
-- **Probe map on dashboard** — Leaflet world map with per-probe 24h uptime (🟢 ≥ 99 % / 🟡 ≥ 90 % / 🔴 < 90 %) and online/offline status; auto-refreshes every 60 s
-- **Network scope per monitor** — restrict each monitor to `all`, `internal`, or `external` probes; useful for LAN-only services
-- **Probe groups** — admin-defined groups; assign probes and grant visibility to specific users
-- **City / address geocoding** — type any address or city to auto-resolve GPS coordinates (Nominatim, no API key)
-
-### Observability
-- **Real-time dashboard** — WebSocket push, no polling
-- **SLO / Error budget** — configurable target (%) and window (days); burn rate and budget-remaining tracking
-- **SLA reports** — custom date range, uptime %, incident list, P95 response time; JSON download
-- **Custom push metrics** — `POST /api/v1/metrics/{monitor_id}` for business KPIs (orders, latency…)
-- **Annotations** — timestamped notes on the monitor timeline (deployments, changes)
-- **Response time trend** — 6-hour rolling comparison with colour-coded indicator
-
-### Incidents & alerting
-- **Alert matrix v2 (1.1)** — card-based editor: one card per condition, coloured channel chips, repliable "Advanced" params (threshold, min-duration, re-notify, business-hours schedule), multi-select condition picker, and per-condition "How it works" help in plain language
-- **Impact preview (1.1)** — live `≈ N / 30j` badge on each rule, computed server-side by replaying the proposed configuration against the last 30 days of check results and incidents (statistical tail estimate for anomaly detection)
-- **Alerting templates (1.1)** — apply a preset (Standard, Strict/Paging, Low noise) in one click; templates are stored in DB and managed from a dedicated section in the Alerts page; superadmins create/edit their own, built-in templates are read-only
-- **Automatic incident lifecycle** — open on failure, resolve on recovery, flapping detection with per-monitor thresholds
-- **Incident groups** — monitors sharing the same failing probes within a 90 s window are grouped into one persistent incident group; one notification instead of N
-- **Monitor dependencies** — when a parent monitor is down, child incidents are automatically suppressed; eliminates cascade alert storms
-- **Alert storm protection** — per-rule rate cap (`storm_max_alerts` within `storm_window_seconds`); forced digest when threshold is exceeded
-- **Performance baseline alerting** — alert when response time exceeds a configurable multiple of the 7-day rolling hourly baseline
-- **Anomaly detection** — z-score against a 7-day rolling mean ± stddev, filtered to the same ±3 h window of the day so day/night traffic patterns are respected
-- **Tag-scoped alert rules (1.1)** — target a single rule at every monitor carrying a given tag via `AlertRule.tag_selector`
-- **Auto post-mortem** — Markdown report generated on incident resolution (timeline, alerts, metrics)
-- **Alert channels** — 11 built-in: Email (SMTP), Webhook (HMAC-SHA256), Telegram Bot, Slack, Discord, Mattermost, Microsoft Teams (Adaptive Card), PagerDuty, Opsgenie, [Signal](#signal-alerts), FCM (native mobile push)
-- **Persistent digest** — digest scheduling stored in Redis; survives server restarts
-- **Maintenance windows** — suppress alerts during planned downtime; group-level suppression support
-
-### Public status pages
-- **Shareable URL** — `/status/{slug}`, no login required
-- **90-day history bars** — daily uptime visualisation per component
-- **Incident timeline** — 30-day incident log with duration
-- **Email subscriptions** — visitors subscribe to outage updates; secure unsubscribe token
-
-### Platform
-- **Monitor tags & tag-scoped RBAC (1.1)** — label monitors with free-form `key:value` tags (`env:prod`, `team:backend`, `tier:critical`); filter lists and dashboards by tag; grant users `view`/`edit`/`admin` access scoped to a tag via `UserTagPermission`; one alert rule can target every monitor carrying a given tag
-- **Teams & RBAC** — create teams, invite members with 4 roles (`owner` > `admin` > `editor` > `viewer`); monitors, groups, channels, and maintenance windows can be team-scoped; backward-compatible — single-user mode preserved when no teams are created
-- **SSO / OIDC** — OpenID Connect PKCE flow; link user accounts to any OIDC provider (Keycloak, Authentik, Auth0, Google…); optional auto-provisioning of new accounts on first login; configured entirely from the admin GUI (no restart required)
-- **2FA (TOTP) & active sessions** — opt-in time-based one-time-password second factor with QR enrolment and recovery codes; a Sessions card lists every active refresh token (device, IP, created-at) with per-row revoke and "log out everywhere"
-- **Admin panel** — dedicated UI for user management (`is_active`, `can_create_monitors`), probe group access control, all-monitors view, and live OIDC settings
-- **Probe groups** — admin-defined groups linking probes to users; regular users see only the probes assigned to their groups
-- **Network scope** — per-monitor `network_scope` field (`all` / `internal` / `external`); restricts which probe types run each check (e.g. internal-only services stay on LAN probes)
-- **Multi-language** — English (default) and French; toggle in the top bar; persisted to `localStorage`
-- **Light / dark theme** — toggle in top bar; auto-detected from `prefers-color-scheme`; persisted to `localStorage`
-- **Onboarding wizard** — guided 4-step setup for new users (first monitor, first alert); auto-dismissed after completion
-- **Infrastructure-as-Code** — `GET /api/v1/config` exports full config as JSON; `PUT /api/v1/config` imports declaratively with diff, dry-run, and prune support; resources matched by name for idempotence
-- **Plugin architecture** — check types and alert channels use a registry-based plugin system; extend without modifying core code
-- **Bulk actions** — multi-select monitors; bulk enable / pause / delete / export CSV
-- **Audit trail** — every admin action logged with before/after diff
-- **Data retention** — configurable auto-purge of old check results (default: 90 days)
-- **One-command deploy** — interactive wizard generates secrets, `.env`, and starts the stack
-- **Accessibility** — `prefers-reduced-motion` support, skip-to-content link, ARIA labels on interactive elements
-
-### Browser extension — scenario recorder
-
-The WhatIsUp Chrome extension records browser actions and sends them directly to a monitor:
-
-1. Click **Start recording** in the extension popup
-2. Navigate and interact with any website — clicks, form fills (including passwords), and navigations are captured automatically
-3. Click **Stop** then **Send to WhatIsUp** — the scenario is created as a monitor in one click
-
-**Security**: password values are stored as `{{password_N}}` placeholders in the step list; the real values are kept in a separate encrypted store, encrypted at rest with Fernet, and masked in all API responses. They are decrypted only when delivered to the probe at check time.
-
-Install the extension from `extension/` by loading it as an unpacked extension in Chrome (`chrome://extensions → Load unpacked`).
-
----
-
-## Minimum requirements
-
-### Central server (API + frontend + PostgreSQL + Redis)
-
-| Probes | Monitors | CPU | RAM | Disk | PostgreSQL | Redis |
-|--------|----------|-----|-----|------|------------|-------|
-| 1–3 | ≤ 50 | 2 vCPU | 2 GB | 20 GB SSD | shared (in-stack) | shared (in-stack) |
-| 3–10 | 50–200 | 4 vCPU | 4 GB | 40 GB SSD | shared or dedicated | shared |
-| 10–30 | 200–1 000 | 4–8 vCPU | 8 GB | 80 GB SSD | dedicated (4 GB RAM) | dedicated (1 GB) |
-| 30+ | 1 000+ | 8+ vCPU | 16 GB | 160 GB+ SSD | dedicated (8 GB+ RAM) | dedicated (2 GB+) |
-
-**Disk growth** — each check result row is ~300 bytes. With 200 monitors × 60 s interval × 5 probes, expect ~2.5 GB/month in PostgreSQL before retention purge (default: 90 days).
-
-### Probe agent
-
-| Mode | CPU | RAM | Notes |
-|------|-----|-----|-------|
-| HTTP / TCP / DNS / Ping only | 1 vCPU | 256 MB | Lightweight; runs on any VPS or Raspberry Pi |
-| With Playwright scenarios | 2 vCPU | 1 GB | Chromium loaded on demand; set `MAX_CONCURRENT_SCENARIOS=2` |
-| High-volume (100+ monitors) | 2 vCPU | 1–2 GB | Increase `MAX_CONCURRENT_CHECKS` (default: 10) |
-
-### Network
-
-| Component | Ports | Protocol |
-|-----------|-------|----------|
-| Central server (prod) | 80, 443 | HTTP/S (Nginx reverse proxy) |
-| Central server (dev) | 5173 (frontend), 8000 (API) | HTTP |
-| PostgreSQL | 5432 | TCP (internal only) |
-| Redis | 6379 | TCP (internal only) |
-| Probe → Server | 443 (or 8000 dev) | HTTPS outbound only |
-
-### Software
-
-- Docker ≥ 24 and Docker Compose v2
-- Linux amd64 or arm64 (all images are multi-arch)
+| Scenario builder | Browser extension recorder |
+|------------------|----------------------------|
+| ![Scenario](docs/screenshots/scenario-builder.svg) | ![Extension](docs/screenshots/extension-recorder.svg) |
 
 ---
 
@@ -315,8 +128,8 @@ Install the extension from `extension/` by loading it as an unpacked extension i
 ### Requirements
 
 - Docker ≥ 24 and Docker Compose v2
-- 2 GB RAM minimum (see [Minimum requirements](#minimum-requirements) for sizing)
-- Ports 80 / 443 available (production) or 5173 / 8000 (development)
+- Linux amd64 or arm64 (all images are multi-arch)
+- 2 GB RAM minimum — see [sizing](#sizing) for anything past a handful of monitors
 
 ### Development (local)
 
@@ -324,11 +137,8 @@ Install the extension from `extension/` by loading it as an unpacked extension i
 git clone https://github.com/AurevLan/WhatIsUp.git
 cd WhatIsUp
 
-# Start all services (PostgreSQL, Redis, API, frontend, local probe)
-docker compose up -d
-
-# Wait for all services to become healthy
-docker compose ps
+docker compose up -d      # PostgreSQL, Redis, API, frontend, local probe
+docker compose ps         # wait for services to become healthy
 ```
 
 | Service | URL |
@@ -337,92 +147,286 @@ docker compose ps
 | API (FastAPI) | http://localhost:8000 |
 | API docs (Swagger UI) | http://localhost:8000/docs |
 
-On first start an **admin account** and a **local probe** are created automatically. The admin password is written to `/shared/ADMIN_PASSWORD` inside the server container — a volume the probe cannot read — and the file is **deleted automatically on the first successful admin login**:
+On first start an **admin account** and a **local probe** are created. The admin password is written to `/shared/ADMIN_PASSWORD` inside the server container — a volume the probe cannot read — and the file is **deleted automatically on the first successful admin login**:
 
 ```bash
 docker compose exec server cat /shared/ADMIN_PASSWORD
 ```
 
-### Production deploy
+### Production
 
-> **Recommended** — use the interactive wizard for all deployments:
+> **Recommended** — the interactive wizard handles secrets, `.env`, TLS and first boot:
 
 ```bash
 bash deploy.sh
 ```
 
-The wizard generates secrets, writes `.env`, starts the stack, and **displays the admin password on screen** before securely deleting the temp file. See [`deploy.sh`](#deploying-with-deploysh) below for details.
+<details>
+<summary>What the wizard does, and its three modes</summary>
 
-#### Manual production setup
+| Mode | Description |
+|------|-------------|
+| **1 — Serveur + sonde centrale** | Full platform with a local probe (recommended for single-server setups) |
+| **2 — Serveur seul** | Server only; add remote probes later |
+| **3 — Sonde distante** | Standalone probe that auto-enrolls to an existing server via API |
+
+1. **Checks dependencies** — Docker, Docker Compose, `curl`, `openssl`
+2. **Generates secrets** — `SECRET_KEY`, `FERNET_KEY`, PostgreSQL and Redis passwords
+3. **Prompts for configuration** — domain, SMTP, DNS servers (probe modes), Let's Encrypt email
+4. **Writes `.env` / `.env.probe`** with mode `600`
+5. **Self-signed certificate** if Let's Encrypt is not configured
+6. **Probe auto-enrollment** (mode 3) via `POST /api/v1/probes/register`
+7. **Starts the stack**, then **displays the admin credentials once** and deletes the temp file
+
+For Let's Encrypt, make sure port 80 is reachable and your DNS A record is set *before* running the wizard.
+
+</details>
+
+<details>
+<summary>Manual production setup</summary>
 
 ```bash
-# 1. Copy and edit the environment file
 cp .env.example .env
 
-# 2. Generate required secrets
 SECRET_KEY=$(openssl rand -hex 32)
 FERNET_KEY=$(python3 -c \
   "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
-
-# Add to .env
 echo "SECRET_KEY=$SECRET_KEY" >> .env
 echo "FERNET_KEY=$FERNET_KEY" >> .env
 
-# 3. Start the production stack
 docker compose --env-file .env up -d
-
-# 4. Apply database migrations
 docker compose --env-file .env exec server alembic upgrade head
 ```
 
-#### Environment variables
-
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `SECRET_KEY` | ✅ prod | — | JWT signing key (`openssl rand -hex 32`) |
-| `FERNET_KEY` | ✅ prod | — | Fernet key for encrypting alert secrets at rest |
-| `DATABASE_URL` | ✅ | `postgresql+asyncpg://whatisup:whatisup@localhost/whatisup` | PostgreSQL connection string |
-| `REDIS_URL` | — | `redis://localhost:6379/0` | Redis connection string |
-| `CORS_ALLOWED_ORIGINS` | ✅ prod | `http://localhost:5173` | Comma-separated HTTPS origins |
-| `ENVIRONMENT` | — | `production` | Set to `development` to relax security checks |
-| `REGISTRATION_OPEN` | — | `true` | `false` = invite-only after first user |
-| `DATA_RETENTION_DAYS` | — | `90` | Days to keep **raw** check results (0 = keep forever). Shortening it drops the per-result detail (scenario trace, TLS audit, DNS answers); uptime history survives in the rollups |
-| `ROLLUP_RETENTION_MONTHS` | — | `13` | Months to keep the hourly rollups — the long-term uptime/latency history (0 = keep forever) |
-| `METRICS_RETENTION_DAYS` | — | `90` | Days to keep pushed custom metrics (0 = keep forever). Before this setting existed they were never purged, so the first nightly run after upgrading removes what predates the window |
-| `SMTP_HOST` | — | `localhost` | SMTP server for email alerts |
-| `SMTP_PORT` | — | `587` | SMTP port |
-| `SMTP_USER` | — | — | SMTP username |
-| `SMTP_PASSWORD` | — | — | SMTP password |
-| `SMTP_FROM` | — | `noreply@example.com` | Sender address |
-| `PUBLIC_BASE_URL` | — | `http://localhost:5173` | Public root used to build status-page email links (confirmation, unsubscribe). Behind a reverse proxy the server cannot infer it — set it or those links point at localhost. |
-| `OIDC_ENABLED` | — | `false` | Enable OIDC login (can also be set from admin GUI) |
-| `OIDC_ISSUER_URL` | — | — | OIDC provider discovery URL (e.g. `https://accounts.google.com`) |
-| `OIDC_CLIENT_ID` | — | — | Client ID registered with the OIDC provider |
-| `OIDC_CLIENT_SECRET` | — | — | Client secret (stored encrypted in DB when set from admin GUI) |
-| `OIDC_REDIRECT_URI` | — | — | Callback URL (leave empty to auto-detect from request base URL) |
-| `OIDC_SCOPES` | — | `openid email profile` | Space-separated OIDC scopes |
-| `OIDC_AUTO_PROVISION` | — | `true` | Create user accounts on first OIDC login |
+</details>
 
 ---
 
-## Deploying probe agents
+## Configuration
 
-Probes are lightweight Python processes that run checks from a given location and report results to the central server. Deploy as many as you need in different datacenters, offices, or cloud regions.
+### Server
 
-### 1. Register the probe
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `SECRET_KEY` | ✅ prod | — | JWT signing key (`openssl rand -hex 32`). The server refuses to start in production with the default value |
+| `FERNET_KEY` | ✅ prod | — | Encrypts alert-channel secrets, scenario variables and custom headers at rest |
+| `FERNET_KEY_PREVIOUS` | — | — | Comma-separated old keys, accepted for decryption during a zero-downtime rotation (see `whatisup.tools.rotate_fernet`) |
+| `DATABASE_URL` | ✅ | `postgresql+asyncpg://whatisup:whatisup@localhost/whatisup` | PostgreSQL connection string |
+| `REDIS_URL` | — | `redis://localhost:6379/0` | Redis connection string |
+| `CORS_ALLOWED_ORIGINS` | ✅ prod | `http://localhost:5173` | Comma-separated origins. HTTP origins are rejected in production |
+| `ENVIRONMENT` | — | `production` | `development` relaxes the production start-up checks |
+| `REGISTRATION_OPEN` | — | `true` | `false` = invite-only after the first user |
+| `PUBLIC_BASE_URL` | — | `http://localhost:5173` | Public root used to build status-page email links. Behind a reverse proxy the server cannot infer it — set it, or those links point at localhost |
+| `TRUSTED_PROXY_IPS` | — | — | Proxies whose `X-Forwarded-For` is trusted for rate limiting and audit. Unset means the socket peer is used |
 
-Go to **Probes → Register probe** in the UI:
-1. Enter a **name** (e.g. `paris-dc1`) and **location** (any address, city, or landmark)
-2. Click **Locate** — Nominatim resolves the location to GPS coordinates automatically
-3. Choose **Network type**: `External` (public internet) or `Internal` (corporate LAN)
-4. Save — copy the API key displayed **only once**
+#### Retention & storage
 
-### 2. Run the probe
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DATA_RETENTION_DAYS` | `90` | Days of **raw** check results (0 = forever). Shortening this drops the per-result detail — scenario traces, TLS audits, DNS answers — while uptime history survives in the rollups. Purged by dropping whole partitions |
+| `ROLLUP_RETENTION_MONTHS` | `13` | Months of hourly rollups — the long-term uptime/latency history (0 = forever). 13 covers a rolling year plus the month in progress, so a year-on-year comparison never falls off mid-month |
+| `METRICS_RETENTION_DAYS` | `90` | Days of pushed custom metrics (0 = forever). These were never purged before the setting existed, so the first nightly run after upgrading removes what predates the window |
+| `ROLLUP_ENABLED` | `true` | Disabling stops the rollup builder; stats fall back to scanning the raw table and retention loses its safety interlock |
+| `ROLLUP_INTERVAL_SECONDS` | `300` | How often closed hours are folded |
+| `ROLLUP_MAX_BUCKETS_PER_RUN` | `168` | Hours folded per run — this is what paces the initial backfill (a week per run) |
+| `ROLLUP_RECOMPUTE_HOURS` | `3` | Hours rebuilt behind the watermark, to catch results that arrived after their hour closed |
+
+#### Alerting
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `METRIC_ALERTS_ENABLED` | `true` | Pushed-metric conditions. This loop is the **only** thing that fires them |
+| `METRIC_ALERTS_INTERVAL_SECONDS` | `60` | Worst-case alerting delay for pushed metrics. Evaluation is deliberately off the ingestion path so a slow webhook cannot throttle the agent that pushes |
+| `LEGACY_INCIDENT_ENGINE` | unset | Set to `true` to bypass the Health Engine SLO bridge globally. No migration involved — a rollback switch |
+| `SMTP_HOST` / `SMTP_PORT` | `localhost` / `587` | SMTP server for email alerts |
+| `SMTP_USER` / `SMTP_PASSWORD` | — | SMTP credentials |
+| `SMTP_FROM` | `noreply@example.com` | Sender address |
+
+#### SSO / OIDC
+
+All of these can also be set from the admin GUI, without a restart.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OIDC_ENABLED` | `false` | Enable OIDC login |
+| `OIDC_ISSUER_URL` | — | Provider discovery URL (e.g. `https://accounts.google.com`) |
+| `OIDC_CLIENT_ID` | — | Client ID registered with the provider |
+| `OIDC_CLIENT_SECRET` | — | Client secret (stored Fernet-encrypted when set from the GUI, never returned by the API) |
+| `OIDC_REDIRECT_URI` | — | Callback URL; auto-detected from the request base URL when empty |
+| `OIDC_SCOPES` | `openid email profile` | Space-separated scopes |
+| `OIDC_AUTO_PROVISION` | `true` | Create accounts on first OIDC login |
+
+#### PostgreSQL tuning (Compose)
+
+Defaults suit the 2 GB profile. On a larger host, raise them together and keep `POSTGRES_MEM_LIMIT` at roughly 3× `POSTGRES_SHARED_BUFFERS`:
 
 ```bash
-docker run -d \
-  --name whatisup-probe \
-  --restart unless-stopped \
+POSTGRES_SHARED_BUFFERS=1GB POSTGRES_EFFECTIVE_CACHE_SIZE=3GB \
+POSTGRES_WORK_MEM=32MB POSTGRES_MEM_LIMIT=3g
+```
+
+### Probe
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `CENTRAL_API_URL` | ✅ | `http://localhost:8000` | WhatIsUp server base URL |
+| `PROBE_API_KEY` | ✅ | — | API key from probe registration |
+| `PROBE_NAME` | — | `default-probe` | Name shown in the UI |
+| `PROBE_LOCATION` | — | `Unknown` | Human-readable location label |
+| `MAX_CONCURRENT_CHECKS` | — | `10` | Max parallel checks |
+| `MAX_CONCURRENT_SCENARIOS` | — | `2` | Max concurrent Chromium instances (a subset of the above; reduce on low-memory machines) |
+| `HEARTBEAT_INTERVAL` | — | `30` | Seconds between server heartbeats |
+
+---
+
+## Features
+
+### Check types
+
+| Type | What it does |
+|------|--------------|
+| **HTTP / HTTPS** | Status codes, redirect following, response time, TLS grade (A–F, Mozilla SSTLS), SHA-256 certificate pinning, per-monitor custom headers |
+| **TCP** | Port reachability (databases, SSH, custom services) |
+| **UDP** | Datagram probe — ICMP port-unreachable = down, timeout = filtered/open |
+| **DNS** | Record resolution with optional value assertion (A, AAAA, CNAME, MX, TXT, NS), drift detection with baseline auto-learn, cross-probe consistency with split-horizon support |
+| **Keyword** | Response body scan, with optional negate mode |
+| **JSON Path** | Structured validation (e.g. `$.status == "ok"`) plus JSON Schema and response-shape drift detection |
+| **SMTP** | Banner + EHLO handshake with optional STARTTLS; measures banner-to-ready time |
+| **Ping** | ICMP round-trip time |
+| **Domain expiry** | WHOIS lookup with configurable warning window |
+| **Browser scenarios** | Multi-step Playwright automation (navigate, click, fill, assert, extract, screenshot) with Core Web Vitals (LCP, CLS, INP) |
+| **Composite** | Aggregate several monitors with `all_up` / `any_up` / `majority_up` / `weighted_up`; drives the full incident pipeline |
+| **Heartbeat** | Dead-man's switch for cron jobs — unique ping URL, incident opened when a ping is late |
+
+Advanced assertions across types: regex body check, response header validation (exact or `/regex/`), JSON Schema validation. Tenant-supplied patterns run on an interruptible engine in an isolated thread pool, so a catastrophic regex can't take the probe with it.
+
+### Infrastructure
+
+- **Multi-probe architecture** — lightweight agents anywhere; outages correlated geographically and by ASN
+- **Network type per probe** — `external` (public internet) or `internal` (corporate LAN)
+- **Network scope per monitor** — restrict a check to `all`, `internal` or `external` probes
+- **Probe map** — Leaflet world map, ASN as outer ring, 24 h uptime as inner colour, ASN filter chip
+- **Incident playback** — scrub through how an outage propagated across probes
+- **Probe groups** — admin-defined; grant probe visibility per user
+- **City / address geocoding** — Nominatim, no API key
+
+### Observability
+
+- **Real-time dashboard** — WebSocket push, no polling
+- **SLO / error budget** — configurable target and window, burn-rate tracking
+- **SLA reports** — custom date range, uptime %, incident list, P95; JSON download
+- **Custom push metrics** — business KPIs alongside uptime data, now alertable
+- **Annotations** — timestamped notes on the monitor timeline (deployments, changes)
+- **TLS fleet dashboard** — certificate grade and expiry across every monitor
+- **Auto-diagnostics on incident** — every affected probe runs `traceroute`, `dig +trace`, `openssl s_client`, `ping` and `curl -v` in parallel, persisted and surfaced per incident
+- **Prometheus metrics** — `/api/metrics`, fail-closed in production
+
+### Incidents & alerting
+
+- **Automatic lifecycle** — open on failure, resolve on recovery, flapping detection with per-monitor thresholds
+- **Global Health Engine V2** — quorum-based judgement (`quorum_down`, `quorum_slow`) with per-probe divergence exclusion
+- **Network verdict** — distinguishes a real outage from an upstream partition; rules can opt out of paging on the latter
+- **Incident groups** — monitors sharing failing probes within a 90 s window are grouped; one notification instead of N
+- **Monitor dependencies** — child incidents suppressed while a parent is down
+- **Storm protection** — per-rule rate cap, forced digest past the threshold
+- **Maintenance windows** — planned-downtime suppression, group-level supported
+- **Programmable silences** — mute a known-noisy window without distorting uptime
+- **Alert matrix v2** — one card per condition, coloured channel chips, collapsible advanced params, and a live `≈ N / 30j` impact badge that replays the config against the last 30 days
+- **Alerting templates** — Standard / Strict-Paging / Low-noise presets in one click; superadmins manage their own
+- **Conditions** — `any_down`, `all_down`, `ssl_expiry`, `response_time_above`, `response_time_above_baseline`, `anomaly_detection` (z-score against the same ±3 h window of day), `schema_drift`, `metric_above`, `metric_below`, `metric_absent`
+- **Tag-scoped rules** — one rule targets every monitor carrying a tag
+- **Escalation policies** — ladder of levels paged in order until an ack
+- **Quick-ack & snooze from mobile push** — act from the notification, no app round-trip
+- **Auto post-mortem** — Markdown report on resolution (timeline, alerts, metrics)
+- **Alert channels** — 11 built-in: Email (SMTP), Webhook (HMAC-SHA256), Telegram, Slack, Discord, Mattermost, Microsoft Teams (Adaptive Card), PagerDuty, Opsgenie, [Signal](#signal-alerts), FCM (native mobile push)
+- **Persistent digest** — scheduling stored in Redis, survives restarts
+
+### Public status pages
+
+- **Shareable URL** — `/status/{slug}`, no login
+- **90-day history bars** — daily uptime per component, served from the rollups
+- **Incident timeline** — 30-day log with durations
+- **Email subscriptions** — double opt-in, secure unsubscribe token
+
+### Platform
+
+- **Teams & RBAC** — 4 roles (`owner` > `admin` > `editor` > `viewer`); monitors, groups, channels and maintenance windows can be team-scoped. Single-user mode is preserved when no team exists
+- **Monitor tags & tag-scoped RBAC** — free-form `key:value` tags, filterable everywhere, with `view`/`edit`/`admin` grants scoped to a tag
+- **SSO / OIDC** — PKCE flow, optional auto-provisioning, configured from the admin GUI
+- **2FA (TOTP) & active sessions** — QR enrolment, recovery codes, per-session revoke and "log out everywhere"
+- **Personal API keys** — scoped `read` / `write`
+- **Infrastructure-as-Code** — `GET /api/v1/config` exports everything; `PUT` imports declaratively with diff, dry-run and prune
+- **Plugin architecture** — check types, alert channels **and alert conditions** are registry-based; extend without touching core code
+- **Command palette** — `Cmd/Ctrl+K` fuzzy search over monitors, incidents, recent items and actions, with inline pause/ack
+- **Bulk actions** — multi-select enable / pause / delete / move / tag / export CSV
+- **Audit trail** — every admin action logged with a before/after diff
+- **Multi-language** — English and French; **light / dark theme** auto-detected and persisted
+- **Mobile app** — Android build via Capacitor 8, signed APK attached to every release
+
+### Browser extension — scenario recorder
+
+Records browser actions and turns them into a monitor:
+
+1. **Start recording** in the extension popup
+2. Navigate and interact — clicks, form fills (including passwords) and navigations are captured
+3. **Stop** → **Send to WhatIsUp** — the scenario becomes a monitor in one click
+
+**Security**: password values become `{{password_N}}` placeholders in the step list; the real values live in a separate store, Fernet-encrypted at rest, masked in every API response, and decrypted only when handed to the probe at check time.
+
+Load it from `extension/` via `chrome://extensions → Load unpacked`.
+
+---
+
+## Operating WhatIsUp
+
+### Sizing
+
+| Probes | Monitors | CPU | RAM | Disk | PostgreSQL | Redis |
+|--------|----------|-----|-----|------|------------|-------|
+| 1–3 | ≤ 50 | 2 vCPU | 2 GB | 20 GB SSD | shared (in-stack) | shared (in-stack) |
+| 3–10 | 50–200 | 4 vCPU | 4 GB | 40 GB SSD | shared or dedicated | shared |
+| 10–30 | 200–1 000 | 4–8 vCPU | 8 GB | 80 GB SSD | dedicated (4 GB RAM) | dedicated (1 GB) |
+| 30+ | 1 000+ | 8+ vCPU | 16 GB | 160 GB+ SSD | dedicated (8 GB+ RAM) | dedicated (2 GB+) |
+
+**Disk growth** — a raw check result is ~300 bytes. At 200 monitors × 60 s × 5 probes, expect ~2.5 GB/month of raw data, held for `DATA_RETENTION_DAYS`. The hourly rollups that outlive it cost roughly 140 k rows/year for the same fleet — negligible next to a single day of raw. Retention reclaims space by dropping whole partitions, so disk is released in monthly steps rather than gradually.
+
+| Probe mode | CPU | RAM | Notes |
+|------------|-----|-----|-------|
+| HTTP / TCP / DNS / Ping only | 1 vCPU | 256 MB | Runs on any VPS or a Raspberry Pi |
+| With Playwright scenarios | 2 vCPU | 1 GB | Chromium loaded on demand; set `MAX_CONCURRENT_SCENARIOS=2` |
+| High volume (100+ monitors) | 2 vCPU | 1–2 GB | Raise `MAX_CONCURRENT_CHECKS` |
+
+| Component | Ports | Protocol |
+|-----------|-------|----------|
+| Central server (prod) | 80, 443 | HTTP/S via Nginx |
+| Central server (dev) | 5173, 8000 | HTTP |
+| PostgreSQL | 5432 | TCP, internal only |
+| Redis | 6379 | TCP, internal only |
+| Probe → Server | 443 (or 8000 dev) | HTTPS **outbound only** |
+
+### Background loops
+
+Every singleton loop is leader-elected through Redis, so N API replicas run each exactly once. Two of them are not housekeeping and deserve monitoring:
+
+| Loop | Interval | If it stops |
+|------|----------|-------------|
+| **Partition maintainer** | 6 h | **Inserts fail.** If no partition covers the current instant, every check result is rejected. It keeps three months of head-room ahead |
+| **Metric alert evaluator** | 60 s | Pushed-metric rules never fire — nothing else evaluates them |
+| Rollup builder | 5 min | Stats fall back to the raw table; retention loses its interlock |
+| Heartbeat checker | 30 s | Late cron jobs go unnoticed |
+| Renotify | 60 s | No periodic re-alerting on open incidents |
+| Digest flusher | 30 s | Grouped alerts stay queued |
+| Retention purge | nightly | Disk grows |
+| Network verdict | 5 min | Incidents keep their last verdict |
+| ASN refresh | 6 h | Probe ASN metadata goes stale |
+
+### Deploying probe agents
+
+1. **Probes → Register probe** in the UI: name, location (**Locate** resolves it via Nominatim), network type. Copy the API key — shown once.
+2. Run it:
+
+```bash
+docker run -d --name whatisup-probe --restart unless-stopped \
   -e CENTRAL_API_URL=https://your-whatisup.example.com \
   -e PROBE_API_KEY=wiu_your_api_key_here \
   -e PROBE_NAME="paris-dc1" \
@@ -430,10 +434,10 @@ docker run -d \
   ghcr.io/aurevlan/whatisup-probe:latest
 ```
 
-Or with Docker Compose:
+<details>
+<summary>Docker Compose form</summary>
 
 ```yaml
-# docker-compose.probe.yml
 services:
   probe:
     image: ghcr.io/aurevlan/whatisup-probe:latest
@@ -447,27 +451,37 @@ services:
       HEARTBEAT_INTERVAL: "30"
 ```
 
-### Probe environment variables
+</details>
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `CENTRAL_API_URL` | ✅ | `http://localhost:8000` | WhatIsUp server base URL |
-| `PROBE_API_KEY` | ✅ | — | API key from probe registration |
-| `PROBE_NAME` | — | `default-probe` | Probe name shown in the UI |
-| `PROBE_LOCATION` | — | `Unknown` | Human-readable location label |
-| `MAX_CONCURRENT_CHECKS` | — | `10` | Max parallel checks |
-| `MAX_CONCURRENT_SCENARIOS` | — | `2` | Max concurrent Playwright/Chromium instances (subset of `MAX_CONCURRENT_CHECKS`; reduce on low-memory machines) |
-| `HEARTBEAT_INTERVAL` | — | `30` | Seconds between server heartbeats |
+A probe that cannot reach the server buffers results to a bounded on-disk queue and replays them on reconnect, so a network blip does not become a hole in your history.
 
----
+### Heartbeat monitoring (cron jobs)
 
-## Signal alerts
+Create a **Heartbeat** monitor, copy the ping URL, call it from your job:
 
-WhatIsUp sends Signal messages through a small REST gateway that runs alongside the server — it does not talk to Signal directly. The gateway project is [**bbernhard/signal-cli-rest-api**](https://github.com/bbernhard/signal-cli-rest-api), a maintained wrapper around the official `signal-cli`.
+```bash
+curl -s https://your-whatisup.example.com/api/v1/ping/your-heartbeat-slug
+```
 
-### 1. Run the gateway
+An incident opens automatically if no ping arrives within `interval + grace`.
 
-Add a service to your `docker-compose.yml`:
+### Custom push metrics
+
+```bash
+curl -X POST https://your-whatisup.example.com/api/v1/metrics/{monitor_id} \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"metric_name": "orders_per_minute", "value": 42.5, "unit": "req/min"}'
+```
+
+Metrics are graphed per `metric_name` on the monitor detail view, and can be alerted on with the `metric_*` conditions. A personal API key (`X-Api-Key: wiu_u_…`) works here too, so an application doesn't need a user password.
+
+### Signal alerts
+
+WhatIsUp talks to Signal through [**bbernhard/signal-cli-rest-api**](https://github.com/bbernhard/signal-cli-rest-api), a maintained wrapper around the official `signal-cli` — not to Signal directly.
+
+<details>
+<summary>Gateway setup and channel configuration</summary>
 
 ```yaml
 signal-api:
@@ -481,102 +495,57 @@ signal-api:
     - "8080:8080"
 ```
 
-### 2. Register a phone number
-
-Follow the [gateway's README](https://github.com/bbernhard/signal-cli-rest-api#register-a-number). Typical flow:
+Register a number (see [the gateway README](https://github.com/bbernhard/signal-cli-rest-api#register-a-number)):
 
 ```bash
-# Request the SMS code
 curl -X POST "http://localhost:8080/v1/register/+33612345678"
-
-# Enter the code you received
 curl -X POST "http://localhost:8080/v1/register/+33612345678/verify/123456"
 ```
 
-### 3. Add a Signal channel in WhatIsUp
-
-In the UI: **Alerts → Add channel → Signal**, then fill:
+Then **Alerts → Add channel → Signal**:
 
 | Field | Example |
 |---|---|
-| **API URL** | `http://signal-api:8080` (internal hostname if the gateway is in the same Compose network) |
-| **Sender number** | `+33612345678` (E.164 format, the number you registered above) |
-| **Recipients** | `+33612345678, +33698765432` (comma-separated; Signal group IDs are also accepted as recipients) |
-
-Click **Test** to send a confirmation message. The channel configuration (`api_url`, `sender_number`, `recipients`) is encrypted at rest with Fernet like every other alert channel.
+| **API URL** | `http://signal-api:8080` (internal hostname if in the same Compose network) |
+| **Sender number** | `+33612345678` (E.164) |
+| **Recipients** | `+33612345678, +33698765432` (group IDs also accepted) |
 
 Implementation: [`server/whatisup/services/channels/signal.py`](server/whatisup/services/channels/signal.py).
 
----
-
-## Heartbeat monitoring (cron jobs)
-
-Create a monitor of type **Heartbeat**, copy the generated ping URL, then call it from your job:
-
-```bash
-# In your crontab or CI pipeline
-curl -s https://your-whatisup.example.com/api/v1/ping/your-heartbeat-slug
-```
-
-WhatIsUp opens an incident automatically if no ping arrives within `interval + grace` seconds.
-
----
-
-## Custom push metrics
-
-Push any numeric metric from your application and visualise it alongside uptime data:
-
-```bash
-curl -X POST https://your-whatisup.example.com/api/v1/metrics/{monitor_id} \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"metric_name": "orders_per_minute", "value": 42.5, "unit": "req/min"}'
-```
-
-Metrics appear as time-series graphs grouped by `metric_name` in the monitor detail view.
+</details>
 
 ---
 
 ## API reference
 
-Full interactive documentation at `/docs` (Swagger UI) and `/redoc`.
-
-### Authentication
+Interactive docs at `/docs` (Swagger UI) and `/redoc`.
 
 ```bash
 TOKEN=$(curl -s -X POST https://your-whatisup.example.com/api/v1/auth/login \
   -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "username=admin@example.com&password=your_password" \
-  | jq -r '.access_token')
+  -d "username=admin@example.com&password=your_password" | jq -r '.access_token')
 
-curl https://your-whatisup.example.com/api/v1/monitors/ \
-  -H "Authorization: Bearer $TOKEN"
+curl https://your-whatisup.example.com/api/v1/monitors/ -H "Authorization: Bearer $TOKEN"
 ```
-
-### Selected endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/api/v1/monitors/` | List monitors |
-| `POST` | `/api/v1/monitors/` | Create monitor |
+| `GET` `POST` | `/api/v1/monitors/` | List / create monitors |
 | `POST` | `/api/v1/monitors/bulk` | Bulk enable / pause / delete |
-| `POST` | `/api/v1/monitors/{id}/trigger-check` | Trigger immediate check |
-| `GET` | `/api/v1/monitors/{id}/slo` | SLO / error budget status |
-| `GET` | `/api/v1/monitors/{id}/report` | SLA report (custom date range) |
+| `POST` | `/api/v1/monitors/{id}/trigger-check` | Trigger an immediate check |
+| `GET` | `/api/v1/monitors/{id}/slo` | SLO / error-budget status |
+| `GET` | `/api/v1/monitors/{id}/report` | SLA report over a custom range |
 | `GET` | `/api/v1/monitors/{id}/incidents/{inc}/postmortem` | Auto post-mortem (Markdown) |
-| `GET` | `/api/v1/monitors/{id}/annotations` | List timeline annotations |
-| `POST` | `/api/v1/metrics/{monitor_id}` | Push custom metric |
-| `GET` | `/api/v1/metrics/{monitor_id}` | List custom metrics |
+| `GET` `POST` | `/api/v1/monitors/{id}/annotations` | Timeline annotations |
+| `GET` `POST` | `/api/v1/alerts/rules` | Alert rules |
+| `POST` | `/api/v1/alerts/rules/{id}/simulate` | "Would this fire right now?" |
+| `POST` | `/api/v1/metrics/{monitor_id}` | Push a custom metric |
+| `GET` | `/api/v1/metrics/{monitor_id}` `…/summary` | List / aggregate custom metrics |
 | `GET` | `/api/v1/public/pages/{slug}/monitors` | Public status page data (no auth) |
-| `POST` | `/api/v1/public/pages/{slug}/subscribe` | Subscribe to status page |
+| `POST` | `/api/v1/public/pages/{slug}/subscribe` | Subscribe to a status page |
 | `GET` | `/api/v1/ping/{slug}` | Heartbeat ping |
-| `GET` | `/api/v1/config/` | Export full config (IaC) |
-| `PUT` | `/api/v1/config/` | Import declarative config (IaC) |
-| `POST` | `/api/v1/teams/` | Create team |
-| `GET` | `/api/v1/teams/` | List user's teams |
-| `POST` | `/api/v1/teams/{id}/members` | Add team member |
-| `GET` | `/api/v1/onboarding/status` | Onboarding progress |
-| `POST` | `/api/v1/onboarding/complete` | Mark onboarding done |
+| `GET` `PUT` | `/api/v1/config/` | Export / import full config (IaC) |
+| `GET` `POST` | `/api/v1/teams/` | Teams |
 | `GET` | `/api/v1/status/monitors` | External status API |
 
 ---
@@ -584,23 +553,24 @@ curl https://your-whatisup.example.com/api/v1/monitors/ \
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                        Browser                           │
-│   Vue 3 · Pinia · Vite · Tailwind · ApexCharts · Leaflet│
-│   vue-i18n (EN / FR)                                    │
-└───────────────────────┬─────────────────────────────────┘
-                        │ HTTP + WebSocket
-┌───────────────────────▼─────────────────────────────────┐
-│                    FastAPI server                         │
-│  auth · monitors · probes · alerts · metrics · ws        │
-│  slowapi · structlog · Alembic · Prometheus metrics      │
-└─────┬──────────────────┬──────────────────┬─────────────┘
-      │                  │                  │
-┌─────▼──────┐  ┌────────▼──────┐  ┌───────▼───────────┐
-│ PostgreSQL │  │     Redis     │  │   Probe agent(s)  │
-│  (main DB) │  │ cache · pub/  │  │  APScheduler      │
-│            │  │ sub · rate    │  │  Playwright        │
-└────────────┘  └───────────────┘  └───────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│                         Browser                          │
+│  Vue 3 · Pinia · Vite · Tailwind · ApexCharts · Leaflet   │
+│  vue-i18n (EN / FR) · Capacitor 8 (Android)               │
+└────────────────────────┬─────────────────────────────────┘
+                         │ HTTP + WebSocket
+┌────────────────────────▼─────────────────────────────────┐
+│                     FastAPI server                       │
+│  auth · monitors · probes · alerts · metrics · ws         │
+│  leader-elected background loops · slowapi · structlog    │
+│  Alembic · Prometheus                                     │
+└─────┬───────────────────┬──────────────────┬─────────────┘
+      │                   │                  │
+┌─────▼──────┐   ┌────────▼──────┐   ┌───────▼───────────┐
+│ PostgreSQL │   │     Redis     │   │   Probe agent(s)  │
+│ partitioned│   │ cache · pub/  │   │  APScheduler      │
+│ + rollups  │   │ sub · locks   │   │  Playwright       │
+└────────────┘   └───────────────┘   └───────────────────┘
 ```
 
 | Layer | Location |
@@ -609,112 +579,106 @@ curl https://your-whatisup.example.com/api/v1/monitors/ \
 | ORM models | `server/whatisup/models/` |
 | Pydantic schemas | `server/whatisup/schemas/` |
 | Business logic | `server/whatisup/services/` |
-| Core (config, security, db) | `server/whatisup/core/` |
-| Probe agent | `probe/whatisup_probe/` |
+| Alert-condition plugins | `server/whatisup/services/conditions/` |
+| Alert-channel plugins | `server/whatisup/services/channels/` |
+| Core (config, security, db, partitions) | `server/whatisup/core/` |
+| Probe agent + check plugins | `probe/whatisup_probe/` |
 | Frontend | `frontend/src/` |
+
+### Extending it
+
+All three extension points are registries — add a module, register the class, done:
+
+| To add a… | Write | Register in |
+|-----------|-------|-------------|
+| Check type | a checker in `probe/whatisup_probe/checkers/` | the dispatcher in that package's `__init__.py` |
+| Alert channel | a `BaseAlertChannel` subclass in `services/channels/` | `services/channels/__init__.py` |
+| Alert condition | an `AlertConditionHandler` subclass in `services/conditions/` | `services/conditions/__init__.py` |
+
+A condition handler carries both its dispatch decision and its UI preview, so the two cannot drift apart unnoticed — a CI gate fails the build if any `AlertCondition` has no handler.
 
 ---
 
 ## Development
 
-### Tests & linting
-
 ```bash
-# Backend (server + probe)
+# Backend
 cd server && pip install -e ".[dev]" && pytest
-cd probe && pip install -e ".[dev]" && pytest
+cd probe  && pip install -e ".[dev]" && pytest
 ruff check . && ruff format .
 pip-audit
 
-# Frontend (Vitest + jsdom)
-cd frontend
-npm install
-npm test
-npm run lint
-npm audit
+# Frontend — Node 22 LTS required (jsdom 29 does not support Node 25's native localStorage)
+cd frontend && npm install && npm test && npm run lint && npm audit
 ```
 
-Tests also run inside Docker:
+Everything also runs in Docker, which is how CI does it:
 
 ```bash
 docker compose run --rm --no-deps server pytest tests/
-docker compose run --rm --no-deps probe pytest tests/
-docker run --rm -v ./frontend:/app -w /app node:22-alpine sh -c "npm ci && npx vitest run"
+docker compose run --rm --no-deps probe  pytest tests/
+docker run --rm -v $(pwd):/repo -w /repo/frontend node:22-alpine \
+  sh -c "npm ci && npx vitest run"
 ```
+
+> Mount the **whole repository**, not just `frontend/` or `server/` — a few tests read files outside their own package (`nginx/whatisup.conf`, `extension/background.js`) and fail confusingly otherwise.
 
 ### Database migrations
 
 ```bash
 cd server
-
-# Generate after model changes
 alembic revision --autogenerate -m "short description"
-
-# Apply
 alembic upgrade head
-
-# Rollback one step
 alembic downgrade -1
 ```
 
----
+Model and schema must not drift: CI runs `scripts/check_model_drift.py` against a migrated database and fails on any diff. Declare PostgreSQL-only indexes in `__table_args__` with `.ddl_if(dialect="postgresql")` so they stay visible to `autogenerate` while staying out of the SQLite `create_all` the tests use.
 
-## Deploying with `deploy.sh`
+### CI gates
 
-The root `deploy.sh` script is an interactive wizard (in French) that handles the entire production setup. Run it with:
+| Gate | What it enforces |
+|------|------------------|
+| Server / probe tests | pytest, with a coverage floor |
+| Frontend tests | vitest, plus two permanent accessibility gates (axe audit, anti-artisanal-overlay) |
+| Lint | `ruff` and `eslint --max-warnings 0` |
+| `pip-audit` / `npm audit` | no known-vulnerable dependency |
+| Alembic migrations | migrations apply, and **zero** model↔schema drift |
+| CodeQL + Plumber | static analysis and supply-chain compliance |
 
-```bash
-bash deploy.sh
-```
-
-### Deployment modes
-
-| Mode | Description |
-|------|-------------|
-| **1 — Serveur + sonde centrale** | Full platform with a local probe (recommended for single-server setups) |
-| **2 — Serveur seul** | Server only; add remote probes later |
-| **3 — Sonde distante** | Standalone probe agent that auto-enrolls to an existing server via API |
-
-### What the wizard does
-
-1. **Checks dependencies** — Docker, Docker Compose, `curl`, `openssl`
-2. **Generates secrets** — `SECRET_KEY` (hex), `FERNET_KEY` (Fernet), PostgreSQL and Redis passwords
-3. **Prompts for configuration** — domain name, SMTP settings, DNS servers (for probe modes), Let's Encrypt email
-4. **Generates `.env` files** — `.env` for the server stack, `.env.probe` for remote probe mode; file permissions set to `600`
-5. **Self-signed certificate** — generates a temporary TLS cert if Let's Encrypt is not configured
-6. **Probe auto-enrollment** (mode 3) — registers the probe via `POST /api/v1/probes/register` and writes the API key to `.env.probe`
-7. **Starts the stack** — builds and launches Docker Compose services
-8. **Displays credentials** — reads the admin password from a temp file, displays it in a framed box, then deletes the file from the container (first boot only)
-
-> **Tip**: for Let's Encrypt, ensure port 80 is reachable from the internet and set your DNS A record before running the wizard.
+Contribution workflow, release process and the known CI pitfalls are in [CONTRIBUTING.md](CONTRIBUTING.md). Releases are driven by [release-please](https://github.com/googleapis/release-please) from Conventional Commits — merging the release PR builds and publishes the GHCR images and the signed Android APK.
 
 ---
 
 ## Security
 
-- **JWT** — HS256, access 15 min + refresh 7 days, Redis-revocable; refresh tokens carry per-session metadata and are individually revocable
+- **JWT** — HS256, 15 min access + 7 day refresh, Redis-revocable; refresh tokens carry per-session metadata and are individually revocable
 - **2FA (TOTP)** — opt-in second factor (RFC 6238), recovery codes hashed at rest
-- **CI/CD supply chain** — every GitHub Actions workflow is SHA-pinned with least-privilege `permissions`; a [Plumber](https://getplumber.io) compliance gate (100% / A) runs on every PR (SARIF → Code Scanning) and publishes the [live score](https://score.getplumber.io/github.com/AurevLan/WhatIsUp) badged at the top of this README; `main` is ruleset-protected (PR + required checks)
-- **OIDC / SSO** — PKCE authorization-code flow; `oidc_client_secret` encrypted at rest with Fernet; secret never returned by the API
-- **Probe auth** — `X-Probe-Api-Key` bcrypt 12 rounds + Redis cache 300 s
-- **WebSocket auth** — JSON message frame (`{"type":"auth","token":"…"}`), never URL parameter
-- **Secrets at rest** — Fernet encryption for alert channel secrets (SMTP passwords, Telegram tokens, webhook secrets, PagerDuty / Opsgenie keys), OIDC client secret, **and** scenario variables (`secret: true`); `FERNET_KEY` is required in production (server refuses to start without it)
-- **SSRF protection** — all outbound HTTP requests (webhooks, OIDC discovery, probe checks, scenario navigation) validated against private/loopback/link-local IP ranges; redirect targets re-validated after following
-- **CORS** — explicit origins only; HTTP origins rejected in production
-- **CSP** — `default-src 'self'; script-src 'self'`
-- **Rate limiting** — all mutating endpoints rate-limited (30/min PATCH/DELETE, 60/min public pages); login 10/min, register 5/min, heartbeat 30/min, results 60/min, monitor creation 10/min
-- **Input validation** — Pydantic schemas use `extra="forbid"` to reject unexpected fields on all create/update endpoints
-- **WebSocket** — per-IP connection limit enforced before the auth handshake; public slug validated against DB before accepting
-- **Ownership enforcement** — all mutating endpoints (including alert rule delete) verify resource ownership via JOIN; superadmin bypass is explicit
-- **Docker** — non-root user in all images; CPU/memory resource limits in production
+- **Account lockout** — per-account throttling with constant-time responses, so failures don't enumerate users
+- **Secrets at rest** — Fernet for alert-channel secrets, OIDC client secret, scenario variables marked `secret`, and per-monitor custom header values. `FERNET_KEY` is mandatory in production, and rotates without downtime
+- **SSRF protection** — every outbound request (webhooks, OIDC discovery, probe checks, scenario navigation) resolves the host once and **pins the resulting IP** for the connection, defeating DNS rebinding; redirect targets are re-validated per hop
+- **Probe auth** — `X-Probe-Api-Key`, bcrypt 12 rounds with a fingerprinted Redis cache that honours immediate revocation
+- **WebSocket auth** — a JSON message frame (`{"type":"auth","token":"…"}`), never a URL parameter; per-IP connection cap enforced before the handshake
+- **Ownership enforcement** — every mutating endpoint verifies ownership through a JOIN; superadmin bypass is explicit
+- **Input validation** — Pydantic schemas use `extra="forbid"` on every create/update endpoint
+- **Rate limiting** — Redis-backed and shared across replicas; a CI gate fails the build if any `api/v1` endpoint ships without one
+- **Tenant-supplied compute is bounded** — user regexes and JSON Schemas run on an interruptible engine in an isolated thread pool
+- **CORS / CSP** — explicit origins only, HTTP origins rejected in production; `default-src 'self'; script-src 'self'`
+- **Docker** — non-root user in every image, resource limits in production
 
-See [SECURITY.md](SECURITY.md) for the responsible disclosure policy.
+See [SECURITY.md](SECURITY.md) for the security checklist, the OWASP mapping, and the responsible-disclosure policy.
 
 ---
 
-## Changelog
+## Documentation map
 
-See [CHANGELOG.md](CHANGELOG.md) for the full version history.
+| File | What's in it |
+|------|--------------|
+| [CHANGELOG.md](CHANGELOG.md) | Per-version history |
+| [FEATURES.md](FEATURES.md) | Source of truth for shipped features, by pillar |
+| [SECURITY.md](SECURITY.md) | Security checklist, OWASP matrix, disclosure policy |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Workflow, commit conventions, release procedure |
+| `CLAUDE.md` | Architecture decisions, invariants and known traps for contributors |
+| `plan_v2.md` | The current engineering plan and its shipped results |
 
 ## License
 

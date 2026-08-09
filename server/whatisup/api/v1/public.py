@@ -14,7 +14,7 @@ from starlette.responses import Response
 from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
 from whatisup.core.redis import redis_get_safe, redis_setex_safe
-from whatisup.models.incident import Incident
+from whatisup.models.incident import IS_AVAILABILITY_INCIDENT, Incident
 from whatisup.models.incident_update import IncidentUpdate
 from whatisup.models.monitor import Monitor, MonitorGroup
 from whatisup.models.status_subscription import StatusSubscription
@@ -282,6 +282,11 @@ async def get_public_status(
                 .where(
                     Incident.monitor_id.in_(monitor_ids),
                     Incident.started_at >= cutoff_30d,
+                    # C-4 — a status page speaks about service availability to
+                    # people outside the tenant. "queue_depth above 1000" is an
+                    # internal application signal; publishing it would leak
+                    # implementation detail and read as an outage that isn't one.
+                    IS_AVAILABILITY_INCIDENT,
                 )
                 .order_by(Incident.started_at.desc())
                 # Bound the public payload — a flapping group can accumulate
@@ -349,6 +354,9 @@ async def get_public_incident_updates(
             .where(
                 Incident.id == incident_id,
                 Monitor.group_id == group.id,
+                # Same reason as the 30-day list: a metric incident is not
+                # public, so it must 404 here rather than be fetchable by id.
+                IS_AVAILABILITY_INCIDENT,
             )
         )
     ).scalar_one_or_none()

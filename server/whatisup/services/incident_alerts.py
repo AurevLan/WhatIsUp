@@ -19,20 +19,14 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from whatisup.models.alert import AlertCondition, AlertEvent, AlertEventStatus, AlertRule
-from whatisup.models.incident import Incident, IncidentScope
+from whatisup.models.alert import METRIC_CONDITIONS, AlertEvent, AlertEventStatus, AlertRule
+from whatisup.models.incident import Incident
 from whatisup.models.monitor import Monitor
 from whatisup.models.probe import Probe
 from whatisup.models.result import CheckResult
 from whatisup.models.team import TeamMembership
 from whatisup.services.alert import dispatch_alert, maybe_digest_or_dispatch
-from whatisup.services.alert_conditions import (
-    above_baseline_matches,
-    anomaly_matches,
-    response_time_above_matches,
-    schema_drift_matches,
-    ssl_expiry_matches,
-)
+from whatisup.services.conditions import DispatchContext, get_handler
 
 logger = structlog.get_logger(__name__)
 
@@ -104,8 +98,12 @@ async def fire_alerts(
         )
     ]
 
-    # Web push: notify monitor owner for open/resolve events (independent of rules)
-    if event_type in ("incident_opened", "incident_resolved"):
+    # Web push + public status subscribers: outage-shaped notifications, so they
+    # are for availability incidents only. Both say "this service went down" in
+    # so many words, which a queue-depth threshold does not — and the public
+    # subscribers are people outside the tenant, who have no business receiving
+    # an internal application signal at all (C-4).
+    if incident.alert_rule_id is None and event_type in ("incident_opened", "incident_resolved"):
         from whatisup.services.web_push import dispatch_web_push_for_incident
 
         await dispatch_web_push_for_incident(db, incident, monitor, event_type)
@@ -144,9 +142,21 @@ async def fire_alerts(
     }
 
     now = datetime.now(UTC)
+    # C-4 — the two incident families never cross. A metric incident belongs to
+    # exactly one rule and may only dispatch that rule (otherwise an `any_down`
+    # rule on the same monitor would page "service down" for a queue-depth
+    # threshold); conversely a metric rule is driven solely by
+    # ``services/metric_alerts.py`` and must ignore every outage incident.
+    metric_rule_id = incident.alert_rule_id
 
     for rule in rules:
         if not rule.enabled:
+            continue
+
+        if metric_rule_id is not None:
+            if rule.id != metric_rule_id:
+                continue
+        elif rule.condition in METRIC_CONDITIONS:
             continue
 
         # H-10: min_duration_seconds — skip if incident too short for "opened" events
@@ -212,69 +222,38 @@ async def fire_alerts(
                     )
                     continue
 
-        if rule.condition == AlertCondition.any_down:
-            if event_type not in ("incident_opened", "incident_resolved"):
-                continue
-        elif rule.condition == AlertCondition.all_down:
-            if incident.scope != IncidentScope.global_ and event_type == "incident_opened":
-                continue
-            if event_type not in ("incident_opened", "incident_resolved"):
-                continue
-        elif rule.condition == AlertCondition.ssl_expiry:
-            if not ssl_expiry_matches(
-                result.ssl_valid, result.ssl_days_remaining, monitor.ssl_expiry_warn_days
-            ):
-                continue
-            if event_type != "incident_opened":
-                continue
-        elif rule.condition == AlertCondition.response_time_above:
-            if not response_time_above_matches(result.response_time_ms, rule.threshold_value):
-                continue
-            if event_type != "incident_opened":
-                continue
-        elif rule.condition == AlertCondition.response_time_above_baseline:
-            if event_type != "incident_opened":
-                continue
-            if rule.baseline_factor is None or result.response_time_ms is None:
-                continue
-            # 7-day rolling average — TODO: bucket by hour-of-week if needed
-            baseline_cutoff = now - timedelta(days=7)
-            baseline_row = (
-                await db.execute(
-                    select(func.avg(CheckResult.response_time_ms)).where(
-                        CheckResult.monitor_id == monitor.id,
-                        CheckResult.checked_at >= baseline_cutoff,
-                        CheckResult.response_time_ms.isnot(None),
-                    )
-                )
-            ).scalar_one_or_none()
-            if not above_baseline_matches(
-                result.response_time_ms, baseline_row, rule.baseline_factor
-            ):
-                continue
+        # Per-condition logic lives in ``services/conditions``, next to the
+        # preview it has to agree with — see that package's ``base.py`` for why.
+        handler = get_handler(rule.condition)
+        if handler is None:
+            logger.warning("alert_condition_unhandled", condition=str(rule.condition))
+            continue
+        if event_type not in handler.fires_on:
+            continue
+        # Callers legitimately pass no CheckResult — the heartbeat checker, the
+        # renotify loop and the C-4 metric evaluator all open or resolve
+        # incidents without one, and a value-based condition simply cannot be
+        # evaluated then. Before this guard existed, a single `ssl_expiry` rule
+        # on a heartbeat monitor raised AttributeError inside a background loop.
+        if result is None and handler.needs_check_result:
+            continue
 
-        elif rule.condition == AlertCondition.anomaly_detection:
-            if event_type != "incident_opened":
-                continue
-            if result.response_time_ms is None:
-                continue
-            # zscore is pre-computed by process_check_result and injected into ctx
-            if not anomaly_matches(ctx.get("zscore"), rule.anomaly_zscore_threshold):
-                continue
-            ctx = {**ctx, "response_time_ms": result.response_time_ms}
-
-        elif rule.condition == AlertCondition.schema_drift:
-            if event_type != "incident_opened":
-                continue
-            if not schema_drift_matches(result.schema_fingerprint, monitor.schema_baseline):
-                continue
-            ctx = {
-                **ctx,
-                "schema_fingerprint": result.schema_fingerprint,
-                "schema_baseline": monitor.schema_baseline,
-            }
+        decision = await handler.decide(
+            DispatchContext(
+                db=db,
+                incident=incident,
+                monitor=monitor,
+                rule=rule,
+                event_type=event_type,
+                result=result,
+                ctx=ctx,
+            )
+        )
+        if not decision.fire:
+            continue
+        rule_ctx = {**ctx, **decision.ctx_extra} if decision.ctx_extra else ctx
 
         for channel in rule.channels:
-            await maybe_digest_or_dispatch(db, incident, channel, rule, event_type, ctx=ctx)
+            await maybe_digest_or_dispatch(db, incident, channel, rule, event_type, ctx=rule_ctx)
 
     await db.flush()

@@ -58,6 +58,23 @@ class AlertCondition(enum.StrEnum):
     response_time_above_baseline = "response_time_above_baseline"  # > N× rolling 7-day avg
     anomaly_detection = "anomaly_detection"  # Z-score based anomaly on response time
     schema_drift = "schema_drift"  # JSON API structure changed vs baseline
+    # Plan V2, C-4 — pushed application metrics (custom_metrics). Unlike every
+    # condition above, these are not derived from a CheckResult: they are
+    # evaluated by services/metric_alerts.py, not by the check pipeline.
+    metric_above = "metric_above"  # Latest pushed value > threshold_value
+    metric_below = "metric_below"  # Latest pushed value < threshold_value
+    metric_absent = "metric_absent"  # Nothing pushed for metric_window_seconds
+
+
+#: Conditions evaluated from ``custom_metrics`` rather than from a CheckResult.
+#: Used to keep the two incident families apart in ``fire_alerts``.
+METRIC_CONDITIONS = frozenset(
+    {
+        AlertCondition.metric_above,
+        AlertCondition.metric_below,
+        AlertCondition.metric_absent,
+    }
+)
 
 
 class AlertEventStatus(enum.StrEnum):
@@ -144,6 +161,12 @@ class AlertRule(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     baseline_factor: Mapped[float | None] = mapped_column(sqlalchemy.Float, nullable=True)
     # Anomaly detection: z-score threshold (default 3.0)
     anomaly_zscore_threshold: Mapped[float | None] = mapped_column(sqlalchemy.Float, nullable=True)
+    # C-4 — pushed-metric conditions. `metric_name` selects the series inside
+    # custom_metrics; `metric_window_seconds` is the freshness bound: above/below
+    # only consider a sample newer than that (a stale value must not keep paging),
+    # and `metric_absent` fires precisely when no sample is that fresh.
+    metric_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    metric_window_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # Business hours schedule: {timezone, days: [0-6], start/end: "HH:MM", offhours_suppress: bool}
     schedule: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     # Tag selector: list of tag names; rule fires for monitors carrying any matching tag.

@@ -14,7 +14,7 @@ from typing import Any
 
 import aiosmtplib
 import structlog
-from sqlalchemy import func, or_, select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.core.config import get_settings
@@ -22,17 +22,17 @@ from whatisup.core.metrics import observe_alert_dispatch
 from whatisup.core.security import decrypt_channel_config
 from whatisup.models.alert import AlertChannel, AlertChannelType, AlertEvent, AlertEventStatus
 from whatisup.models.incident import Incident
-from whatisup.services.alert_conditions import (
-    above_baseline_matches,
-    anomaly_matches,
-    response_time_above_matches,
-    schema_drift_matches,
-    ssl_expiry_matches,
-)
 from whatisup.services.channels._helpers import redact_secrets, ssrf_safe_client
 from whatisup.services.channels._helpers import validate_webhook_url as _validate_webhook_url
+from whatisup.services.stats import fetch_latest_results
 
 logger = structlog.get_logger(__name__)
+
+#: String values of the pushed-metric conditions. Compared as strings rather
+#: than enum members: ``simulate_rule`` receives ORM rules whose ``condition``
+#: is an ``AlertCondition``, and the surrounding branches already compare it to
+#: plain strings.
+_METRIC_CONDITION_VALUES = frozenset({"metric_above", "metric_below", "metric_absent"})
 
 # ── Channel test ───────────────────────────────────────────────────────────────
 
@@ -65,9 +65,16 @@ async def simulate_rule(db: AsyncSession, rule) -> dict:
 
     Returns a dict with: would_fire, reason, monitor_name, affected_monitors.
     Does NOT send any alert.
+
+    The per-condition logic lives in ``services/conditions`` next to the
+    dispatch logic it has to agree with — see that package's ``base.py``. What
+    is left here is what every condition shares: resolving the rule's monitors,
+    fetching their latest check once, and shaping the answer.
     """
     from whatisup.models.monitor import Monitor
-    from whatisup.models.result import CheckResult
+    from whatisup.services.conditions import PreviewContext, get_handler
+
+    handler = get_handler(rule.condition)
 
     # Collect monitors targeted by this rule
     if rule.monitor_id:
@@ -81,254 +88,49 @@ async def simulate_rule(db: AsyncSession, rule) -> dict:
             .all()
         )
     else:
-        return {
-            "would_fire": False,
-            "reason": "Aucun monitor ciblé",
-            "monitor_name": None,
-            "affected_monitors": [],
-        }
+        return _preview_payload(False, "Aucun monitor ciblé", [], monitors=[])
 
     if not monitors:
-        return {
-            "would_fire": False,
-            "reason": "Aucun monitor trouvé",
-            "monitor_name": None,
-            "affected_monitors": [],
-        }
+        return _preview_payload(False, "Aucun monitor trouvé", [], monitors=[])
 
-    monitor_ids = [m.id for m in monitors]
-    monitors_by_id = {m.id: m for m in monitors}
-
-    # Get latest CheckResult per monitor
-    subq = (
-        select(
-            CheckResult.monitor_id,
-            func.max(CheckResult.checked_at).label("max_checked_at"),
+    if handler is None:
+        return _preview_payload(
+            False,
+            f"Simulation non supportée pour la condition '{rule.condition}'",
+            [],
+            monitors=monitors,
         )
-        .where(CheckResult.monitor_id.in_(monitor_ids))
-        .group_by(CheckResult.monitor_id)
-        .subquery()
+
+    # Latest CheckResult per monitor — via ``fetch_latest_results``, the LATERAL
+    # form from #218. The hand-rolled ``max(checked_at) GROUP BY`` self-join that
+    # used to live here aggregates *every historical row* of the listed monitors
+    # and carries no time bound, so on the partitioned check_results (A-1) it
+    # prunes nothing. Skipped entirely when the condition reads no check row —
+    # the three pushed-metric conditions never do.
+    latest: dict[uuid.UUID, Any] = {}
+    if handler.preview_reads_checks:
+        latest = await fetch_latest_results(db, [m.id for m in monitors])
+
+    outcome = await handler.preview(
+        PreviewContext(
+            db=db,
+            rule=rule,
+            monitors=list(monitors),
+            monitors_by_id={m.id: m for m in monitors},
+            latest=latest,
+        )
     )
-    latest_results = (
-        (
-            await db.execute(
-                select(CheckResult).join(
-                    subq,
-                    (CheckResult.monitor_id == subq.c.monitor_id)
-                    & (CheckResult.checked_at == subq.c.max_checked_at),
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
+    return _preview_payload(outcome.would_fire, outcome.reason, outcome.affected, monitors=monitors)
 
-    results_by_monitor: dict[uuid.UUID, list] = {}
-    for r in latest_results:
-        results_by_monitor.setdefault(r.monitor_id, []).append(r)
 
-    condition = rule.condition
-
-    if condition in ("any_down", "all_down"):
-        down_monitors = []
-        for mid in monitor_ids:
-            results = results_by_monitor.get(mid, [])
-            if not results:
-                continue
-            is_down = any(r.status != "up" for r in results)
-            if is_down:
-                down_monitors.append(monitors_by_id[mid].name)
-
-        if condition == "any_down":
-            would_fire = len(down_monitors) > 0
-            names = ", ".join(down_monitors)
-            reason = (
-                f"{len(down_monitors)} monitor(s) actuellement en panne : {names}"
-                if would_fire
-                else "Tous les monitors sont UP"
-            )
-        else:  # all_down
-            would_fire = len(down_monitors) == len(monitor_ids)
-            reason = (
-                "Panne globale — tous les monitors sont down"
-                if would_fire
-                else f"{len(down_monitors)}/{len(monitor_ids)} monitors en panne (pas encore tous)"
-            )
-        return {
-            "would_fire": would_fire,
-            "reason": reason,
-            "monitor_name": monitors[0].name if len(monitors) == 1 else None,
-            "affected_monitors": down_monitors,
-        }
-
-    elif condition == "response_time_above":
-        # Same predicate as fire_alerts: an unset threshold never fires
-        # (the preview used to treat it as 0 and fire on any latency).
-        threshold = rule.threshold_value
-        slow_monitors = []
-        for mid in monitor_ids:
-            results = results_by_monitor.get(mid, [])
-            for r in results:
-                if response_time_above_matches(r.response_time_ms, threshold):
-                    slow_monitors.append(f"{monitors_by_id[mid].name} ({r.response_time_ms:.0f}ms)")
-                    break
-        would_fire = len(slow_monitors) > 0
-        if threshold is None:
-            reason = "Seuil non défini — la règle ne peut pas se déclencher"
-        elif would_fire:
-            reason = f"Temps de réponse dépassé sur : {', '.join(slow_monitors)}"
-        else:
-            reason = f"Tous les monitors sont sous le seuil de {threshold}ms"
-        return {
-            "would_fire": would_fire,
-            "reason": reason,
-            "monitor_name": monitors[0].name if len(monitors) == 1 else None,
-            "affected_monitors": slow_monitors,
-        }
-
-    elif condition == "ssl_expiry":
-        # Same predicate as fire_alerts: per-monitor warn window
-        # (the preview used to hardcode a 30-day window).
-        expiring = []
-        for mid in monitor_ids:
-            results = results_by_monitor.get(mid, [])
-            warn_days = monitors_by_id[mid].ssl_expiry_warn_days
-            for r in results:
-                if ssl_expiry_matches(r.ssl_valid, r.ssl_days_remaining, warn_days):
-                    if r.ssl_valid is False:
-                        expiring.append(f"{monitors_by_id[mid].name} (certificat invalide)")
-                    else:
-                        expiring.append(
-                            f"{monitors_by_id[mid].name} (expire dans {r.ssl_days_remaining}j)"
-                        )
-                    break
-        would_fire = len(expiring) > 0
-        reason = (
-            f"Certificat(s) SSL invalide(s) ou expirant bientôt : {', '.join(expiring)}"
-            if would_fire
-            else "Tous les certificats SSL sont valides (hors fenêtre d'alerte)"
-        )
-        return {
-            "would_fire": would_fire,
-            "reason": reason,
-            "monitor_name": monitors[0].name if len(monitors) == 1 else None,
-            "affected_monitors": expiring,
-        }
-
-    elif condition == "response_time_above_baseline":
-        # Same predicate + same 7-day rolling average query as fire_alerts.
-        if rule.baseline_factor is None:
-            return {
-                "would_fire": False,
-                "reason": "Facteur de baseline non défini — la règle ne peut pas se déclencher",
-                "monitor_name": monitors[0].name if len(monitors) == 1 else None,
-                "affected_monitors": [],
-            }
-        baseline_cutoff = datetime.now(UTC) - timedelta(days=7)
-        above = []
-        for mid in monitor_ids:
-            results = results_by_monitor.get(mid, [])
-            baseline_avg = (
-                await db.execute(
-                    select(func.avg(CheckResult.response_time_ms)).where(
-                        CheckResult.monitor_id == mid,
-                        CheckResult.checked_at >= baseline_cutoff,
-                        CheckResult.response_time_ms.isnot(None),
-                    )
-                )
-            ).scalar_one_or_none()
-            for r in results:
-                if above_baseline_matches(r.response_time_ms, baseline_avg, rule.baseline_factor):
-                    above.append(
-                        f"{monitors_by_id[mid].name} ({r.response_time_ms:.0f}ms"
-                        f" > {rule.baseline_factor}× {baseline_avg:.0f}ms)"
-                    )
-                    break
-        would_fire = len(above) > 0
-        reason = (
-            f"Temps de réponse au-dessus de la baseline sur : {', '.join(above)}"
-            if would_fire
-            else f"Tous les monitors sont sous {rule.baseline_factor}× leur moyenne 7 jours"
-        )
-        return {
-            "would_fire": would_fire,
-            "reason": reason,
-            "monitor_name": monitors[0].name if len(monitors) == 1 else None,
-            "affected_monitors": above,
-        }
-
-    elif condition == "anomaly_detection":
-        # Same z-score computation as process_check_result + same predicate
-        # as fire_alerts. compute_zscore returns None below 10 samples.
-        from whatisup.services.anomaly import compute_zscore
-
-        anomalous = []
-        insufficient = 0
-        for mid in monitor_ids:
-            results = results_by_monitor.get(mid, [])
-            for r in results:
-                if r.response_time_ms is None:
-                    continue
-                zscore = await compute_zscore(db, mid, r.response_time_ms)
-                if zscore is None:
-                    insufficient += 1
-                    continue
-                if anomaly_matches(zscore, rule.anomaly_zscore_threshold):
-                    anomalous.append(f"{monitors_by_id[mid].name} (z-score {zscore:.1f})")
-                    break
-        would_fire = len(anomalous) > 0
-        if would_fire:
-            reason = f"Anomalie de temps de réponse sur : {', '.join(anomalous)}"
-        elif insufficient:
-            reason = (
-                f"Pas assez d'historique pour {insufficient} monitor(s)"
-                " (minimum 10 mesures) — aucune anomalie détectable"
-            )
-        else:
-            reason = "Aucune anomalie détectée sur les dernières mesures"
-        return {
-            "would_fire": would_fire,
-            "reason": reason,
-            "monitor_name": monitors[0].name if len(monitors) == 1 else None,
-            "affected_monitors": anomalous,
-        }
-
-    elif condition == "schema_drift":
-        # Same predicate as fire_alerts: latest fingerprint vs the monitor's
-        # recorded baseline; no baseline or no fingerprint never fires.
-        drifted = []
-        missing_baseline = 0
-        for mid in monitor_ids:
-            results = results_by_monitor.get(mid, [])
-            baseline = monitors_by_id[mid].schema_baseline
-            if not baseline:
-                missing_baseline += 1
-                continue
-            for r in results:
-                if schema_drift_matches(r.schema_fingerprint, baseline):
-                    drifted.append(monitors_by_id[mid].name)
-                    break
-        would_fire = len(drifted) > 0
-        if would_fire:
-            reason = f"Dérive de schéma détectée sur : {', '.join(drifted)}"
-        elif missing_baseline == len(monitor_ids):
-            reason = "Aucune baseline de schéma enregistrée — la règle ne peut pas se déclencher"
-        else:
-            reason = "Aucune dérive de schéma par rapport à la baseline"
-        return {
-            "would_fire": would_fire,
-            "reason": reason,
-            "monitor_name": monitors[0].name if len(monitors) == 1 else None,
-            "affected_monitors": drifted,
-        }
-
-    else:
-        return {
-            "would_fire": False,
-            "reason": f"Simulation non supportée pour la condition '{condition}'",
-            "monitor_name": monitors[0].name if len(monitors) == 1 else None,
-            "affected_monitors": [],
-        }
+def _preview_payload(would_fire: bool, reason: str, affected: list[str], *, monitors) -> dict:
+    """Shape ``simulate_rule``'s answer — the wire format the UI reads."""
+    return {
+        "would_fire": would_fire,
+        "reason": reason,
+        "monitor_name": monitors[0].name if len(monitors) == 1 else None,
+        "affected_monitors": affected,
+    }
 
 
 # ── Digest helpers ─────────────────────────────────────────────────────────────

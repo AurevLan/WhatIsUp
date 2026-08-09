@@ -5,7 +5,7 @@ import uuid
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import and_, func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.api.deps import (
@@ -17,7 +17,6 @@ from whatisup.api.v1.monitors._common import _get_monitor_or_404
 from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
 from whatisup.models.monitor import CompositeMonitorMember, Monitor
-from whatisup.models.result import CheckResult
 from whatisup.models.user import User
 from whatisup.schemas.monitor import (
     CompositeMonitorMemberCreate,
@@ -25,6 +24,7 @@ from whatisup.schemas.monitor import (
     MonitorDependencyCreate,
     MonitorDependencyOut,
 )
+from whatisup.services.stats import fetch_latest_results
 
 logger = logging.getLogger(__name__)
 
@@ -63,30 +63,19 @@ async def get_dependency_graph(
     nodes = []
     latest_map: dict = {}
     if monitor_ids:
-        max_ts_subq = (
-            select(
-                CheckResult.monitor_id,
-                func.max(CheckResult.checked_at).label("max_at"),
-            )
-            .where(CheckResult.monitor_id.in_(monitor_ids))
-            .group_by(CheckResult.monitor_id)
-            .subquery()
-        )
-        latest_rows = (
-            await db.execute(
-                select(CheckResult.monitor_id, CheckResult.status, CheckResult.checked_at).join(
-                    max_ts_subq,
-                    and_(
-                        CheckResult.monitor_id == max_ts_subq.c.monitor_id,
-                        CheckResult.checked_at == max_ts_subq.c.max_at,
-                    ),
-                )
-            )
-        ).all()
+        # ``fetch_latest_results`` rather than a hand-rolled
+        # ``max(checked_at) GROUP BY`` self-join: that form aggregates every
+        # historical row of the listed monitors (#218) and, being unbounded in
+        # time, prunes no partition of check_results (A-1). The graph shows a
+        # whole dependency tree, so "the listed monitors" is easily the fleet.
+        latest_by_monitor = await fetch_latest_results(db, monitor_ids)
         now = datetime.now(UTC)
-        for r in latest_rows:
-            age = (now - r.checked_at).total_seconds()
-            latest_map[r.monitor_id] = r.status.value if age < 300 else None
+        for mid, r in latest_by_monitor.items():
+            checked_at = r.checked_at
+            if checked_at.tzinfo is None:  # SQLite hands back naive datetimes
+                checked_at = checked_at.replace(tzinfo=UTC)
+            age = (now - checked_at).total_seconds()
+            latest_map[mid] = r.status.value if age < 300 else None
 
     for m in monitors:
         nodes.append(

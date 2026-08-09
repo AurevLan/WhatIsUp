@@ -130,6 +130,15 @@ class Settings(BaseSettings):
     # never falls off the edge mid-month.
     rollup_retention_months: int = 13  # 0 = keep forever
 
+    # Pushed-metric alerting (plan V2, C-4). Evaluated by a background loop
+    # rather than inside POST /metrics on purpose: dispatching an alert means an
+    # outbound HTTP call, and putting one on the ingestion path would let a slow
+    # webhook throttle the agent that is pushing. The interval is therefore the
+    # worst-case alerting delay — lower it if you need to page faster than a
+    # minute, at the cost of one extra query per metric rule per run.
+    metric_alerts_enabled: bool = True
+    metric_alerts_interval_seconds: int = 60
+
     # OIDC / SSO
     oidc_enabled: bool = False
     oidc_issuer_url: str = ""  # e.g. https://accounts.google.com

@@ -322,6 +322,7 @@ Advanced assertions across types: regex body check, response header validation (
 - **Custom push metrics** — business KPIs alongside uptime data, now alertable
 - **Annotations** — timestamped notes on the monitor timeline (deployments, changes)
 - **TLS fleet dashboard** — certificate grade and expiry across every monitor
+- **Metric correlation on incident** — ranks the monitor's pushed metrics by how much they moved against the equivalent window just before, in a panel and in the post-mortem. Says *correlation*, never causation, and refuses to invent a figure when there is no baseline, too few samples, or a baseline of zero
 - **Auto-diagnostics on incident** — every affected probe runs `traceroute`, `dig +trace`, `openssl s_client`, `ping` and `curl -v` in parallel, persisted and surfaced per incident
 - **Prometheus metrics** — `/api/metrics`, fail-closed in production
 
@@ -557,6 +558,7 @@ curl https://your-whatisup.example.com/api/v1/monitors/ -H "Authorization: Beare
 | `POST` | `/api/v1/metrics/{monitor_id}` | Push a custom metric |
 | `GET` | `/api/v1/metrics/{monitor_id}` `…/summary` | List / aggregate custom metrics |
 | `GET` | `/api/v1/metrics/{monitor_id}/series` | List the metric series a monitor reports |
+| `GET` | `/api/v1/incidents/{id}/metric-correlation` | Which pushed metrics moved around an incident |
 | `GET` | `/api/v1/public/pages/{slug}/monitors` | Public status page data (no auth) |
 | `POST` | `/api/v1/public/pages/{slug}/subscribe` | Subscribe to a status page |
 | `GET` | `/api/v1/ping/{slug}` | Heartbeat ping |

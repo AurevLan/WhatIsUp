@@ -177,6 +177,12 @@
                   :aria-label="t('incidents.diagnostic_title')"
                   @click.prevent="toggleDiagnostic(item.id)"
                 ><Activity :size="16" /></button>
+                <button
+                  class="btn-icon"
+                  :title="t('correlation.title')"
+                  :aria-label="t('correlation.title')"
+                  @click.prevent="toggleCorrelation(item.id)"
+                ><TrendingUp :size="16" /></button>
                 <button v-if="!item.is_resolved && !item.acked_at" class="btn-icon" :title="t('incidents.acknowledge')" :aria-label="t('incidents.acknowledge')" @click.prevent="ack(item)"><CheckCircle :size="16" /></button>
                 <button v-else-if="!item.is_resolved && item.acked_at" class="btn-icon btn-icon--active" :title="t('incidents.unacknowledge')" :aria-label="t('incidents.unacknowledge')" @click.prevent="unack(item)"><CheckCircle :size="16" /></button>
               </span>
@@ -192,6 +198,10 @@
               v-if="expandedDiagnostics[item.id]"
               :incident-id="item.id"
             />
+            <IncidentMetricCorrelationPanel
+              v-if="expandedCorrelation[item.id]"
+              :incident-id="item.id"
+            />
           </div>
 
         </template>
@@ -204,7 +214,7 @@
 <script setup>
 import { computed, reactive, ref, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Activity, AlertCircle, CheckCircle, ChevronDown, Link2, MapPin, X } from 'lucide-vue-next'
+import { Activity, AlertCircle, CheckCircle, ChevronDown, Link2, MapPin, TrendingUp, X } from 'lucide-vue-next'
 import api from '../api/client'
 import { incidentUpdatesApi } from '../api/incidentUpdates'
 import { useToast } from '../composables/useToast'
@@ -214,6 +224,7 @@ import BulkActionBar from '../components/shared/BulkActionBar.vue'
 import EmptyState from '../components/shared/EmptyState.vue'
 import IncidentPlaybackMap from '../components/dashboard/IncidentPlaybackMap.vue'
 import IncidentDiagnosticPanel from '../components/incidents/IncidentDiagnosticPanel.vue'
+import IncidentMetricCorrelationPanel from '../components/incidents/IncidentMetricCorrelationPanel.vue'
 import { useAsyncResource } from '../composables/useAsyncResource'
 import { useDateFormat } from '../composables/useDateFormat'
 
@@ -258,6 +269,11 @@ function togglePlayback(id) {
 const expandedDiagnostics = reactive({})
 function toggleDiagnostic(id) {
   expandedDiagnostics[id] = !expandedDiagnostics[id]
+}
+// Plan V2, C-3 — and again for the metric correlation panel.
+const expandedCorrelation = reactive({})
+function toggleCorrelation(id) {
+  expandedCorrelation[id] = !expandedCorrelation[id]
 }
 
 function hasRunbook(inc) {

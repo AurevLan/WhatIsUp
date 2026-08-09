@@ -395,6 +395,21 @@ export default {
   // Monitor detail
   // Last batch of the i18n sweep (B3). Several of these panels shipped their
   // labels hard-coded in French inside an otherwise-English codebase.
+  correlation: {
+    title: 'Application metrics',
+    no_metrics: 'No application metrics were being pushed for this monitor during the incident.',
+    window_help: 'Compared against the same {minutes}-minute window immediately before the incident.',
+    col_metric: 'Metric',
+    col_during: 'During',
+    col_baseline: 'Baseline',
+    col_change: 'Change',
+    disclaimer: 'Ranked by how much each series moved. This shows correlation, not causation.',
+    reason_no_baseline: 'no baseline',
+    reason_no_incident_data: 'no data during',
+    reason_too_few_samples: 'too few samples',
+    reason_zero_baseline: 'baseline was zero',
+    reason_unknown: 'not comparable',
+  },
   sweep: {
     series_count: '{n} series',
     batch_example: 'Batch (labels + several points in one request)',

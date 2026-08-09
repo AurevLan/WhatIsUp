@@ -260,6 +260,32 @@ Migration `e4f5a6b7c8d9`. `POST /metrics/{monitor_id}` accepte un objet **ou** u
 - **Rétrocompatibilité** : la forme objet renvoie le point stocké comme avant ; seule la liste renvoie
   `{accepted: N}`.
 
+### Corrélation métrique ↔ incident (plan V2, C-3)
+
+`services/metric_correlation.py`. Le blackbox dit *que* c'est cassé ; les métriques poussées disent
+*ce qui bougeait au même moment*. Exposé par `GET /incidents/{id}/metric-correlation` et intégré au
+post-mortem.
+
+- **Calcul à la demande, pas de snapshot à l'ouverture.** À T+0 il n'y a rien à corréler — le mouvement
+  intéressant arrive pendant l'incident — et contrairement à un traceroute les échantillons restent en
+  base. C'est le **post-mortem qui fige** le verdict (rendu au moment de la génération), parce que ce
+  document est censé survivre à `METRICS_RETENTION_DAYS`.
+- **Fenêtre de référence = même durée, immédiatement avant.** Une série à forme journalière est ainsi
+  comparée à elle-même une heure plus tôt, pas à une moyenne qui aplatit la forme.
+- **Bornes de fenêtre** : plancher `MIN_WINDOW` (5 min — sinon un incident de 40 s se compare à 40 s de
+  référence, soit zéro échantillon contre zéro) et plafond `MAX_WINDOW` (6 h, on garde la **tête** de
+  l'incident : ce qu'une série faisait pendant que ça cassait est plus informatif que pendant l'astreinte).
+- **Fenêtres disjointes** : la référence est bornée en **exclusif** à `started_at`. Un échantillon pris
+  exactement au démarrage appartient à l'incident ; le compter des deux côtés tire la référence vers
+  l'incident et rétrécit l'écart qu'on cherche à révéler (bug attrapé par les tests).
+- **Trois refus explicites** plutôt qu'un chiffre inventé : `no_baseline` (série née avec l'incident —
+  +∞ ou 100 % seraient des inventions), `too_few_samples` (`MIN_SAMPLES`), `zero_baseline` (ratio
+  indéfini → on rapporte l'écart **absolu**). Les non-comparables trient **en dernier**, jamais au milieu.
+- **Corrélation, jamais causalité** — la formulation est tenue jusqu'à l'UI, qui affiche l'avertissement
+  à chaque rendu. Un tableau classé invite à inférer une cause ; ce panneau ne peut pas la soutenir.
+- **Portée = un moniteur.** Pas un raccourci : les métriques sont poussées par moniteur, donc ça ne peut
+  pas traverser les tenants.
+
 ### Alertes sur métrique poussée (plan V2, C-4)
 
 `metric_above` / `metric_below` / `metric_absent`, évaluées par `services/metric_alerts.py`
@@ -487,6 +513,8 @@ cd frontend && npm run dev -- --host
   chose qui déclenche `metric_above` / `metric_below` / `metric_absent` (cf. § Alertes sur métrique poussée)
 - `services/metric_ingest.py` : **plan V2, C-1** — `ingest_points`, batch + quotas débit/cardinalité
 - `services/metric_series.py` : **plan V2, C-1** — résolution d'un sélecteur de labels vers ses séries
+- `services/metric_correlation.py` : **plan V2, C-3** — classement des séries par mouvement autour d'un
+  incident + rendu markdown pour le post-mortem (cf. § Corrélation métrique ↔ incident)
 - `services/retention.py` : purge nightly — `purge_old_results` (brut > `DATA_RETENTION_DAYS`, défaut 90 :
   drop de partition d'abord, `DELETE` résiduel ensuite) puis `purge_old_rollups`
   (> `ROLLUP_RETENTION_MONTHS`, défaut 13). Cf. §§ `check_results` est partitionné + Rétention différenciée

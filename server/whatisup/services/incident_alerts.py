@@ -19,7 +19,13 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from whatisup.models.alert import AlertCondition, AlertEvent, AlertEventStatus, AlertRule
+from whatisup.models.alert import (
+    METRIC_CONDITIONS,
+    AlertCondition,
+    AlertEvent,
+    AlertEventStatus,
+    AlertRule,
+)
 from whatisup.models.incident import Incident, IncidentScope
 from whatisup.models.monitor import Monitor
 from whatisup.models.probe import Probe
@@ -35,6 +41,20 @@ from whatisup.services.alert_conditions import (
 )
 
 logger = structlog.get_logger(__name__)
+
+#: Conditions whose verdict is read off a ``CheckResult``. They are unevaluable
+#: when the caller has none (heartbeat, renotify, metric evaluator).
+#: ``any_down`` / ``all_down`` are absent on purpose: they decide from the
+#: incident's own scope, not from a result.
+_RESULT_BACKED_CONDITIONS = frozenset(
+    {
+        AlertCondition.ssl_expiry,
+        AlertCondition.response_time_above,
+        AlertCondition.response_time_above_baseline,
+        AlertCondition.anomaly_detection,
+        AlertCondition.schema_drift,
+    }
+)
 
 
 async def fire_alerts(
@@ -104,8 +124,12 @@ async def fire_alerts(
         )
     ]
 
-    # Web push: notify monitor owner for open/resolve events (independent of rules)
-    if event_type in ("incident_opened", "incident_resolved"):
+    # Web push + public status subscribers: outage-shaped notifications, so they
+    # are for availability incidents only. Both say "this service went down" in
+    # so many words, which a queue-depth threshold does not — and the public
+    # subscribers are people outside the tenant, who have no business receiving
+    # an internal application signal at all (C-4).
+    if incident.alert_rule_id is None and event_type in ("incident_opened", "incident_resolved"):
         from whatisup.services.web_push import dispatch_web_push_for_incident
 
         await dispatch_web_push_for_incident(db, incident, monitor, event_type)
@@ -144,9 +168,21 @@ async def fire_alerts(
     }
 
     now = datetime.now(UTC)
+    # C-4 — the two incident families never cross. A metric incident belongs to
+    # exactly one rule and may only dispatch that rule (otherwise an `any_down`
+    # rule on the same monitor would page "service down" for a queue-depth
+    # threshold); conversely a metric rule is driven solely by
+    # ``services/metric_alerts.py`` and must ignore every outage incident.
+    metric_rule_id = incident.alert_rule_id
 
     for rule in rules:
         if not rule.enabled:
+            continue
+
+        if metric_rule_id is not None:
+            if rule.id != metric_rule_id:
+                continue
+        elif rule.condition in METRIC_CONDITIONS:
             continue
 
         # H-10: min_duration_seconds — skip if incident too short for "opened" events
@@ -212,6 +248,15 @@ async def fire_alerts(
                     )
                     continue
 
+        # Every branch below reads `result`. Callers legitimately pass None —
+        # the heartbeat checker, the renotify loop and the C-4 metric evaluator
+        # all open or resolve incidents with no CheckResult in hand — and a
+        # value-based condition simply cannot be evaluated without one. Before
+        # this guard, a single `ssl_expiry` rule on a heartbeat monitor raised
+        # AttributeError from inside the background loop.
+        if result is None and rule.condition in _RESULT_BACKED_CONDITIONS:
+            continue
+
         if rule.condition == AlertCondition.any_down:
             if event_type not in ("incident_opened", "incident_resolved"):
                 continue
@@ -273,6 +318,14 @@ async def fire_alerts(
                 "schema_fingerprint": result.schema_fingerprint,
                 "schema_baseline": monitor.schema_baseline,
             }
+
+        elif rule.condition in METRIC_CONDITIONS:
+            # Matching already happened in ``services/metric_alerts.py``, which
+            # is the only thing that can see the sample series and which encoded
+            # its verdict by opening (or resolving) this very incident. Nothing
+            # left to decide here; the values are in ``extra_ctx``.
+            if event_type not in ("incident_opened", "incident_resolved"):
+                continue
 
         for channel in rule.channels:
             await maybe_digest_or_dispatch(db, incident, channel, rule, event_type, ctx=ctx)

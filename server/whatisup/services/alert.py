@@ -322,6 +322,97 @@ async def simulate_rule(db: AsyncSession, rule) -> dict:
             "affected_monitors": drifted,
         }
 
+    elif condition in ("metric_above", "metric_below", "metric_absent"):
+        # Same predicates and the same freshness window as
+        # ``services/metric_alerts.py``. The preview deliberately does *not*
+        # apply min_duration_seconds: it answers "would this fire on the current
+        # value?", which is what the operator is looking at while typing a
+        # threshold — a rule that is breaching but not yet for long enough still
+        # reads as "would fire", with the delay stated in the reason.
+        from whatisup.models.custom_metric import CustomMetric
+        from whatisup.services.alert_conditions import (
+            DEFAULT_METRIC_WINDOW_SECONDS,
+            metric_above_matches,
+            metric_absent_matches,
+            metric_below_matches,
+        )
+
+        if not rule.metric_name:
+            return {
+                "would_fire": False,
+                "reason": "Aucune métrique sélectionnée — la règle ne peut pas se déclencher",
+                "monitor_name": monitors[0].name if len(monitors) == 1 else None,
+                "affected_monitors": [],
+            }
+        if condition != "metric_absent" and rule.threshold_value is None:
+            return {
+                "would_fire": False,
+                "reason": "Seuil non défini — la règle ne peut pas se déclencher",
+                "monitor_name": monitors[0].name if len(monitors) == 1 else None,
+                "affected_monitors": [],
+            }
+
+        now_ = datetime.now(UTC)
+        window = rule.metric_window_seconds or DEFAULT_METRIC_WINDOW_SECONDS
+        cutoff = now_ - timedelta(seconds=window)
+        matched_monitors: list[str] = []
+        for mid in monitor_ids:
+            latest = (
+                await db.execute(
+                    select(CustomMetric.value)
+                    .where(
+                        CustomMetric.monitor_id == mid,
+                        CustomMetric.metric_name == rule.metric_name,
+                        CustomMetric.pushed_at >= cutoff,
+                        CustomMetric.pushed_at <= now_,
+                    )
+                    .order_by(CustomMetric.pushed_at.desc())
+                    .limit(1)
+                )
+            ).scalar_one_or_none()
+
+            name = monitors_by_id[mid].name
+            if condition == "metric_above":
+                if metric_above_matches(latest, rule.threshold_value):
+                    matched_monitors.append(f"{name} ({rule.metric_name} = {latest:g})")
+            elif condition == "metric_below":
+                if metric_below_matches(latest, rule.threshold_value):
+                    matched_monitors.append(f"{name} ({rule.metric_name} = {latest:g})")
+            else:
+                ever = (
+                    await db.execute(
+                        select(CustomMetric.id)
+                        .where(
+                            CustomMetric.monitor_id == mid,
+                            CustomMetric.metric_name == rule.metric_name,
+                            CustomMetric.pushed_at <= now_,
+                        )
+                        .limit(1)
+                    )
+                ).first() is not None
+                if metric_absent_matches(latest, ever):
+                    matched_monitors.append(f"{name} ({rule.metric_name} muette)")
+
+        would_fire = len(matched_monitors) > 0
+        if would_fire:
+            reason = f"Déclencherait sur : {', '.join(matched_monitors)}"
+            if rule.min_duration_seconds:
+                reason += f" (après {rule.min_duration_seconds}s de dépassement continu)"
+        elif condition == "metric_absent":
+            reason = f"La métrique '{rule.metric_name}' a été poussée dans les {window} dernières s"
+        else:
+            comparator = "au-dessus de" if condition == "metric_above" else "en-dessous de"
+            reason = (
+                f"Aucune valeur récente de '{rule.metric_name}' {comparator} "
+                f"{rule.threshold_value} (fenêtre de fraîcheur : {window}s)"
+            )
+        return {
+            "would_fire": would_fire,
+            "reason": reason,
+            "monitor_name": monitors[0].name if len(monitors) == 1 else None,
+            "affected_monitors": matched_monitors,
+        }
+
     else:
         return {
             "would_fire": False,

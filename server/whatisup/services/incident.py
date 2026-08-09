@@ -27,7 +27,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.core.config import get_settings
 from whatisup.models.alert import AlertCondition, AlertRule
-from whatisup.models.incident import Incident, IncidentGroup, IncidentScope
+from whatisup.models.incident import (
+    IS_AVAILABILITY_INCIDENT,
+    Incident,
+    IncidentGroup,
+    IncidentScope,
+)
 from whatisup.models.monitor import Monitor
 from whatisup.models.probe import Probe
 from whatisup.models.result import CheckResult, CheckStatus
@@ -88,6 +93,7 @@ async def _process_composite_result(
             select(Incident).where(
                 Incident.monitor_id == monitor_id,
                 Incident.resolved_at.is_(None),
+                IS_AVAILABILITY_INCIDENT,
             )
         )
     ).scalar_one_or_none()
@@ -256,6 +262,7 @@ async def process_check_result(
                     select(Incident).where(
                         Incident.monitor_id == monitor_id,
                         Incident.resolved_at.is_(None),
+                        IS_AVAILABILITY_INCIDENT,
                     )
                 )
             ).scalar_one_or_none()
@@ -304,6 +311,7 @@ async def process_check_result(
                         select(func.count(_Incident.id)).where(
                             _Incident.monitor_id.in_(all_in_group),
                             _Incident.resolved_at.is_(None),
+                            _Incident.alert_rule_id.is_(None),
                         )
                     )
                 ).scalar_one()
@@ -410,6 +418,7 @@ async def process_check_result(
             select(Incident).where(
                 Incident.monitor_id == monitor_id,
                 Incident.resolved_at.is_(None),
+                IS_AVAILABILITY_INCIDENT,
             )
         )
     ).scalar_one_or_none()

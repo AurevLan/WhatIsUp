@@ -16,6 +16,12 @@ from __future__ import annotations
 
 DEFAULT_ANOMALY_ZSCORE = 3.0
 
+#: Freshness window applied to pushed-metric conditions when the rule leaves it
+#: unset. Five minutes matches the default scrape/push cadence of every agent
+#: this is likely to face; a rule pushing less often must widen it explicitly,
+#: which is why the UI surfaces the field rather than hiding this default.
+DEFAULT_METRIC_WINDOW_SECONDS = 300
+
 
 def ssl_expiry_matches(
     ssl_valid: bool | None,
@@ -62,3 +68,40 @@ def schema_drift_matches(fingerprint: str | None, baseline: str | None) -> bool:
     Missing fingerprint or missing baseline never fires.
     """
     return bool(fingerprint) and bool(baseline) and fingerprint != baseline
+
+
+# ── Pushed metrics (plan V2, C-4) ─────────────────────────────────────────────
+#
+# ``latest_value`` below is always "the most recent sample inside the rule's
+# freshness window", never simply "the most recent sample". The distinction is
+# the whole safety property of these three predicates: a value from an agent
+# that died an hour ago must not keep paging (above/below), and must instead be
+# what fires ``metric_absent``. The caller resolves the window; these functions
+# only decide.
+
+
+def metric_above_matches(latest_value: float | None, threshold: float | None) -> bool:
+    """Fresh sample strictly above the threshold.
+
+    No fresh sample, or an unset threshold, never fires — a missing agent is
+    ``metric_absent``'s job, not this one's.
+    """
+    return threshold is not None and latest_value is not None and latest_value > threshold
+
+
+def metric_below_matches(latest_value: float | None, threshold: float | None) -> bool:
+    """Fresh sample strictly below the threshold.
+
+    Symmetric with ``metric_above_matches``, including the "no data never
+    fires" rule: silence must not look like a cache hit rate of zero.
+    """
+    return threshold is not None and latest_value is not None and latest_value < threshold
+
+
+def metric_absent_matches(latest_value: float | None, has_ever_been_pushed: bool) -> bool:
+    """No sample inside the freshness window, for a metric that has existed.
+
+    ``has_ever_been_pushed`` is what keeps a typo in ``metric_name`` from
+    paging forever: a series nobody ever wrote is not a series that stopped.
+    """
+    return has_ever_been_pushed and latest_value is None

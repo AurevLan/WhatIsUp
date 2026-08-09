@@ -29,7 +29,7 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from whatisup.models.incident import Incident
+from whatisup.models.incident import IS_AVAILABILITY_INCIDENT, Incident
 from whatisup.models.probe import Probe
 from whatisup.models.result import CheckResult, CheckStatus
 
@@ -217,7 +217,15 @@ async def recompute_open_incidents_verdicts(db: AsyncSession) -> int:
     multi-probe semantics there). Returns the number of incidents updated.
     """
     rows = (
-        (await db.execute(select(Incident).where(Incident.resolved_at.is_(None)))).scalars().all()
+        (
+            await db.execute(
+                # Metric incidents carry no probes, so there is no ASN/geo
+                # diversity to reason about — a verdict there would be noise.
+                select(Incident).where(Incident.resolved_at.is_(None), IS_AVAILABILITY_INCIDENT)
+            )
+        )
+        .scalars()
+        .all()
     )
     if not rows:
         return 0

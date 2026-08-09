@@ -229,6 +229,49 @@ zéro copie — migration `c2d3e4f5a6b7`).
 - Faire C-2 **avant** C-1 est le point : convertir la table plate une fois le batch/labels en place serait
   une migration de données, alors qu'aujourd'hui c'est un rename instantané.
 
+### Alertes sur métrique poussée (plan V2, C-4)
+
+`metric_above` / `metric_below` / `metric_absent`, évaluées par `services/metric_alerts.py`
+(boucle leader, 60 s). Migration `d3e4f5a6b7c8`.
+
+- **Deux familles d'incidents, discriminées par `Incident.alert_rule_id`** (NULL = disponibilité,
+  non-NULL = métrique, possédé par cette règle). Le pipeline d'alerte est ancré sur `Incident`
+  (`alert_events.incident_id` NOT NULL ; ack/snooze/renotify/escalade/silences/digest en dépendent),
+  donc une alerte métrique **doit** ouvrir un incident. Sans discriminant, `uq_incidents_monitor_open`
+  (un seul incident ouvert par moniteur) faisait qu'un incident métrique ouvert était retrouvé par
+  `process_check_result` comme *l'*incident du moniteur : **la vraie panne n'ouvrait plus rien et
+  n'envoyait plus d'alerte**. L'index unique est donc scindé — disponibilité `WHERE alert_rule_id IS NULL`,
+  métrique `(monitor_id, alert_rule_id)`.
+- **Toute requête qui veut dire « ce moniteur est-il down ? » doit porter `IS_AVAILABILITY_INCIDENT`**
+  (constante dans `models/incident.py`). Sinon : `scalar_one_or_none()` lève `MultipleResultsFound`,
+  le downtime SLA et le budget d'erreur gonflent, la page de statut vire au rouge. Déjà appliqué à
+  `incident.py`, `incident_decider.py`, `incident_correlation.py`, `heartbeat.py`, `network_verdict.py`,
+  `alert_matrix_preview.py`, `status.py`, `public.py`, `monitors/health.py`, `monitors/stats.py`.
+  **Volontairement absent** des listes d'incidents, de l'ack/snooze et de la boucle renotify : là, les
+  incidents métrique doivent apparaître et être actionnables.
+- **Rien de public** : incidents métrique exclus de la page de statut et des mails aux abonnés
+  (`notify_subscribers`), et pas de web push — ce sont des signaux applicatifs internes.
+- **Le silence ne résout jamais** un incident `metric_above`/`metric_below` : sans échantillon frais tous
+  les prédicats répondent False, donc une résolution sur `not matched` seul annoncerait le rétablissement
+  au moment précis où l'on a cessé d'observer. La résolution exige `sample is not None`.
+- **`metric_absent` ne se déclenche pas pour une série jamais poussée** (`EVER_PUSHED_HORIZON`, 30 j) —
+  sinon une faute de frappe dans `metric_name` alerte indéfiniment.
+- **`min_duration_seconds` sans état stocké** : le dépassement commence juste après le dernier échantillon
+  qui *contredit* la condition, et l'incident est antidaté à ce point. Le test naïf (« tous les échantillons
+  de la dernière minute dépassent ») est faux — il passe dès qu'un seul mauvais échantillon tombe dans une
+  plage par ailleurs vide. L'antidatage est aussi ce qui fait passer la garde `min_duration_seconds` de
+  `fire_alerts`, qui sinon avalerait l'alerte qu'on lui demandait de retarder.
+- **Hors matrice d'alertes** : la matrice indexe une règle *par condition* et supprime ce qu'elle ne voit
+  pas ; un moniteur a légitimement plusieurs `metric_above`. Rejetées en entrée et exclues du balayage
+  de suppression.
+- **Cible = un moniteur** (`monitor_id` obligatoire) : les métriques sont poussées sur
+  `POST /metrics/{monitor_id}`. Validé par `assert_metric_rule_is_fireable`, appelé à la création **et**
+  sur l'état fusionné du PATCH — un PATCH qui bascule la condition sans `metric_name` passerait sinon.
+- Knobs : `METRIC_ALERTS_ENABLED`, `METRIC_ALERTS_INTERVAL_SECONDS` (60 = latence d'alerte pire cas ;
+  évaluation hors du chemin d'ingestion pour qu'un webhook lent ne freine pas l'agent qui pousse).
+- **Pas d'événement WebSocket** pour l'instant : le dashboard temps réel les lirait comme des pannes.
+  Ils apparaissent dans la liste d'incidents au rafraîchissement.
+
 ## Dépendances API (deps.py)
 
 ```python
@@ -374,6 +417,8 @@ cd frontend && npm run dev -- --host
 - `services/probe_enrichment.py` : ASN lookup Team Cymru DNS (refresh opportuniste sur heartbeat, TTL 24 h)
 - `services/diagnostics.py` : V2-01-01 enqueue/drain Redis pour traceroute/dig/openssl/ping/curl à l'ouverture d'incident
 - `services/heartbeat.py` : tâche de fond — ouvre incidents si ping absent > `interval + grace`
+- `services/metric_alerts.py` : **plan V2, C-4** — `evaluate_metric_alerts` (boucle fond, 60 s), seule
+  chose qui déclenche `metric_above` / `metric_below` / `metric_absent` (cf. § Alertes sur métrique poussée)
 - `services/retention.py` : purge nightly — `purge_old_results` (brut > `DATA_RETENTION_DAYS`, défaut 90 :
   drop de partition d'abord, `DELETE` résiduel ensuite) puis `purge_old_rollups`
   (> `ROLLUP_RETENTION_MONTHS`, défaut 13). Cf. §§ `check_results` est partitionné + Rétention différenciée

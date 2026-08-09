@@ -8,7 +8,7 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from whatisup.models.incident import Incident, IncidentScope
+from whatisup.models.incident import IS_AVAILABILITY_INCIDENT, Incident, IncidentScope
 from whatisup.models.monitor import Monitor
 from whatisup.services.incident import _fire_alerts
 
@@ -48,6 +48,7 @@ async def check_heartbeats() -> None:
                     select(Incident).where(
                         Incident.monitor_id == monitor.id,
                         Incident.resolved_at.is_(None),
+                        IS_AVAILABILITY_INCIDENT,
                     )
                 )
             ).scalar_one_or_none()

@@ -194,11 +194,12 @@
 
 ### Règles
 - ✅ Cibles : `monitor_id` | `group_id` | `tag_selector`
-- ✅ Conditions : `all_down`, `any_down`, `ssl_expiry`, `response_time_above`, `response_time_above_baseline`, `anomaly_detection`, `schema_drift`
+- ✅ Conditions : `all_down`, `any_down`, `ssl_expiry`, `response_time_above`, `response_time_above_baseline`, `anomaly_detection`, `schema_drift`, `metric_above`, `metric_below`, `metric_absent`
+- 🔬 **Alertes sur métrique poussée (plan V2, C-4)** — `custom_metrics` était écrit et regardé, jamais *réagi* : une application pouvait pousser `queue_depth` et tracer une courbe, aucune condition ne voyait la série. Trois conditions la lisent désormais (`metric_above` / `metric_below` seuil sur la dernière valeur *fraîche*, `metric_absent` = agent mort, jusque-là totalement invisible), évaluées par `services/metric_alerts.py` (boucle leader 60 s) et non au moment du push — dispatcher signifie un appel HTTP sortant, qui n'a rien à faire sur le chemin d'ingestion. Deux garde-fous non négociables : le **silence ne résout jamais** un dépassement (sans échantillon frais, tout prédicat de seuil répond faux — résoudre là-dessus annoncerait le rétablissement à l'instant où l'on cesse d'observer), et `metric_absent` **ne se déclenche jamais pour une série jamais poussée**, sinon une faute de frappe dans le nom alerte indéfiniment. `min_duration_seconds` est honoré sans état stocké, en datant le dépassement du dernier échantillon qui contredit la condition. Ces incidents sont une **population séparée** (`Incident.alert_rule_id`, index unique dédoublé) : sans ça, un incident métrique ouvert masquait une vraie panne. Exclus de la page de statut publique, des mails aux abonnés et du web push — ce sont des signaux applicatifs internes.
 - 🔬 **Matching unifié dispatch/preview** (v1.16.2, R-1) — prédicats purs `services/alert_conditions.py`, source de vérité unique partagée entre `fire_alerts` (dispatch réel) et `simulate_rule` (préviz UI) ; le simulateur couvre désormais les **7 conditions** (baseline via la même moyenne 7 j, anomalie via le même `compute_zscore`, schema drift) et converge sur la sémantique du dispatch (fenêtre SSL per-monitor + cert invalide, seuil non défini = ne fire jamais) ; test garde-fou : toute nouvelle `AlertCondition` sans support preview casse la suite ; enum morte `tls_grade_below` supprimée (jamais présente dans le type PG — l'API la refuse désormais en 422 au lieu d'un 500 à l'INSERT)
 - ✅ `min_duration_seconds` — délai avant fire
 - ✅ `renotify_after_minutes` — escalade
-- ✅ `threshold_value`, `baseline_factor`, `anomaly_zscore_threshold`
+- ✅ `threshold_value`, `baseline_factor`, `anomaly_zscore_threshold`, `metric_name`, `metric_window_seconds`
 - ✅ `digest_minutes` — agrégation alertes (Redis-backed)
 - ✅ `schedule` — TZ + jours + plage horaire + suppress offhours
 - ✅ Rate cap anti-storm : `storm_max_alerts` × `storm_window_seconds` → digest forcé

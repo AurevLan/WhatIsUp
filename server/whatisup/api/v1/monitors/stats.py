@@ -188,6 +188,9 @@ async def get_sla_report(
             Incident.monitor_id == monitor_id,
             Incident.started_at >= from_,
             Incident.started_at <= to,
+            # C-4 — same reason as the error budget: this is the outage count
+            # and total downtime of an SLA report, not a metric-breach count.
+            Incident.alert_rule_id.is_(None),
         )
     )
     inc_row = inc_result.one()

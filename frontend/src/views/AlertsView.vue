@@ -189,6 +189,8 @@
                 <span v-if="rule.renotify_after_minutes" class="text-xs text-(--text-3)">{{ t('alerts.rule_renotify_minutes', { n: rule.renotify_after_minutes }) }}</span>
                 <span v-if="rule.digest_minutes" class="text-xs text-(--accent)">{{ t('alerts.rule_digest_minutes', { n: rule.digest_minutes }) }}</span>
                 <span v-if="rule.anomaly_zscore_threshold" class="text-xs text-(--accent)">· z={{ rule.anomaly_zscore_threshold }}</span>
+                <span v-if="rule.metric_name" class="text-xs text-(--accent) font-mono">· {{ rule.metric_name }}</span>
+                <span v-if="rule.metric_name && rule.metric_window_seconds" class="text-xs text-(--text-3)">{{ t('alerts.rule_metric_window', { n: rule.metric_window_seconds }) }}</span>
                 <span v-if="rule.schedule?.offhours_suppress" class="text-xs text-(--warn)">{{ t('alerts.rule_business_hours') }}</span>
               </div>
               <div class="mt-2 flex items-center gap-1.5 flex-wrap">
@@ -300,7 +302,44 @@
               <option value="response_time_above_baseline">{{ t('alerts.cond_response_time_above_baseline') }}</option>
               <option value="anomaly_detection">{{ t('alerts.cond_anomaly_detection') }}</option>
               <option value="schema_drift">{{ t('alerts.cond_schema_drift') }}</option>
+              <!-- Pushed metrics (C-4). Only offered on a monitor target:
+                   metrics are pushed to POST /metrics/{monitor_id}, so a
+                   group-scoped rule has no series to read and the API rejects it. -->
+              <optgroup v-if="isMonitorTarget" :label="t('alerts.cond_group_metrics')">
+                <option value="metric_above">{{ t('alerts.cond_metric_above') }}</option>
+                <option value="metric_below">{{ t('alerts.cond_metric_below') }}</option>
+                <option value="metric_absent">{{ t('alerts.cond_metric_absent') }}</option>
+              </optgroup>
             </select>
+          </div>
+
+          <!-- Pushed metric: which series, threshold, freshness window -->
+          <div v-if="isMetricCondition" class="bg-(--accent-glow) border border-(--accent-border) rounded-lg p-3 space-y-3">
+            <div>
+              <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('alerts.metric_name_label') }} *</label>
+              <input v-model.trim="ruleForm.metric_name" class="input w-full" type="text" maxlength="100"
+                pattern="[a-zA-Z0-9_.\-]+" list="metric-name-options"
+                :placeholder="t('alerts.metric_name_placeholder')" required />
+              <datalist id="metric-name-options">
+                <option v-for="name in knownMetricNames" :key="name" :value="name" />
+              </datalist>
+              <p class="text-xs text-(--text-3) mt-1">{{ t('alerts.metric_name_help') }}</p>
+            </div>
+            <div v-if="ruleForm.condition !== 'metric_absent'">
+              <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('alerts.metric_threshold_label') }} *</label>
+              <input v-model.number="ruleForm.threshold_value" class="input w-full" type="number" step="any" required />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-(--text-2) mb-1">
+                {{ t('alerts.metric_window_label') }}
+                <span class="text-(--text-3) font-normal">{{ t('alerts.metric_window_hint') }}</span>
+              </label>
+              <input v-model.number="ruleForm.metric_window_seconds" class="input w-full" type="number" min="30" max="86400" placeholder="300" />
+              <p class="text-xs text-(--text-3) mt-1">
+                {{ ruleForm.condition === 'metric_absent' ? t('alerts.metric_window_help_absent') : t('alerts.metric_window_help') }}
+              </p>
+            </div>
+            <p class="text-xs text-(--text-3)">{{ t('alerts.metric_delay_help', { seconds: 60 }) }}</p>
           </div>
 
           <!-- Baseline factor -->
@@ -482,10 +521,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../api/client'
 import { monitorsApi, groupsApi } from '../api/monitors'
+import { metricsApi } from '../api/metrics'
 import { useToast } from '../composables/useToast'
 import { useDateFormat } from '../composables/useDateFormat'
 import AddChannelModal from '../components/alerts/AddChannelModal.vue'
@@ -595,10 +635,48 @@ function defaultRuleForm() {
     channel_ids: [],
     anomaly_zscore_threshold: null,
     baseline_factor: null,
+    metric_name: '',
+    metric_window_seconds: null,
     showSchedule: false,
     schedule: { ...DEFAULT_SCHEDULE },
   }
 }
+
+const METRIC_CONDITIONS = ['metric_above', 'metric_below', 'metric_absent']
+const isMetricCondition = computed(() => METRIC_CONDITIONS.includes(ruleForm.value.condition))
+const isMonitorTarget = computed(() => ruleForm.value.target_type === 'monitor')
+
+// Names already pushed for the selected monitor, offered as a datalist. Typing a
+// name that was never pushed is the one way a metric rule ends up permanently
+// silent, so the UI shows what actually exists rather than asking the operator
+// to remember it.
+const knownMetricNames = ref([])
+
+watch(
+  () => [ruleForm.value.target_id, isMetricCondition.value],
+  async ([monitorId, wanted]) => {
+    if (!wanted || !monitorId || !isMonitorTarget.value) {
+      knownMetricNames.value = []
+      return
+    }
+    try {
+      const { data } = await metricsApi.summary(monitorId, { hours: 720 })
+      knownMetricNames.value = data.map((m) => m.metric_name)
+    } catch {
+      knownMetricNames.value = []
+    }
+  },
+  { immediate: true },
+)
+
+// Switching to a group target invalidates a metric condition (the API rejects
+// it), so fall back rather than let the form submit into a 422.
+watch(
+  () => ruleForm.value.target_type,
+  (type) => {
+    if (type !== 'monitor' && isMetricCondition.value) ruleForm.value.condition = 'any_down'
+  },
+)
 
 const commonTimezones = [
   'Europe/Paris', 'Europe/London', 'Europe/Berlin', 'Europe/Madrid', 'Europe/Rome',
@@ -649,6 +727,9 @@ const messagePreview = computed(() => {
   else if (cond === 'response_time_above_baseline') lines.push(`Temps de réponse > ${ruleForm.value.baseline_factor || '…'}× la moyenne habituelle (7j)`)
   else if (cond === 'anomaly_detection') lines.push(`Temps de réponse anormal détecté (z-score > ${ruleForm.value.anomaly_zscore_threshold || 3.5})`)
   else if (cond === 'schema_drift') lines.push('La structure de la réponse API a changé')
+  else if (cond === 'metric_above') lines.push(`Métrique applicative ${ruleForm.value.metric_name || '…'} = <valeur> (> ${threshold ?? '…'})`)
+  else if (cond === 'metric_below') lines.push(`Métrique applicative ${ruleForm.value.metric_name || '…'} = <valeur> (< ${threshold ?? '…'})`)
+  else if (cond === 'metric_absent') lines.push(`Métrique ${ruleForm.value.metric_name || '…'} muette depuis plus de ${ruleForm.value.metric_window_seconds || 300}s`)
   lines.push('Début : 2026-01-01 12:00 UTC')
   return lines.join('\n')
 })
@@ -679,6 +760,7 @@ function targetName(rule) {
 const CONDITION_KEYS = [
   'any_down', 'all_down', 'ssl_expiry', 'response_time_above',
   'response_time_above_baseline', 'anomaly_detection', 'schema_drift',
+  'metric_above', 'metric_below', 'metric_absent',
 ]
 
 function conditionLabel(cond) {
@@ -787,6 +869,8 @@ function openEditRule(rule) {
     channel_ids: rule.channels.map(c => c.id),
     anomaly_zscore_threshold: rule.anomaly_zscore_threshold ?? null,
     baseline_factor: rule.baseline_factor ?? null,
+    metric_name: rule.metric_name ?? '',
+    metric_window_seconds: rule.metric_window_seconds ?? null,
     showSchedule: hasSchedule,
     schedule: rule.schedule ? { ...rule.schedule } : { ...DEFAULT_SCHEDULE },
   }
@@ -819,6 +903,8 @@ async function saveRule() {
         digest_minutes: ruleForm.value.digest_minutes || 0,
         anomaly_zscore_threshold: ruleForm.value.anomaly_zscore_threshold || undefined,
         baseline_factor: ruleForm.value.baseline_factor || undefined,
+        metric_name: ruleForm.value.metric_name || undefined,
+        metric_window_seconds: ruleForm.value.metric_window_seconds || undefined,
         schedule: schedulePayload,
       }
       await api.patch(`/alerts/rules/${editingRule.value.id}`, payload, { skipErrorToast: true })
@@ -839,6 +925,8 @@ async function saveRule() {
       if (ruleForm.value.digest_minutes) payload.digest_minutes = ruleForm.value.digest_minutes
       if (ruleForm.value.anomaly_zscore_threshold) payload.anomaly_zscore_threshold = ruleForm.value.anomaly_zscore_threshold
       if (ruleForm.value.baseline_factor) payload.baseline_factor = ruleForm.value.baseline_factor
+      if (ruleForm.value.metric_name) payload.metric_name = ruleForm.value.metric_name
+      if (ruleForm.value.metric_window_seconds) payload.metric_window_seconds = ruleForm.value.metric_window_seconds
       await api.post('/alerts/rules', payload, { skipErrorToast: true })
     }
     closeRuleModal()

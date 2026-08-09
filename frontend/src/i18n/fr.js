@@ -385,6 +385,21 @@ export default {
   },
   // Dernier lot du sweep i18n (B3). Plusieurs de ces panneaux avaient leurs
   // libellés codés en dur en français dans une base par ailleurs anglaise.
+  correlation: {
+    title: 'Métriques applicatives',
+    no_metrics: "Aucune métrique applicative n'était poussée pour ce moniteur pendant l'incident.",
+    window_help: "Comparé à la même fenêtre de {minutes} minutes juste avant l'incident.",
+    col_metric: 'Métrique',
+    col_during: 'Pendant',
+    col_baseline: 'Référence',
+    col_change: 'Écart',
+    disclaimer: "Classé par ampleur du mouvement de chaque série. Il s'agit d'une corrélation, pas d'une causalité.",
+    reason_no_baseline: 'pas de référence',
+    reason_no_incident_data: 'aucune donnée pendant',
+    reason_too_few_samples: "trop peu d'échantillons",
+    reason_zero_baseline: 'référence à zéro',
+    reason_unknown: 'non comparable',
+  },
   sweep: {
     series_count: '{n} séries',
     batch_example: 'Lot (labels + plusieurs points en une requête)',

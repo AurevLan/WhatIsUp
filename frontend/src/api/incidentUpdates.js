@@ -8,4 +8,7 @@ export const incidentUpdatesApi = {
   unack: (incidentId) => api.post(`/incidents/${incidentId}/unack`),
   bulkAck: (ids) => api.post('/incidents/bulk-ack', { ids }),
   diagnostics: (incidentId, config = {}) => api.get(`/incidents/${incidentId}/diagnostics`, config),
+  // C-3 — what the monitor's pushed metrics did around the incident.
+  metricCorrelation: (incidentId, config = {}) =>
+    api.get(`/incidents/${incidentId}/metric-correlation`, config),
 }

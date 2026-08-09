@@ -18,6 +18,7 @@ from whatisup.models.annotation import MonitorAnnotation
 from whatisup.models.result import CheckResult
 from whatisup.models.user import User
 from whatisup.schemas.incident import IncidentOut
+from whatisup.services.metric_correlation import correlate_incident_metrics, format_markdown
 
 logger = logging.getLogger(__name__)
 
@@ -167,6 +168,11 @@ async def get_postmortem(
     else:
         ann_lines = "_No annotations in this period._"
 
+    # C-3 — what the tenant's own metrics did, rendered *now* rather than linked:
+    # this document is meant to outlive METRICS_RETENTION_DAYS, and a link to
+    # data that has aged out is worse than no section at all.
+    correlation_md = format_markdown(await correlate_incident_metrics(db, incident, now=now_utc))
+
     markdown = f"""# Post-mortem: {monitor.name}
 
 **Duration**: {started_str} → {resolved_str} ({dur_label})
@@ -181,6 +187,9 @@ async def get_postmortem(
 - Checks performed: {total_checks}
 - Failure rate: {failure_pct}%
 - Average response time: {avg_rt if avg_rt is not None else "—"}ms
+
+## Application metrics around the incident
+{correlation_md}
 
 ## Corrective actions
 <!-- To be filled in -->

@@ -23,6 +23,7 @@ from whatisup.models.result import CheckResult, CheckStatus
 from whatisup.models.user import User
 from whatisup.schemas.incident import IncidentOut, IncidentUpdateCreate, IncidentUpdateOut
 from whatisup.schemas.probe import IncidentDiagnosticOut
+from whatisup.services.metric_correlation import correlate_incident_metrics
 
 router = APIRouter(prefix="/incidents", tags=["incidents"])
 
@@ -333,6 +334,57 @@ async def incident_timeline(
         resolved_at=incident.resolved_at,
         points=points,
     )
+
+
+class MetricMovementOut(BaseModel):
+    """How one pushed series behaved during the incident (plan V2, C-3)."""
+
+    metric_name: str
+    labels: dict[str, str] = Field(default_factory=dict)
+    unit: str | None = None
+    incident_avg: float | None = None
+    incident_samples: int = 0
+    baseline_avg: float | None = None
+    baseline_samples: int = 0
+    change_ratio: float | None = None
+    change_absolute: float | None = None
+    #: no_baseline | no_incident_data | too_few_samples | zero_baseline
+    not_comparable: str | None = None
+
+
+class IncidentMetricCorrelationOut(BaseModel):
+    incident_id: uuid.UUID
+    window_start: datetime
+    window_end: datetime
+    baseline_start: datetime
+    window_seconds: int
+    series: list[MetricMovementOut]
+
+
+@router.get(
+    "/{incident_id}/metric-correlation",
+    response_model=IncidentMetricCorrelationOut,
+)
+@limiter.limit("30/minute")
+async def incident_metric_correlation(
+    request: Request,
+    incident_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Rank the monitor's pushed metrics by how much they moved (plan V2, C-3).
+
+    The blackbox checks say *that* the monitor broke; this says what the
+    tenant's own metrics were doing at the same moment. Correlation only — the
+    payload never claims a causal link, and neither should anything rendering it.
+
+    Computed on demand rather than snapshotted at incident open: at T+0 there is
+    nothing to correlate yet, and unlike a traceroute the samples are still in
+    the table afterwards. The post-mortem freezes the verdict instead, since
+    that document outlives ``METRICS_RETENTION_DAYS``.
+    """
+    incident = await _get_incident_for_user(incident_id, current_user, db)
+    return await correlate_incident_metrics(db, incident)
 
 
 @router.get("/{incident_id}/diagnostics", response_model=list[IncidentDiagnosticOut])

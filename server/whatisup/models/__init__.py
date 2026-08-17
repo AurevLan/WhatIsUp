@@ -17,6 +17,11 @@ from whatisup.models.correlation_pattern import CorrelationPattern
 from whatisup.models.custom_metric import CustomMetric, MetricSeries
 from whatisup.models.device_token import DevicePlatform, DeviceToken
 from whatisup.models.digest_window import DigestWindow
+from whatisup.models.discovery import (
+    DISCOVERED_SERVICE_STATUSES,
+    DiscoveredService,
+    DiscoverySource,
+)
 from whatisup.models.incident import Incident, IncidentGroup, IncidentScope
 from whatisup.models.incident_diagnostic import DIAGNOSTIC_KINDS, IncidentDiagnostic
 from whatisup.models.incident_update import IncidentUpdate, IncidentUpdateStatus
@@ -89,6 +94,9 @@ __all__ = [
     "MaintenanceWindow",
     "CorrelationPattern",
     "DigestWindow",
+    "DiscoverySource",
+    "DiscoveredService",
+    "DISCOVERED_SERVICE_STATUSES",
     "MonitorAnnotation",
     "StatusSubscription",
     "SystemSettings",

@@ -437,6 +437,7 @@ def create_app() -> FastAPI:
         bgp,
         callbacks,
         config,
+        discovery,
         extension,
         groups,
         incident_updates,
@@ -481,6 +482,8 @@ def create_app() -> FastAPI:
     app.include_router(audit.router, prefix="/api/v1")
     app.include_router(maintenance.router, prefix="/api/v1")
     app.include_router(silences.router, prefix="/api/v1")
+    app.include_router(discovery.sources_router, prefix="/api/v1")
+    app.include_router(discovery.services_router, prefix="/api/v1")
     app.include_router(oncall.contacts_router, prefix="/api/v1")
     app.include_router(oncall.schedules_router, prefix="/api/v1")
     app.include_router(oncall.policies_router, prefix="/api/v1")

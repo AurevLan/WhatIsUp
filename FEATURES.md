@@ -138,6 +138,27 @@
 - ✅ **ASN enrichment (V2-02-01)** — chaque sonde résolue automatiquement vers son ASN + AS-name via Team Cymru DNS (`services/probe_enrichment.py`). Champs `Probe.public_ip`, `asn`, `asn_name`, `ixp_membership`, `asn_updated_at`. Refresh opportuniste à chaque heartbeat si stale (24 h par défaut, configurable via `ASN_REFRESH_HOURS`) + tâche de fond toutes les 6 h. Backend configurable `ASN_LOOKUP_PROVIDER ∈ {cymru, disabled}`. Best-effort : aucun blocage du heartbeat en cas d'échec lookup.
 - ✅ **Outbound IP intelligence (V2-02-07)** — la sonde résout sa propre IP de sortie via `api.ipify.org` (+ fallbacks `ifconfig.me`, `icanhazip.com`) et l'envoie dans le heartbeat. Champs `Probe.self_reported_ip` + `Probe.self_reported_asn`. Si différent de `public_ip` (vu par le serveur via `request.client.host`) → badge `NAT/VPN` UI + tooltip explicatif. Détecte les setups proxy / NAT / VPN qui font passer une sonde pour autre chose qu'elle prétend (`probe/whatisup_probe/public_ip.py`).
 
+### Découverte (plan D)
+
+> Chantier en cours — `plan_discovery.md`. Objectif : une sonde déjà déployée dans le réseau du client
+> devient un capteur d'inventaire (Docker, scan de port borné, plus tard DNS) ; les services vus sont
+> **proposés**, jamais créés en monitor de façon silencieuse.
+
+- 🚧 **D-0 — Cadrage + modèle** (serveur uniquement, pas encore de sonde ni d'UI) — tables
+  `discovery_sources` (config : `owner_id`/`team_id` nullable, `probe_id`, `source_type ∈ {docker,
+  port_scan}` validé côté Pydantic — pas d'enum PostgreSQL, `params` JSONB, `enabled`) et
+  `discovered_services` (une ligne par service unique d'une source, `normalized_target` indexé
+  `proto://host:port`, `status ∈ {proposed, accepted, dismissed, orphaned}`, `first_seen_at`/`last_seen_at`
+  pour un futur snapshot complet par run). CRUD `api/v1/discovery.py` scopé owner/team (même règle que
+  `oncall.py`), superadmin bypass, rate-limits sur tous les endpoints (GET compris), audit log sur toute
+  mutation. `port_scan` borné (`cidr` ≤ /24 IPv4, `ports` liste explicite ≤ 64 entrées, 1-65535) ;
+  `docker` sans paramètre requis. Accept/dismiss sont des transitions d'état pures — aucun `Monitor`
+  n'est créé avant D-2.
+- ⬜ D-1 — moteur de découverte côté sonde (docker + port_scan), push `POST /probes/discovery`
+- ⬜ D-2 — réconciliation serveur, pré-remplissage de proposition, accept → création de monitor
+- ⬜ D-3 — UI de revue des propositions + badge orphelin
+- ⬜ D-4 — dérive continue, source `dns_zone`, finitions
+
 ---
 
 ## 4. Incidents & Corrélation
@@ -477,6 +498,8 @@
 | `/monitors` POST | 10/min |
 | `/config` GET + PUT | 10/min (export lourd / import déclaratif) |
 | `/silences` | GET 60 / POST 20 / PATCH 30 / DELETE 30/min |
+| `/discovery/sources` | GET 60 / POST 20 / PATCH 30 / DELETE 30/min |
+| `/discovery/services` | GET 60 / accept+dismiss (POST) 30/min |
 | `/incidents/bulk-ack` | 20/min |
 | `/incidents/{id}/snooze` | 30/min |
 | `/alerts/rules` POST | 30/min |

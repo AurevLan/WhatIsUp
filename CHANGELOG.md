@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Added
+
+* **discovery:** modèle et CRUD des sources de découverte (plan D, D-0) — tables `discovery_sources` /
+  `discovered_services`, CRUD `api/v1/discovery.py` scopé owner/team, revue accept/dismiss des services
+  découverts, audit log
+
 ## [1.22.0](https://github.com/AurevLan/WhatIsUp/compare/v1.21.0...v1.22.0) (2026-08-09)
 
 

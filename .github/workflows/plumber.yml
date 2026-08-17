@@ -36,7 +36,7 @@ jobs:
       id-token: write          # OIDC token for score-push (no secret involved)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-      - uses: getplumber/plumber@94bcea5b75e83af4606c120b8e701314a5c10dcd  # v0.4.32
+      - uses: getplumber/plumber@e81ed4965fd92e0d2b63e95d399ed0419f5de2fa  # v0.4.36
         with:
           config-file: .plumber.yaml
           threshold: "100"

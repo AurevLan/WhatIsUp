@@ -19,6 +19,10 @@ from pydantic import BaseModel, Field, model_validator
 
 SourceType = Literal["docker", "port_scan"]
 
+#: Shared bound on a free-text dismissal reason — long enough for a real
+#: explanation, short enough to stay a column, not a text blob.
+_MAX_REASON_LENGTH = 255
+
 #: A /24 (256 addresses) is the largest CIDR a port_scan source may declare —
 #: bounded scan is a non-negotiable (plan_discovery.md § Sécurité), not a knob.
 _MIN_PORT_SCAN_PREFIXLEN = 24
@@ -144,6 +148,7 @@ class DiscoveredServiceOut(BaseModel):
     normalized_target: str
     hints: dict
     status: str
+    dismissed_reason: str | None
     first_seen_at: datetime
     last_seen_at: datetime
     status_changed_at: datetime
@@ -161,6 +166,14 @@ class DiscoveredServiceOut(BaseModel):
     suggested_alert_matrix_template_id: uuid.UUID | None
 
     model_config = {"from_attributes": True}
+
+
+class DiscoveredServiceDismissIn(BaseModel):
+    """Optional reason for `POST /discovery/services/{id}/dismiss` (plan D, D-3)."""
+
+    model_config = {"extra": "forbid"}
+
+    reason: str | None = Field(default=None, max_length=_MAX_REASON_LENGTH)
 
 
 class DiscoveredServiceAcceptIn(BaseModel):
@@ -192,3 +205,36 @@ class DiscoveredServiceAcceptIn(BaseModel):
     # When set, `alert_channel_ids` is used as the fallback channel list for
     # any template row that doesn't name its own `channel_ids`.
     alert_matrix_template_id: uuid.UUID | None = None
+
+
+# ── Bulk review (plan D, D-3) ────────────────────────────────────────────────
+
+#: A bulk call is one HTTP request, one rate-limit hit — bound it so a single
+#: call can't turn into an unbounded loop of `Monitor` creations server-side.
+_MAX_BULK_SERVICE_IDS = 200
+
+
+class DiscoveryBulkActionIn(BaseModel):
+    """`POST /discovery/services/bulk` — accept/dismiss without per-service
+    overrides (plan_discovery.md D-3 §2: "accept sans surcharges (préremplissage
+    seul), dismiss avec raison partagée")."""
+
+    model_config = {"extra": "forbid"}
+
+    action: Literal["accept", "dismiss"]
+    service_ids: list[uuid.UUID] = Field(min_length=1, max_length=_MAX_BULK_SERVICE_IDS)
+    reason: str | None = Field(default=None, max_length=_MAX_REASON_LENGTH)
+
+
+class DiscoveryBulkResult(BaseModel):
+    """Per-id outcome — a bulk call never fails as a whole (plan_discovery.md
+    D-3 §2: "rapportés en échec par id, pas en échec global")."""
+
+    service_id: uuid.UUID
+    ok: bool
+    detail: str | None = None
+    service: DiscoveredServiceOut | None = None
+
+
+class DiscoveryBulkActionOut(BaseModel):
+    results: list[DiscoveryBulkResult]

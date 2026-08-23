@@ -57,6 +57,12 @@ const routes = [
         meta: { titleKey: 'nav.probes' },
       },
       {
+        path: 'discovery',
+        name: 'Discovery',
+        component: () => import('../views/DiscoveryView.vue'),
+        meta: { titleKey: 'nav.discovery' },
+      },
+      {
         path: 'alerts',
         name: 'Alerts',
         component: () => import('../views/AlertsView.vue'),

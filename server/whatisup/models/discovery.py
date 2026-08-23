@@ -130,6 +130,11 @@ class DiscoveredService(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="proposed", server_default="proposed"
     )
+    # Set by dismiss() (D-3), cleared the moment the row leaves `dismissed`
+    # (re-proposed via a reappearance, or accepted) — a stale reason on a
+    # service that is now `accepted` would misreport why it's in the review
+    # queue.
+    dismissed_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
     first_seen_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
     )

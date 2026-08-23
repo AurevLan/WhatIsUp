@@ -11,6 +11,9 @@
         <div class="flex items-center gap-3">
           <span class="w-3 h-3 rounded-full" :class="statusClass"></span>
           <h1 class="font-display text-2xl font-bold text-(--text-1)">{{ monitor.name }}</h1>
+          <span v-if="isOrphaned(monitor.id)" class="badge badge-timeout" :title="t('discovery.orphaned_tooltip')">
+            <Ghost class="w-3 h-3" /> {{ t('discovery.orphaned_badge') }}
+          </span>
         </div>
         <p class="text-(--text-2) text-sm mt-1 font-mono">
           <span class="text-xs px-1.5 py-0.5 rounded bg-(--bg-surface-2) text-(--text-3) uppercase mr-2">{{ monitor.check_type }}</span>
@@ -311,7 +314,9 @@
 import { ref, computed, onMounted, provide, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
+import { Ghost } from 'lucide-vue-next'
 import { monitorsApi } from '../api/monitors'
+import { useOrphanedMonitors } from '../composables/useOrphanedMonitors'
 import BaseModal from '../components/BaseModal.vue'
 import { getServerUrl } from '../lib/serverConfig.js'
 import { useProbesStore } from '../stores/probes'
@@ -711,6 +716,9 @@ const dependenciesState = useMonitorDependencies(monitor)
 provide(DependenciesStateKey, dependenciesState)
 const { allMonitors, loadAllMonitors, loadCompositeMembers } = dependenciesState
 
+// ── Orphaned monitor badge (plan D, D-3) ─────────────────────────────────────
+const { isOrphaned, loadOrphanedMonitors } = useOrphanedMonitors()
+
 // (Cleanup handled by useMonitorTesting + useMonitorMap via onScopeDispose.)
 
 // ── Mount ─────────────────────────────────────────────────────────────────────
@@ -728,6 +736,7 @@ onMounted(async () => {
   results.value  = resResp.data
   uptime24.value = up24Resp.data
   uptime7d.value = up7dResp.data
+  loadOrphanedMonitors()
 
   // Surface this monitor as a recent in the command palette (T1-10).
   paletteStore.recordVisit({

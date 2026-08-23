@@ -5,10 +5,11 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from whatisup.models.probe import NetworkType
 from whatisup.models.result import CheckStatus
+from whatisup.schemas.discovery import DiscoverySourceForProbe
 
 
 class ProbeCreate(BaseModel):
@@ -48,6 +49,9 @@ class ProbeOut(BaseModel):
     self_reported_asn: int | None = None
     # Agent version self-reported at heartbeat (None = pre-1.12 probe)
     version: str | None = None
+    # plan D, D-1 — discovery source types this probe declared runnable at its
+    # last heartbeat (None = pre-D-1 probe, or a probe that never declared any).
+    discovery_capabilities: list[str] | None = None
 
     model_config = {"from_attributes": True}
 
@@ -107,6 +111,20 @@ class ProbeHeartbeatRequest(BaseModel):
     self_reported_ip: str | None = Field(default=None, max_length=45)
     # Agent version (package version) — lets the server flag outdated probes
     version: str | None = Field(default=None, max_length=32)
+    # plan D, D-1 — source types the probe's discovery registry reports as
+    # runnable right now (e.g. ["docker", "port_scan"]). Optional and
+    # write-if-present at the endpoint: a probe that omits the field (older
+    # agent) must never clear a previously-declared value — see
+    # ``heartbeat()`` in api/v1/probes.py, which checks
+    # ``payload.model_fields_set`` rather than trusting ``None`` alone.
+    discovery_capabilities: list[str] | None = Field(default=None, max_length=32)
+
+    @field_validator("discovery_capabilities")
+    @classmethod
+    def _cap_capability_strings(cls, v: list[str] | None) -> list[str] | None:
+        if v is None:
+            return v
+        return [c[:50] for c in v]
 
 
 class PendingDiagnostic(BaseModel):
@@ -129,6 +147,9 @@ class ProbeHeartbeatResponse(BaseModel):
 
     monitors: list[ProbeMonitorConfig]
     pending_diagnostics: list[PendingDiagnostic] = Field(default_factory=list)
+    # plan D, D-1 — enabled discovery sources this probe runs. Additive field:
+    # a pre-D-1 probe simply ignores it (rest of the response is unchanged).
+    discovery_sources: list[DiscoverySourceForProbe] = Field(default_factory=list)
 
 
 class ProbeDiagnosticResult(BaseModel):
@@ -241,3 +262,29 @@ class ProbeStatsOut(BaseModel):
     self_reported_asn: int | None = None
 
     model_config = {"from_attributes": True}
+
+
+class ProbeDiscoveredServiceIn(BaseModel):
+    """Single service observed during one discovery source run (plan D, D-1).
+
+    ``host``/``proto`` caps mirror the ``discovered_services`` column widths;
+    ``hints`` is bounded again server-side (see ``_sanitize_hints`` in
+    api/v1/probes.py) even though the probe already filters it before
+    transport — defense in depth, same posture as scenario secret redaction.
+    """
+
+    host: str = Field(min_length=1, max_length=255)
+    port: int | None = Field(default=None, ge=1, le=65535)
+    proto: str = Field(min_length=1, max_length=20)
+    hints: dict = Field(default_factory=dict)
+
+
+class ProbeDiscoveryIn(BaseModel):
+    """Snapshot pushed by a probe after running one discovery source.
+
+    Full snapshot per run (decision D-0-3), not a delta — capped at 500
+    services so a single push can't become an unbounded write.
+    """
+
+    source_id: uuid.UUID
+    services: list[ProbeDiscoveredServiceIn] = Field(default_factory=list, max_length=500)

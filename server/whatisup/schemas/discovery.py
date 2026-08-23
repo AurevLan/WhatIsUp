@@ -119,6 +119,21 @@ class DiscoverySourceOut(BaseModel):
 # ── DiscoveredService ────────────────────────────────────────────────────────
 
 
+class DiscoverySourceForProbe(BaseModel):
+    """Slice of ``DiscoverySource`` handed to the probe that runs it (plan D, D-1).
+
+    No ``owner_id``/``team_id``: the heartbeat already scopes this list to
+    ``probe_id == the authenticated probe``, and tenancy is meaningless to the
+    process actually running the scan.
+    """
+
+    id: uuid.UUID
+    source_type: str
+    params: dict
+
+    model_config = {"from_attributes": True}
+
+
 class DiscoveredServiceOut(BaseModel):
     id: uuid.UUID
     source_id: uuid.UUID

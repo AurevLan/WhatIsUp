@@ -15,6 +15,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from whatisup_probe.checkers import perform_check
 from whatisup_probe.checkers._shared import PlaywrightPool, kill_stale_chromium
 from whatisup_probe.config import get_settings
+from whatisup_probe.discovery import capability_report, run_source
 from whatisup_probe.reporter import Reporter
 
 logger = structlog.get_logger(__name__)
@@ -31,12 +32,17 @@ class ProbeScheduler:
         # independently of max_concurrent_checks to avoid OOM on low-resource machines.
         self._scenario_semaphore = asyncio.Semaphore(self._settings.max_concurrent_scenarios)
         self._monitors: dict[str, dict[str, Any]] = {}  # monitor_id -> config
+        # plan D, D-1 — discovery source_id -> config, mirrors self._monitors
+        self._discovery_sources: dict[str, dict[str, Any]] = {}
         self._throttled_scenarios = 0  # cumulative count, reported via heartbeat health
         self._browser_pool = PlaywrightPool()
         psutil.cpu_percent(interval=None)  # first call always returns 0.0; discard it
 
     def _make_job_id(self, monitor_id: str) -> str:
         return f"check_{monitor_id}"
+
+    def _make_discovery_job_id(self, source_id: str) -> str:
+        return f"discovery_{source_id}"
 
     @staticmethod
     def _log_task_exception(task: asyncio.Task) -> None:
@@ -64,6 +70,30 @@ class ProbeScheduler:
             return
         if results:
             await self._reporter.push_diagnostics(incident_id, results)
+
+    async def _run_discovery_source(self, source: dict[str, Any]) -> None:
+        """Run one discovery source and push its snapshot (plan D, D-1).
+
+        Mirrors ``_run_check``'s failure posture: a broken source must never
+        take the job down (APScheduler would just stop retriggering it),
+        it logs and waits for the next scheduled run.
+        """
+        source_id = str(source["id"])
+        source_type = source.get("source_type", "")
+        params = source.get("params") or {}
+        try:
+            items = await run_source(source_type, params)
+        except Exception as exc:  # noqa: BLE001 — see module-level posture on check failures
+            logger.warning(
+                "discovery_run_failed", source_id=source_id, source_type=source_type, error=str(exc)
+            )
+            return
+
+        services = [
+            {"host": item.host, "port": item.port, "proto": item.proto, "hints": item.hints}
+            for item in items
+        ]
+        await self._reporter.push_discovery(source_id, services)
 
     def _collect_health(self) -> dict:
         """Collect current system health metrics (non-blocking)."""
@@ -185,7 +215,16 @@ class ProbeScheduler:
     async def sync_monitors(self) -> None:
         """Fetch monitor list from central and synchronize scheduled jobs."""
         self._touch_liveness()
-        response = await self._reporter.heartbeat(self._collect_health())
+
+        # plan D, D-1 — capabilities are computed before the heartbeat POST
+        # (they ride *in* the request) and reused right after to filter which
+        # of the sources the server hands back actually get scheduled.
+        capabilities = await capability_report()
+        enabled_capabilities = sorted(name for name, available in capabilities.items() if available)
+
+        response = await self._reporter.heartbeat(
+            self._collect_health(), discovery_capabilities=enabled_capabilities
+        )
         if response is None:
             logger.warning("heartbeat_failed_skipping_sync")
             return
@@ -235,6 +274,65 @@ class ProbeScheduler:
                     replace_existing=True,
                 )
                 logger.info("monitor_added", monitor_id=mid, interval=monitor["interval_seconds"])
+
+        # plan D, D-1 — same add/update/remove-stale mechanic as monitors
+        # above, scoped to sources whose source_type this probe currently
+        # reports as available. A source distributed to a capability-less
+        # probe (heartbeat race, downgraded build…) is skipped with an
+        # explicit log rather than scheduled to fail every run.
+        all_discovery_sources = response.get("discovery_sources", []) or []
+        available_sources = []
+        for source in all_discovery_sources:
+            if capabilities.get(source.get("source_type"), False):
+                available_sources.append(source)
+            else:
+                logger.warning(
+                    "discovery_capability_missing",
+                    source_id=str(source.get("id")),
+                    source_type=source.get("source_type"),
+                )
+
+        new_disc_ids = {str(s["id"]) for s in available_sources}
+        current_disc_ids = set(self._discovery_sources.keys())
+
+        for sid in current_disc_ids - new_disc_ids:
+            job = self._scheduler.get_job(self._make_discovery_job_id(sid))
+            if job:
+                job.remove()
+            del self._discovery_sources[sid]
+            logger.info("discovery_source_removed", source_id=sid)
+
+        for source in available_sources:
+            sid = str(source["id"])
+            old = self._discovery_sources.get(sid)
+            if old and old == source:
+                continue  # No change needed
+
+            self._discovery_sources[sid] = source
+            job_id = self._make_discovery_job_id(sid)
+            existing = self._scheduler.get_job(job_id)
+
+            if existing:
+                existing.reschedule(
+                    IntervalTrigger(seconds=self._settings.discovery_interval_seconds, jitter=30)
+                )
+                existing.modify(args=[source])
+            else:
+                self._scheduler.add_job(
+                    self._run_discovery_source,
+                    trigger=IntervalTrigger(
+                        seconds=self._settings.discovery_interval_seconds, jitter=30
+                    ),
+                    args=[source],
+                    id=job_id,
+                    name=f"discovery:{sid[:8]}",
+                    max_instances=1,
+                    coalesce=True,
+                    replace_existing=True,
+                )
+                logger.info(
+                    "discovery_source_added", source_id=sid, source_type=source.get("source_type")
+                )
 
         # Trigger immediate checks for monitors flagged by the server
         for monitor in monitors:

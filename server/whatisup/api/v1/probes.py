@@ -1,5 +1,6 @@
 """Probe registration, heartbeat, and result push endpoints."""
 
+import json
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -22,6 +23,7 @@ from whatisup.core.security import (
     generate_probe_api_key,
     hash_api_key,
 )
+from whatisup.models.discovery import DiscoveredService, DiscoverySource
 from whatisup.models.incident import Incident
 from whatisup.models.incident_diagnostic import DIAGNOSTIC_KINDS, IncidentDiagnostic
 from whatisup.models.monitor import Monitor
@@ -29,11 +31,13 @@ from whatisup.models.probe import Probe
 from whatisup.models.probe_group import probe_group_members, user_probe_group_access
 from whatisup.models.result import CheckResult
 from whatisup.models.user import User
+from whatisup.schemas.discovery import DiscoverySourceForProbe
 from whatisup.schemas.probe import (
     PendingDiagnostic,
     ProbeCheckResultIn,
     ProbeCreate,
     ProbeDiagnosticsIn,
+    ProbeDiscoveryIn,
     ProbeHealthPayload,
     ProbeHeartbeatRequest,
     ProbeHeartbeatResponse,
@@ -206,6 +210,14 @@ async def heartbeat(
     if payload.version and probe.version != payload.version:
         probe.version = payload.version
 
+    # plan D, D-1 — write-if-present: a heartbeat that omits the field (older
+    # probe) must not clear a previously-declared capability list, which a
+    # bare "if payload.discovery_capabilities:" would do the moment a probe
+    # legitimately reports zero capabilities. model_fields_set distinguishes
+    # "field absent" from "field present and empty/null".
+    if "discovery_capabilities" in payload.model_fields_set:
+        probe.discovery_capabilities = payload.discovery_capabilities
+
     # V2-02-01 / V2-02-07 — opportunistic ASN enrichment.
     # Resolves the ASN of (a) the IP the server sees on the heartbeat
     # connection AND (b) the IP the probe self-reported via api.ipify.org.
@@ -306,7 +318,31 @@ async def heartbeat(
         for spec in pending_specs
     ]
 
-    return ProbeHeartbeatResponse(monitors=configs, pending_diagnostics=pending)
+    # plan D, D-1 — the heartbeat is the discovery control channel too (same
+    # canal as monitors/pending_diagnostics): hand the probe its own enabled
+    # sources only. probe_id scoping here is what api/v1/probes.py's
+    # push_discovery relies on being true — a source never distributed to a
+    # probe cannot be pushed to by it either.
+    discovery_sources = list(
+        (
+            await db.execute(
+                select(DiscoverySource).where(
+                    DiscoverySource.probe_id == probe.id,
+                    DiscoverySource.enabled.is_(True),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    discovery_out = [
+        DiscoverySourceForProbe(id=s.id, source_type=s.source_type, params=s.params)
+        for s in discovery_sources
+    ]
+
+    return ProbeHeartbeatResponse(
+        monitors=configs, pending_diagnostics=pending, discovery_sources=discovery_out
+    )
 
 
 @router.post("/diagnostics", status_code=status.HTTP_202_ACCEPTED)
@@ -361,6 +397,127 @@ async def push_diagnostics(
         inserted += 1
     await db.commit()
     return {"accepted": inserted}
+
+
+#: Defense in depth on `hints` even though the probe already filters/bounds
+#: it before transport (plan_discovery.md § Sécurité) — mirrors how the probe
+#: caps Docker labels at 16 entries / 128 chars, just at the server boundary.
+_DISCOVERY_HINTS_MAX_KEYS = 32
+_DISCOVERY_HINTS_KEY_MAX_LEN = 128
+_DISCOVERY_HINTS_VALUE_MAX_LEN = 256
+#: Non-string values (the docker source's `labels` dict) can't be truncated
+#: without corrupting them — instead any value whose JSON form exceeds this
+#: is dropped outright. Sized to fit a legitimate probe-side labels blob
+#: (16 entries × 128+128 chars ≈ 4.5 KB) with headroom, nothing more.
+_DISCOVERY_HINTS_NESTED_MAX_LEN = 8192
+
+
+def _sanitize_hints(hints: dict) -> dict:
+    """Truncate an oversized/oversized-value hints blob before it hits the DB."""
+    out: dict = {}
+    for key, value in hints.items():
+        if len(out) >= _DISCOVERY_HINTS_MAX_KEYS:
+            break
+        if isinstance(value, str):
+            if len(value) > _DISCOVERY_HINTS_VALUE_MAX_LEN:
+                value = value[:_DISCOVERY_HINTS_VALUE_MAX_LEN]
+        elif len(json.dumps(value)) > _DISCOVERY_HINTS_NESTED_MAX_LEN:
+            continue
+        out[str(key)[:_DISCOVERY_HINTS_KEY_MAX_LEN]] = value
+    return out
+
+
+def _normalize_discovery_target(proto: str, host: str, port: int | None) -> tuple[str, str]:
+    """Compute ``(host, normalized_target)`` — never trust a canonical form
+    from the probe (plan_discovery.md: "calculé côté serveur")."""
+    host = host.strip().lower()
+    proto = proto.strip().lower()
+    target = f"{proto}://{host}:{port}" if port is not None else f"{proto}://{host}"
+    return host, target
+
+
+@router.post("/discovery", status_code=status.HTTP_202_ACCEPTED)
+@limiter.limit("60/minute")
+async def push_discovery(
+    request: Request,
+    payload: ProbeDiscoveryIn,
+    probe: Probe = Depends(get_current_probe),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Receive a discovery snapshot for one source (plan D, D-1).
+
+    Storage only — this stores the snapshot as-is; reconciliation into
+    reviewable state transitions (``proposed``/``orphaned``) is D-2.
+
+    Scope-binding mirrors the v1.15 H1/H2 result rejection: a source that
+    does not exist, is disabled, or belongs to a different probe than the
+    one authenticated here gets the *exact same* response as a genuine
+    accept (202, ``{"accepted": 0}``) — this endpoint carries no oracle that
+    would let a compromised probe key learn whether a given source id
+    exists, is enabled, or belongs to someone else.
+    """
+    source = (
+        await db.execute(select(DiscoverySource).where(DiscoverySource.id == payload.source_id))
+    ).scalar_one_or_none()
+
+    if source is None or not source.enabled or source.probe_id != probe.id:
+        logger.warning(
+            "discovery_push_scope_rejected",
+            probe_id=str(probe.id),
+            source_id=str(payload.source_id),
+        )
+        return {"accepted": 0}
+
+    now = datetime.now(UTC)
+    accepted = 0
+    seen_targets: set[str] = set()
+    for svc in payload.services:
+        host, target = _normalize_discovery_target(svc.proto, svc.host, svc.port)
+        # Two entries normalizing to the same target ("HOST" vs "host") would
+        # otherwise both insert and trip uq_discovered_services_source_target
+        # at commit — a malformed snapshot must not turn into a 500.
+        if target in seen_targets:
+            continue
+        seen_targets.add(target)
+        proto = svc.proto.strip().lower()
+        hints = _sanitize_hints(svc.hints)
+
+        existing = (
+            await db.execute(
+                select(DiscoveredService).where(
+                    DiscoveredService.source_id == source.id,
+                    DiscoveredService.normalized_target == target,
+                )
+            )
+        ).scalar_one_or_none()
+
+        if existing is None:
+            db.add(
+                DiscoveredService(
+                    source_id=source.id,
+                    host=host,
+                    port=svc.port,
+                    proto=proto,
+                    normalized_target=target,
+                    hints=hints,
+                    status="proposed",
+                    first_seen_at=now,
+                    last_seen_at=now,
+                    status_changed_at=now,
+                )
+            )
+        else:
+            # Snapshot refresh only — `status` is never touched here. A
+            # `dismissed` proposal must stay dismissed on re-push, and
+            # `orphaned`/`accepted` are the reconciler's (D-2) business, not
+            # this ingestion endpoint's.
+            existing.last_seen_at = now
+            existing.hints = hints
+
+        accepted += 1
+
+    await db.commit()
+    return {"accepted": accepted}
 
 
 @router.post("/results", status_code=status.HTTP_202_ACCEPTED)

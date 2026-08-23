@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **discovery:** modèle et CRUD des sources de découverte (plan D, D-0) — tables `discovery_sources` /
   `discovered_services`, CRUD `api/v1/discovery.py` scopé owner/team, revue accept/dismiss des services
   découverts, audit log
+* **discovery:** moteur de découverte côté sonde — docker + port_scan (plan D, D-1) — module
+  `probe/whatisup_probe/discovery/` (registre par `source_type`), heartbeat étendu
+  (`discovery_capabilities` déclarées par la sonde, `discovery_sources` distribuées par le serveur),
+  push `POST /probes/discovery` (snapshot borné, scope-bindé, upsert idempotent sans jamais toucher
+  `status`)
 
 ## [1.22.0](https://github.com/AurevLan/WhatIsUp/compare/v1.21.0...v1.22.0) (2026-08-09)
 

@@ -154,7 +154,27 @@
   mutation. `port_scan` borné (`cidr` ≤ /24 IPv4, `ports` liste explicite ≤ 64 entrées, 1-65535) ;
   `docker` sans paramètre requis. Accept/dismiss sont des transitions d'état pures — aucun `Monitor`
   n'est créé avant D-2.
-- ⬜ D-1 — moteur de découverte côté sonde (docker + port_scan), push `POST /probes/discovery`
+- ✅ **D-1 — Moteur de découverte côté sonde** — `probe/whatisup_probe/discovery/` (registre par
+  `source_type`, même pattern que `checkers/`) : source `docker` (lecture seule du socket via `httpx`
+  sur socket UNIX — aucune dépendance SDK docker — un service par port publié, labels filtrés :
+  jamais d'env, clés contenant `secret`/`token`/`password`/`key` exclues, ≤16 labels, valeurs
+  tronquées à 128 car.) ; source `port_scan` (TCP connect scan uniquement, CIDR ≤ /24 et ports
+  explicites re-vérifiés côté sonde, chaque IP passée par `_ssrf_resolve_pinned_sync` — un CIDR déclaré
+  ne dispense jamais du refus loopback/link-local/metadata, concurrence bornée ~20, timeout connect
+  ~1,5 s). Heartbeat étendu : la sonde déclare `discovery_capabilities` (source_types dont
+  `capability_available()` répond vrai) ; le serveur les persiste dans `Probe.discovery_capabilities`
+  (nullable, jamais écrasé par un heartbeat qui omet le champ) et renvoie en retour
+  `discovery_sources` — les sources `enabled` de cette sonde uniquement. `scheduler.sync_monitors`
+  ajoute/retire/replanifie un job APScheduler par source (`DISCOVERY_INTERVAL_SECONDS`, défaut 900 s) ;
+  une source dont la capability manque est sautée (log `discovery_capability_missing`), jamais un
+  crash. Push `POST /probes/discovery` (202, 60/min, auth sonde) : snapshot complet par run
+  (`source_id` + liste de services), borné à 500 services/push (422 au-delà), `hints` re-tronqué
+  côté serveur en défense en profondeur (≤32 clés, valeurs ≤256 car). Scope-binding : source
+  inconnue/désactivée/d'une autre sonde → même réponse `{"accepted": 0}` dans les trois cas (pas
+  d'oracle), log `discovery_push_scope_rejected`. Upsert par `(source_id, normalized_target)` —
+  `normalized_target` (`proto://host:port`, host en minuscules) toujours recalculé côté serveur,
+  jamais de confiance dans une forme envoyée par la sonde ; `status` jamais touché par un push (un
+  service `dismissed` re-poussé reste `dismissed`). Pas de réconciliation ici (D-2).
 - ⬜ D-2 — réconciliation serveur, pré-remplissage de proposition, accept → création de monitor
 - ⬜ D-3 — UI de revue des propositions + badge orphelin
 - ⬜ D-4 — dérive continue, source `dns_zone`, finitions
@@ -500,6 +520,7 @@
 | `/silences` | GET 60 / POST 20 / PATCH 30 / DELETE 30/min |
 | `/discovery/sources` | GET 60 / POST 20 / PATCH 30 / DELETE 30/min |
 | `/discovery/services` | GET 60 / accept+dismiss (POST) 30/min |
+| `/probes/discovery` | POST 60/min (push snapshot sonde) |
 | `/incidents/bulk-ack` | 20/min |
 | `/incidents/{id}/snooze` | 30/min |
 | `/alerts/rules` POST | 30/min |

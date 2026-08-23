@@ -26,6 +26,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `alert_matrix_template_id`) exposé sur la liste des services découverts ; `POST
   /discovery/services/{id}/accept` crée désormais réellement le `Monitor` via la logique de création
   CRUD existante, surchargeable par l'appelant, avec application optionnelle d'une `AlertMatrixTemplate`
+* **discovery:** UI de revue des découvertes et badge orphelin (plan D, D-3) — `dismissed_reason` sur
+  `discovered_services` (raison optionnelle du refus, incluse dans l'audit) ; `POST
+  /discovery/services/bulk` pour accepter/refuser un lot avec le même contrôle d'accès que l'endpoint
+  unitaire, échecs rapportés par id ; vue `DiscoveryView.vue` (CRUD sources + revue en masse des
+  propositions, formulaire de source limité aux capacités déclarées par la sonde) ; badge « orphelin »
+  sur `MonitorsView`/`MonitorDetailView`
 
 ## [1.22.0](https://github.com/AurevLan/WhatIsUp/compare/v1.21.0...v1.22.0) (2026-08-09)
 

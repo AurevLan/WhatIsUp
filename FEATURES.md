@@ -200,7 +200,30 @@
   l'ingestion, ou `orphaned` dont le monitor est toujours réel) ré-affirme le lien sans jamais créer un
   second monitor. Même garde `can_create_monitors`/superadmin que `POST /monitors` — un éditeur de
   source ne peut pas contourner la restriction de création.
-- ⬜ D-3 — UI de revue des propositions + badge orphelin
+- ✅ **D-3 — UI de revue des propositions + badge orphelin** — colonne `dismissed_reason`
+  (String(255) nullable) sur `discovered_services` : `POST /discovery/services/{id}/dismiss` accepte
+  un `reason` optionnel (`DiscoveredServiceDismissIn`, `extra="forbid"`), stocké et renvoyé sur
+  `DiscoveredServiceOut`, vidé si le service redevient `accepted` (défensif — inatteignable aujourd'hui
+  depuis `dismissed`, la machine à états ne le permet pas, mais l'invariant est posé pour la suite).
+  Audit `discovery_service.dismiss` porte la raison dans son `diff`. Endpoint bulk
+  `POST /discovery/services/bulk` (10/min, `extra="forbid"`) : `{action: "accept"|"dismiss",
+  service_ids: [...≤200], reason?}` — boucle sur les mêmes vérifications visibilité/rôle/transition
+  que l'endpoint unitaire (`_dismiss_row`/`_accept_row` factorisés, partagés unitaire+bulk), chaque id
+  isolé par une transaction imbriquée (`db.begin_nested()`, même patron que `services/escalation.py`) :
+  un id inaccessible ou non transitionnable est rapporté en échec **par id** (`DiscoveryBulkResult`),
+  jamais en échec global de l'appel — solde d'avance l'item « audit accept en masse » de D-4 (chaque
+  service du lot reçoit son propre `discovery_service.accept`/`.dismiss`). Frontend : `DiscoveryView.vue`
+  (route `/discovery`, nav « Découverte ») — onglet **Sources** (CRUD + activer/désactiver, modale dont
+  le sélecteur de `source_type` n'offre que les capacités que la sonde choisie a déclarées à son dernier
+  heartbeat, message explicite si aucune) et onglet **Revue** (liste filtrable statut/source, sélection
+  multiple → bulk accept/dismiss avec raison partagée, actions unitaires, modale d'acceptation montrant
+  le préremplissage avec nom/check_type/intervalle surchargeables, `orphaned` visibles avec lien vers
+  leur monitor). Badge « orphelin » sur `MonitorsView` (cartes + tableau + vue plateau) et
+  `MonitorDetailView` : un seul `GET /discovery/services?status=orphaned` par vue
+  (`useOrphanedMonitors`), aucun enrichissement backend, aucun crash si l'appel échoue (liste vide).
+  Design system : `.badge-*` tokenisés (pas de `StatusBadge` — le statut d'un `DiscoveredService`
+  n'est pas celui d'un monitor), `.btn-icon`/`.btn-sm`, responsive cartes `md:hidden` + table
+  `hidden md:table` (pattern `MonitorsView`).
 - ⬜ D-4 — dérive continue, source `dns_zone`, finitions
 
 ---
@@ -543,7 +566,7 @@
 | `/config` GET + PUT | 10/min (export lourd / import déclaratif) |
 | `/silences` | GET 60 / POST 20 / PATCH 30 / DELETE 30/min |
 | `/discovery/sources` | GET 60 / POST 20 / PATCH 30 / DELETE 30/min |
-| `/discovery/services` | GET 60 / accept+dismiss (POST) 30/min |
+| `/discovery/services` | GET 60 / accept+dismiss (POST) 30/min / bulk (POST) 10/min |
 | `/probes/discovery` | POST 60/min (push snapshot sonde) |
 | `/incidents/bulk-ack` | 20/min |
 | `/incidents/{id}/snooze` | 30/min |

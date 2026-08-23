@@ -10,6 +10,7 @@ export default {
     dashboard: 'Tableau de bord',
     monitors: 'Moniteurs',
     probes: 'Sondes',
+    discovery: 'Découverte',
     alerts: 'Alertes',
     apiKeys: 'Clés API',
     audit: "Journal d'audit",
@@ -38,6 +39,7 @@ export default {
 
   common: {
     save: 'Enregistrer',
+    saving: 'Enregistrement…',
     cancel: 'Annuler',
     delete: 'Supprimer',
     edit: 'Modifier',
@@ -172,6 +174,8 @@ export default {
     audit_filtered_text: 'Aucune entrée du journal d\'audit ne correspond au filtre actuel.',
     tls_fleet_text: 'Lancez un check sur un monitor HTTPS pour voir sa note TLS, son chiffrement et son expiration ici.',
     tls_fleet_filtered_text: 'Aucun monitor ne correspond aux filtres actuels.',
+    discovery_sources_text: 'Une source de découverte fait pointer une sonde sur un socket Docker ou une plage réseau bornée, et rapporte ce qu\'elle y trouve.',
+    discovery_services_text: 'Rien à revoir pour l\'instant. Une fois qu\'une source aura tourné, les services découverts apparaîtront ici pour être acceptés ou refusés.',
   },
 
   status: {
@@ -737,6 +741,75 @@ export default {
     health_running: 'en cours',
     health_load: 'Charge',
   },
+
+  // Découverte (plan D) — CRUD des sources + revue des propositions
+  discovery: {
+    title: 'Découverte',
+    subtitle: 'Sondes qui scannent des services et proposent des moniteurs',
+    tab_review: 'Revue',
+    tab_sources: 'Sources',
+
+    add_source: 'Nouvelle source',
+    edit_source: 'Modifier la source',
+    no_sources: 'Aucune source de découverte',
+    probe_label: 'Sonde',
+    probe_placeholder: '-- Choisir une sonde --',
+    pick_probe_first: 'Choisissez d\'abord une sonde.',
+    source_type_label: 'Type de source',
+    source_type_placeholder: '-- Choisir un type de source --',
+    source_type_docker: 'Docker',
+    source_type_port_scan: 'Scan de ports',
+    no_capabilities: '« {probe} » n\'a déclaré aucune capacité de découverte à son dernier heartbeat.',
+    cidr_label: 'CIDR',
+    cidr_hint: 'Borné à /24 ou plus petit.',
+    ports_label: 'Ports',
+    ports_hint: 'Liste séparée par des virgules, ex. 22, 80, 443.',
+    docker_hint: 'Lit le socket Docker en lecture seule de la sonde — ports publiés et labels uniquement.',
+    enabled_label: 'Activée',
+    disabled_label: 'Désactivée',
+    enable: 'Activer',
+    disable: 'Désactiver',
+    source_saved: 'Source enregistrée',
+    source_deleted: 'Source supprimée',
+    confirm_delete_source: 'Supprimer cette source de découverte ?',
+    confirm_delete_source_detail: 'Ses services découverts seront aussi supprimés.',
+
+    all_statuses: 'Tous les statuts',
+    all_sources: 'Toutes les sources',
+    no_services: 'Rien à revoir',
+    col_target: 'Cible',
+    col_suggestion: 'Moniteur suggéré',
+    view_monitor: 'Voir le moniteur →',
+
+    status_proposed: 'Proposé',
+    status_accepted: 'Accepté',
+    status_dismissed: 'Refusé',
+    status_orphaned: 'Orphelin',
+
+    accept: 'Accepter',
+    accept_title: 'Accepter cette proposition',
+    accept_intro: 'Un moniteur sera créé à partir de ce service — vérifiez le préremplissage ci-dessous avant de confirmer.',
+    accept_success: 'Moniteur créé',
+    suggested_group: 'Groupe suggéré',
+    suggested_tags: 'Tags suggérés',
+
+    dismiss: 'Refuser',
+    dismiss_title: 'Refuser cette proposition',
+    dismiss_intro_single: 'Ce service ne sera plus proposé comme moniteur.',
+    dismiss_intro_bulk: '{n} services ne seront plus proposés comme moniteur.',
+    dismiss_success: 'Proposition refusée',
+    reason_label: 'Raison',
+    reason_placeholder: 'facultatif — pourquoi ce refus',
+
+    bulk_accept: 'Accepter la sélection',
+    bulk_dismiss: 'Refuser la sélection',
+    bulk_success: '{n} service(s) mis à jour',
+    bulk_partial: '{ok} réussi(s), {fail} échoué(s) — voir la liste pour le détail',
+
+    orphaned_badge: 'Orphelin',
+    orphaned_tooltip: 'Le service à l\'origine de ce moniteur n\'est plus vu par sa source de découverte.',
+  },
+
   tags: {
     add: 'tag',
     remove: 'Supprimer',

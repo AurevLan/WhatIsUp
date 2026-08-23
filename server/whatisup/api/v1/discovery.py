@@ -1,4 +1,4 @@
-"""Discovery sources CRUD + discovered-service review (plan D, D-0 / D-2).
+"""Discovery sources CRUD + discovered-service review (plan D, D-0 / D-2 / D-3).
 
 Two routers, one scoping rule — the same one as ``oncall.py``:
 ``owner_id == me OR team_id IN my_teams``, superadmin bypasses. A
@@ -14,7 +14,10 @@ uses to configure *what* a probe should scan and review what it found:
 path as ``POST /monitors`` (``_create_monitor_from_payload``), never a copy
 of it — pre-filled from the proposal computed by
 ``services/discovery.py::default_monitor_fields`` and overridable by the
-caller; ``dismiss`` stays a pure state transition.
+caller; ``dismiss`` stays a pure state transition, optionally carrying a
+free-text ``reason`` (D-3). ``POST /discovery/services/bulk`` (D-3) runs
+either transition over a batch of ids through the exact same per-id checks —
+never a bulk SQL statement, since ``accept`` may create a ``Monitor``.
 """
 
 from __future__ import annotations
@@ -42,7 +45,10 @@ from whatisup.models.team import TeamRole
 from whatisup.models.user import User
 from whatisup.schemas.discovery import (
     DiscoveredServiceAcceptIn,
+    DiscoveredServiceDismissIn,
     DiscoveredServiceOut,
+    DiscoveryBulkActionIn,
+    DiscoveryBulkActionOut,
     DiscoverySourceIn,
     DiscoverySourceOut,
     DiscoverySourceUpdate,
@@ -249,6 +255,7 @@ _BASE_SERVICE_FIELDS = (
     "normalized_target",
     "hints",
     "status",
+    "dismissed_reason",
     "first_seen_at",
     "last_seen_at",
     "status_changed_at",
@@ -355,22 +362,27 @@ async def _respond(service: DiscoveredService, source: DiscoverySource, db: Asyn
     )
 
 
-@services_router.post("/{service_id}/dismiss", response_model=DiscoveredServiceOut)
-@limiter.limit("30/minute")
-async def dismiss_service(
-    request: Request,
-    service_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> dict:
-    """Reject a proposal. Memorised on the row — the reconciler (D-2) must not re-propose it."""
-    service, source = await _get_visible_service(service_id, current_user, db, TeamRole.editor)
+def _assert_transitionable(service: DiscoveredService, action: str) -> None:
     if service.status not in _TRANSITIONABLE_FROM:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"cannot dismiss a service in status '{service.status}'",
+            detail=f"cannot {action} a service in status '{service.status}'",
         )
+
+
+async def _dismiss_row(
+    db: AsyncSession,
+    service: DiscoveredService,
+    source: DiscoverySource,
+    reason: str | None,
+    current_user: User,
+) -> dict:
+    """Reject a proposal. Memorised on the row (with an optional reason,
+    plan D, D-3) — the reconciler (D-2) must not re-propose it. Shared by the
+    unitary and bulk endpoints; the caller has already checked visibility and
+    ``_assert_transitionable``."""
     service.status = "dismissed"
+    service.dismissed_reason = reason
     service.status_changed_at = datetime.now(UTC)
     await db.flush()
     await db.refresh(service)
@@ -382,18 +394,17 @@ async def dismiss_service(
         service.id,
         service.normalized_target,
         current_user,
+        diff={"reason": reason},
     )
     return await _respond(service, source, db)
 
 
-@services_router.post("/{service_id}/accept", response_model=DiscoveredServiceOut)
-@limiter.limit("30/minute")
-async def accept_service(
-    request: Request,
-    service_id: uuid.UUID,
-    payload: DiscoveredServiceAcceptIn | None = None,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+async def _accept_row(
+    db: AsyncSession,
+    service: DiscoveredService,
+    source: DiscoverySource,
+    payload: DiscoveredServiceAcceptIn,
+    current_user: User,
 ) -> dict:
     """Accept a proposal.
 
@@ -405,14 +416,10 @@ async def accept_service(
     - otherwise — a genuine new proposal: create the ``Monitor`` via the same
       path as ``POST /monitors`` (``_create_monitor_from_payload``), prefilled
       from the proposal and overridable by ``payload``, then link it.
-    """
-    service, source = await _get_visible_service(service_id, current_user, db, TeamRole.editor)
-    if service.status not in _TRANSITIONABLE_FROM:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"cannot accept a service in status '{service.status}'",
-        )
 
+    Shared by the unitary and bulk endpoints; the caller has already checked
+    visibility and ``_assert_transitionable``.
+    """
     now = datetime.now(UTC)
     diff: dict | None = None
 
@@ -424,12 +431,15 @@ async def accept_service(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Monitor creation not allowed for your account",
             )
-        monitor = await _create_monitor_from_proposal(
-            db, service, source, payload or DiscoveredServiceAcceptIn(), current_user
-        )
+        monitor = await _create_monitor_from_proposal(db, service, source, payload, current_user)
         service.monitor_id = monitor.id
         diff = {"monitor_id": str(monitor.id)}
 
+    # Defensive: a service can only reach `accept` from `proposed`/`orphaned`
+    # today (never from `dismissed`), but clearing this here keeps the
+    # invariant true even if that ever changes (plan_discovery.md D-3 §1:
+    # "vidé si le service redevient autre chose que dismissed").
+    service.dismissed_reason = None
     service.status = "accepted"
     service.status_changed_at = now
     await db.flush()
@@ -445,6 +455,80 @@ async def accept_service(
         diff=diff,
     )
     return await _respond(service, source, db)
+
+
+@services_router.post("/{service_id}/dismiss", response_model=DiscoveredServiceOut)
+@limiter.limit("30/minute")
+async def dismiss_service(
+    request: Request,
+    service_id: uuid.UUID,
+    payload: DiscoveredServiceDismissIn | None = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Reject a proposal. Memorised on the row — the reconciler (D-2) must not re-propose it."""
+    service, source = await _get_visible_service(service_id, current_user, db, TeamRole.editor)
+    _assert_transitionable(service, "dismiss")
+    reason = payload.reason if payload else None
+    return await _dismiss_row(db, service, source, reason, current_user)
+
+
+@services_router.post("/{service_id}/accept", response_model=DiscoveredServiceOut)
+@limiter.limit("30/minute")
+async def accept_service(
+    request: Request,
+    service_id: uuid.UUID,
+    payload: DiscoveredServiceAcceptIn | None = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Accept a proposal — see ``_accept_row`` for the two shapes it covers."""
+    service, source = await _get_visible_service(service_id, current_user, db, TeamRole.editor)
+    _assert_transitionable(service, "accept")
+    payload = payload or DiscoveredServiceAcceptIn()
+    return await _accept_row(db, service, source, payload, current_user)
+
+
+@services_router.post("/bulk", response_model=DiscoveryBulkActionOut)
+@limiter.limit("10/minute")
+async def bulk_action(
+    request: Request,
+    payload: DiscoveryBulkActionIn,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Bulk accept/dismiss (plan D, D-3 §2).
+
+    Every id goes through the exact same visibility/role/transition checks as
+    the unitary endpoints (``_get_visible_service`` + ``_assert_transitionable``)
+    — this is a loop over the single-service path, not a bulk SQL statement,
+    because ``accept`` may need to create a real ``Monitor`` per id. An id
+    that is inaccessible or not transitionable is reported as a per-id
+    failure, never as a 4xx for the whole call; each nested transaction
+    (``db.begin_nested()``) isolates one id's failure from the rest, same
+    pattern as ``services/escalation.py``.
+    """
+    results: list[dict] = []
+    for service_id in payload.service_ids:
+        try:
+            async with db.begin_nested():
+                service, source = await _get_visible_service(
+                    service_id, current_user, db, TeamRole.editor
+                )
+                _assert_transitionable(service, payload.action)
+                if payload.action == "dismiss":
+                    body = await _dismiss_row(db, service, source, payload.reason, current_user)
+                else:
+                    body = await _accept_row(
+                        db, service, source, DiscoveredServiceAcceptIn(), current_user
+                    )
+        except HTTPException as exc:
+            results.append(
+                {"service_id": service_id, "ok": False, "detail": str(exc.detail), "service": None}
+            )
+            continue
+        results.append({"service_id": service_id, "ok": True, "detail": None, "service": body})
+    return {"results": results}
 
 
 async def _create_monitor_from_proposal(

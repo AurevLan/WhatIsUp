@@ -32,6 +32,7 @@
 
         <div class="nav-section">{{ t('nav.infrastructure') }}</div>
         <NavLink to="/probes" :icon="MapPin" :label="t('nav.probes')" />
+        <NavLink to="/discovery" :icon="Radar" :label="t('nav.discovery')" />
         <NavLink to="/alerts" :icon="Bell" :label="t('nav.alerts')" />
         <NavLink to="/maintenance" :icon="CalendarClock" :label="t('nav.maintenance')" />
         <NavLink to="/silences" :icon="BellOff" :label="t('nav.silences')" />
@@ -151,7 +152,7 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
   Activity, Bell, BellOff, CalendarClock, ClipboardList, Clock, Copy,
-  KeyRound, LayoutDashboard, Layers, LogOut, MapPin, Moon, Network, Search, Settings,
+  KeyRound, LayoutDashboard, Layers, LogOut, MapPin, Moon, Network, Radar, Search, Settings,
   ShieldCheck, Sun, Users, WifiOff,
 } from 'lucide-vue-next'
 import { useAuthStore } from '../../stores/auth'

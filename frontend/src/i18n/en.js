@@ -11,6 +11,7 @@ export default {
     dashboard: 'Dashboard',
     monitors: 'Monitors',
     probes: 'Probes',
+    discovery: 'Discovery',
     alerts: 'Alerts',
     apiKeys: 'API Keys',
     audit: 'Audit Log',
@@ -41,6 +42,7 @@ export default {
   // Common
   common: {
     save: 'Save',
+    saving: 'Saving…',
     cancel: 'Cancel',
     delete: 'Delete',
     edit: 'Edit',
@@ -175,6 +177,8 @@ export default {
     audit_filtered_text: 'No audit log entry matches the current filter.',
     tls_fleet_text: 'Run a check on an HTTPS monitor to see its TLS grade, cipher and expiry here.',
     tls_fleet_filtered_text: 'No monitor matches the current filters.',
+    discovery_sources_text: 'A discovery source points a probe at a Docker socket or a bounded network range and reports back what it finds.',
+    discovery_services_text: 'Nothing to review yet. Once a source runs, discovered services will show up here for you to accept or dismiss.',
   },
 
   // Status
@@ -747,6 +751,74 @@ export default {
     health_monitors: 'Monitors',
     health_running: 'running',
     health_load: 'Load',
+  },
+
+  // Discovery (plan D) — sources CRUD + proposal review
+  discovery: {
+    title: 'Discovery',
+    subtitle: 'Probes that scan for services and propose monitors for them',
+    tab_review: 'Review',
+    tab_sources: 'Sources',
+
+    add_source: 'New source',
+    edit_source: 'Edit source',
+    no_sources: 'No discovery sources yet',
+    probe_label: 'Probe',
+    probe_placeholder: '-- Choose a probe --',
+    pick_probe_first: 'Choose a probe first.',
+    source_type_label: 'Source type',
+    source_type_placeholder: '-- Choose a source type --',
+    source_type_docker: 'Docker',
+    source_type_port_scan: 'Port scan',
+    no_capabilities: '"{probe}" did not declare any discovery capability at its last heartbeat.',
+    cidr_label: 'CIDR',
+    cidr_hint: 'Bounded to /24 or smaller.',
+    ports_label: 'Ports',
+    ports_hint: 'Comma-separated list, e.g. 22, 80, 443.',
+    docker_hint: 'Reads the probe’s read-only Docker socket — published ports and labels only.',
+    enabled_label: 'Enabled',
+    disabled_label: 'Disabled',
+    enable: 'Enable',
+    disable: 'Disable',
+    source_saved: 'Source saved',
+    source_deleted: 'Source deleted',
+    confirm_delete_source: 'Delete this discovery source?',
+    confirm_delete_source_detail: 'Its discovered services will be removed too.',
+
+    all_statuses: 'All statuses',
+    all_sources: 'All sources',
+    no_services: 'Nothing to review',
+    col_target: 'Target',
+    col_suggestion: 'Suggested monitor',
+    view_monitor: 'View monitor →',
+
+    status_proposed: 'Proposed',
+    status_accepted: 'Accepted',
+    status_dismissed: 'Dismissed',
+    status_orphaned: 'Orphaned',
+
+    accept: 'Accept',
+    accept_title: 'Accept this proposal',
+    accept_intro: 'A monitor will be created from this service — review the prefill below before confirming.',
+    accept_success: 'Monitor created',
+    suggested_group: 'Suggested group',
+    suggested_tags: 'Suggested tags',
+
+    dismiss: 'Dismiss',
+    dismiss_title: 'Dismiss this proposal',
+    dismiss_intro_single: 'This service will stop being proposed for a monitor.',
+    dismiss_intro_bulk: '{n} services will stop being proposed for a monitor.',
+    dismiss_success: 'Proposal dismissed',
+    reason_label: 'Reason',
+    reason_placeholder: 'optional — why this was dismissed',
+
+    bulk_accept: 'Accept selected',
+    bulk_dismiss: 'Dismiss selected',
+    bulk_success: '{n} service(s) updated',
+    bulk_partial: '{ok} succeeded, {fail} failed — see the list for details',
+
+    orphaned_badge: 'Orphaned',
+    orphaned_tooltip: 'The service this monitor was created from is no longer seen by its discovery source.',
   },
 
   // Tag chips

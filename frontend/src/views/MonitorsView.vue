@@ -162,6 +162,9 @@
               <div class="flex items-center gap-2 mb-1">
                 <span class="w-2 h-2 rounded-full flex-shrink-0" :class="dotClass(monitor._lastStatus)" />
                 <span class="font-semibold text-(--text-1) truncate">{{ monitor.name }}</span>
+                <span v-if="isOrphaned(monitor.id)" class="badge badge-timeout flex-shrink-0" :title="t('discovery.orphaned_tooltip')">
+                  <Ghost class="w-2.5 h-2.5" /> {{ t('discovery.orphaned_badge') }}
+                </span>
               </div>
               <p class="text-xs text-(--text-3) truncate font-mono">
                 <span class="uppercase mr-1.5">{{ monitor.check_type }}</span>· {{ formatTarget(monitor) }}
@@ -243,6 +246,9 @@
               <router-link :to="`/monitors/${monitor.id}`" class="font-semibold text-(--text-1) hover:text-(--text-1) transition-colors">
                 {{ monitor.name }}
               </router-link>
+              <span v-if="isOrphaned(monitor.id)" class="badge badge-timeout ml-2" :title="t('discovery.orphaned_tooltip')">
+                <Ghost class="w-2.5 h-2.5" /> {{ t('discovery.orphaned_badge') }}
+              </span>
               <p v-if="!monitor.enabled" class="text-xs text-(--text-3) mt-0.5">{{ t('status.paused') }}</p>
             </td>
 
@@ -363,8 +369,11 @@
           </div>
 
           <!-- Name -->
-          <p class="text-sm font-semibold text-(--text-1) truncate group-hover:text-(--text-1) mb-1">
-            {{ monitor.name }}
+          <p class="text-sm font-semibold text-(--text-1) truncate group-hover:text-(--text-1) mb-1 flex items-center gap-1.5">
+            <span class="truncate">{{ monitor.name }}</span>
+            <span v-if="isOrphaned(monitor.id)" class="badge badge-timeout flex-shrink-0" :title="t('discovery.orphaned_tooltip')">
+              <Ghost class="w-2.5 h-2.5" />
+            </span>
           </p>
 
           <!-- URL (truncated) -->
@@ -477,13 +486,14 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { Download, Eye, LayoutGrid, List, Monitor, Pause, PencilLine, Play, Plus, Search, Trash2, Upload, X } from 'lucide-vue-next'
+import { Download, Eye, Ghost, LayoutGrid, List, Monitor, Pause, PencilLine, Play, Plus, Search, Trash2, Upload, X } from 'lucide-vue-next'
 import { useMonitorStore } from '../stores/monitors'
 import { useToast } from '../composables/useToast'
 import { useMonitorFilters } from '../composables/useMonitorFilters'
 import { useMonitorSelection } from '../composables/useMonitorSelection'
 import { useMonitorImportExport } from '../composables/useMonitorImportExport'
 import { useMonitorDisplay } from '../composables/useMonitorDisplay'
+import { useOrphanedMonitors } from '../composables/useOrphanedMonitors'
 import StatusBadge from '../components/shared/StatusBadge.vue'
 import CreateMonitorModal from '../components/monitors/CreateMonitorModal.vue'
 import CreateMonitorWizard from '../components/monitors/CreateMonitorWizard.vue'
@@ -540,6 +550,9 @@ const { importFileInput, exportMonitors, triggerImport, handleImportFile } =
 const { dotClass, formatTarget, uptimeColor, responseTimeColor } =
   useMonitorDisplay()
 
+// ── Orphaned monitors badge (plan D, D-3) ────────────────────────────────────
+const { isOrphaned, loadOrphanedMonitors } = useOrphanedMonitors()
+
 // ── Keyboard shortcuts ─────────────────────────────────────────────────────────
 function onKeydown(e) {
   const tag = e.target.tagName
@@ -570,6 +583,7 @@ function onUpdated() {
 
 onMounted(() => {
   monitorStore.fetchAll()
+  loadOrphanedMonitors()
   document.addEventListener('keydown', onKeydown)
   // T1-15: deep-link to create modal via ?create=true (used by `c` hotkey).
   if (route.query.create === 'true') {

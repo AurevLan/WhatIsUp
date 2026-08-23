@@ -54,6 +54,16 @@ class ProbeSettings(BaseSettings):
     # Logging
     log_level: str = "INFO"
 
+    # plan D, D-1 — discovery engine
+    # Unix socket the `docker` source reads (read-only inventory: containers +
+    # published ports). Absent by default from the compose file — the source
+    # only becomes usable once an operator opts in and mounts it `:ro`.
+    discovery_docker_socket: str = "/var/run/docker.sock"
+    # How often each enabled discovery source re-runs and pushes a fresh
+    # snapshot. Independent from heartbeat_interval: discovery is inventory,
+    # not a liveness signal, and doesn't need to be nearly as frequent.
+    discovery_interval_seconds: int = 900
+
 
 _settings: ProbeSettings | None = None
 

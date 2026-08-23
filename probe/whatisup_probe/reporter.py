@@ -150,15 +150,23 @@ class Reporter:
         logger.warning("push_result_spilled", monitor_id=payload.get("monitor_id"))
         return None
 
-    async def heartbeat(self, health: dict) -> dict | None:
+    async def heartbeat(
+        self, health: dict, discovery_capabilities: list[str] | None = None
+    ) -> dict | None:
         """Send heartbeat with system health metrics and retrieve probe directives.
 
-        Returns the full server response (``{monitors, pending_diagnostics}``) or
-        ``None`` on failure. V2-02-07: includes the probe's outbound public IP
-        (resolved via api.ipify.org and friends) so the central server can
-        detect proxy / NAT / VPN setups where the IP it observes
-        (``request.client.host``) diverges from the IP the probe itself
-        egresses through.
+        Returns the full server response (``{monitors, pending_diagnostics,
+        discovery_sources}``) or ``None`` on failure. V2-02-07: includes the
+        probe's outbound public IP (resolved via api.ipify.org and friends)
+        so the central server can detect proxy / NAT / VPN setups where the
+        IP it observes (``request.client.host``) diverges from the IP the
+        probe itself egresses through.
+
+        ``discovery_capabilities`` (plan D, D-1) is omitted entirely from the
+        body when ``None`` — not sent as ``null`` — so the server's
+        write-if-present rule (``model_fields_set``) never clears a
+        previously-declared value on a heartbeat this build doesn't compute
+        it for.
         """
         from whatisup_probe.public_ip import resolve_public_ip
 
@@ -167,6 +175,8 @@ class Reporter:
         body: dict = {"health": health, "version": PROBE_VERSION}
         if self_reported_ip:
             body["self_reported_ip"] = self_reported_ip
+        if discovery_capabilities is not None:
+            body["discovery_capabilities"] = discovery_capabilities
         try:
             resp = await self._client.post(url, json=body)
             resp.raise_for_status()
@@ -191,6 +201,30 @@ class Reporter:
             return False
         except Exception as exc:
             logger.warning("diagnostics_push_error", incident_id=incident_id, error=str(exc))
+            return False
+
+    async def push_discovery(self, source_id: str, services: list[dict]) -> bool:
+        """POST a discovery snapshot for one source (plan D, D-1).
+
+        Best-effort like ``push_diagnostics`` — no disk spill: a lost
+        snapshot is simply replayed at the next scheduled run of the same
+        source (``discovery_interval_seconds``), unlike a check result there
+        is no incident pipeline waiting on this push.
+        """
+        url = f"{self._settings.central_api_url}/api/v1/probes/discovery"
+        body = {"source_id": source_id, "services": services}
+        try:
+            resp = await self._client.post(url, json=body)
+            if 200 <= resp.status_code < 300:
+                return True
+            logger.warning(
+                "discovery_push_rejected",
+                source_id=source_id,
+                status=resp.status_code,
+            )
+            return False
+        except Exception as exc:
+            logger.warning("discovery_push_error", source_id=source_id, error=str(exc))
             return False
 
     async def aclose(self) -> None:

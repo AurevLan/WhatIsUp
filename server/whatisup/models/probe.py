@@ -72,6 +72,13 @@ class Probe(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # running an outdated build (stale probes silently skew check verdicts).
     version: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
+    # plan D, D-1 — discovery source types this probe declared itself able to
+    # run at its last heartbeat (e.g. ["docker", "port_scan"]). Nullable:
+    # legacy probes never send the field, and a heartbeat that omits it must
+    # not overwrite this with null — that write-if-present rule lives in the
+    # heartbeat endpoint, not here.
+    discovery_capabilities: Mapped[list[str] | None] = mapped_column(_JSON, nullable=True)
+
     check_results: Mapped[list[CheckResult]] = relationship("CheckResult", back_populates="probe")
 
     def __repr__(self) -> str:

@@ -79,3 +79,6 @@ frontend/android/app/google-services.json
 plan_*.md
 # Les plans terminés sont archivés versionnés dans docs/archived/plans/
 !docs/archived/plans/plan_*.md
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/

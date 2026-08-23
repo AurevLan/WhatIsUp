@@ -28,9 +28,9 @@ def register(source: BaseDiscoverySource) -> BaseDiscoverySource:
 
 
 def _load_builtins() -> None:
-    from . import docker, port_scan
+    from . import dns_zone, docker, port_scan
 
-    for module in (docker, port_scan):
+    for module in (docker, port_scan, dns_zone):
         module.setup(register)
 
 

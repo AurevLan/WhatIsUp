@@ -73,6 +73,23 @@ async def source_on_a(
     return source
 
 
+@pytest_asyncio.fixture
+async def dns_zone_source_on_a(
+    db_session: AsyncSession, regular_user: User, probe_a: Probe
+) -> DiscoverySource:
+    source = DiscoverySource(
+        owner_id=regular_user.id,
+        probe_id=probe_a.id,
+        source_type="dns_zone",
+        params={"zone": "example.com", "resolver": "203.0.113.10", "record_types": ["A"]},
+        enabled=True,
+    )
+    db_session.add(source)
+    await db_session.flush()
+    await db_session.commit()
+    return source
+
+
 def _services_payload(n: int = 2) -> list[dict]:
     return [
         {"host": f"10.0.0.{i}", "port": 80, "proto": "tcp", "hints": {}} for i in range(1, n + 1)
@@ -118,6 +135,24 @@ async def test_heartbeat_returns_only_this_probes_enabled_sources(
     assert ids == {str(source_on_a.id)}
     assert body["discovery_sources"][0]["source_type"] == "port_scan"
     assert body["discovery_sources"][0]["params"] == {"cidr": "10.0.0.0/24", "ports": [80]}
+
+
+@pytest.mark.asyncio
+async def test_heartbeat_distributes_dns_zone_source(
+    client: AsyncClient, dns_zone_source_on_a: DiscoverySource
+) -> None:
+    """The heartbeat's discovery channel is generic across `source_type`
+    (plan D, D-4) — no code path special-cases `dns_zone` distribution."""
+    resp = await client.post("/api/v1/probes/heartbeat", json={}, headers=_PROBE_A_HEADERS)
+    assert resp.status_code == 200
+    sources = resp.json()["discovery_sources"]
+    assert len(sources) == 1
+    assert sources[0]["source_type"] == "dns_zone"
+    assert sources[0]["params"] == {
+        "zone": "example.com",
+        "resolver": "203.0.113.10",
+        "record_types": ["A"],
+    }
 
 
 @pytest.mark.asyncio
@@ -363,6 +398,42 @@ async def test_push_discovery_no_port_normalized_without_colon(
         )
     ).scalar_one()
     assert row.normalized_target == "docker://10.0.0.9"
+
+
+@pytest.mark.asyncio
+async def test_push_discovery_dns_zone_snapshot_ingested(
+    client: AsyncClient, db_session: AsyncSession, dns_zone_source_on_a: DiscoverySource
+) -> None:
+    """A `dns_zone` snapshot: host-only records (no port), `hints` carrying
+    the observed record — same ingestion path as every other source_type,
+    the server never special-cases it (plan D, D-4)."""
+    resp = await client.post(
+        "/api/v1/probes/discovery",
+        json={
+            "source_id": str(dns_zone_source_on_a.id),
+            "services": [
+                {
+                    "host": "WWW.example.com",
+                    "port": None,
+                    "proto": "tcp",
+                    "hints": {"record_type": "A", "value": "10.0.0.5"},
+                }
+            ],
+        },
+        headers=_PROBE_A_HEADERS,
+    )
+    assert resp.status_code == 202
+
+    row = (
+        await db_session.execute(
+            select(DiscoveredService).where(DiscoveredService.source_id == dns_zone_source_on_a.id)
+        )
+    ).scalar_one()
+    assert row.host == "www.example.com"
+    assert row.port is None
+    assert row.normalized_target == "tcp://www.example.com"
+    assert row.hints == {"record_type": "A", "value": "10.0.0.5"}
+    assert row.status == "proposed"
 
 
 # ── POST /probes/discovery — bounds ──────────────────────────────────────────

@@ -1,4 +1,4 @@
-"""Reconciliation of discovery snapshots into reviewable proposals (plan D, D-2).
+"""Reconciliation of discovery snapshots into reviewable proposals (plan D, D-2/D-4).
 
 D-1 ingestion (`api/v1/probes.py::push_discovery`) only stores a snapshot —
 every service is either inserted as ``proposed`` or refreshed in place, and
@@ -12,7 +12,11 @@ machine the plan promises:
   linked, never proposed), flips services missing from the snapshot to
   ``orphaned`` (if they were ``accepted``) or drops them outright (if they
   were never acted on), and flips ``orphaned`` services whose target
-  reappeared back to ``accepted``.
+  reappeared back to ``accepted``. D-4 adds one more transition: a
+  ``dismissed`` row still present in the snapshot whose ``dismissal_fingerprint``
+  (a stable subset of its hints) no longer matches the one captured at
+  dismiss time goes back to ``proposed`` — the refusal was about a
+  *different* service that happened to share this target.
 - ``default_monitor_fields`` / ``compute_proposal`` — the pre-filled
   proposal (`check_type` deduced from the port, suggested name/group/tags
   from hints) surfaced by `DiscoveredServiceOut` and used as the base a
@@ -28,6 +32,8 @@ turned into a monitor by hand and stops proposing it a second time.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
@@ -112,6 +118,35 @@ def _suggest_tags(service: DiscoveredService, source_type: str) -> list[str]:
         if compose_service:
             tags.append(str(compose_service)[:64])
     return tags
+
+
+#: The only hint keys a dismissal fingerprint is computed from (plan D, D-4:
+#: "sous-ensemble stable et documenté des hints — image docker, container_name,
+#: server_header — pas les valeurs volatiles"). Everything else a source can
+#: observe (labels values, http_status, TLS details, DNS record values...) is
+#: excluded on purpose: those churn independently of what the service *is*,
+#: and feeding them in would re-propose a dismissed service on every restart
+#: or every DNS TTL expiry, making dismiss useless. A source that never
+#: reports any of these three (port_scan today) always hashes the same empty
+#: subset — its dismissals simply never drift, which is the correct behaviour
+#: until a source starts observing something stable about the service.
+_FINGERPRINT_HINT_KEYS = ("image", "container_name", "server_header")
+
+
+def dismissal_fingerprint(hints: dict) -> str:
+    """Stable identity of a discovered service's *nature*, as it stood at
+    dismiss time — sha256 of the canonical (sorted-keys) JSON form of the
+    stable hint subset, truncated like `models/custom_metric.py::series_hash`.
+
+    Must be called with the row's live ``hints`` at the moment of the
+    dismiss call, never re-derived later: ingestion refreshes ``hints`` in
+    place on every push (`api/v1/probes.py::push_discovery`), so re-hashing
+    a re-pushed row would compare the current value against itself and never
+    detect drift.
+    """
+    subset = {key: hints.get(key) for key in _FINGERPRINT_HINT_KEYS if hints.get(key) is not None}
+    canonical = json.dumps(subset, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(canonical.encode()).hexdigest()[:32]
 
 
 @dataclass(frozen=True)
@@ -320,6 +355,50 @@ async def _handle_disappearances(
             row.status_changed_at = now
 
 
+async def _handle_dismissed_drift(
+    db: AsyncSession, source: DiscoverySource, seen_targets: set[str], now: datetime
+) -> None:
+    """A `dismissed` row still present in this snapshot whose *nature* has
+    changed since the refusal — plan D, D-4: "re-proposition quand un service
+    refusé change (port/nature)". The port is already baked into
+    `normalized_target` (a different port is a different row); what this
+    catches is the same target now looking like a different service (a
+    docker container redeployed from another image on the same published
+    port, for instance).
+
+    Called after `push_discovery`'s upsert loop has already refreshed
+    `hints` in place for every target in `seen_targets` — so `service.hints`
+    here is the *current* observation, compared against the fingerprint
+    frozen at dismiss time. `dismissed_fingerprint is None` (dismissed
+    before D-4, or the column was never populated) is left untouched on
+    purpose: there is no baseline to compare against, and guessing one would
+    silently re-open refusals nobody asked to revisit.
+    """
+    if not seen_targets:
+        return
+    dismissed = (
+        (
+            await db.execute(
+                select(DiscoveredService).where(
+                    DiscoveredService.source_id == source.id,
+                    DiscoveredService.status == "dismissed",
+                    DiscoveredService.dismissed_fingerprint.is_not(None),
+                    DiscoveredService.normalized_target.in_(seen_targets),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for row in dismissed:
+        if dismissal_fingerprint(row.hints) == row.dismissed_fingerprint:
+            continue  # refusal still holds — nothing about the service changed
+        row.status = "proposed"
+        row.dismissed_reason = None
+        row.dismissed_fingerprint = None
+        row.status_changed_at = now
+
+
 async def _handle_reappearances(
     db: AsyncSession, source: DiscoverySource, seen_targets: set[str], now: datetime
 ) -> None:
@@ -357,6 +436,7 @@ async def reconcile_source_push(
     either): these are inventory bookkeeping, not a user action. Manual
     accept/dismiss keep their own audit trail in `api/v1/discovery.py`.
     """
+    await _handle_dismissed_drift(db, source, seen_targets, now)
     await _match_new_proposals(db, source, seen_targets)
     await _handle_disappearances(db, source, seen_targets, now)
     await _handle_reappearances(db, source, seen_targets, now)

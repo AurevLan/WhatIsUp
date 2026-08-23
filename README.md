@@ -370,6 +370,31 @@ Advanced assertions across types: regex body check, response header validation (
 - **Multi-language** — English and French; **light / dark theme** auto-detected and persisted
 - **Mobile app** — Android build via Capacitor 8, signed APK attached to every release
 
+### Automatic discovery
+
+A probe already sitting inside your network becomes an inventory sensor. Point it at a source and it
+reports back what it sees; nothing is ever monitored silently — every discovered service is a
+**proposal** you review and accept.
+
+- **Sources**: `docker` (read-only socket — running containers, published ports, labels), `port_scan`
+  (bounded TCP connect scan — CIDR ≤ /24, explicit port list), `dns_zone` (AXFR zone transfer against a
+  resolver you declare by IP)
+- **Review workflow** — `/discovery`: proposed / accepted / dismissed / orphaned states, bulk accept or
+  dismiss with a shared reason, prefilled monitor (check type deduced from the port, name/group/tags from
+  Docker labels)
+- **Stays current** — a service that disappears from a snapshot orphans its monitor; a dismissed service
+  whose nature changes (e.g. a container redeployed from a different image on the same port) is
+  re-proposed rather than staying silently refused forever
+- **Bounded and declared by design** — no CIDR wider than /24, no port range guessing, no AXFR fallback
+  scan on a refused transfer, capped payload sizes; every outbound connection goes through the probe's
+  SSRF-pinning resolver
+
+To enable it: register a discovery source (`POST /api/v1/discovery/sources`, or from the `/discovery` UI)
+against a probe that declares the matching capability at its heartbeat. The `docker` source needs the
+probe's Docker socket mounted read-only — commented out by default in `docker-compose.yml` (`probe`
+service): uncomment only if you intend to use it, it's a real privilege grant. See `FEATURES.md` § Découverte
+for the full design rationale.
+
 ### Browser extension — scenario recorder
 
 Records browser actions and turns them into a monitor:

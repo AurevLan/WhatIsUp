@@ -179,6 +179,132 @@ async def test_create_port_scan_rejects_too_many_ports(
 
 
 @pytest.mark.asyncio
+async def test_create_dns_zone_source_valid_params(
+    client: AsyncClient, admin_token: str, user_token: str
+) -> None:
+    probe_id = await _register_probe(client, admin_token)
+    resp = await _create_source(
+        client,
+        user_token,
+        probe_id,
+        "dns_zone",
+        params={"zone": "example.com", "resolver": "203.0.113.10"},
+    )
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    assert body["params"]["zone"] == "example.com"
+    assert body["params"]["resolver"] == "203.0.113.10"
+    # Default record types when omitted.
+    assert set(body["params"]["record_types"]) == {"A", "AAAA", "CNAME"}
+
+
+@pytest.mark.asyncio
+async def test_create_dns_zone_source_custom_record_types(
+    client: AsyncClient, admin_token: str, user_token: str
+) -> None:
+    probe_id = await _register_probe(client, admin_token)
+    resp = await _create_source(
+        client,
+        user_token,
+        probe_id,
+        "dns_zone",
+        params={"zone": "example.com", "resolver": "203.0.113.10", "record_types": ["A"]},
+    )
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["params"]["record_types"] == ["A"]
+
+
+@pytest.mark.asyncio
+async def test_create_dns_zone_normalizes_zone_casing_and_trailing_dot(
+    client: AsyncClient, admin_token: str, user_token: str
+) -> None:
+    probe_id = await _register_probe(client, admin_token)
+    resp = await _create_source(
+        client,
+        user_token,
+        probe_id,
+        "dns_zone",
+        params={"zone": "Example.COM.", "resolver": "203.0.113.10"},
+    )
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["params"]["zone"] == "example.com"
+
+
+@pytest.mark.asyncio
+async def test_create_dns_zone_rejects_hostname_resolver(
+    client: AsyncClient, admin_token: str, user_token: str
+) -> None:
+    """The resolver must be an IP literal — a hostname resolver would let the
+    actual nameserver be picked adversarially at run time (plan D, D-4)."""
+    probe_id = await _register_probe(client, admin_token)
+    resp = await _create_source(
+        client,
+        user_token,
+        probe_id,
+        "dns_zone",
+        params={"zone": "example.com", "resolver": "ns1.example.com"},
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_create_dns_zone_rejects_invalid_zone(
+    client: AsyncClient, admin_token: str, user_token: str
+) -> None:
+    probe_id = await _register_probe(client, admin_token)
+    resp = await _create_source(
+        client,
+        user_token,
+        probe_id,
+        "dns_zone",
+        params={"zone": "not a domain!", "resolver": "203.0.113.10"},
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_create_dns_zone_rejects_bare_label_zone(
+    client: AsyncClient, admin_token: str, user_token: str
+) -> None:
+    """A single label ("localhost") is not a zone anyone can transfer."""
+    probe_id = await _register_probe(client, admin_token)
+    resp = await _create_source(
+        client,
+        user_token,
+        probe_id,
+        "dns_zone",
+        params={"zone": "localhost", "resolver": "203.0.113.10"},
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_create_dns_zone_rejects_unknown_record_type(
+    client: AsyncClient, admin_token: str, user_token: str
+) -> None:
+    probe_id = await _register_probe(client, admin_token)
+    resp = await _create_source(
+        client,
+        user_token,
+        probe_id,
+        "dns_zone",
+        params={"zone": "example.com", "resolver": "203.0.113.10", "record_types": ["MX"]},
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_create_dns_zone_missing_zone_rejected(
+    client: AsyncClient, admin_token: str, user_token: str
+) -> None:
+    probe_id = await _register_probe(client, admin_token)
+    resp = await _create_source(
+        client, user_token, probe_id, "dns_zone", params={"resolver": "203.0.113.10"}
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
 async def test_create_source_unknown_type_rejected(
     client: AsyncClient, admin_token: str, user_token: str
 ) -> None:

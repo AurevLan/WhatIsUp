@@ -28,7 +28,7 @@
         <p class="text-sm text-(--text-1)">{{ t(`discovery.source_type_${form.source_type}`) }}</p>
       </div>
 
-      <!-- Params: docker has none, port_scan needs cidr + ports -->
+      <!-- Params: docker has none, port_scan needs cidr + ports, dns_zone needs zone + resolver -->
       <template v-if="form.source_type === 'port_scan'">
         <div>
           <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('discovery.cidr_label') }} *</label>
@@ -39,6 +39,28 @@
           <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('discovery.ports_label') }} *</label>
           <input v-model="form.portsText" class="input w-full" placeholder="22, 80, 443" required />
           <p class="text-xs text-(--text-3) mt-1">{{ t('discovery.ports_hint') }}</p>
+        </div>
+      </template>
+      <template v-else-if="form.source_type === 'dns_zone'">
+        <div>
+          <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('discovery.zone_label') }} *</label>
+          <input v-model="form.zone" class="input w-full" placeholder="example.com" required />
+          <p class="text-xs text-(--text-3) mt-1">{{ t('discovery.zone_hint') }}</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('discovery.resolver_label') }} *</label>
+          <input v-model="form.resolver" class="input w-full" placeholder="203.0.113.10" required />
+          <p class="text-xs text-(--text-3) mt-1">{{ t('discovery.resolver_hint') }}</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('discovery.record_types_label') }}</label>
+          <div class="flex gap-4">
+            <label v-for="rt in DNS_RECORD_TYPES" :key="rt" class="flex items-center gap-1.5 text-sm text-(--text-2)">
+              <input type="checkbox" :value="rt" v-model="form.recordTypes" class="w-4 h-4 rounded border-(--border-hover)" />
+              {{ rt }}
+            </label>
+          </div>
+          <p class="text-xs text-(--text-3) mt-1">{{ t('discovery.record_types_hint') }}</p>
         </div>
       </template>
       <p v-else-if="form.source_type === 'docker'" class="text-xs text-(--text-3)">
@@ -80,11 +102,17 @@ const emit = defineEmits(['close', 'saved'])
 
 const isEdit = computed(() => !!props.source)
 
+// Fixed vocabulary, mirrors `schemas/discovery.py::_DNS_ZONE_RECORD_TYPES`.
+const DNS_RECORD_TYPES = ['A', 'AAAA', 'CNAME']
+
 function paramsToForm(source) {
-  if (!source) return { cidr: '', portsText: '' }
+  if (!source) return { cidr: '', portsText: '', zone: '', resolver: '', recordTypes: [...DNS_RECORD_TYPES] }
   return {
     cidr: source.params?.cidr || '',
     portsText: (source.params?.ports || []).join(', '),
+    zone: source.params?.zone || '',
+    resolver: source.params?.resolver || '',
+    recordTypes: source.params?.record_types?.length ? source.params.record_types : [...DNS_RECORD_TYPES],
   }
 }
 
@@ -105,7 +133,7 @@ const selectedProbeName = computed(
 // Only source_type values the backend accepts AND the selected probe
 // declared runnable at its last heartbeat — never a silently empty list
 // when a probe declares nothing (plan D, D-3 §4).
-const KNOWN_SOURCE_TYPES = ['docker', 'port_scan']
+const KNOWN_SOURCE_TYPES = ['docker', 'port_scan', 'dns_zone']
 const availableSourceTypes = computed(() => {
   const probe = props.probes.find((p) => p.id === form.value.probe_id)
   const capabilities = probe?.discovery_capabilities || []
@@ -117,6 +145,9 @@ const canSubmit = computed(() => {
   if (form.value.source_type === 'port_scan') {
     return Boolean(form.value.cidr && form.value.portsText)
   }
+  if (form.value.source_type === 'dns_zone') {
+    return Boolean(form.value.zone && form.value.resolver && form.value.recordTypes.length)
+  }
   return true
 })
 
@@ -127,6 +158,13 @@ function buildParams() {
       .map((p) => parseInt(p.trim(), 10))
       .filter((p) => Number.isFinite(p))
     return { cidr: form.value.cidr.trim(), ports }
+  }
+  if (form.value.source_type === 'dns_zone') {
+    return {
+      zone: form.value.zone.trim(),
+      resolver: form.value.resolver.trim(),
+      record_types: form.value.recordTypes,
+    }
   }
   return {}
 }

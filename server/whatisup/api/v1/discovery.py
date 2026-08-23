@@ -1,15 +1,20 @@
-"""Discovery sources CRUD + discovered-service review (plan D, D-0).
+"""Discovery sources CRUD + discovered-service review (plan D, D-0 / D-2).
 
 Two routers, one scoping rule — the same one as ``oncall.py``:
 ``owner_id == me OR team_id IN my_teams``, superadmin bypasses. A
 ``DiscoveredService`` has no owner of its own; its visibility is entirely
 derived from the ``DiscoverySource`` it belongs to.
 
-No sonde-facing endpoint lives here: the push ``POST /probes/discovery`` and
-the reconciliation that turns a snapshot into ``proposed``/``orphaned`` rows
-are D-1/D-2. This lot only lets a tenant configure *what* a probe should scan
-and review services that already exist in the table — accept/dismiss are pure
-state transitions, no ``Monitor`` is created yet.
+No sonde-facing endpoint lives here: the push ``POST /probes/discovery``
+(``api/v1/probes.py``) stores the snapshot and calls
+``services.discovery.reconcile_source_push`` to turn it into
+``proposed``/``accepted``/``orphaned`` rows. This module is what a tenant
+uses to configure *what* a probe should scan and review what it found:
+``accept`` (D-2) now actually creates a ``Monitor`` — via the same creation
+path as ``POST /monitors`` (``_create_monitor_from_payload``), never a copy
+of it — pre-filled from the proposal computed by
+``services/discovery.py::default_monitor_fields`` and overridable by the
+caller; ``dismiss`` stays a pure state transition.
 """
 
 from __future__ import annotations
@@ -22,6 +27,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.api.deps import (
+    assert_can_assign_group,
     assert_can_assign_team,
     check_resource_access,
     get_current_user,
@@ -30,10 +36,12 @@ from whatisup.api.deps import (
 from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
 from whatisup.models.discovery import DiscoveredService, DiscoverySource
+from whatisup.models.monitor import Monitor
 from whatisup.models.probe import Probe
 from whatisup.models.team import TeamRole
 from whatisup.models.user import User
 from whatisup.schemas.discovery import (
+    DiscoveredServiceAcceptIn,
     DiscoveredServiceOut,
     DiscoverySourceIn,
     DiscoverySourceOut,
@@ -41,6 +49,17 @@ from whatisup.schemas.discovery import (
     validate_discovery_params,
 )
 from whatisup.services.audit import log_action
+from whatisup.services.discovery import (
+    compute_proposal,
+    default_monitor_fields,
+    port_field_for_check_type,
+    suggest_alert_matrix_templates,
+)
+
+#: `Monitor` fields that carry a port for some check_type — cleared and
+#: recomputed (see `_create_monitor_from_proposal`) whenever the caller
+#: overrides `check_type` away from the prefill's own deduction.
+_PORT_OVERRIDE_FIELDS = ("tcp_port", "udp_port", "smtp_port")
 
 sources_router = APIRouter(prefix="/discovery/sources", tags=["discovery"])
 services_router = APIRouter(prefix="/discovery/services", tags=["discovery"])
@@ -216,6 +235,45 @@ async def delete_source(
 # ── DiscoveredService ────────────────────────────────────────────────────────
 
 
+#: `DiscoveredServiceOut`'s columns that come straight from the ORM row —
+#: everything else on the schema (`suggested_*`) is computed, not a
+#: `DiscoveredService` attribute, so `model_validate(service, from_attributes=True)`
+#: directly on the ORM object would fail on those as missing.
+_BASE_SERVICE_FIELDS = (
+    "id",
+    "source_id",
+    "monitor_id",
+    "host",
+    "port",
+    "proto",
+    "normalized_target",
+    "hints",
+    "status",
+    "first_seen_at",
+    "last_seen_at",
+    "status_changed_at",
+    "created_at",
+    "updated_at",
+)
+
+
+async def _serialize_service(
+    service: DiscoveredService, source_type: str, template_id: uuid.UUID | None
+) -> dict:
+    """`DiscoveredServiceOut` plus the prefill (plan D, D-2 §3) — computed
+    fresh every time, never stored (see the schema's docstring)."""
+    proposal = compute_proposal(service, source_type)
+    data = {field: getattr(service, field) for field in _BASE_SERVICE_FIELDS}
+    data.update(
+        suggested_check_type=proposal.check_type,
+        suggested_name=proposal.name,
+        suggested_group=proposal.group,
+        suggested_tags=proposal.tags,
+        suggested_alert_matrix_template_id=template_id,
+    )
+    return DiscoveredServiceOut.model_validate(data).model_dump()
+
+
 @services_router.get("/", response_model=list[DiscoveredServiceOut])
 @limiter.limit("60/minute")
 async def list_services(
@@ -224,14 +282,18 @@ async def list_services(
     status_filter: str | None = Query(default=None, alias="status"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> list[DiscoveredService]:
+) -> list[dict]:
     if source_id is not None:
         # Visiting a single source's services requires visibility into that
         # source — a bare 404 on an inaccessible id, same as the CRUD above.
         await _get_visible_source(source_id, current_user, db)
-        stmt = select(DiscoveredService).where(DiscoveredService.source_id == source_id)
+        stmt = (
+            select(DiscoveredService, DiscoverySource.source_type)
+            .join(DiscoverySource, DiscoveredService.source_id == DiscoverySource.id)
+            .where(DiscoveredService.source_id == source_id)
+        )
     else:
-        stmt = select(DiscoveredService).join(
+        stmt = select(DiscoveredService, DiscoverySource.source_type).join(
             DiscoverySource, DiscoveredService.source_id == DiscoverySource.id
         )
         if not current_user.is_superadmin:
@@ -241,8 +303,26 @@ async def list_services(
     if status_filter is not None:
         stmt = stmt.where(DiscoveredService.status == status_filter)
 
-    rows = (await db.execute(stmt.order_by(DiscoveredService.last_seen_at.desc()))).scalars().all()
-    return list(rows)
+    rows = (await db.execute(stmt.order_by(DiscoveredService.last_seen_at.desc()))).all()
+
+    # One batched lookup for every suggested check_type in the page, instead
+    # of a query per row.
+    proposals = {
+        row.DiscoveredService.id: compute_proposal(row.DiscoveredService, row.source_type)
+        for row in rows
+    }
+    template_map = await suggest_alert_matrix_templates(
+        db, {p.check_type for p in proposals.values()}
+    )
+
+    return [
+        await _serialize_service(
+            row.DiscoveredService,
+            row.source_type,
+            template_map.get(proposals[row.DiscoveredService.id].check_type),
+        )
+        for row in rows
+    ]
 
 
 async def _get_visible_service(
@@ -250,7 +330,7 @@ async def _get_visible_service(
     user: User,
     db: AsyncSession,
     min_role: TeamRole = TeamRole.viewer,
-) -> DiscoveredService:
+) -> tuple[DiscoveredService, DiscoverySource]:
     service = (
         await db.execute(select(DiscoveredService).where(DiscoveredService.id == service_id))
     ).scalar_one_or_none()
@@ -264,48 +344,15 @@ async def _get_visible_service(
     if source is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
     await check_resource_access(source, user, db, min_role=min_role)
-    return service
+    return service, source
 
 
-async def _transition(
-    service_id: uuid.UUID,
-    new_status: str,
-    action: str,
-    current_user: User,
-    db: AsyncSession,
-) -> DiscoveredService:
-    service = await _get_visible_service(service_id, current_user, db, TeamRole.editor)
-    if service.status not in _TRANSITIONABLE_FROM:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"cannot {action} a service in status '{service.status}'",
-        )
-    service.status = new_status
-    service.status_changed_at = datetime.now(UTC)
-    await db.flush()
-    await db.refresh(service)
-
-    await log_action(
-        db,
-        f"discovery_service.{action}",
-        "discovered_service",
-        service.id,
-        service.normalized_target,
-        current_user,
+async def _respond(service: DiscoveredService, source: DiscoverySource, db: AsyncSession) -> dict:
+    proposal = compute_proposal(service, source.source_type)
+    template_map = await suggest_alert_matrix_templates(db, {proposal.check_type})
+    return await _serialize_service(
+        service, source.source_type, template_map.get(proposal.check_type)
     )
-    return service
-
-
-@services_router.post("/{service_id}/accept", response_model=DiscoveredServiceOut)
-@limiter.limit("30/minute")
-async def accept_service(
-    request: Request,
-    service_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> DiscoveredService:
-    """Mark a proposal accepted. Pure state transition — D-0 creates no ``Monitor``."""
-    return await _transition(service_id, "accepted", "accept", current_user, db)
 
 
 @services_router.post("/{service_id}/dismiss", response_model=DiscoveredServiceOut)
@@ -315,6 +362,195 @@ async def dismiss_service(
     service_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> DiscoveredService:
+) -> dict:
     """Reject a proposal. Memorised on the row — the reconciler (D-2) must not re-propose it."""
-    return await _transition(service_id, "dismissed", "dismiss", current_user, db)
+    service, source = await _get_visible_service(service_id, current_user, db, TeamRole.editor)
+    if service.status not in _TRANSITIONABLE_FROM:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"cannot dismiss a service in status '{service.status}'",
+        )
+    service.status = "dismissed"
+    service.status_changed_at = datetime.now(UTC)
+    await db.flush()
+    await db.refresh(service)
+
+    await log_action(
+        db,
+        "discovery_service.dismiss",
+        "discovered_service",
+        service.id,
+        service.normalized_target,
+        current_user,
+    )
+    return await _respond(service, source, db)
+
+
+@services_router.post("/{service_id}/accept", response_model=DiscoveredServiceOut)
+@limiter.limit("30/minute")
+async def accept_service(
+    request: Request,
+    service_id: uuid.UUID,
+    payload: DiscoveredServiceAcceptIn | None = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Accept a proposal.
+
+    Two shapes, both ending in ``status="accepted"`` (plan D, D-2):
+
+    - ``monitor_id`` already set (a matched proposal that was auto-linked to
+      an existing monitor at ingestion, or an ``orphaned`` row whose monitor
+      is still real) — just re-affirm the link, no new ``Monitor``.
+    - otherwise — a genuine new proposal: create the ``Monitor`` via the same
+      path as ``POST /monitors`` (``_create_monitor_from_payload``), prefilled
+      from the proposal and overridable by ``payload``, then link it.
+    """
+    service, source = await _get_visible_service(service_id, current_user, db, TeamRole.editor)
+    if service.status not in _TRANSITIONABLE_FROM:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"cannot accept a service in status '{service.status}'",
+        )
+
+    now = datetime.now(UTC)
+    diff: dict | None = None
+
+    if service.monitor_id is None:
+        # Same permission gate as POST /monitors — an editor of the
+        # discovery source must not bypass the monitor-creation restriction.
+        if not current_user.is_superadmin and not current_user.can_create_monitors:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Monitor creation not allowed for your account",
+            )
+        monitor = await _create_monitor_from_proposal(
+            db, service, source, payload or DiscoveredServiceAcceptIn(), current_user
+        )
+        service.monitor_id = monitor.id
+        diff = {"monitor_id": str(monitor.id)}
+
+    service.status = "accepted"
+    service.status_changed_at = now
+    await db.flush()
+    await db.refresh(service)
+
+    await log_action(
+        db,
+        "discovery_service.accept",
+        "discovered_service",
+        service.id,
+        service.normalized_target,
+        current_user,
+        diff=diff,
+    )
+    return await _respond(service, source, db)
+
+
+async def _create_monitor_from_proposal(
+    db: AsyncSession,
+    service: DiscoveredService,
+    source: DiscoverySource,
+    payload: DiscoveredServiceAcceptIn,
+    current_user: User,
+) -> Monitor:
+    """Build a ``MonitorCreate`` from the proposal + caller overrides and run
+    it through the exact same creation path as ``POST /monitors`` — imported
+    locally to avoid a module-level dependency from this router onto
+    ``monitors.crud``/``alerts`` (mirrors how ``monitors/crud.py`` itself
+    imports ``services.audit`` at point of use)."""
+    from whatisup.api.v1.monitors.crud import _create_monitor_from_payload
+    from whatisup.schemas.monitor import MonitorCreate
+
+    fields = default_monitor_fields(service, source)
+    overrides = payload.model_dump(
+        exclude_unset=True, exclude={"alert_matrix_template_id", "alert_channel_ids"}
+    )
+    new_check_type = overrides.get("check_type")
+    if new_check_type is not None and new_check_type != fields["check_type"]:
+        # The prefill's port field (if any) was computed for its *own*
+        # deduced check_type — it doesn't carry over to a different one.
+        # Recompute from the same observed port instead of dropping it.
+        for field in _PORT_OVERRIDE_FIELDS:
+            fields.pop(field, None)
+        new_port_field = port_field_for_check_type(new_check_type)
+        if new_port_field is not None:
+            fields[new_port_field] = service.port
+    fields.update(overrides)
+    if payload.alert_matrix_template_id is None:
+        fields["alert_channel_ids"] = payload.alert_channel_ids
+
+    monitor_create = MonitorCreate(**fields)
+
+    await assert_can_assign_group(db, current_user, monitor_create.group_id)
+    await assert_can_assign_team(db, current_user, monitor_create.team_id)
+
+    monitor = await _create_monitor_from_payload(db, current_user, monitor_create)
+
+    if payload.alert_matrix_template_id is not None:
+        await _apply_alert_matrix_template(
+            db, monitor, current_user, payload.alert_matrix_template_id, payload.alert_channel_ids
+        )
+
+    return monitor
+
+
+async def _apply_alert_matrix_template(
+    db: AsyncSession,
+    monitor: Monitor,
+    current_user: User,
+    template_id: uuid.UUID,
+    default_channel_ids: list[uuid.UUID],
+) -> None:
+    """Create one ``AlertRule`` per template row (plan D, D-2 §4).
+
+    A row that names its own ``channel_ids`` uses those; otherwise it falls
+    back to ``default_channel_ids``. A row that resolves to no channel at all
+    is skipped rather than failing the whole accept — applying a template is
+    a bonus on top of monitor creation, not a condition of it. Metric
+    conditions (`metric_above`/`below`/`absent`) never appear in a matrix
+    template — skipped the same way ``PUT /monitors/{id}/matrix`` rejects
+    them, since they need a `metric_name` a template can't supply.
+    """
+    from pydantic import ValidationError
+
+    from whatisup.api.v1.alerts import _MATRIX_RULE_FIELDS, _fetch_channels_by_ids
+    from whatisup.models.alert import AlertRule
+    from whatisup.models.alert_matrix_template import AlertMatrixTemplate
+    from whatisup.schemas.alert import METRIC_CONDITIONS, AlertMatrixRow
+
+    tpl = (
+        await db.execute(select(AlertMatrixTemplate).where(AlertMatrixTemplate.id == template_id))
+    ).scalar_one_or_none()
+    if tpl is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Alert matrix template not found"
+        )
+
+    all_channel_ids: set[uuid.UUID] = set(default_channel_ids)
+    for raw_row in tpl.rows:
+        all_channel_ids.update(uuid.UUID(str(cid)) for cid in raw_row.get("channel_ids") or [])
+    channels_by_id = {
+        c.id: c for c in await _fetch_channels_by_ids(db, current_user, all_channel_ids)
+    }
+
+    for raw_row in tpl.rows:
+        if raw_row.get("condition") in METRIC_CONDITIONS:
+            continue
+        row_channel_ids = raw_row.get("channel_ids") or [str(cid) for cid in default_channel_ids]
+        try:
+            # Template rows are admin-authored free-form dicts (no schema
+            # enforced at template-creation time) — an unrecognised key must
+            # not 500 the whole accept, just skip that one row.
+            row = AlertMatrixRow.model_validate({**raw_row, "channel_ids": row_channel_ids})
+        except ValidationError:
+            continue
+        resolved = [channels_by_id[cid] for cid in row.channel_ids if cid in channels_by_id]
+        if not resolved:
+            continue
+        rule = AlertRule(owner_id=current_user.id, monitor_id=monitor.id, condition=row.condition)
+        for field in _MATRIX_RULE_FIELDS:
+            setattr(rule, field, getattr(row, field))
+        rule.channels = resolved
+        db.add(rule)
+    await db.flush()

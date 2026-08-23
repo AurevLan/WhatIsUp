@@ -144,7 +144,7 @@
 > devient un capteur d'inventaire (Docker, scan de port borné, plus tard DNS) ; les services vus sont
 > **proposés**, jamais créés en monitor de façon silencieuse.
 
-- 🚧 **D-0 — Cadrage + modèle** (serveur uniquement, pas encore de sonde ni d'UI) — tables
+- ✅ **D-0 — Cadrage + modèle** (serveur uniquement, pas encore de sonde ni d'UI) — tables
   `discovery_sources` (config : `owner_id`/`team_id` nullable, `probe_id`, `source_type ∈ {docker,
   port_scan}` validé côté Pydantic — pas d'enum PostgreSQL, `params` JSONB, `enabled`) et
   `discovered_services` (une ligne par service unique d'une source, `normalized_target` indexé
@@ -175,7 +175,31 @@
   `normalized_target` (`proto://host:port`, host en minuscules) toujours recalculé côté serveur,
   jamais de confiance dans une forme envoyée par la sonde ; `status` jamais touché par un push (un
   service `dismissed` re-poussé reste `dismissed`). Pas de réconciliation ici (D-2).
-- ⬜ D-2 — réconciliation serveur, pré-remplissage de proposition, accept → création de monitor
+- ✅ **D-2 — Réconciliation serveur + propositions** — `services/discovery.py`, branché depuis
+  `push_discovery` juste après le stockage du snapshot, même transaction. Matching : une cible
+  découverte dont le `normalized_target` équivaut à celui d'un monitor existant du propriétaire/team
+  de la source (`monitor_network_target` — dérivé de `check_type`/`url`/`tcp_port`/`udp_port`/
+  `smtp_port`, jamais cross-tenant) est liée directement (`status="accepted"` + `monitor_id`) au lieu
+  d'être proposée ; `dns`/`ping`/`domain_expiry`/`heartbeat`/`composite` exclus du matching (pas de
+  cible réseau comparable — un défaut de port sur ces types collisionnerait à tort). Disparition :
+  `proposed` jamais accepté et absent du dernier snapshot → supprimé ; `accepted` absent → `orphaned`
+  (le monitor reste réel) ; `dismissed` intouché (le refus reste mémorisé, jamais re-proposé, y
+  compris à la disparition). Réapparition : `orphaned` revu dans un snapshot → re-`accepted`, même
+  `monitor_id`. Pré-remplissage (jamais stocké, recalculé à la lecture) exposé sur
+  `DiscoveredServiceOut` : `suggested_check_type` (443/80/8080/8443/8000→http, 25/465/587→smtp,
+  53→dns, défaut tcp/udp selon le proto observé), `suggested_name`/`suggested_group`/`suggested_tags`
+  (depuis les hints Docker — `container_name`/`image`, labels `com.docker.compose.project`/`.service`),
+  `suggested_alert_matrix_template_id` (meilleur `AlertMatrixTemplate` pour ce check_type). Accept
+  (`POST /discovery/services/{id}/accept`) crée réellement le `Monitor` — via la même fonction que
+  `POST /monitors` (`_create_monitor_from_payload`, factorisée hors de l'endpoint CRUD : chiffrement
+  `custom_headers`, audit `monitor.create`, wiring d'alertes par défaut inchangés), pré-rempli et
+  surchargeable champ par champ par l'appelant ; applique en plus une `AlertMatrixTemplate` complète si
+  `alert_matrix_template_id` est fourni (une règle par ligne de template, canal de repli
+  `alert_channel_ids` si la ligne n'en nomme pas, lignes non résolvables ou conditions métrique
+  ignorées plutôt que d'échouer tout l'accept). Un service déjà lié (`monitor_id` non nul — matché à
+  l'ingestion, ou `orphaned` dont le monitor est toujours réel) ré-affirme le lien sans jamais créer un
+  second monitor. Même garde `can_create_monitors`/superadmin que `POST /monitors` — un éditeur de
+  source ne peut pas contourner la restriction de création.
 - ⬜ D-3 — UI de revue des propositions + badge orphelin
 - ⬜ D-4 — dérive continue, source `dns_zone`, finitions
 

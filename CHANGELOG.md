@@ -19,6 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`discovery_capabilities` déclarées par la sonde, `discovery_sources` distribuées par le serveur),
   push `POST /probes/discovery` (snapshot borné, scope-bindé, upsert idempotent sans jamais toucher
   `status`)
+* **discovery:** réconciliation serveur et propositions pré-remplies (plan D, D-2) — `services/discovery.py`
+  branché depuis `push_discovery` : matching cible découverte ↔ monitor existant (lien direct, jamais
+  cross-tenant), transitions `proposed`→disparu, `accepted`↔`orphaned` sur (dis)parition,
+  `dismissed` jamais re-proposé ; pré-remplissage (`suggested_check_type`/`name`/`group`/`tags`/
+  `alert_matrix_template_id`) exposé sur la liste des services découverts ; `POST
+  /discovery/services/{id}/accept` crée désormais réellement le `Monitor` via la logique de création
+  CRUD existante, surchargeable par l'appelant, avec application optionnelle d'une `AlertMatrixTemplate`
 
 ## [1.22.0](https://github.com/AurevLan/WhatIsUp/compare/v1.21.0...v1.22.0) (2026-08-09)
 

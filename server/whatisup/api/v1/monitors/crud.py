@@ -205,23 +205,18 @@ async def list_monitors(
     return out
 
 
-@router.post("/", response_model=MonitorOut, status_code=status.HTTP_201_CREATED)
-@limiter.limit("10/minute")
-async def create_monitor(
-    request: Request,
-    payload: MonitorCreate,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+async def _create_monitor_from_payload(
+    db: AsyncSession, current_user: User, payload: MonitorCreate
 ) -> Monitor:
-    if not current_user.is_superadmin and not current_user.can_create_monitors:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Monitor creation not allowed for your account",
-        )
-    # SEC-M1: a user must not attach a monitor to a group/team they cannot access.
-    await assert_can_assign_group(db, current_user, payload.group_id)
-    await assert_can_assign_team(db, current_user, payload.team_id)
+    """Shared creation body — the CRUD endpoint below and discovery's accept
+    flow (`api/v1/discovery.py`, plan D, D-2) both funnel through this: tag
+    resolution, encryption (`custom_headers`/`scenario_variables`), the
+    heartbeat-slug conflict, default alert-preset wiring, and the audit log.
 
+    Callers own their own permission checks first — `can_create_monitors`
+    and `assert_can_assign_group`/`assert_can_assign_team` — this function
+    assumes they already passed.
+    """
     tags = []
     if payload.tag_ids:
         tags_result = await db.execute(select(Tag).where(Tag.id.in_(payload.tag_ids)))
@@ -335,6 +330,26 @@ async def create_monitor(
     await log_action(db, "monitor.create", "monitor", monitor.id, monitor.name, current_user)
 
     return monitor
+
+
+@router.post("/", response_model=MonitorOut, status_code=status.HTTP_201_CREATED)
+@limiter.limit("10/minute")
+async def create_monitor(
+    request: Request,
+    payload: MonitorCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Monitor:
+    if not current_user.is_superadmin and not current_user.can_create_monitors:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Monitor creation not allowed for your account",
+        )
+    # SEC-M1: a user must not attach a monitor to a group/team they cannot access.
+    await assert_can_assign_group(db, current_user, payload.group_id)
+    await assert_can_assign_team(db, current_user, payload.team_id)
+
+    return await _create_monitor_from_payload(db, current_user, payload)
 
 
 @router.post("/bulk", response_model=BulkActionResponse)

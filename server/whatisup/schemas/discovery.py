@@ -150,4 +150,45 @@ class DiscoveredServiceOut(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+    # Pre-filled proposal (plan D, D-2) — never stored, always recomputed from
+    # `hints`/`port`/`proto` at serialization time by `services/discovery.py`.
+    # Advisory only: accept() applies them only where the caller didn't
+    # override the corresponding field.
+    suggested_check_type: str
+    suggested_name: str
+    suggested_group: str | None
+    suggested_tags: list[str]
+    suggested_alert_matrix_template_id: uuid.UUID | None
+
     model_config = {"from_attributes": True}
+
+
+class DiscoveredServiceAcceptIn(BaseModel):
+    """Overrides for the monitor D-2's accept() creates from a proposal.
+
+    Every field is optional and, when omitted, falls back to the prefill
+    computed from the service's `hints`/`port`/`proto` (see
+    `services/discovery.py::default_monitor_fields`) — "l'appelant peut
+    surcharger les champs pré-remplis" (plan_discovery.md, D-2 §3).
+    """
+
+    model_config = {"extra": "forbid"}
+
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    check_type: str | None = Field(
+        default=None,
+        pattern=r"^(http|tcp|udp|dns|keyword|json_path|scenario|heartbeat|smtp|ping|domain_expiry|composite)$",
+    )
+    group_id: uuid.UUID | None = None
+    team_id: uuid.UUID | None = None
+    tag_ids: list[uuid.UUID] = Field(default_factory=list)
+    interval_seconds: int = Field(default=60, ge=5, le=86400)
+    # Auto-create default single-condition alert rules (existing CRUD path,
+    # `create_monitor`'s `alert_channel_ids`) — ignored when
+    # `alert_matrix_template_id` is set, see `apply the AlertMatrixTemplate`
+    # branch instead (a monitor must not get both a default preset rule *and*
+    # the matching template row for the same condition).
+    alert_channel_ids: list[uuid.UUID] = Field(default_factory=list)
+    # When set, `alert_channel_ids` is used as the fallback channel list for
+    # any template row that doesn't name its own `channel_ids`.
+    alert_matrix_template_id: uuid.UUID | None = None

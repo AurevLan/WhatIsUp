@@ -48,6 +48,7 @@ from whatisup.schemas.probe import (
     ProbeUpdate,
 )
 from whatisup.services.diagnostics import drain_pending_diagnostics
+from whatisup.services.discovery import reconcile_source_push
 from whatisup.services.incident import process_check_result
 
 logger = structlog.get_logger(__name__)
@@ -515,6 +516,12 @@ async def push_discovery(
             existing.hints = hints
 
         accepted += 1
+
+    # plan D, D-2 — turn this snapshot into reviewable state: match new
+    # proposals against the owner's existing monitors, orphan/drop what's
+    # missing, reactivate what reappeared. Same transaction as the upsert
+    # loop above, still before commit.
+    await reconcile_source_push(db, source, seen_targets, now)
 
     await db.commit()
     return {"accepted": accepted}

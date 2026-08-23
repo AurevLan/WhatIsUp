@@ -172,7 +172,10 @@ async def test_host_names_normalized_lowercase(monkeypatch) -> None:
 
     items = await DnsZoneDiscoverySource().run({"zone": "example.com", "resolver": "10.0.0.1"})
     hosts = {item.host for item in items}
-    assert "uppercase.example.com" in hosts
+    # Exact-equality membership spelled out — CodeQL's
+    # py/incomplete-url-substring-sanitization misreads a bare
+    # `"name" in hosts` as URL substring matching (false positive).
+    assert any(h == "uppercase.example.com" for h in hosts)
     assert not any(h != h.lower() for h in hosts)
 
 

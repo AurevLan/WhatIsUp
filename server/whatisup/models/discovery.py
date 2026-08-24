@@ -135,6 +135,15 @@ class DiscoveredService(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # service that is now `accepted` would misreport why it's in the review
     # queue.
     dismissed_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Captured by dismiss() (D-4) from a stable subset of `hints` at the
+    # moment of the refusal — never recomputed from the live row, because
+    # ingestion refreshes `hints` in place on every push (see
+    # `api/v1/probes.py::push_discovery`) and would otherwise erase the
+    # baseline the reconciler needs to detect drift. NULL for rows dismissed
+    # before D-4 (or never dismissed): the reconciler treats that as "nothing
+    # to compare against", never as a silent re-proposition. See
+    # `services/discovery.py::dismissal_fingerprint`.
+    dismissed_fingerprint: Mapped[str | None] = mapped_column(String(32), nullable=True)
     first_seen_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
     )

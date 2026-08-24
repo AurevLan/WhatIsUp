@@ -37,7 +37,11 @@ from whatisup.models.discovery import DiscoveredService, DiscoverySource
 from whatisup.models.monitor import Monitor
 from whatisup.models.probe import Probe
 from whatisup.models.user import User
-from whatisup.services.discovery import deduce_check_type, default_monitor_fields
+from whatisup.services.discovery import (
+    deduce_check_type,
+    default_monitor_fields,
+    dismissal_fingerprint,
+)
 
 TEST_PASSWORD = "TestPassword123!"
 _PROBE_KEY = "wiu_test_reconcile_probe_key"
@@ -364,6 +368,148 @@ async def test_dismissed_survives_disappearance_and_reappearance(
     assert service.status == "dismissed"
 
 
+# ── Dismissed drift re-proposition (plan D, D-4) ─────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_dismissed_fingerprint_unchanged_keeps_dismissed(
+    client: AsyncClient, user_token: str, db_session: AsyncSession, source: DiscoverySource
+) -> None:
+    hints = {"image": "nginx:1.25", "container_name": "web-1"}
+    push = await _push(
+        client, source.id, [{"host": "10.0.0.50", "port": 8080, "proto": "tcp", "hints": hints}]
+    )
+    assert push.status_code == 202
+    service = (await _services_of(db_session, source.id))[0]
+
+    dismiss = await client.post(
+        f"/api/v1/discovery/services/{service.id}/dismiss",
+        json={"reason": "decommissioned"},
+        headers=_auth(user_token),
+    )
+    assert dismiss.status_code == 200
+    assert dismiss.json()["dismissed_fingerprint"] is not None
+
+    # Re-push with the exact same stable hints — the refusal must hold.
+    second = await _push(
+        client, source.id, [{"host": "10.0.0.50", "port": 8080, "proto": "tcp", "hints": hints}]
+    )
+    assert second.status_code == 202
+    await db_session.refresh(service)
+    assert service.status == "dismissed"
+    assert service.dismissed_reason == "decommissioned"
+
+
+@pytest.mark.asyncio
+async def test_dismissed_reopens_when_image_changes(
+    client: AsyncClient, user_token: str, db_session: AsyncSession, source: DiscoverySource
+) -> None:
+    push = await _push(
+        client,
+        source.id,
+        [{"host": "10.0.0.51", "port": 8080, "proto": "tcp", "hints": {"image": "nginx:1.25"}}],
+    )
+    assert push.status_code == 202
+    service = (await _services_of(db_session, source.id))[0]
+
+    dismiss = await client.post(
+        f"/api/v1/discovery/services/{service.id}/dismiss",
+        json={"reason": "not needed"},
+        headers=_auth(user_token),
+    )
+    assert dismiss.status_code == 200
+
+    # Same target, different image — a redeploy changed what's actually there.
+    second = await _push(
+        client,
+        source.id,
+        [{"host": "10.0.0.51", "port": 8080, "proto": "tcp", "hints": {"image": "postgres:16"}}],
+    )
+    assert second.status_code == 202
+    await db_session.refresh(service)
+    assert service.status == "proposed"
+    assert service.dismissed_reason is None
+    assert service.dismissed_fingerprint is None
+
+
+@pytest.mark.asyncio
+async def test_dismissed_ignores_volatile_hint_drift(
+    client: AsyncClient, user_token: str, db_session: AsyncSession, source: DiscoverySource
+) -> None:
+    """`http_status` is not in the stable fingerprint subset — it churns on
+    its own and must never reopen a dismissed service by itself."""
+    push = await _push(
+        client,
+        source.id,
+        [
+            {
+                "host": "10.0.0.52",
+                "port": 8080,
+                "proto": "tcp",
+                "hints": {"image": "nginx:1.25", "http_status": 200},
+            }
+        ],
+    )
+    assert push.status_code == 202
+    service = (await _services_of(db_session, source.id))[0]
+
+    dismiss = await client.post(
+        f"/api/v1/discovery/services/{service.id}/dismiss", headers=_auth(user_token)
+    )
+    assert dismiss.status_code == 200
+
+    second = await _push(
+        client,
+        source.id,
+        [
+            {
+                "host": "10.0.0.52",
+                "port": 8080,
+                "proto": "tcp",
+                "hints": {"image": "nginx:1.25", "http_status": 500},
+            }
+        ],
+    )
+    assert second.status_code == 202
+    await db_session.refresh(service)
+    assert service.status == "dismissed"
+
+
+@pytest.mark.asyncio
+async def test_dismissed_pre_d4_never_reopened(
+    client: AsyncClient, db_session: AsyncSession, source: DiscoverySource
+) -> None:
+    """A row dismissed before this column existed has `dismissed_fingerprint`
+    NULL — the reconciler must never re-propose it based on a baseline that
+    was never actually captured."""
+    now = datetime.now(UTC)
+    service = DiscoveredService(
+        source_id=source.id,
+        host="10.0.0.53",
+        port=8080,
+        proto="tcp",
+        normalized_target="tcp://10.0.0.53:8080",
+        status="dismissed",
+        hints={"image": "nginx:1.25"},
+        dismissed_fingerprint=None,
+        first_seen_at=now,
+        last_seen_at=now,
+        status_changed_at=now,
+    )
+    db_session.add(service)
+    await db_session.flush()
+    await db_session.commit()
+
+    push = await _push(
+        client,
+        source.id,
+        [{"host": "10.0.0.53", "port": 8080, "proto": "tcp", "hints": {"image": "postgres:16"}}],
+    )
+    assert push.status_code == 202
+    await db_session.refresh(service)
+    assert service.status == "dismissed"
+
+
 # ── check_type deduction ──────────────────────────────────────────────────────
 
 
@@ -387,6 +533,35 @@ async def test_dismissed_survives_disappearance_and_reappearance(
 )
 def test_deduce_check_type(port: int | None, proto: str, expected: str) -> None:
     assert deduce_check_type(port, proto) == expected
+
+
+# ── dismissal_fingerprint (plan D, D-4) ──────────────────────────────────────
+
+
+def test_dismissal_fingerprint_stable_across_key_order() -> None:
+    a = dismissal_fingerprint({"image": "nginx:1.25", "container_name": "web-1"})
+    b = dismissal_fingerprint({"container_name": "web-1", "image": "nginx:1.25"})
+    assert a == b
+
+
+def test_dismissal_fingerprint_changes_with_stable_key() -> None:
+    a = dismissal_fingerprint({"image": "nginx:1.25"})
+    b = dismissal_fingerprint({"image": "postgres:16"})
+    assert a != b
+
+
+def test_dismissal_fingerprint_ignores_non_stable_keys() -> None:
+    a = dismissal_fingerprint({"image": "nginx:1.25", "http_status": 200, "labels": {"x": "y"}})
+    b = dismissal_fingerprint({"image": "nginx:1.25", "http_status": 500, "labels": {}})
+    assert a == b
+
+
+def test_dismissal_fingerprint_of_empty_hints_is_deterministic() -> None:
+    """`port_scan` never reports any of the stable keys — its dismissals
+    always hash the same empty subset, which is the correct behaviour (no
+    baseline ever drifts) rather than an error case."""
+    assert dismissal_fingerprint({}) == dismissal_fingerprint({})
+    assert dismissal_fingerprint({}) == dismissal_fingerprint({"http_status": 200})
 
 
 # ── accept() creates a Monitor via the CRUD path ─────────────────────────────

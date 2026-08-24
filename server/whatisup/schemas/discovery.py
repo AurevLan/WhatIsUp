@@ -11,13 +11,14 @@ an update that only touches ``params`` still needs the *existing* source's
 from __future__ import annotations
 
 import ipaddress
+import re
 import uuid
 from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-SourceType = Literal["docker", "port_scan"]
+SourceType = Literal["docker", "port_scan", "dns_zone"]
 
 #: Shared bound on a free-text dismissal reason — long enough for a real
 #: explanation, short enough to stay a column, not a text blob.
@@ -57,6 +58,58 @@ class _DockerParams(BaseModel):
     model_config = {"extra": "forbid"}
 
 
+#: A syntactically valid DNS name: labels of 1-63 chars (letters, digits,
+#: hyphen, no leading/trailing hyphen), at least two labels (a bare TLD is
+#: not a zone anyone can transfer), overall <= 253 chars, optional trailing
+#: dot. Deliberately permissive on charset beyond that — this only guards
+#: against garbage input, `dns.query.xfr` is what actually talks to the wire.
+_ZONE_RE = re.compile(
+    r"^(?=.{1,253}\.?$)(?!-)[A-Za-z0-9-]{1,63}(?<!-)(\.(?!-)[A-Za-z0-9-]{1,63}(?<!-)){1,}\.?$"
+)
+
+#: Record types this source knows how to turn into a `DiscoveredItem` —
+#: mirrors `probe/whatisup_probe/discovery/dns_zone.py`'s own default.
+_DNS_ZONE_RECORD_TYPES = ("A", "AAAA", "CNAME")
+
+
+class _DnsZoneParams(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    zone: str
+    # IP literal only, never a hostname (plan_discovery.md D-4: "pour rester
+    # dans le modèle « déclaré »") — a hostname resolver would let the
+    # *nameserver itself* be picked adversarially at run time, defeating the
+    # point of declaring a fixed target up front. The probe still runs it
+    # through `_ssrf_resolve_pinned_sync` before connecting (defense in
+    # depth, same posture as `port_scan`'s re-validation of its own bounds).
+    resolver: str
+    record_types: list[Literal["A", "AAAA", "CNAME"]] = Field(
+        default_factory=lambda: list(_DNS_ZONE_RECORD_TYPES),
+        min_length=1,
+        max_length=len(_DNS_ZONE_RECORD_TYPES),
+    )
+
+    @model_validator(mode="after")
+    def _validate(self) -> _DnsZoneParams:
+        self.zone = self.zone.strip().rstrip(".").lower()
+        if not self.zone or not _ZONE_RE.match(self.zone):
+            raise ValueError(f"invalid zone '{self.zone}': not a syntactically valid domain name")
+        try:
+            ipaddress.ip_address(self.resolver)
+        except ValueError as exc:
+            raise ValueError(
+                f"resolver must be an IP literal, not a hostname: {self.resolver!r}"
+            ) from exc
+        # Dedup while preserving order — a repeated type in the request is a
+        # client mistake, not something worth 422ing over.
+        seen: list[str] = []
+        for record_type in self.record_types:
+            if record_type not in seen:
+                seen.append(record_type)
+        self.record_types = seen  # type: ignore[assignment]
+        return self
+
+
 def validate_discovery_params(source_type: str, params: dict) -> dict:
     """Validate and normalize ``params`` for a given ``source_type``.
 
@@ -68,6 +121,8 @@ def validate_discovery_params(source_type: str, params: dict) -> dict:
         return {}
     if source_type == "port_scan":
         return _PortScanParams.model_validate(params).model_dump()
+    if source_type == "dns_zone":
+        return _DnsZoneParams.model_validate(params).model_dump()
     raise ValueError(f"unknown source_type '{source_type}'")
 
 
@@ -149,6 +204,11 @@ class DiscoveredServiceOut(BaseModel):
     hints: dict
     status: str
     dismissed_reason: str | None
+    # plan D, D-4 — internal bookkeeping (the baseline `reconcile_source_push`
+    # diffs a re-pushed `dismissed` row against). Not rendered anywhere in
+    # the UI; exposed here mainly for tests/debugging, same reasoning as
+    # `status_changed_at`.
+    dismissed_fingerprint: str | None
     first_seen_at: datetime
     last_seen_at: datetime
     status_changed_at: datetime

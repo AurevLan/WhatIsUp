@@ -6,6 +6,7 @@ import pytest
 
 from whatisup_probe.discovery import REGISTRY, capability_report, run_source
 from whatisup_probe.discovery.base import BaseDiscoverySource
+from whatisup_probe.discovery.dns_zone import DnsZoneDiscoverySource
 from whatisup_probe.discovery.docker import DockerDiscoverySource
 from whatisup_probe.discovery.port_scan import PortScanDiscoverySource
 
@@ -13,7 +14,7 @@ pytestmark = pytest.mark.asyncio
 
 
 def test_registry_contains_all_builtin_source_types() -> None:
-    assert set(REGISTRY.keys()) == {"docker", "port_scan"}
+    assert set(REGISTRY.keys()) == {"docker", "port_scan", "dns_zone"}
 
 
 def test_all_sources_inherit_from_base() -> None:
@@ -26,6 +27,7 @@ def test_all_sources_inherit_from_base() -> None:
 def test_registry_instances_are_the_expected_classes() -> None:
     assert isinstance(REGISTRY["docker"], DockerDiscoverySource)
     assert isinstance(REGISTRY["port_scan"], PortScanDiscoverySource)
+    assert isinstance(REGISTRY["dns_zone"], DnsZoneDiscoverySource)
 
 
 async def test_run_source_unknown_type_returns_empty() -> None:
@@ -50,9 +52,10 @@ async def test_capability_report_reflects_each_source(monkeypatch) -> None:
 
     monkeypatch.setattr(DockerDiscoverySource, "capability_available", always_false)
     monkeypatch.setattr(PortScanDiscoverySource, "capability_available", always_true)
+    monkeypatch.setattr(DnsZoneDiscoverySource, "capability_available", always_true)
 
     report = await capability_report()
-    assert report == {"docker": False, "port_scan": True}
+    assert report == {"docker": False, "port_scan": True, "dns_zone": True}
 
 
 async def test_capability_report_survives_a_broken_source(monkeypatch) -> None:

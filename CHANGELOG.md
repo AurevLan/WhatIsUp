@@ -32,6 +32,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   unitaire, échecs rapportés par id ; vue `DiscoveryView.vue` (CRUD sources + revue en masse des
   propositions, formulaire de source limité aux capacités déclarées par la sonde) ; badge « orphelin »
   sur `MonitorsView`/`MonitorDetailView`
+* **discovery:** dérive continue, source `dns_zone` et finitions (plan D, D-4) — `dismissed_fingerprint`
+  sur `discovered_services` (empreinte des hints stables — image docker, container_name, server_header —
+  capturée au dismiss) : un service refusé dont la nature observée change à la ré-apparition (redéploiement
+  sur un autre conteneur, même cible réseau) est re-proposé, un refus dont la nature n'a pas changé tient ;
+  nouvelle source de découverte `dns_zone` (transfert de zone AXFR vers un résolveur déclaré par IP,
+  jamais de scan de repli en cas de refus, cap d'enregistrements côté sonde) côté sonde
+  (`probe/whatisup_probe/discovery/dns_zone.py`), serveur (validation `zone`/`resolver`/`record_types`)
+  et UI (`DiscoverySourceModal.vue`) ; bloc opt-in commenté pour le montage `:ro` du socket Docker dans
+  `docker-compose.yml` ; ce lot solde le chantier D (découverte par la sonde)
 
 ## [1.22.0](https://github.com/AurevLan/WhatIsUp/compare/v1.21.0...v1.22.0) (2026-08-09)
 

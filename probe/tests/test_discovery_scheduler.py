@@ -35,10 +35,10 @@ def _source(
 
 @pytest.fixture(autouse=True)
 def _capabilities_available(monkeypatch):
-    """Default: both known source types report as available."""
+    """Default: every known source type reports as available."""
     monkeypatch.setattr(
         "whatisup_probe.scheduler.capability_report",
-        AsyncMock(return_value={"docker": True, "port_scan": True}),
+        AsyncMock(return_value={"docker": True, "port_scan": True, "dns_zone": True}),
     )
 
 
@@ -143,7 +143,7 @@ async def test_heartbeat_request_carries_discovery_capabilities() -> None:
 
     assert route.called
     body = json.loads(route.calls[0].request.content)
-    assert body["discovery_capabilities"] == ["docker", "port_scan"]
+    assert body["discovery_capabilities"] == ["dns_zone", "docker", "port_scan"]
 
 
 # ── _run_discovery_source ─────────────────────────────────────────────────────

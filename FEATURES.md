@@ -140,9 +140,9 @@
 
 ### Découverte (plan D)
 
-> Chantier en cours — `plan_discovery.md`. Objectif : une sonde déjà déployée dans le réseau du client
-> devient un capteur d'inventaire (Docker, scan de port borné, plus tard DNS) ; les services vus sont
-> **proposés**, jamais créés en monitor de façon silencieuse.
+> Chantier terminé (D-0 → D-4) — `plan_discovery.md`. Objectif : une sonde déjà déployée dans le réseau
+> du client devient un capteur d'inventaire (Docker, scan de port borné, zone DNS via AXFR) ; les services
+> vus sont **proposés**, jamais créés en monitor de façon silencieuse.
 
 - ✅ **D-0 — Cadrage + modèle** (serveur uniquement, pas encore de sonde ni d'UI) — tables
   `discovery_sources` (config : `owner_id`/`team_id` nullable, `probe_id`, `source_type ∈ {docker,
@@ -224,7 +224,36 @@
   Design system : `.badge-*` tokenisés (pas de `StatusBadge` — le statut d'un `DiscoveredService`
   n'est pas celui d'un monitor), `.btn-icon`/`.btn-sm`, responsive cartes `md:hidden` + table
   `hidden md:table` (pattern `MonitorsView`).
-- ⬜ D-4 — dérive continue, source `dns_zone`, finitions
+- ✅ **D-4 — dérive continue, source `dns_zone`, finitions** — colonne `dismissed_fingerprint`
+  (String(32) nullable) sur `discovered_services` : capturée par `dismiss()` (unitaire et bulk, même
+  fonction `_dismiss_row`) à partir de `dismissal_fingerprint(hints)` — sha256 tronqué (même recette que
+  `series_hash` de C-1) du JSON canonique clés triées d'un sous-ensemble **stable et documenté** des
+  hints (`image`, `container_name`, `server_header` — jamais une valeur volatile comme `http_status` ou
+  un label arbitraire). Capturée au moment du refus, jamais relue plus tard : l'ingestion D-1 rafraîchit
+  `hints` en place à chaque push, donc l'empreinte de référence doit être figée avant que la ligne ne
+  bouge. `reconcile_source_push` (D-2) gagne une transition : un `dismissed` toujours présent dans le
+  snapshot dont l'empreinte courante diffère de `dismissed_fingerprint` repasse `proposed` (raison et
+  empreinte vidées) — la nature du service a changé sous la même cible (ex. conteneur redéployé depuis
+  une autre image sur le même port publié), le refus initial ne le concernait plus. Empreinte identique →
+  refus intouché. `dismissed_fingerprint` NULL (lignes d'avant D-4, ou jamais dismissed) → intouché,
+  jamais de re-proposition rétroactive silencieuse sur une ligne sans baseline capturée. Nouvelle source
+  `dns_zone` (décision D-0-2) : transfert de zone AXFR contre un résolveur **déclaré par IP littérale**
+  (jamais un nom d'hôte — le résolveur est la cible déclarée, en choisir un autre au runtime viderait le
+  principe), `record_types` optionnel (sous-ensemble de A/AAAA/CNAME, défaut les trois), validation
+  serveur (`schemas/discovery.py::_DnsZoneParams` — zone syntaxiquement valide ≥2 labels, resolver IP,
+  types connus). Côté sonde (`probe/whatisup_probe/discovery/dns_zone.py`, registre existant) : AXFR
+  bloquant lancé dans l'executor (jamais sur la boucle asyncio), `relativize=False` de bout en bout pour
+  lire des noms absolus sans reconstruction ; refus/échec du transfert → snapshot vide + log, **aucun
+  fallback de scan** ; résolveur passé par `_ssrf_resolve_pinned_sync` avant toute connexion ; chaque
+  enregistrement produit un `DiscoveredItem` (host = nom en minuscules sans point final, port `None`,
+  proto `tcp`, hints `{record_type, value}`), plafonné à 500 enregistrements/run (même esprit que le cap
+  services de D-1). `capability_available()` reflète simplement la présence de `dnspython` (dépendance
+  inconditionnelle de la sonde depuis le checker `dns`). Heartbeat/ingestion inchangés : le canal est déjà
+  générique par `source_type`, aucun code n'a eu besoin de connaître `dns_zone` explicitement. UI :
+  `DiscoverySourceModal.vue` gagne le type (champs zone/résolveur/cases à cocher record_types), offert
+  uniquement si la sonde le déclare (mécanique capabilities déjà en place), i18n en+fr. Finitions :
+  bloc opt-in commenté dans `docker-compose.yml` pour le montage `:ro` du socket Docker (toujours
+  **absent par défaut**), section README « Automatic discovery ». Chantier D **complet**.
 
 ---
 

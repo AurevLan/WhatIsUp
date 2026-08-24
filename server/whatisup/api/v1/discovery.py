@@ -58,6 +58,7 @@ from whatisup.services.audit import log_action
 from whatisup.services.discovery import (
     compute_proposal,
     default_monitor_fields,
+    dismissal_fingerprint,
     port_field_for_check_type,
     suggest_alert_matrix_templates,
 )
@@ -256,6 +257,7 @@ _BASE_SERVICE_FIELDS = (
     "hints",
     "status",
     "dismissed_reason",
+    "dismissed_fingerprint",
     "first_seen_at",
     "last_seen_at",
     "status_changed_at",
@@ -383,6 +385,10 @@ async def _dismiss_row(
     ``_assert_transitionable``."""
     service.status = "dismissed"
     service.dismissed_reason = reason
+    # plan D, D-4 — frozen now, not recomputed later: ingestion refreshes
+    # `hints` in place on every push, so the baseline the reconciler diffs
+    # against has to be captured at the exact moment of the refusal.
+    service.dismissed_fingerprint = dismissal_fingerprint(service.hints)
     service.status_changed_at = datetime.now(UTC)
     await db.flush()
     await db.refresh(service)
@@ -440,6 +446,7 @@ async def _accept_row(
     # invariant true even if that ever changes (plan_discovery.md D-3 §1:
     # "vidé si le service redevient autre chose que dismissed").
     service.dismissed_reason = None
+    service.dismissed_fingerprint = None
     service.status = "accepted"
     service.status_changed_at = now
     await db.flush()

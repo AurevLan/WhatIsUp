@@ -226,6 +226,14 @@ services:
     dns:
       - ${PROBE_DNS_1:-8.8.8.8}
       - ${PROBE_DNS_2:-8.8.4.4}
+    # Opt-in discovery source "docker" (plan D) — commented out on purpose.
+    # Mounting the Docker socket grants this container read access to every
+    # container on the host (image, name, labels, published ports): treat it
+    # as a privileged capability, not a default. Never enable it unless you
+    # actually intend to run a `docker` discovery source on this probe. See
+    # README.md § Automatic discovery / plan_discovery.md § Sécurité.
+    # volumes:
+    #   - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - frontend
     depends_on:

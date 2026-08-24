@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.23.0](https://github.com/AurevLan/WhatIsUp/compare/v1.22.0...v1.23.0) (2026-08-24)
+
+
+### Added
+
+* **discovery:** dérive continue, source dns_zone et finitions (plan D, D-4) ([#373](https://github.com/AurevLan/WhatIsUp/issues/373)) ([f6beb58](https://github.com/AurevLan/WhatIsUp/commit/f6beb584dffc3ef79209d433de34f7431cb71132))
+* **discovery:** modèle et CRUD des sources de découverte (plan D, D-0) ([#368](https://github.com/AurevLan/WhatIsUp/issues/368)) ([7f3ed96](https://github.com/AurevLan/WhatIsUp/commit/7f3ed96f2caf51c67c3b03578006d2393ccc02ec))
+* **discovery:** moteur de découverte côté sonde — docker + port_scan (plan D, D-1) ([#369](https://github.com/AurevLan/WhatIsUp/issues/369)) ([d1289fd](https://github.com/AurevLan/WhatIsUp/commit/d1289fdc426025b71a34d7a4a8483dca438dcb2d))
+* **discovery:** réconciliation serveur et propositions pré-remplies (plan D, D-2) ([#371](https://github.com/AurevLan/WhatIsUp/issues/371)) ([d1ac1a2](https://github.com/AurevLan/WhatIsUp/commit/d1ac1a2a5e38de5dbf440ada28ac361070ab54a8))
+* **discovery:** UI de revue des découvertes et badge orphelin (plan D, D-3) ([#372](https://github.com/AurevLan/WhatIsUp/issues/372)) ([191edb5](https://github.com/AurevLan/WhatIsUp/commit/191edb5a4efe0a6e5e2a41042df7d1e33b3abde7))
+* **oncall:** acquitter un incident depuis Slack / Telegram (plan V2, B-3) ([#361](https://github.com/AurevLan/WhatIsUp/issues/361)) ([e5dd3f9](https://github.com/AurevLan/WhatIsUp/commit/e5dd3f993575ca8bec418b697f21559dd9479ad2))
+
 ## [Unreleased]
 
 ### Added

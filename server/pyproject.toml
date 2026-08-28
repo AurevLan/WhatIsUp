@@ -23,7 +23,7 @@ dependencies = [
     # Database
     "sqlalchemy[asyncio]>=2.0.36,<2.1",
     "asyncpg>=0.30.0,<0.32",
-    "alembic>=1.18.4,<1.19",
+    "alembic>=1.18.4,<1.20",
 
     # Cache / pub-sub
     # !=8.0.0 : cette unique version force socket_timeout=5s sur le read bloquant

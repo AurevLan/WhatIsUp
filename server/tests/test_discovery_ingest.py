@@ -436,6 +436,70 @@ async def test_push_discovery_dns_zone_snapshot_ingested(
     assert row.status == "proposed"
 
 
+# ── POST /probes/discovery — last_scan_* feedback (plan E, E-1) ─────────────
+
+
+@pytest.mark.asyncio
+async def test_push_discovery_sets_last_scan_fields(
+    client: AsyncClient, db_session: AsyncSession, source_on_a: DiscoverySource, probe_a: Probe
+) -> None:
+    assert source_on_a.last_scan_at is None
+
+    resp = await client.post(
+        "/api/v1/probes/discovery",
+        json={"source_id": str(source_on_a.id), "services": _services_payload(2)},
+        headers=_PROBE_A_HEADERS,
+    )
+    assert resp.status_code == 202
+
+    await db_session.refresh(source_on_a)
+    assert source_on_a.last_scan_at is not None
+    assert source_on_a.last_scan_target_count == 2
+    assert source_on_a.last_scan_probe_id == probe_a.id
+
+
+@pytest.mark.asyncio
+async def test_push_discovery_empty_snapshot_still_sets_last_scan_at(
+    client: AsyncClient, db_session: AsyncSession, source_on_a: DiscoverySource
+) -> None:
+    """Piège n°1 (plan E, E-1): "rien trouvé" must update `last_scan_at`
+    exactly like a snapshot full of services — a scan that finds nothing must
+    stay distinguishable from a source that was never scanned at all."""
+    resp = await client.post(
+        "/api/v1/probes/discovery",
+        json={"source_id": str(source_on_a.id), "services": []},
+        headers=_PROBE_A_HEADERS,
+    )
+    assert resp.status_code == 202
+    assert resp.json() == {"accepted": 0}
+
+    await db_session.refresh(source_on_a)
+    assert source_on_a.last_scan_at is not None
+    assert source_on_a.last_scan_target_count == 0
+
+
+@pytest.mark.asyncio
+async def test_push_discovery_wrong_probe_does_not_set_last_scan(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    probe_b: Probe,
+    source_on_a: DiscoverySource,
+) -> None:
+    """A push rejected for scope reasons (here: the wrong probe's key) carries
+    no oracle — it must not update the source's scan bookkeeping either,
+    since `source_on_a` was never actually reached by this request."""
+    resp = await client.post(
+        "/api/v1/probes/discovery",
+        json={"source_id": str(source_on_a.id), "services": _services_payload(1)},
+        headers=_PROBE_B_HEADERS,
+    )
+    assert resp.status_code == 202
+    assert resp.json() == {"accepted": 0}
+
+    await db_session.refresh(source_on_a)
+    assert source_on_a.last_scan_at is None
+
+
 # ── POST /probes/discovery — bounds ──────────────────────────────────────────
 
 

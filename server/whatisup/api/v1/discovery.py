@@ -38,6 +38,7 @@ from whatisup.api.deps import (
 )
 from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
+from whatisup.core.redis import get_redis
 from whatisup.models.discovery import DiscoveredService, DiscoverySource
 from whatisup.models.monitor import Monitor
 from whatisup.models.probe import Probe
@@ -213,6 +214,29 @@ async def update_source(
         diff=data,
     )
     return source
+
+
+@sources_router.post("/{source_id}/scan-now", status_code=status.HTTP_202_ACCEPTED)
+@limiter.limit("10/minute")
+async def scan_source_now(
+    request: Request,
+    source_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Request an immediate run of this source's job (plan E, E-1).
+
+    Same mechanism as ``POST /monitors/{id}/trigger-check`` — a Redis flag
+    consumed by the probe's next heartbeat (``api/v1/probes.py::heartbeat``),
+    which the probe scheduler turns into an out-of-cycle run of the same
+    ``_run_discovery_source`` job it would have run on schedule. Editor role
+    minimum: this is a tool-triggering action, not a read.
+    """
+    source = await _get_visible_source(source_id, current_user, db, TeamRole.editor)
+
+    redis = get_redis()
+    await redis.setex(f"whatisup:discovery_trigger:{source.id}", 120, "1")
+    return {"status": "queued", "source_id": str(source.id)}
 
 
 @sources_router.delete("/{source_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -43,6 +43,11 @@ describe('discoveryApi', () => {
       await discoveryApi.sources.remove('s-1')
       expect(api.delete).toHaveBeenCalledWith('/discovery/sources/s-1', {})
     })
+
+    it('scanNow() POSTs to the scan-now endpoint', async () => {
+      await discoveryApi.sources.scanNow('s-1')
+      expect(api.post).toHaveBeenCalledWith('/discovery/sources/s-1/scan-now', {}, {})
+    })
   })
 
   describe('services', () => {

@@ -80,6 +80,25 @@
               </button>
             </div>
           </div>
+
+          <!-- Scan feedback (plan E, E-1) -->
+          <div class="mt-3 pt-3 border-t border-(--border) flex items-center justify-between gap-2 flex-wrap">
+            <p class="text-xs text-(--text-3) truncate">
+              <template v-if="source.last_scan_at">
+                {{ t('discovery.last_scan_prefix', { when: formatRelative(source.last_scan_at) }) }}
+                · {{ t('discovery.last_scan_targets', source.last_scan_target_count || 0) }}
+              </template>
+              <template v-else>{{ t('discovery.never_scanned') }}</template>
+            </p>
+            <button
+              class="btn-secondary btn-sm flex items-center gap-1.5 flex-shrink-0"
+              :disabled="isScanPending(source)"
+              @click="scanNow(source)"
+            >
+              <RefreshCw class="w-3.5 h-3.5" :class="isScanPending(source) ? 'animate-spin' : ''" />
+              {{ isScanPending(source) ? t('discovery.scan_pending') : t('discovery.scan_now') }}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -247,13 +266,14 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Check, PencilLine, Plus, Power, Radar, Trash2, X } from 'lucide-vue-next'
+import { Check, PencilLine, Plus, Power, Radar, RefreshCw, Trash2, X } from 'lucide-vue-next'
 import { discoveryApi } from '../api/discovery'
 import { probesApi } from '../api/probes'
 import { useToast } from '../composables/useToast'
 import { useConfirm } from '../composables/useConfirm'
+import { useDateFormat } from '../composables/useDateFormat'
 import BulkActionBar from '../components/shared/BulkActionBar.vue'
 import EmptyState from '../components/shared/EmptyState.vue'
 import SkeletonRow from '../components/shared/SkeletonRow.vue'
@@ -264,6 +284,15 @@ import DiscoveryDismissModal from '../components/discovery/DiscoveryDismissModal
 const { t } = useI18n()
 const { success, error: toastError } = useToast()
 const { confirm } = useConfirm()
+const { formatRelative } = useDateFormat()
+
+// Scan feedback polling interval (plan E, E-1) — light polling of the sources
+// list while a scan is pending, no WebSocket for this.
+const SCAN_POLL_INTERVAL_MS = 4000
+// Give up watching after this long (scan-now's latency is "one heartbeat",
+// documented as ~15s — this is a generous multiple, not a real deadline) so a
+// probe that never comes back doesn't spin the button forever.
+const SCAN_POLL_MAX_MS = 120000
 
 const tabs = computed(() => [
   { key: 'review', label: t('discovery.tab_review') },
@@ -291,15 +320,76 @@ async function loadProbes() {
   }
 }
 
-async function loadSources() {
-  loadingSources.value = true
+async function loadSources({ silent = false } = {}) {
+  if (!silent) loadingSources.value = true
   try {
     const { data } = await discoveryApi.sources.list({ skipErrorToast: true })
     sources.value = data
   } catch {
-    sources.value = []
+    if (!silent) sources.value = []
   } finally {
-    loadingSources.value = false
+    if (!silent) loadingSources.value = false
+  }
+}
+
+// ── Scan now (plan E, E-1) ───────────────────────────────────────────────────
+const pendingScanIds = ref(new Set())
+// sourceId -> the `last_scan_at` value observed when the scan was requested —
+// the poll below watches for it to change, which is how "scan finished"
+// is detected without a WebSocket.
+const scanBaselines = ref({})
+let scanPollTimer = null
+let scanPollDeadline = 0
+
+function isScanPending(source) {
+  return pendingScanIds.value.has(source.id)
+}
+
+function stopScanPolling() {
+  if (scanPollTimer) {
+    clearInterval(scanPollTimer)
+    scanPollTimer = null
+  }
+}
+
+function startScanPolling() {
+  if (scanPollTimer) return
+  scanPollDeadline = Date.now() + SCAN_POLL_MAX_MS
+  scanPollTimer = setInterval(async () => {
+    await loadSources({ silent: true })
+    const next = new Set(pendingScanIds.value)
+    for (const id of pendingScanIds.value) {
+      const src = sources.value.find((s) => s.id === id)
+      if (!src || src.last_scan_at !== scanBaselines.value[id]) {
+        next.delete(id)
+      }
+    }
+    pendingScanIds.value = next
+    if (pendingScanIds.value.size === 0 || Date.now() > scanPollDeadline) {
+      pendingScanIds.value = new Set()
+      stopScanPolling()
+    }
+  }, SCAN_POLL_INTERVAL_MS)
+}
+
+async function scanNow(source) {
+  if (isScanPending(source)) return
+  // Optimistic: mark pending (and freeze the baseline to compare polls
+  // against) before the request even resolves, so the button reflects
+  // "working on it" immediately rather than only after a network round-trip.
+  scanBaselines.value = { ...scanBaselines.value, [source.id]: source.last_scan_at ?? null }
+  const next = new Set(pendingScanIds.value)
+  next.add(source.id)
+  pendingScanIds.value = next
+  try {
+    await discoveryApi.sources.scanNow(source.id, { skipErrorToast: true })
+    success(t('discovery.scan_queued'))
+    startScanPolling()
+  } catch {
+    toastError(t('common.error'))
+    const reverted = new Set(pendingScanIds.value)
+    reverted.delete(source.id)
+    pendingScanIds.value = reverted
   }
 }
 
@@ -475,5 +565,9 @@ onMounted(() => {
   loadProbes()
   loadSources()
   loadServices()
+})
+
+onUnmounted(() => {
+  stopScanPolling()
 })
 </script>

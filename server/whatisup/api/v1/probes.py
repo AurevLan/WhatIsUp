@@ -336,8 +336,29 @@ async def heartbeat(
         .scalars()
         .all()
     )
+    # plan E, E-1 — "scan now": same trigger-key mechanism as monitors above
+    # (whatisup:trigger_check:{monitor_id}), scoped to discovery sources.
+    discovery_trigger_keys = await redis.mget(
+        [f"whatisup:discovery_trigger:{s.id}" for s in discovery_sources]
+    )
+    discovery_trigger_map = {
+        str(s.id): bool(v) for s, v in zip(discovery_sources, discovery_trigger_keys)
+    }
+    discovery_keys_to_delete = [
+        f"whatisup:discovery_trigger:{s.id}"
+        for s, v in zip(discovery_sources, discovery_trigger_keys)
+        if v
+    ]
+    if discovery_keys_to_delete:
+        await redis.delete(*discovery_keys_to_delete)
+
     discovery_out = [
-        DiscoverySourceForProbe(id=s.id, source_type=s.source_type, params=s.params)
+        DiscoverySourceForProbe(
+            id=s.id,
+            source_type=s.source_type,
+            params=s.params,
+            trigger_now=discovery_trigger_map.get(str(s.id), False),
+        )
         for s in discovery_sources
     ]
 
@@ -522,6 +543,14 @@ async def push_discovery(
     # missing, reactivate what reappeared. Same transaction as the upsert
     # loop above, still before commit.
     await reconcile_source_push(db, source, seen_targets, now)
+
+    # plan E, E-1 — set unconditionally, including a snapshot with zero
+    # services: "nothing found" must update `last_scan_at` exactly like a
+    # snapshot full of services, otherwise it stays indistinguishable from
+    # "never scanned" (piège n°1 du lot).
+    source.last_scan_at = now
+    source.last_scan_target_count = accepted
+    source.last_scan_probe_id = probe.id
 
     await db.commit()
     return {"accepted": accepted}

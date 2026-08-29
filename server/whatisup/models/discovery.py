@@ -90,6 +90,22 @@ class DiscoverySource(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     enabled: Mapped[bool] = mapped_column(
         Boolean, default=True, nullable=False, server_default="true"
     )
+    # Feedback loop (plan E, E-1): all three NULL until the first push, so
+    # "never scanned" stays distinguishable from "scanned, nothing found" —
+    # `last_scan_target_count=0` is a legitimate value, unlike a NULL count.
+    # Set unconditionally by `api/v1/probes.py::push_discovery` on every
+    # accepted snapshot, including an empty one (piège n°1 du lot E-1).
+    last_scan_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_scan_target_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # SET NULL, not CASCADE: this column is a feedback breadcrumb ("who last
+    # ran this"), not an ownership edge — losing the probe that once pushed
+    # must not take the source's scan history down with it. Redundant with
+    # `probe_id` today (a source has exactly one runner in E-1) but the two
+    # diverge once E-2 lets a probe *group* run a source; recorded from day
+    # one so the column doesn't need backfilling when that lands.
+    last_scan_probe_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("probes.id", ondelete="SET NULL"), nullable=True
+    )
 
     services: Mapped[list[DiscoveredService]] = relationship(
         "DiscoveredService", back_populates="source", cascade="all, delete-orphan"

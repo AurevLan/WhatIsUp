@@ -6,12 +6,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createI18n } from 'vue-i18n'
+import { createPinia } from 'pinia'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import en from '../src/i18n/en.js'
 
 vi.mock('../src/api/discovery', () => ({
   discoveryApi: {
-    sources: { list: vi.fn(), create: vi.fn(), update: vi.fn(), remove: vi.fn() },
+    sources: { list: vi.fn(), create: vi.fn(), update: vi.fn(), remove: vi.fn(), scanNow: vi.fn() },
     services: { list: vi.fn(), accept: vi.fn(), dismiss: vi.fn(), bulk: vi.fn() },
   },
 }))
@@ -50,6 +51,9 @@ function source(overrides = {}) {
     source_type: 'docker',
     params: {},
     enabled: true,
+    last_scan_at: null,
+    last_scan_target_count: null,
+    last_scan_probe_id: null,
     ...overrides,
   }
 }
@@ -85,7 +89,7 @@ async function mountView({ sources = [], services = [], probes = [] } = {}) {
   await router.isReady()
 
   const w = mount(DiscoveryView, {
-    global: { plugins: [i18n, router], stubs: { teleport: true } },
+    global: { plugins: [i18n, createPinia(), router], stubs: { teleport: true } },
   })
   await flushPromises()
   return w
@@ -111,6 +115,87 @@ describe('DiscoveryView — sources tab', () => {
     await flushPromises()
     expect(w.text()).toContain('docker-probe')
     expect(w.text()).toContain(en.discovery.enabled_label)
+  })
+
+  // ── Scan feedback (plan E, E-1) ──────────────────────────────────────────
+
+  async function mountSourcesTab(sources) {
+    const w = await mountView({ sources, probes: [{ id: 'p-1', name: 'docker-probe' }] })
+    const sourcesTab = w.findAll('button').find((b) => b.text() === en.discovery.tab_sources)
+    await sourcesTab.trigger('click')
+    await flushPromises()
+    return w
+  }
+
+  it('shows "never scanned" for a source with no last_scan_at', async () => {
+    const w = await mountSourcesTab([source({ last_scan_at: null })])
+    expect(w.text()).toContain(en.discovery.never_scanned)
+  })
+
+  it('shows the last scan time and target count for a scanned source', async () => {
+    const w = await mountSourcesTab([
+      source({ last_scan_at: new Date().toISOString(), last_scan_target_count: 3 }),
+    ])
+    expect(w.text()).not.toContain(en.discovery.never_scanned)
+    expect(w.text()).toContain('3 targets found')
+  })
+
+  it('clicking "Scan now" queues a scan and shows a pending state', async () => {
+    // Left unresolved on purpose — pending state must show up optimistically,
+    // synchronously with the click, not only once the request round-trips.
+    discoveryApi.sources.scanNow.mockReturnValue(new Promise(() => {}))
+    const src = source({ last_scan_at: null })
+    const w = await mountSourcesTab([src])
+
+    const scanBtn = w.findAll('button').find((b) => b.text().includes(en.discovery.scan_now))
+    expect(scanBtn.attributes('disabled')).toBeUndefined()
+    await scanBtn.trigger('click')
+
+    expect(discoveryApi.sources.scanNow).toHaveBeenCalledWith('s-1', { skipErrorToast: true })
+    expect(w.text()).toContain(en.discovery.scan_pending)
+    const pendingBtn = w.findAll('button').find((b) => b.text().includes(en.discovery.scan_pending))
+    expect(pendingBtn.attributes('disabled')).toBeDefined()
+  })
+
+  it('clears the pending state once polling observes a new last_scan_at', async () => {
+    vi.useFakeTimers()
+    try {
+      discoveryApi.sources.scanNow.mockResolvedValue({
+        data: { status: 'queued', source_id: 's-1' },
+      })
+      const src = source({ last_scan_at: null, last_scan_target_count: null })
+      discoveryApi.sources.list
+        .mockResolvedValueOnce({ data: [src] })
+        .mockResolvedValueOnce({
+          data: [{ ...src, last_scan_at: '2026-08-29T12:00:00Z', last_scan_target_count: 1 }],
+        })
+      discoveryApi.services.list.mockResolvedValue({ data: [] })
+
+      const router = makeRouter()
+      router.push('/')
+      await router.isReady()
+      const w = mount(DiscoveryView, {
+        global: { plugins: [i18n, createPinia(), router], stubs: { teleport: true } },
+      })
+      await flushPromises()
+
+      const sourcesTab = w.findAll('button').find((b) => b.text() === en.discovery.tab_sources)
+      await sourcesTab.trigger('click')
+      await flushPromises()
+
+      const scanBtn = w.findAll('button').find((b) => b.text().includes(en.discovery.scan_now))
+      await scanBtn.trigger('click')
+      await flushPromises()
+      expect(w.text()).toContain(en.discovery.scan_pending)
+
+      await vi.advanceTimersByTimeAsync(4000)
+      await flushPromises()
+
+      expect(w.text()).not.toContain(en.discovery.scan_pending)
+      expect(w.text()).toContain(en.discovery.scan_now)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
 

@@ -21,5 +21,8 @@ export const discoveryApi = {
     accept: (id, data, config = {}) => api.post(`/discovery/services/${id}/accept`, data, config),
     dismiss: (id, data, config = {}) => api.post(`/discovery/services/${id}/dismiss`, data, config),
     bulk: (data, config = {}) => api.post('/discovery/services/bulk', data, config),
+    // plan E, E-3 — lightweight counter for the nav badge, polled by
+    // usePendingDiscoveryCount instead of paying for the full list().
+    pendingCount: (config = {}) => api.get('/discovery/services/pending-count', config),
   },
 }

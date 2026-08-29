@@ -71,6 +71,15 @@ describe('DiscoverySourceModal', () => {
     expect(w.findAll('select').length).toBe(1)
   })
 
+  it('links to the docs on how to enable capabilities (plan E, E-3)', async () => {
+    const w = mountModal()
+    await w.find('select').setValue('p-none')
+    expect(w.text()).toContain(en.discovery.no_capabilities_hint)
+    const link = w.find('a[href="https://github.com/AurevLan/whatisup#automatic-discovery"]')
+    expect(link.exists()).toBe(true)
+    expect(link.attributes('target')).toBe('_blank')
+  })
+
   it('treats a null discovery_capabilities (pre-D1 probe) the same as empty', async () => {
     const w = mountModal()
     await w.find('select').setValue('p-null')

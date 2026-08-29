@@ -81,5 +81,10 @@ describe('discoveryApi', () => {
         {}
       )
     })
+
+    it('pendingCount() GETs the pending-count endpoint', async () => {
+      await discoveryApi.services.pendingCount()
+      expect(api.get).toHaveBeenCalledWith('/discovery/services/pending-count', {})
+    })
   })
 })

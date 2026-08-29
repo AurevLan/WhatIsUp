@@ -26,7 +26,7 @@ import uuid
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.api.deps import (
@@ -503,6 +503,34 @@ async def list_services(
         )
         for row in rows
     ]
+
+
+@services_router.get("/pending-count")
+@limiter.limit("60/minute")
+async def count_pending_services(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Lightweight counter for the nav badge (plan E, E-3).
+
+    Same visibility rule as ``list_services`` — ``owner_id == me OR team_id IN
+    my_teams``, superadmin bypasses — but a bare ``COUNT(*)`` instead of
+    paying for the full row serialization (proposal computation, alert
+    matrix template lookup) just to know how many rows there are; this is
+    polled every few seconds by the sidebar, ``list_services`` isn't.
+    Counts ``proposed`` only: an ``orphaned`` row already has a monitor and
+    its own badge (``useOrphanedMonitors``) — it isn't a fresh proposal
+    waiting on a decision.
+    """
+    stmt = select(func.count(DiscoveredService.id)).where(DiscoveredService.status == "proposed")
+    if not current_user.is_superadmin:
+        team_ids = await get_user_team_ids(current_user, db)
+        stmt = stmt.join(DiscoverySource, DiscoveredService.source_id == DiscoverySource.id).where(
+            _visibility_filter(current_user, team_ids)
+        )
+    count = (await db.execute(stmt)).scalar_one()
+    return {"count": count}
 
 
 async def _get_visible_service(

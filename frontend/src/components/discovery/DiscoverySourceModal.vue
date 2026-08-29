@@ -57,6 +57,13 @@
               ? t('discovery.no_capabilities', { probe: selectedProbeName })
               : t('discovery.no_group_capabilities', { group: selectedGroupName })
           }}
+          {{ t('discovery.no_capabilities_hint') }}
+          <a
+            href="https://github.com/AurevLan/whatisup#automatic-discovery"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="underline"
+          >{{ t('common.read_docs') }}</a>
         </p>
         <select v-else v-model="form.source_type" class="input w-full" required>
           <option value="" disabled>{{ t('discovery.source_type_placeholder') }}</option>

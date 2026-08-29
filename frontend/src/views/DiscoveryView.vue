@@ -40,9 +40,17 @@
         :title="t('discovery.no_sources')"
         :text="t('empty.discovery_sources_text')"
         :cta-label="t('discovery.add_source')"
+        doc-href="https://github.com/AurevLan/whatisup#automatic-discovery"
         @cta="openCreateSource"
       >
         <template #icon><Radar :size="22" /></template>
+        <!-- plan E, E-3 — the pipeline nobody explained: what a source
+             becomes without you watching it. -->
+        <ol class="text-left text-xs text-(--text-3) space-y-1.5 max-w-sm mx-auto mb-2 list-decimal list-inside">
+          <li>{{ t('discovery.empty_pipeline_step1') }}</li>
+          <li>{{ t('discovery.empty_pipeline_step2') }}</li>
+          <li>{{ t('discovery.empty_pipeline_step3') }}</li>
+        </ol>
       </EmptyState>
 
       <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-3">

@@ -107,6 +107,22 @@ describe('DiscoveryView — sources tab', () => {
     expect(w.text()).toContain(en.discovery.no_sources)
   })
 
+  // ── Pedagogy (plan E, E-3) ────────────────────────────────────────────────
+
+  it('explains the 3-step pipeline in the empty state', async () => {
+    const w = await mountView()
+    await w.findAll('button').find((b) => b.text() === en.discovery.tab_sources)?.trigger('click')
+    await flushPromises()
+    expect(w.text()).toContain(en.discovery.empty_pipeline_step1)
+    expect(w.text()).toContain(en.discovery.empty_pipeline_step2)
+    expect(w.text()).toContain(en.discovery.empty_pipeline_step3)
+  })
+
+  it('drops the pipeline explainer once a source exists', async () => {
+    const w = await mountSourcesTab([source()])
+    expect(w.text()).not.toContain(en.discovery.empty_pipeline_step1)
+  })
+
   it('lists a source with its probe name and enabled state', async () => {
     const w = await mountView({
       sources: [source()],

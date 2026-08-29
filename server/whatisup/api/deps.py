@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import uuid
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 import structlog
 from fastapi import Depends, Header, HTTPException, Request, Security, status
@@ -19,6 +20,9 @@ from whatisup.models.api_key import UserApiKey
 from whatisup.models.probe import Probe
 from whatisup.models.team import TeamMembership, TeamRole
 from whatisup.models.user import User
+
+if TYPE_CHECKING:
+    from whatisup.models.probe_group import ProbeGroup
 
 logger = structlog.get_logger(__name__)
 
@@ -596,6 +600,40 @@ async def assert_can_assign_group(db: AsyncSession, user: User, group_id: uuid.U
     if group is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
     await check_resource_access(group, user, db, min_role=TeamRole.editor)
+
+
+async def assert_can_assign_probe_group(
+    db: AsyncSession, user: User, probe_group_id: uuid.UUID
+) -> "ProbeGroup":
+    """Reject targeting a ``ProbeGroup`` the user has no visibility into
+    (plan E, E-2) — same tenancy rule ``GET /probes/`` already applies:
+    ``user_probe_group_access`` grants it, superadmin is exempt. Unlike
+    ``assert_can_assign_team``/``assert_can_assign_group`` this has no
+    "``None`` means unset, always allowed" case — a group-targeted discovery
+    source always names a real group. Returns the group (with ``.probes``
+    eager-loaded, ``lazy="selectin"`` on the model) so the caller can compute
+    capability counts without a second query.
+    """
+    from whatisup.models.probe_group import ProbeGroup, user_probe_group_access
+
+    group = (
+        await db.execute(select(ProbeGroup).where(ProbeGroup.id == probe_group_id))
+    ).scalar_one_or_none()
+    if group is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Probe group not found")
+    if user.is_superadmin:
+        return group
+    visible = (
+        await db.execute(
+            select(user_probe_group_access.c.probe_group_id).where(
+                user_probe_group_access.c.user_id == user.id,
+                user_probe_group_access.c.probe_group_id == probe_group_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if visible is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    return group
 
 
 def build_access_filter(model, user: User, team_ids: list[uuid.UUID]):

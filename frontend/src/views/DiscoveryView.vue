@@ -57,9 +57,14 @@
                   {{ t(`discovery.source_type_${source.source_type}`) }}
                 </span>
               </div>
-              <p class="text-sm font-semibold text-(--text-1) mt-1.5 truncate">{{ probeName(source.probe_id) }}</p>
+              <p class="text-sm font-semibold text-(--text-1) mt-1.5 truncate">{{ sourceTargetLabel(source) }}</p>
               <p v-if="source.source_type === 'port_scan'" class="text-xs text-(--text-3) font-mono mt-0.5 truncate">
                 {{ source.params.cidr }} · {{ (source.params.ports || []).join(', ') }}
+              </p>
+              <!-- plan E, E-2 — fail-visible: a group-targeted source with no
+                   currently-capable member can never run. -->
+              <p v-if="source.probe_group_id && source.group_capable_probe_count === 0" class="text-xs text-(--down) mt-1 flex items-center gap-1">
+                <TriangleAlert class="w-3 h-3" /> {{ t('discovery.group_capacity_warning') }}
               </p>
             </div>
             <div class="flex items-center gap-1 flex-shrink-0">
@@ -127,7 +132,7 @@
         <select v-model="filterSourceId" class="input h-8 text-xs" style="max-width:12rem" @change="loadServices">
           <option value="">{{ t('discovery.all_sources') }}</option>
           <option v-for="source in sources" :key="source.id" :value="source.id">
-            {{ probeName(source.probe_id) }} · {{ t(`discovery.source_type_${source.source_type}`) }}
+            {{ sourceTargetLabel(source) }} · {{ t(`discovery.source_type_${source.source_type}`) }}
           </option>
         </select>
       </div>
@@ -244,6 +249,7 @@
     <DiscoverySourceModal
       v-if="showSourceModal || editingSource"
       :probes="probes"
+      :probe-groups="probeGroups"
       :source="editingSource"
       @close="closeSourceModal"
       @saved="onSourceSaved"
@@ -268,7 +274,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Check, PencilLine, Plus, Power, Radar, RefreshCw, Trash2, X } from 'lucide-vue-next'
+import { Check, PencilLine, Plus, Power, Radar, RefreshCw, Trash2, TriangleAlert, X } from 'lucide-vue-next'
 import { discoveryApi } from '../api/discovery'
 import { probesApi } from '../api/probes'
 import { useToast } from '../composables/useToast'
@@ -303,6 +309,8 @@ const activeTab = ref('review')
 // ── Sources ───────────────────────────────────────────────────────────────
 const sources = ref([])
 const probes = ref([])
+// plan E, E-2 — probe groups the caller may target a source at.
+const probeGroups = ref([])
 const loadingSources = ref(true)
 const showSourceModal = ref(false)
 const editingSource = ref(null)
@@ -311,12 +319,31 @@ function probeName(probeId) {
   return probes.value.find((p) => p.id === probeId)?.name || probeId
 }
 
+function groupName(groupId) {
+  return probeGroups.value.find((g) => g.id === groupId)?.name || groupId
+}
+
+// A source targets either a probe or a probe group (plan E, E-2) — one
+// label covers both without callers having to branch every time.
+function sourceTargetLabel(source) {
+  return source.probe_group_id ? groupName(source.probe_group_id) : probeName(source.probe_id)
+}
+
 async function loadProbes() {
   try {
     const { data } = await probesApi.list({ skipErrorToast: true })
     probes.value = data
   } catch {
     probes.value = []
+  }
+}
+
+async function loadProbeGroups() {
+  try {
+    const { data } = await discoveryApi.probeGroups.list({ skipErrorToast: true })
+    probeGroups.value = data
+  } catch {
+    probeGroups.value = []
   }
 }
 
@@ -563,6 +590,7 @@ function onAccepted() {
 
 onMounted(() => {
   loadProbes()
+  loadProbeGroups()
   loadSources()
   loadServices()
 })

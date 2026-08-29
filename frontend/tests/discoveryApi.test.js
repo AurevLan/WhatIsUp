@@ -50,6 +50,13 @@ describe('discoveryApi', () => {
     })
   })
 
+  describe('probeGroups', () => {
+    it('list() GETs /discovery/probe-groups/', async () => {
+      await discoveryApi.probeGroups.list()
+      expect(api.get).toHaveBeenCalledWith('/discovery/probe-groups/', {})
+    })
+  })
+
   describe('services', () => {
     it('list() GETs /discovery/services/ with query params', async () => {
       await discoveryApi.services.list({ status: 'orphaned' })

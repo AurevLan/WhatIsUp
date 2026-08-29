@@ -321,21 +321,47 @@ async def heartbeat(
 
     # plan D, D-1 — the heartbeat is the discovery control channel too (same
     # canal as monitors/pending_diagnostics): hand the probe its own enabled
-    # sources only. probe_id scoping here is what api/v1/probes.py's
-    # push_discovery relies on being true — a source never distributed to a
-    # probe cannot be pushed to by it either.
-    discovery_sources = list(
+    # sources only. This scoping is what push_discovery's `_probe_may_push`
+    # relies on being true — a source never distributed to a probe cannot be
+    # pushed to by it either.
+    #
+    # plan E, E-2 — a source may also target a `ProbeGroup` this probe
+    # belongs to: `docker` fans out to every member that declares the
+    # capability, `port_scan`/`dns_zone` go to the elected member only
+    # (`services/discovery_election.py`).
+    my_group_ids = {
+        row[0]
+        for row in (
+            await db.execute(
+                select(probe_group_members.c.probe_group_id).where(
+                    probe_group_members.c.probe_id == probe.id
+                )
+            )
+        ).all()
+    }
+    target_clause = DiscoverySource.probe_id == probe.id
+    if my_group_ids:
+        target_clause = or_(target_clause, DiscoverySource.probe_group_id.in_(my_group_ids))
+    candidate_sources = (
         (
             await db.execute(
-                select(DiscoverySource).where(
-                    DiscoverySource.probe_id == probe.id,
-                    DiscoverySource.enabled.is_(True),
-                )
+                select(DiscoverySource).where(target_clause, DiscoverySource.enabled.is_(True))
             )
         )
         .scalars()
         .all()
     )
+
+    probe_capabilities = set(probe.discovery_capabilities or [])
+
+    def _group_source_served(s: DiscoverySource) -> bool:
+        if s.source_type == "docker":
+            return "docker" in probe_capabilities
+        return s.elected_probe_id == probe.id
+
+    discovery_sources = [
+        s for s in candidate_sources if s.probe_id == probe.id or _group_source_served(s)
+    ]
     # plan E, E-1 — "scan now": same trigger-key mechanism as monitors above
     # (whatisup:trigger_check:{monitor_id}), scoped to discovery sources.
     discovery_trigger_keys = await redis.mget(
@@ -458,6 +484,36 @@ def _normalize_discovery_target(proto: str, host: str, port: int | None) -> tupl
     return host, target
 
 
+async def _probe_may_push(db: AsyncSession, source: DiscoverySource, probe: Probe) -> bool:
+    """Is *probe* a legitimate runner of *source* (plan E, E-2)?
+
+    Mirrors the heartbeat's own distribution rule exactly — a probe must
+    never be able to push to a source the heartbeat would not have handed it
+    in the first place. Probe-targeted: the same probe. Group-targeted: the
+    probe must be a member AND (docker: declares the capability;
+    port_scan/dns_zone: is the elected runner). No branch here reveals which
+    check failed to the caller — see ``push_discovery``'s docstring on the
+    no-oracle property this preserves.
+    """
+    if source.probe_id is not None:
+        return source.probe_id == probe.id
+    if source.probe_group_id is None:
+        return False  # unreachable given ck_discovery_sources_probe_xor_group
+    is_member = (
+        await db.execute(
+            select(probe_group_members.c.probe_id).where(
+                probe_group_members.c.probe_group_id == source.probe_group_id,
+                probe_group_members.c.probe_id == probe.id,
+            )
+        )
+    ).scalar_one_or_none() is not None
+    if not is_member:
+        return False
+    if source.source_type == "docker":
+        return "docker" in (probe.discovery_capabilities or [])
+    return source.elected_probe_id == probe.id
+
+
 @router.post("/discovery", status_code=status.HTTP_202_ACCEPTED)
 @limiter.limit("60/minute")
 async def push_discovery(
@@ -482,7 +538,7 @@ async def push_discovery(
         await db.execute(select(DiscoverySource).where(DiscoverySource.id == payload.source_id))
     ).scalar_one_or_none()
 
-    if source is None or not source.enabled or source.probe_id != probe.id:
+    if source is None or not source.enabled or not await _probe_may_push(db, source, probe):
         logger.warning(
             "discovery_push_scope_rejected",
             probe_id=str(probe.id),

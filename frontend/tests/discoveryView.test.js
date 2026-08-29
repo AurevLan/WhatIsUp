@@ -13,6 +13,7 @@ import en from '../src/i18n/en.js'
 vi.mock('../src/api/discovery', () => ({
   discoveryApi: {
     sources: { list: vi.fn(), create: vi.fn(), update: vi.fn(), remove: vi.fn(), scanNow: vi.fn() },
+    probeGroups: { list: vi.fn() },
     services: { list: vi.fn(), accept: vi.fn(), dismiss: vi.fn(), bulk: vi.fn() },
   },
 }))
@@ -79,9 +80,10 @@ function service(overrides = {}) {
   }
 }
 
-async function mountView({ sources = [], services = [], probes = [] } = {}) {
+async function mountView({ sources = [], services = [], probes = [], probeGroups = [] } = {}) {
   discoveryApi.sources.list.mockResolvedValue({ data: sources })
   discoveryApi.services.list.mockResolvedValue({ data: services })
+  discoveryApi.probeGroups.list.mockResolvedValue({ data: probeGroups })
   probesApi.list.mockResolvedValue({ data: probes })
 
   const router = makeRouter()
@@ -115,6 +117,30 @@ describe('DiscoveryView — sources tab', () => {
     await flushPromises()
     expect(w.text()).toContain('docker-probe')
     expect(w.text()).toContain(en.discovery.enabled_label)
+  })
+
+  // ── Group targeting (plan E, E-2) ────────────────────────────────────────
+
+  it('shows the probe group name instead of a probe for a group-targeted source', async () => {
+    const w = await mountView({
+      sources: [source({ probe_id: null, probe_group_id: 'g-1', group_capable_probe_count: 2 })],
+      probeGroups: [{ id: 'g-1', name: 'internal-hosts', capabilities: ['docker'], probe_count: 3 }],
+    })
+    const sourcesTab = w.findAll('button').find((b) => b.text() === en.discovery.tab_sources)
+    await sourcesTab.trigger('click')
+    await flushPromises()
+    expect(w.text()).toContain('internal-hosts')
+  })
+
+  it('warns when a group-targeted source has zero capable probes', async () => {
+    const w = await mountView({
+      sources: [source({ probe_id: null, probe_group_id: 'g-1', group_capable_probe_count: 0 })],
+      probeGroups: [{ id: 'g-1', name: 'internal-hosts', capabilities: [], probe_count: 1 }],
+    })
+    const sourcesTab = w.findAll('button').find((b) => b.text() === en.discovery.tab_sources)
+    await sourcesTab.trigger('click')
+    await flushPromises()
+    expect(w.text()).toContain(en.discovery.group_capacity_warning)
   })
 
   // ── Scan feedback (plan E, E-1) ──────────────────────────────────────────

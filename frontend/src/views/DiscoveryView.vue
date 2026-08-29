@@ -58,9 +58,10 @@
           <div class="flex items-start justify-between gap-2">
             <div class="min-w-0">
               <div class="flex items-center gap-2">
-                <span class="badge" :class="source.enabled ? 'badge-up' : 'badge-unknown'">
-                  {{ source.enabled ? t('discovery.enabled_label') : t('discovery.disabled_label') }}
-                </span>
+                <EnabledBadge
+                  :enabled="source.enabled"
+                  :label="source.enabled ? t('discovery.enabled_label') : t('discovery.disabled_label')"
+                />
                 <span class="text-xs font-mono uppercase px-1.5 py-0.5 rounded bg-(--bg-surface-2) text-(--text-2)">
                   {{ t(`discovery.source_type_${source.source_type}`) }}
                 </span>
@@ -155,6 +156,10 @@
         v-else-if="services.length === 0"
         :title="t('discovery.no_services')"
         :text="t('empty.discovery_services_text')"
+        :cta-label="sources.length === 0 ? t('discovery.add_source') : t('discovery.view_sources_cta')"
+        :cta-icon="sources.length === 0"
+        doc-href="https://github.com/AurevLan/whatisup#automatic-discovery"
+        @cta="reviewEmptyCta"
       >
         <template #icon><Radar :size="22" /></template>
       </EmptyState>
@@ -290,6 +295,7 @@ import { useConfirm } from '../composables/useConfirm'
 import { useDateFormat } from '../composables/useDateFormat'
 import BulkActionBar from '../components/shared/BulkActionBar.vue'
 import EmptyState from '../components/shared/EmptyState.vue'
+import EnabledBadge from '../components/shared/EnabledBadge.vue'
 import SkeletonRow from '../components/shared/SkeletonRow.vue'
 import DiscoverySourceModal from '../components/discovery/DiscoverySourceModal.vue'
 import DiscoveryAcceptModal from '../components/discovery/DiscoveryAcceptModal.vue'
@@ -388,8 +394,13 @@ function stopScanPolling() {
 }
 
 function startScanPolling() {
-  if (scanPollTimer) return
+  // Recomputed on every call, even when a poll is already running: a scan
+  // requested while another is still in flight shares the same timer, and
+  // without this it would inherit whatever budget was left on the first
+  // one's deadline — sometimes seconds, cutting its own spinner short
+  // before its result ever arrives.
   scanPollDeadline = Date.now() + SCAN_POLL_MAX_MS
+  if (scanPollTimer) return
   scanPollTimer = setInterval(async () => {
     await loadSources({ silent: true })
     const next = new Set(pendingScanIds.value)
@@ -431,6 +442,18 @@ async function scanNow(source) {
 function openCreateSource() {
   editingSource.value = null
   showSourceModal.value = true
+}
+
+// Review tab empty state (chantier ergonomie, item 6): nothing to review can
+// mean two different things, so the CTA adapts — no source configured yet
+// means there is nothing that could ever produce a proposal, so offer to
+// create one; sources exist but found nothing pending, so point at them.
+function reviewEmptyCta() {
+  if (sources.value.length === 0) {
+    openCreateSource()
+  } else {
+    activeTab.value = 'sources'
+  }
 }
 
 function closeSourceModal() {

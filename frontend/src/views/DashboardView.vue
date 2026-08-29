@@ -103,9 +103,9 @@
             <span class="dash__card-ms">{{ m._lastResponseTimeMs != null ? m._lastResponseTimeMs + ' ms' : '' }}</span>
           </div>
           <h3 class="dash__card-name">{{ m.name }}</h3>
-          <svg v-if="sparkPath(m._sparkline)" class="dash__spark" viewBox="0 0 100 28" preserveAspectRatio="none" aria-hidden="true">
-            <path :d="sparkPath(m._sparkline) + ' L100,28 L0,28 Z'" class="dash__spark-fill" :class="{ 'dash__spark-fill--down': isDown(m) }" />
-            <path :d="sparkPath(m._sparkline)" class="dash__spark-line" :class="{ 'dash__spark-line--down': isDown(m) }" />
+          <svg v-if="m._sparkPath" class="dash__spark" viewBox="0 0 100 28" preserveAspectRatio="none" aria-hidden="true">
+            <path :d="m._sparkPath + ' L100,28 L0,28 Z'" class="dash__spark-fill" :class="{ 'dash__spark-fill--down': isDown(m) }" />
+            <path :d="m._sparkPath" class="dash__spark-line" :class="{ 'dash__spark-line--down': isDown(m) }" />
           </svg>
           <div class="dash__card-foot">
             <span>{{ m.check_type }}</span>
@@ -172,6 +172,10 @@ const previewMonitors = computed(() =>
   [...monitors.value]
     .sort((a, b) => (STATUS_PRIORITY[a._lastStatus] ?? 4) - (STATUS_PRIORITY[b._lastStatus] ?? 4))
     .slice(0, PREVIEW_COUNT)
+    // Precomputed once per monitor here rather than called 3× per card in the
+    // template (fill path, stroke path, v-if guard) — on a WS burst across
+    // ~40 monitors that was 120 rebuilds of the same string per tick.
+    .map((m) => ({ ...m, _sparkPath: sparkPath(m._sparkline) }))
 )
 
 const globalUptime = computed(() => {

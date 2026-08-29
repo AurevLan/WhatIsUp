@@ -76,7 +76,7 @@ const props = defineProps({
 })
 
 const { t, locale } = useI18n()
-const playback = useIncidentPlayback(props.incidentId)
+const playback = useIncidentPlayback(() => props.incidentId)
 const mapEl = ref(null)
 
 let leafletMap = null

@@ -417,7 +417,10 @@ function duplicateMonitor() {
   delete m.last_status
   delete m.is_paused
   delete m.group_id
-  m.name = 'Copy of ' + m.name
+  // Just a pre-filled suggestion in the clone form below — the operator can
+  // edit it before submitting, so it reads in their own UI language rather
+  // than being frozen in whatever language the original monitor was named.
+  m.name = t('monitors.duplicate_name_prefix', { name: m.name })
   clonePayload.value = m
   showClone.value = true
 }

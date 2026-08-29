@@ -28,9 +28,17 @@
         />
       </div>
     </div>
-    <p v-else class="text-(--text-3) text-sm text-center py-6">
-      No metrics pushed yet — use the push URL to send business metrics.
-    </p>
+    <EmptyState
+      v-else
+      :title="t('monitor_detail.custom_metrics_empty_title')"
+      :text="t('monitor_detail.custom_metrics_empty_text')"
+      :cta-label="t('monitor_detail.push_url')"
+      :cta-icon="false"
+      inline
+      @cta="state.showPushUrlModal.value = true"
+    >
+      <template #icon><LineChart :size="22" /></template>
+    </EmptyState>
   </div>
 
   <!-- Modal URL de push -->
@@ -71,7 +79,9 @@
 <script setup>
 import { inject } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { LineChart } from 'lucide-vue-next'
 import BaseModal from '../../BaseModal.vue'
+import EmptyState from '../../shared/EmptyState.vue'
 import { CustomMetricsStateKey } from './injectionKeys'
 
 defineProps({

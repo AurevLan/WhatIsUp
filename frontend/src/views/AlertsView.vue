@@ -477,6 +477,19 @@
             </div>
           </div>
 
+          <!-- Escalation policy (plan V2, B-1/B-2 engine — this is what makes it
+               reachable from a rule). "None" is explicit: without a policy the
+               rule keeps its historical behavior (notify the channels below,
+               no ladder). -->
+          <div>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('alerts.escalation_policy_label') }}</label>
+            <select v-model="ruleForm.escalation_policy_id" class="input w-full">
+              <option :value="null">{{ t('alerts.escalation_policy_none') }}</option>
+              <option v-for="p in escalationPolicies" :key="p.id" :value="p.id">{{ p.name }}</option>
+            </select>
+            <p class="text-xs text-(--text-3) mt-1">{{ t('alerts.escalation_policy_hint') }}</p>
+          </div>
+
           <!-- Channels -->
           <div>
             <label class="block text-sm font-medium text-(--text-2) mb-2">{{ t('alerts.channels_label') }} *</label>
@@ -541,6 +554,7 @@ import { useI18n } from 'vue-i18n'
 import api from '../api/client'
 import { monitorsApi, groupsApi } from '../api/monitors'
 import { metricsApi } from '../api/metrics'
+import { oncallApi } from '../api/oncall'
 import { useToast } from '../composables/useToast'
 import { useDateFormat } from '../composables/useDateFormat'
 import AddChannelModal from '../components/alerts/AddChannelModal.vue'
@@ -563,6 +577,7 @@ const events = ref([])
 const rules = ref([])
 const allMonitors = ref([])
 const allGroups = ref([])
+const escalationPolicies = ref([])
 const enablingDrift = ref(false)
 const showAddChannel = ref(false)
 const showRuleModal = ref(false)
@@ -653,6 +668,7 @@ function defaultRuleForm() {
     metric_name: '',
     metric_labels: null,
     metric_window_seconds: null,
+    escalation_policy_id: null,
     showSchedule: false,
     schedule: { ...DEFAULT_SCHEDULE },
   }
@@ -913,6 +929,7 @@ function openEditRule(rule) {
     metric_name: rule.metric_name ?? '',
     metric_labels: rule.metric_labels ?? null,
     metric_window_seconds: rule.metric_window_seconds ?? null,
+    escalation_policy_id: rule.escalation_policy_id ?? null,
     showSchedule: hasSchedule,
     schedule: rule.schedule ? { ...rule.schedule } : { ...DEFAULT_SCHEDULE },
   }
@@ -948,6 +965,9 @@ async function saveRule() {
         metric_name: ruleForm.value.metric_name || undefined,
         metric_labels: ruleForm.value.metric_labels || undefined,
         metric_window_seconds: ruleForm.value.metric_window_seconds || undefined,
+        // Always sent, null included: a PATCH is the only way to detach a
+        // policy from a rule, so "None" has to actually reach the server.
+        escalation_policy_id: ruleForm.value.escalation_policy_id,
         schedule: schedulePayload,
       }
       await api.patch(`/alerts/rules/${editingRule.value.id}`, payload, { skipErrorToast: true })
@@ -971,6 +991,7 @@ async function saveRule() {
       if (ruleForm.value.metric_name) payload.metric_name = ruleForm.value.metric_name
       if (ruleForm.value.metric_labels) payload.metric_labels = ruleForm.value.metric_labels
       if (ruleForm.value.metric_window_seconds) payload.metric_window_seconds = ruleForm.value.metric_window_seconds
+      if (ruleForm.value.escalation_policy_id) payload.escalation_policy_id = ruleForm.value.escalation_policy_id
       await api.post('/alerts/rules', payload, { skipErrorToast: true })
     }
     closeRuleModal()
@@ -989,6 +1010,10 @@ onMounted(async () => {
     const [mResp, gResp] = await Promise.all([monitorsApi.list(), groupsApi.list()])
     allMonitors.value = mResp.data
     allGroups.value = gResp.data
+  } catch {}
+  try {
+    const { data } = await oncallApi.policies.list()
+    escalationPolicies.value = data
   } catch {}
   // Load threshold suggestions (non-blocking)
   loadSuggestions()

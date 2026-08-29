@@ -576,13 +576,13 @@ function importJSON(event) {
     try {
       const parsed = JSON.parse(e.target.result)
       if (!Array.isArray(parsed)) {
-        toastError('The JSON file must contain an array of steps.')
+        toastError(t('scenario.import_error_array'))
         return
       }
       localSteps.value = parsed.map(hydrateStep)
       emitSteps()
     } catch {
-      toastError('Could not read the JSON file.')
+      toastError(t('scenario.import_error_read'))
     }
   }
   reader.readAsText(file)

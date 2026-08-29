@@ -184,7 +184,7 @@ export function useMonitorIncidents(monitorRef, monitorIdRef) {
       const { data } = await monitorsApi.getPostmortem(monitorIdRef.value, inc.id, { skipErrorToast: true })
       postmortem.value.content = data.content
     } catch (e) {
-      postmortem.value.content = `Erreur lors de la génération du post-mortem : ${e.response?.data?.detail || e.message}`
+      postmortem.value.content = t('monitor_detail.postmortem_error', { detail: e.response?.data?.detail || e.message })
     } finally {
       postmortem.value.loading = false
     }

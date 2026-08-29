@@ -6,7 +6,7 @@
       <div>
         <h1 class="font-display text-xl font-bold" style="color:var(--text-1)">{{ t('monitors.title') }}</h1>
         <p class="mt-0.5 text-xs" style="color:var(--text-3)">
-          {{ monitors.length }} {{ t('nav.monitors').toLowerCase() }}<template v-if="downCount > 0"> — <span style="color:var(--down)">{{ downCount }} {{ t('status.down').toLowerCase() }}</span></template><template v-if="errorCount > 0">, <span style="color:#fb923c">{{ errorCount }} {{ t('common.error').toLowerCase() }}</span></template>
+          {{ monitors.length }} {{ t('nav.monitors').toLowerCase() }}<template v-if="downCount > 0"> — <span style="color:var(--down)">{{ downCount }} {{ t('status.down').toLowerCase() }}</span></template><template v-if="errorCount > 0">, <span style="color:var(--warn)">{{ errorCount }} {{ t('common.error').toLowerCase() }}</span></template>
         </p>
       </div>
     </div>

@@ -71,7 +71,14 @@ async def setup(db_session: AsyncSession):
     db_session.add_all([incident, channel])
     await db_session.flush()
 
-    db_session.add(UserContact(user_id=owner.id, method=ContactMethod.slack, value=SLACK_UID))
+    db_session.add(
+        UserContact(
+            user_id=owner.id,
+            method=ContactMethod.slack,
+            value=SLACK_UID,
+            via_channel_id=channel.id,
+        )
+    )
     await db_session.flush()
     await db_session.commit()
     return {
@@ -229,7 +236,12 @@ async def test_a_user_without_access_to_the_monitor_cannot_acknowledge(
 ):
     """Linked chat identity, but no business with this monitor."""
     db_session.add(
-        UserContact(user_id=setup["stranger"].id, method=ContactMethod.slack, value="U-STRANGER")
+        UserContact(
+            user_id=setup["stranger"].id,
+            method=ContactMethod.slack,
+            value="U-STRANGER",
+            via_channel_id=setup["channel"].id,
+        )
     )
     await db_session.commit()
 
@@ -311,3 +323,75 @@ async def test_rejections_do_not_say_why(client: AsyncClient, setup):
         assert resp.status_code == 403
         details.add(resp.json().get("detail"))
     assert len(details) == 1
+
+
+# ── Contact lookup scoped to the channel (audit hardening) ────────────────────
+
+
+async def test_two_users_claiming_the_same_handle_are_refused(
+    client: AsyncClient, setup, db_session
+):
+    """A contact is self-declared and unverified — two users can claim it.
+
+    Neither should be credited: picking one arbitrarily would let whichever
+    user declared the handle second silently start acknowledging the other's
+    incidents, with no error the victim could ever see (anti-oracle).
+    """
+    db_session.add(
+        UserContact(
+            user_id=setup["stranger"].id,
+            method=ContactMethod.slack,
+            value=SLACK_UID,
+            via_channel_id=setup["channel"].id,
+        )
+    )
+    await db_session.commit()
+
+    token = make_ack_token(setup["incident"].id, setup["channel"].id)
+    body = _slack_body(token)
+    resp = await client.post("/api/v1/callbacks/slack", content=body, headers=_slack_headers(body))
+
+    assert resp.status_code == 403
+    await db_session.refresh(setup["incident"])
+    assert setup["incident"].acked_at is None
+
+
+async def test_a_handle_declared_on_a_different_channel_does_not_resolve(
+    client: AsyncClient, setup, db_session
+):
+    """The lookup is scoped to the channel the token was minted for.
+
+    Same (method, value) pair, but the contact was declared against a
+    different channel than the one that issued this token — it must not
+    resolve, or the channel scope is decorative rather than enforced.
+    """
+    other_channel = AlertChannel(
+        owner_id=setup["owner"].id,
+        name="other",
+        type=AlertChannelType.slack,
+        config=encrypt_channel_config(
+            {"webhook_url": "https://hooks.slack.com/other", "signing_secret": "other-secret"}
+        ),
+    )
+    db_session.add(other_channel)
+    await db_session.flush()
+
+    # A second user claims the victim's handle, but on the *other* channel —
+    # this must not interfere with the nominal ack on `setup["channel"]`.
+    db_session.add(
+        UserContact(
+            user_id=setup["stranger"].id,
+            method=ContactMethod.slack,
+            value=SLACK_UID,
+            via_channel_id=other_channel.id,
+        )
+    )
+    await db_session.commit()
+
+    token = make_ack_token(setup["incident"].id, setup["channel"].id)
+    body = _slack_body(token)
+    resp = await client.post("/api/v1/callbacks/slack", content=body, headers=_slack_headers(body))
+
+    assert resp.status_code == 200
+    await db_session.refresh(setup["incident"])
+    assert setup["incident"].acked_by_id == setup["owner"].id

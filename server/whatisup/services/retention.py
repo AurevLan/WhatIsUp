@@ -13,6 +13,12 @@ questions:
 * ``custom_metrics`` keeps what the tenant's own application pushed, at the
   same grain it pushed it. ``METRICS_RETENTION_DAYS`` governs it (plan V2, C-2);
   before that phase nothing purged it at all.
+* ``discovered_services`` (terminal states only) and ``alert_events`` are two
+  plain, unpartitioned logs that had **no** retention at all before an audit
+  flagged both (2026-08). ``DISCOVERED_SERVICES_RETENTION_DAYS`` and
+  ``ALERT_EVENTS_RETENTION_DAYS`` govern them respectively — same "0 = keep
+  forever" convention as everything else here, no floor to respect because
+  nothing downstream aggregates either of them.
 
 Which makes the ordering constraint between them the interesting part: a raw
 row deleted *before* it was folded is gone from both tables, so the purge never
@@ -36,7 +42,9 @@ from whatisup.core.partitions import (
     drop_expired_check_result_partitions,
     drop_expired_custom_metric_partitions,
 )
+from whatisup.models.alert import AlertEvent
 from whatisup.models.custom_metric import CustomMetric, MetricSeries
+from whatisup.models.discovery import DiscoveredService
 from whatisup.models.result import CheckResult
 from whatisup.models.rollup import CheckRollup1h
 from whatisup.services.rollup import rollup_boundary
@@ -266,4 +274,62 @@ async def purge_old_rollups(retention_months: int) -> int:
         deleted = result.rowcount
         if deleted > 0:
             logger.info("rollup_purge_done", deleted=deleted, cutoff=cutoff.isoformat())
+        return deleted
+
+
+async def purge_old_discovered_services(retention_days: int) -> int:
+    """Delete ``discovered_services`` rows stuck in a terminal state.
+
+    Only ``dismissed`` and ``orphaned`` age out. ``proposed`` is a decision
+    nobody has made yet — purging it would make discovery silently forget a
+    review the operator hasn't seen — and ``accepted`` is the provenance of a
+    live ``Monitor``, not disposable review-queue clutter.
+
+    Cut on ``status_changed_at``, not ``last_seen_at``: the reconciler
+    (``services/discovery.py``) bumps ``status_changed_at`` every time a
+    terminal row's state actually changes — a dismissed row whose fingerprint
+    drifted, an orphan whose target came back — so this measures how long a
+    row has sat *unchanged* in its terminal state, not how recently a scan
+    merely touched it. No table before this had ever purged it at all.
+    """
+    if retention_days <= 0:
+        return 0
+    cutoff = datetime.now(UTC) - timedelta(days=retention_days)
+    async with get_session_factory()() as db:
+        result = await db.execute(
+            delete(DiscoveredService).where(
+                DiscoveredService.status.in_(("dismissed", "orphaned")),
+                DiscoveredService.status_changed_at < cutoff,
+            )
+        )
+        await db.commit()
+        deleted = result.rowcount
+        if deleted > 0:
+            logger.info("discovered_services_purged", deleted=deleted, cutoff=cutoff.isoformat())
+        return deleted
+
+
+async def purge_old_alert_events(retention_days: int) -> int:
+    """Delete ``alert_events`` rows older than ``retention_days``.
+
+    A plain DELETE, same shape as the rollup and series purges above: the
+    table is not partitioned, and every reader of it — the 60-second dispatch
+    dedup, the storm-window counter, digest recovery, renotify, one incident's
+    own alert history in the UI — only ever looks at a short recent window or
+    at the events of one specific incident, never at "every event ever sent".
+    No interlock like ``_raw_purge_floor`` is needed because nothing
+    aggregates this table the way rollups fold raw results.
+
+    Before this (audit finding, 2026-08) ``alert_events`` was the only
+    temporal table in the product with no retention at all.
+    """
+    if retention_days <= 0:
+        return 0
+    cutoff = datetime.now(UTC) - timedelta(days=retention_days)
+    async with get_session_factory()() as db:
+        result = await db.execute(delete(AlertEvent).where(AlertEvent.sent_at < cutoff))
+        await db.commit()
+        deleted = result.rowcount
+        if deleted > 0:
+            logger.info("alert_events_purged", deleted=deleted, cutoff=cutoff.isoformat())
         return deleted

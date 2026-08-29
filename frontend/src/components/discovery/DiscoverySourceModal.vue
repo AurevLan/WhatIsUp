@@ -1,20 +1,62 @@
 <template>
   <BaseModal :title="isEdit ? t('discovery.edit_source') : t('discovery.add_source')" @close="$emit('close')">
     <form @submit.prevent="handleSubmit" class="space-y-4">
+      <!-- Targeting mode: one probe, or a probe group (plan E, E-2). Immutable
+           after creation — same posture as source_type below. -->
       <div>
+        <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('discovery.target_mode_label') }}</label>
+        <div class="flex gap-4">
+          <label class="flex items-center gap-1.5 text-sm text-(--text-2)">
+            <input
+              type="radio"
+              value="probe"
+              v-model="targetMode"
+              :disabled="isEdit"
+              class="w-4 h-4"
+            />
+            {{ t('discovery.target_probe_option') }}
+          </label>
+          <label class="flex items-center gap-1.5 text-sm text-(--text-2)">
+            <input
+              type="radio"
+              value="group"
+              v-model="targetMode"
+              :disabled="isEdit"
+              class="w-4 h-4"
+            />
+            {{ t('discovery.target_group_option') }}
+          </label>
+        </div>
+      </div>
+
+      <div v-if="targetMode === 'probe'">
         <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('discovery.probe_label') }} *</label>
         <select v-model="form.probe_id" class="input w-full" required :disabled="isEdit">
           <option value="" disabled>{{ t('discovery.probe_placeholder') }}</option>
           <option v-for="probe in probes" :key="probe.id" :value="probe.id">{{ probe.name }}</option>
         </select>
       </div>
+      <div v-else>
+        <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('discovery.group_label') }} *</label>
+        <p v-if="probeGroups.length === 0" class="text-xs text-(--warn)">{{ t('discovery.no_probe_groups') }}</p>
+        <select v-else v-model="form.probe_group_id" class="input w-full" required :disabled="isEdit">
+          <option value="" disabled>{{ t('discovery.group_placeholder') }}</option>
+          <option v-for="group in probeGroups" :key="group.id" :value="group.id">{{ group.name }}</option>
+        </select>
+      </div>
 
       <!-- Capability gate: never a silently-empty source_type list -->
       <div v-if="!isEdit">
         <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('discovery.source_type_label') }} *</label>
-        <p v-if="!form.probe_id" class="text-xs text-(--text-3)">{{ t('discovery.pick_probe_first') }}</p>
+        <p v-if="!targetId" class="text-xs text-(--text-3)">
+          {{ targetMode === 'probe' ? t('discovery.pick_probe_first') : t('discovery.pick_group_first') }}
+        </p>
         <p v-else-if="availableSourceTypes.length === 0" class="text-xs text-(--warn)">
-          {{ t('discovery.no_capabilities', { probe: selectedProbeName }) }}
+          {{
+            targetMode === 'probe'
+              ? t('discovery.no_capabilities', { probe: selectedProbeName })
+              : t('discovery.no_group_capabilities', { group: selectedGroupName })
+          }}
         </p>
         <select v-else v-model="form.source_type" class="input w-full" required>
           <option value="" disabled>{{ t('discovery.source_type_placeholder') }}</option>
@@ -27,6 +69,11 @@
         <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('discovery.source_type_label') }}</label>
         <p class="text-sm text-(--text-1)">{{ t(`discovery.source_type_${form.source_type}`) }}</p>
       </div>
+
+      <!-- Execution hint for a group target — who actually runs the job. -->
+      <p v-if="targetMode === 'group' && form.source_type" class="text-xs text-(--text-3)">
+        {{ t(`discovery.group_hint_${form.source_type}`) }}
+      </p>
 
       <!-- Params: docker has none, port_scan needs cidr + ports, dns_zone needs zone + resolver -->
       <template v-if="form.source_type === 'port_scan'">
@@ -96,6 +143,8 @@ const { t } = useI18n()
 
 const props = defineProps({
   probes: { type: Array, default: () => [] },
+  // plan E, E-2 — {id, name, capabilities, probe_count}[], visible groups.
+  probeGroups: { type: Array, default: () => [] },
   source: { type: Object, default: null },
 })
 const emit = defineEmits(['close', 'saved'])
@@ -116,8 +165,14 @@ function paramsToForm(source) {
   }
 }
 
+// plan E, E-2 — which kind of target this source names. Immutable once a
+// source exists (the mode radios are disabled in edit mode), inferred from
+// whichever id the existing source carries.
+const targetMode = ref(props.source?.probe_group_id ? 'group' : 'probe')
+
 const form = ref({
   probe_id: props.source?.probe_id || '',
+  probe_group_id: props.source?.probe_group_id || '',
   source_type: props.source?.source_type || '',
   enabled: props.source ? props.source.enabled : true,
   ...paramsToForm(props.source),
@@ -126,22 +181,34 @@ const form = ref({
 const loading = ref(false)
 const error = ref('')
 
+// The id relevant to the current mode — used for the "pick a target first"
+// gate and to look up the target's declared capabilities.
+const targetId = computed(() =>
+  targetMode.value === 'probe' ? form.value.probe_id : form.value.probe_group_id
+)
+
 const selectedProbeName = computed(
   () => props.probes.find((p) => p.id === form.value.probe_id)?.name || ''
 )
+const selectedGroupName = computed(
+  () => props.probeGroups.find((g) => g.id === form.value.probe_group_id)?.name || ''
+)
 
-// Only source_type values the backend accepts AND the selected probe
-// declared runnable at its last heartbeat — never a silently empty list
-// when a probe declares nothing (plan D, D-3 §4).
+// Only source_type values the backend accepts AND the selected target
+// declared runnable — a probe at its last heartbeat, or the union of its
+// group's members — never a silently empty list when nothing was declared
+// (plan D, D-3 §4 / plan E, E-2).
 const KNOWN_SOURCE_TYPES = ['docker', 'port_scan', 'dns_zone']
 const availableSourceTypes = computed(() => {
-  const probe = props.probes.find((p) => p.id === form.value.probe_id)
-  const capabilities = probe?.discovery_capabilities || []
+  const capabilities =
+    targetMode.value === 'probe'
+      ? props.probes.find((p) => p.id === form.value.probe_id)?.discovery_capabilities || []
+      : props.probeGroups.find((g) => g.id === form.value.probe_group_id)?.capabilities || []
   return KNOWN_SOURCE_TYPES.filter((typ) => capabilities.includes(typ))
 })
 
 const canSubmit = computed(() => {
-  if (!form.value.probe_id || !form.value.source_type) return false
+  if (!targetId.value || !form.value.source_type) return false
   if (form.value.source_type === 'port_scan') {
     return Boolean(form.value.cidr && form.value.portsText)
   }
@@ -174,22 +241,24 @@ async function handleSubmit() {
   error.value = ''
   try {
     if (isEdit.value) {
+      // Targeting is locked in edit mode (the radios/selects above are
+      // disabled) — never resend probe_id/probe_group_id, the server treats
+      // either as a retargeting request (plan E, E-2).
       const { data } = await discoveryApi.sources.update(
         props.source.id,
-        { probe_id: form.value.probe_id, params: buildParams(), enabled: form.value.enabled },
+        { params: buildParams(), enabled: form.value.enabled },
         { skipErrorToast: true }
       )
       emit('saved', data)
     } else {
-      const { data } = await discoveryApi.sources.create(
-        {
-          probe_id: form.value.probe_id,
-          source_type: form.value.source_type,
-          params: buildParams(),
-          enabled: form.value.enabled,
-        },
-        { skipErrorToast: true }
-      )
+      const payload = {
+        source_type: form.value.source_type,
+        params: buildParams(),
+        enabled: form.value.enabled,
+      }
+      if (targetMode.value === 'probe') payload.probe_id = form.value.probe_id
+      else payload.probe_group_id = form.value.probe_group_id
+      const { data } = await discoveryApi.sources.create(payload, { skipErrorToast: true })
       emit('saved', data)
     }
   } catch (err) {

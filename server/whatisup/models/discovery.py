@@ -17,6 +17,18 @@ and ``ALTER TYPE ... ADD VALUE`` on every new lot is exactly the operational
 cost a plain string with Pydantic-side ``Literal`` validation avoids. See
 ``schemas/discovery.py``.
 
+``probe_group_id`` / ``elected_probe_id`` (plan E, E-2) let a source target a
+``ProbeGroup`` instead of one ``Probe`` — ``probe_id``/``probe_group_id`` are
+exclusive (``ck_discovery_sources_probe_xor_group``: exactly one is set).
+A ``docker`` group source fans out to every capable member (the cross-push
+dedup on ``DiscoveredService`` already handles the overlap); ``port_scan``/
+``dns_zone`` mutate the network from one vantage point, so exactly one member
+runs them — the server "sticks" that choice on ``elected_probe_id``
+(``services/discovery_election.py``) and only re-elects when the pick stops
+being usable. ``elected_probe_id`` is meaningless without a group
+(``ck_discovery_sources_elected_requires_group``) and, like
+``last_scan_probe_id``, is a breadcrumb (``SET NULL``), not an ownership edge.
+
 ``DiscoveredService`` is one inventoried target, unique per source by its
 canonical ``proto://host:port`` form (``normalized_target`` — computed by the
 D-1 ingestion pipeline, not here). The transport is a full snapshot per source
@@ -80,8 +92,26 @@ class DiscoverySource(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # CASCADE: a source has no meaning without the probe that runs it, and its
     # discovered_services cascade in turn — losing a probe's config along with
     # its inventory is the expected outcome of deleting the probe itself.
-    probe_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), ForeignKey("probes.id", ondelete="CASCADE"), nullable=False, index=True
+    # Nullable since plan E, E-2: a source targets *either* one probe or one
+    # ProbeGroup — see `ck_discovery_sources_probe_xor_group` below.
+    probe_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("probes.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    # plan E, E-2 — CASCADE for the same reason as probe_id: a group-targeted
+    # source has no meaning once its group is gone.
+    probe_group_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("probe_groups.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    # plan E, E-2 (E-0-2: sticky server-side election) — which group member
+    # runs a port_scan/dns_zone source. SET NULL: losing the elected probe
+    # must not take the source down, just trigger a re-election (see
+    # `services/discovery_election.py`). Never set for a `docker` source
+    # (fan-out, no single runner) or a probe-targeted source.
+    elected_probe_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("probes.id", ondelete="SET NULL"), nullable=True
     )
     # Validated by Pydantic's Literal["docker", "port_scan"] at the schema
     # layer, not a PostgreSQL enum — see module docstring.
@@ -111,8 +141,24 @@ class DiscoverySource(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         "DiscoveredService", back_populates="source", cascade="all, delete-orphan"
     )
 
+    __table_args__ = (
+        # plan E, E-2 — exactly one target. Enforced at the schema layer too
+        # (`DiscoverySourceIn`'s model_validator) so a bad request gets a
+        # clean 422 instead of surfacing this constraint as a 500.
+        CheckConstraint(
+            "(probe_id IS NOT NULL AND probe_group_id IS NULL) "
+            "OR (probe_id IS NULL AND probe_group_id IS NOT NULL)",
+            name="ck_discovery_sources_probe_xor_group",
+        ),
+        CheckConstraint(
+            "elected_probe_id IS NULL OR probe_group_id IS NOT NULL",
+            name="ck_discovery_sources_elected_requires_group",
+        ),
+    )
+
     def __repr__(self) -> str:
-        return f"<DiscoverySource {self.source_type} probe={self.probe_id}>"
+        target = f"probe={self.probe_id}" if self.probe_id else f"group={self.probe_group_id}"
+        return f"<DiscoverySource {self.source_type} {target}>"
 
 
 class DiscoveredService(UUIDPrimaryKeyMixin, TimestampMixin, Base):

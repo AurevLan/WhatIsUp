@@ -31,6 +31,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.api.deps import (
     assert_can_assign_group,
+    assert_can_assign_probe_group,
     assert_can_assign_team,
     check_resource_access,
     get_current_user,
@@ -42,6 +43,7 @@ from whatisup.core.redis import get_redis
 from whatisup.models.discovery import DiscoveredService, DiscoverySource
 from whatisup.models.monitor import Monitor
 from whatisup.models.probe import Probe
+from whatisup.models.probe_group import ProbeGroup, user_probe_group_access
 from whatisup.models.team import TeamRole
 from whatisup.models.user import User
 from whatisup.schemas.discovery import (
@@ -50,6 +52,7 @@ from whatisup.schemas.discovery import (
     DiscoveredServiceOut,
     DiscoveryBulkActionIn,
     DiscoveryBulkActionOut,
+    DiscoveryProbeGroupOut,
     DiscoverySourceIn,
     DiscoverySourceOut,
     DiscoverySourceUpdate,
@@ -60,9 +63,11 @@ from whatisup.services.discovery import (
     compute_proposal,
     default_monitor_fields,
     dismissal_fingerprint,
+    group_capable_probe_count,
     port_field_for_check_type,
     suggest_alert_matrix_templates,
 )
+from whatisup.services.discovery_election import ELECTABLE_SOURCE_TYPES, elect_for_source
 
 #: `Monitor` fields that carry a port for some check_type — cleared and
 #: recomputed (see `_create_monitor_from_proposal`) whenever the caller
@@ -71,6 +76,31 @@ _PORT_OVERRIDE_FIELDS = ("tcp_port", "udp_port", "smtp_port")
 
 sources_router = APIRouter(prefix="/discovery/sources", tags=["discovery"])
 services_router = APIRouter(prefix="/discovery/services", tags=["discovery"])
+# plan E, E-2 — separate prefix from sources_router: a route here named
+# `/discovery/probe-groups` would otherwise sit next to
+# `/discovery/sources/{source_id}` under the same router only by accident of
+# prefix, and gains nothing from sharing it.
+probe_groups_router = APIRouter(prefix="/discovery/probe-groups", tags=["discovery"])
+
+#: `DiscoverySourceOut`'s columns that come straight from the ORM row — mirrors
+#: `_BASE_SERVICE_FIELDS` below. `group_capable_probe_count` is computed, not
+#: a column (see `_serialize_sources`).
+_BASE_SOURCE_FIELDS = (
+    "id",
+    "owner_id",
+    "team_id",
+    "probe_id",
+    "probe_group_id",
+    "elected_probe_id",
+    "source_type",
+    "params",
+    "enabled",
+    "last_scan_at",
+    "last_scan_target_count",
+    "last_scan_probe_id",
+    "created_at",
+    "updated_at",
+)
 
 #: A service may move to `accepted` / `dismissed` from either of these — never
 #: from `accepted` or `dismissed` themselves (re-dismissing a live proposal or
@@ -111,6 +141,84 @@ async def _get_visible_source(
     return source
 
 
+def _assert_group_capable(group: ProbeGroup, source_type: str) -> None:
+    """Fail-visible capacity gate (plan E, E-2): a group with zero members
+    declaring *source_type*'s capability is refused at write time, rather
+    than silently accepted as a source that can never run."""
+    if group_capable_probe_count(group, source_type) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"No probe in this group declares the '{source_type}' capability",
+        )
+
+
+async def _serialize_sources(sources: list[DiscoverySource], db: AsyncSession) -> list[dict]:
+    """`DiscoverySourceOut` plus the computed capacity gate (plan E, E-2) —
+    one batched group lookup for the whole page, mirrors `_serialize_service`
+    below (and its own docstring on why this can't be a plain
+    `model_validate(source, from_attributes=True)`)."""
+    group_ids = {s.probe_group_id for s in sources if s.probe_group_id is not None}
+    groups: dict[uuid.UUID, ProbeGroup] = {}
+    if group_ids:
+        rows = (
+            (await db.execute(select(ProbeGroup).where(ProbeGroup.id.in_(group_ids))))
+            .scalars()
+            .all()
+        )
+        groups = {g.id: g for g in rows}
+
+    out = []
+    for source in sources:
+        data = {field: getattr(source, field) for field in _BASE_SOURCE_FIELDS}
+        group = groups.get(source.probe_group_id) if source.probe_group_id else None
+        data["group_capable_probe_count"] = (
+            group_capable_probe_count(group, source.source_type) if group is not None else None
+        )
+        out.append(DiscoverySourceOut.model_validate(data).model_dump())
+    return out
+
+
+async def _serialize_source(source: DiscoverySource, db: AsyncSession) -> dict:
+    return (await _serialize_sources([source], db))[0]
+
+
+# ── ProbeGroup (as a discovery target) ───────────────────────────────────────
+
+
+@probe_groups_router.get("/", response_model=list[DiscoveryProbeGroupOut])
+@limiter.limit("60/minute")
+async def list_discovery_probe_groups(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[dict]:
+    """Probe groups the caller may target a discovery source at (plan E, E-2).
+
+    Same visibility rule as ``GET /probes/``: superadmin sees every group,
+    everyone else only groups granted via ``user_probe_group_access`` — a
+    group a user cannot see must not leak its name or capabilities either.
+    """
+    stmt = select(ProbeGroup)
+    if not current_user.is_superadmin:
+        stmt = stmt.join(
+            user_probe_group_access,
+            ProbeGroup.id == user_probe_group_access.c.probe_group_id,
+        ).where(user_probe_group_access.c.user_id == current_user.id)
+    groups = (await db.execute(stmt.order_by(ProbeGroup.name))).scalars().all()
+
+    return [
+        {
+            "id": group.id,
+            "name": group.name,
+            "capabilities": sorted(
+                {cap for p in group.probes for cap in (p.discovery_capabilities or [])}
+            ),
+            "probe_count": len(group.probes),
+        }
+        for group in groups
+    ]
+
+
 # ── DiscoverySource ──────────────────────────────────────────────────────────
 
 
@@ -120,13 +228,13 @@ async def list_sources(
     request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> list[DiscoverySource]:
+) -> list[dict]:
     stmt = select(DiscoverySource)
     if not current_user.is_superadmin:
         team_ids = await get_user_team_ids(current_user, db)
         stmt = stmt.where(_visibility_filter(current_user, team_ids))
     rows = (await db.execute(stmt.order_by(DiscoverySource.created_at.desc()))).scalars().all()
-    return list(rows)
+    return await _serialize_sources(list(rows), db)
 
 
 @sources_router.post("/", response_model=DiscoverySourceOut, status_code=status.HTTP_201_CREATED)
@@ -136,19 +244,34 @@ async def create_source(
     payload: DiscoverySourceIn,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> DiscoverySource:
+) -> dict:
     await assert_can_assign_team(db, current_user, payload.team_id)
-    await _assert_probe_active(db, payload.probe_id)
+    if payload.probe_id is not None:
+        await _assert_probe_active(db, payload.probe_id)
+    else:
+        # payload's model_validator guarantees exactly one of the two is set.
+        group = await assert_can_assign_probe_group(db, current_user, payload.probe_group_id)
+        _assert_group_capable(group, payload.source_type)
 
     source = DiscoverySource(
         owner_id=current_user.id,
         team_id=payload.team_id,
         probe_id=payload.probe_id,
+        probe_group_id=payload.probe_group_id,
         source_type=payload.source_type,
         params=payload.params,
         enabled=payload.enabled,
     )
     db.add(source)
+    await db.flush()
+
+    # plan E, E-2 (E-0-2) — give a group-targeted port_scan/dns_zone source an
+    # elected runner right away rather than waiting for the next election
+    # tick (≤ discovery_election_interval_seconds): the caller's own response
+    # already carries `elected_probe_id`.
+    if source.probe_group_id is not None and source.source_type in ELECTABLE_SOURCE_TYPES:
+        await elect_for_source(db, source, datetime.now(UTC))
+
     await db.flush()
     await db.refresh(source)
 
@@ -160,7 +283,7 @@ async def create_source(
         source.source_type,
         current_user,
     )
-    return source
+    return await _serialize_source(source, db)
 
 
 @sources_router.get("/{source_id}", response_model=DiscoverySourceOut)
@@ -170,8 +293,9 @@ async def get_source(
     source_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> DiscoverySource:
-    return await _get_visible_source(source_id, current_user, db)
+) -> dict:
+    source = await _get_visible_source(source_id, current_user, db)
+    return await _serialize_source(source, db)
 
 
 @sources_router.patch("/{source_id}", response_model=DiscoverySourceOut)
@@ -182,14 +306,34 @@ async def update_source(
     payload: DiscoverySourceUpdate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> DiscoverySource:
+) -> dict:
     source = await _get_visible_source(source_id, current_user, db, TeamRole.editor)
 
     data = payload.model_dump(exclude_unset=True)
     if "team_id" in data:
         await assert_can_assign_team(db, current_user, data["team_id"])
     if "probe_id" in data:
+        # plan E, E-2 — targeting *mode* is immutable after creation, same
+        # posture as `source_type` above: a group-targeted source cannot be
+        # PATCHed into a probe-targeted one (and `data["probe_id"] = None`
+        # would violate the DB CHECK regardless).
+        if source.probe_group_id is not None or data["probe_id"] is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="probe_id can only be changed on a probe-targeted source",
+            )
         await _assert_probe_active(db, data["probe_id"])
+    if "probe_group_id" in data:
+        if source.probe_id is not None or data["probe_group_id"] is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="probe_group_id can only be changed on a group-targeted source",
+            )
+        group = await assert_can_assign_probe_group(db, current_user, data["probe_group_id"])
+        _assert_group_capable(group, source.source_type)
+        # Retargeting to a different group invalidates any existing election —
+        # the previously elected probe may not even be a member of it.
+        source.elected_probe_id = None
     if "params" in data:
         try:
             data["params"] = validate_discovery_params(source.source_type, data["params"])
@@ -200,6 +344,9 @@ async def update_source(
 
     for field, value in data.items():
         setattr(source, field, value)
+
+    if "probe_group_id" in data and source.source_type in ELECTABLE_SOURCE_TYPES and source.enabled:
+        await elect_for_source(db, source, datetime.now(UTC))
 
     await db.flush()
     await db.refresh(source)
@@ -213,7 +360,7 @@ async def update_source(
         current_user,
         diff=data,
     )
-    return source
+    return await _serialize_source(source, db)
 
 
 @sources_router.post("/{source_id}/scan-now", status_code=status.HTTP_202_ACCEPTED)

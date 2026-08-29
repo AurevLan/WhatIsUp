@@ -133,13 +133,19 @@ class DiscoverySourceIn(BaseModel):
     model_config = {"extra": "forbid"}
 
     team_id: uuid.UUID | None = None
-    probe_id: uuid.UUID
+    # plan E, E-2 — exactly one of probe_id / probe_group_id (mirrors the DB
+    # CHECK `ck_discovery_sources_probe_xor_group`; validated here too so a
+    # bad request gets a 422, not the model's constraint surfacing as a 500).
+    probe_id: uuid.UUID | None = None
+    probe_group_id: uuid.UUID | None = None
     source_type: SourceType
     params: dict = Field(default_factory=dict)
     enabled: bool = True
 
     @model_validator(mode="after")
-    def _check_params(self) -> DiscoverySourceIn:
+    def _check_target(self) -> DiscoverySourceIn:
+        if (self.probe_id is None) == (self.probe_group_id is None):
+            raise ValueError("exactly one of probe_id or probe_group_id must be set")
         self.params = validate_discovery_params(self.source_type, self.params)
         return self
 
@@ -150,13 +156,17 @@ class DiscoverySourceUpdate(BaseModel):
     Changing it would invalidate ``params``' meaning in place (a port_scan
     ``cidr``/``ports`` blob is not a valid docker config and vice versa) —
     ``extra="forbid"`` turns an attempt to send it into a clean 422 rather
-    than a field that is silently ignored.
+    than a field that is silently ignored. Same reasoning keeps *targeting
+    mode* immutable (plan E, E-2): the endpoint rejects switching a
+    probe-targeted source to ``probe_group_id`` or vice versa, even though
+    both fields are accepted here — see ``api/v1/discovery.py::update_source``.
     """
 
     model_config = {"extra": "forbid"}
 
     team_id: uuid.UUID | None = None
     probe_id: uuid.UUID | None = None
+    probe_group_id: uuid.UUID | None = None
     params: dict | None = None
     enabled: bool | None = None
 
@@ -165,7 +175,10 @@ class DiscoverySourceOut(BaseModel):
     id: uuid.UUID
     owner_id: uuid.UUID
     team_id: uuid.UUID | None
-    probe_id: uuid.UUID
+    probe_id: uuid.UUID | None
+    # plan E, E-2 — group targeting (mutually exclusive with probe_id).
+    probe_group_id: uuid.UUID | None
+    elected_probe_id: uuid.UUID | None
     source_type: str
     params: dict
     enabled: bool
@@ -174,10 +187,32 @@ class DiscoverySourceOut(BaseModel):
     last_scan_at: datetime | None
     last_scan_target_count: int | None
     last_scan_probe_id: uuid.UUID | None
+    # plan E, E-2 — fail-visible capacity gate. NULL for a probe-targeted
+    # source (the concept doesn't apply); for a group-targeted source, how
+    # many current members declare `source_type`'s capability — 0 means the
+    # source can never run until a capable probe (re)joins the group, surfaced
+    # as a UI warning rather than a silent no-op. Never stored: computed at
+    # serialization time by `api/v1/discovery.py`, same treatment as
+    # `DiscoveredServiceOut.suggested_*`.
+    group_capable_probe_count: int | None = None
     created_at: datetime
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class DiscoveryProbeGroupOut(BaseModel):
+    """A ``ProbeGroup`` as a discovery target (plan E, E-2) — the picker in
+    ``DiscoverySourceModal.vue`` needs the union of member capabilities to
+    know which ``source_type``s are even worth offering, without exposing the
+    group's membership/ACL rows (``ProbeGroupOut`` under ``/admin`` is
+    superadmin-only and carries those; a regular tenant only needs to know
+    *what a group can run*, not *who is in it*)."""
+
+    id: uuid.UUID
+    name: str
+    capabilities: list[str]
+    probe_count: int
 
 
 # ── DiscoveredService ────────────────────────────────────────────────────────

@@ -45,6 +45,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from whatisup.models.alert_matrix_template import AlertMatrixTemplate
 from whatisup.models.discovery import DiscoveredService, DiscoverySource
 from whatisup.models.monitor import Monitor
+from whatisup.models.probe_group import ProbeGroup
 
 #: check_type values whose `Monitor.url` does not represent a bare
 #: `host[:port]` network target the way port_scan/docker discovery reports
@@ -165,6 +166,21 @@ def compute_proposal(service: DiscoveredService, source_type: str) -> ServicePro
         group=_suggest_group(service),
         tags=_suggest_tags(service, source_type),
     )
+
+
+def group_capable_probe_count(group: ProbeGroup, source_type: str) -> int:
+    """How many current members of *group* declare *source_type*'s capability.
+
+    Shared by the create/update fail-visible gate (plan E, E-2: a group with
+    zero capable probes is refused at write time) and the
+    ``group_capable_probe_count`` field surfaced on every read afterwards (a
+    probe leaving the group later must make the source *say* it can no longer
+    run, never fail silently) — one computation, two call sites, so they
+    cannot drift. Relies on ``ProbeGroup.probes`` being loaded — it is
+    ``lazy="selectin"`` on the model, so any plain ``select(ProbeGroup)``
+    already has it.
+    """
+    return sum(1 for p in group.probes if source_type in (p.discovery_capabilities or []))
 
 
 async def suggest_alert_matrix_templates(

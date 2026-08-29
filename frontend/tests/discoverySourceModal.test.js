@@ -30,11 +30,21 @@ const probes = [
   { id: 'p-null', name: 'pre-d1-probe', discovery_capabilities: null },
 ]
 
+// plan E, E-2 — union of member capabilities, computed server-side.
+const probeGroups = [
+  { id: 'g-mixed', name: 'mixed-group', capabilities: ['docker', 'port_scan'], probe_count: 2 },
+  { id: 'g-empty', name: 'empty-group', capabilities: [], probe_count: 1 },
+]
+
 function mountModal(props = {}) {
   return mount(DiscoverySourceModal, {
-    props: { probes, source: null, ...props },
+    props: { probes, probeGroups, source: null, ...props },
     global: { plugins: [i18n], stubs: { teleport: true } },
   })
+}
+
+function selectTargetMode(w, mode) {
+  return w.findAll('input[type="radio"]').find((r) => r.element.value === mode).setValue()
 }
 
 describe('DiscoverySourceModal', () => {
@@ -86,9 +96,11 @@ describe('DiscoverySourceModal', () => {
     const w = mountModal()
     await w.find('select').setValue('p-docker')
     await w.findAll('select')[1].setValue('port_scan')
-    const inputs = w.findAll('input')
-    await inputs[0].setValue('10.0.0.0/24')
-    await inputs[1].setValue('22, 80, 443')
+    // Positional `inputs[0]`/`inputs[1]` would now hit the targeting radios
+    // (plan E, E-2) — select the cidr/ports fields by placeholder instead,
+    // same as the dns_zone test below.
+    await w.find('input[placeholder="10.0.0.0/24"]').setValue('10.0.0.0/24')
+    await w.find('input[placeholder="22, 80, 443"]').setValue('22, 80, 443')
     await w.find('form').trigger('submit')
     await flushPromises()
 
@@ -160,5 +172,101 @@ describe('DiscoverySourceModal', () => {
     await w.find('select').setValue('p-docker')
     await w.findAll('select')[1].setValue('dns_zone')
     expect(w.find('button[type="submit"]').attributes('disabled')).toBeDefined()
+  })
+
+  // ── Group targeting (plan E, E-2) ──────────────────────────────────────
+
+  it('defaults to probe targeting, with a probe select as the first field', () => {
+    const w = mountModal()
+    expect(w.text()).toContain(en.discovery.pick_probe_first)
+    expect(w.find('select').exists()).toBe(true)
+  })
+
+  it('switching to group mode offers the group select and its member capabilities', async () => {
+    const w = mountModal()
+    await selectTargetMode(w, 'group')
+    expect(w.text()).toContain(en.discovery.pick_group_first)
+
+    await w.find('select').setValue('g-mixed')
+    const typeOptions = w.findAll('select')[1].findAll('option').map((o) => o.element.value)
+    expect(typeOptions).toEqual(expect.arrayContaining(['docker', 'port_scan']))
+    expect(typeOptions).not.toContain('dns_zone')
+  })
+
+  it('says explicitly a group with no capable member can discover nothing', async () => {
+    const w = mountModal()
+    await selectTargetMode(w, 'group')
+    await w.find('select').setValue('g-empty')
+    expect(w.text()).toContain('empty-group')
+    expect(w.findAll('select').length).toBe(1)
+  })
+
+  it('shows an execution hint for a group-targeted docker source (fan-out)', async () => {
+    const w = mountModal()
+    await selectTargetMode(w, 'group')
+    await w.find('select').setValue('g-mixed')
+    await w.findAll('select')[1].setValue('docker')
+    expect(w.text()).toContain(en.discovery.group_hint_docker)
+  })
+
+  it('shows an execution hint for a group-targeted port_scan source (elected)', async () => {
+    const w = mountModal()
+    await selectTargetMode(w, 'group')
+    await w.find('select').setValue('g-mixed')
+    await w.findAll('select')[1].setValue('port_scan')
+    expect(w.text()).toContain(en.discovery.group_hint_port_scan)
+  })
+
+  it('submits a group-targeted docker create with probe_group_id, no probe_id', async () => {
+    discoveryApi.sources.create.mockResolvedValue({ data: { id: 'new' } })
+    const w = mountModal()
+    await selectTargetMode(w, 'group')
+    await w.find('select').setValue('g-mixed')
+    await w.findAll('select')[1].setValue('docker')
+    await w.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(discoveryApi.sources.create).toHaveBeenCalledWith(
+      { probe_group_id: 'g-mixed', source_type: 'docker', params: {}, enabled: true },
+      { skipErrorToast: true }
+    )
+  })
+
+  it('edit mode locks the targeting radios and never resends probe_id/probe_group_id', async () => {
+    discoveryApi.sources.update.mockResolvedValue({ data: { id: 's-1' } })
+    const source = {
+      id: 's-1',
+      probe_id: 'p-docker',
+      probe_group_id: null,
+      source_type: 'docker',
+      params: {},
+      enabled: true,
+    }
+    const w = mountModal({ source })
+    for (const radio of w.findAll('input[type="radio"]')) {
+      expect(radio.attributes('disabled')).toBeDefined()
+    }
+    await w.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(discoveryApi.sources.update).toHaveBeenCalledWith(
+      's-1',
+      { params: {}, enabled: true },
+      { skipErrorToast: true }
+    )
+  })
+
+  it('edit mode of a group-targeted source shows the group name, not a probe select', () => {
+    const source = {
+      id: 's-2',
+      probe_id: null,
+      probe_group_id: 'g-mixed',
+      source_type: 'docker',
+      params: {},
+      enabled: true,
+    }
+    const w = mountModal({ source })
+    expect(w.text()).toContain('mixed-group')
+    expect(w.find('select').attributes('disabled')).toBeDefined()
   })
 })

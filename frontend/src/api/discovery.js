@@ -11,6 +11,11 @@ export const discoveryApi = {
     scanNow: (id, config = {}) => api.post(`/discovery/sources/${id}/scan-now`, {}, config),
   },
 
+  // plan E, E-2 — probe groups the caller may target a source at.
+  probeGroups: {
+    list: (config = {}) => api.get('/discovery/probe-groups/', config),
+  },
+
   services: {
     list: (params = {}, config = {}) => api.get('/discovery/services/', { ...config, params }),
     accept: (id, data, config = {}) => api.post(`/discovery/services/${id}/accept`, data, config),

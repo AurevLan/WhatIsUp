@@ -222,6 +222,24 @@ async def lifespan(app: FastAPI):
         run_leader_loop("escalation_engine", _escalation_work, interval=30)
     )
 
+    # Discovery source election (plan E, E-2 / E-0-2). Sticky server-side pick
+    # of the probe that runs a group-targeted port_scan/dns_zone source — this
+    # loop re-elects when the current pick dies, leaves the group, or loses
+    # the capability. `create_source`/`update_source` also elect eagerly so
+    # a brand-new source doesn't wait a full tick for its first runner.
+    async def _discovery_election_work():
+        from whatisup.services.discovery_election import check_discovery_elections
+
+        await check_discovery_elections()
+
+    discovery_election_task = asyncio.create_task(
+        run_leader_loop(
+            "discovery_election",
+            _discovery_election_work,
+            interval=settings.discovery_election_interval_seconds,
+        )
+    )
+
     # Autonomous renotify checker (every 60s)
     async def _renotify_work():
         from whatisup.services.renotify import check_renotify
@@ -325,6 +343,12 @@ async def lifespan(app: FastAPI):
     escalation_task.cancel()
     try:
         await escalation_task
+    except asyncio.CancelledError:
+        pass
+
+    discovery_election_task.cancel()
+    try:
+        await discovery_election_task
     except asyncio.CancelledError:
         pass
 
@@ -484,6 +508,7 @@ def create_app() -> FastAPI:
     app.include_router(silences.router, prefix="/api/v1")
     app.include_router(discovery.sources_router, prefix="/api/v1")
     app.include_router(discovery.services_router, prefix="/api/v1")
+    app.include_router(discovery.probe_groups_router, prefix="/api/v1")
     app.include_router(oncall.contacts_router, prefix="/api/v1")
     app.include_router(oncall.schedules_router, prefix="/api/v1")
     app.include_router(oncall.policies_router, prefix="/api/v1")

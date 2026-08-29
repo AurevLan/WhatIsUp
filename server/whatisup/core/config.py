@@ -98,6 +98,15 @@ class Settings(BaseSettings):
     probe_result_rate_limit: str = "30/minute"
     probe_heartbeat_interval_seconds: int = 30
 
+    # Discovery — sticky probe election for group-targeted sources (plan E,
+    # E-2 / E-0-2). Cadence of the background re-election loop, and the grace
+    # window added to `probe_heartbeat_interval_seconds` before an elected
+    # probe is considered dead — same "interval + grace" shape as
+    # `Monitor.heartbeat_grace_seconds` (services/heartbeat.py), applied here
+    # to a probe's own heartbeat instead of a monitor's ping.
+    discovery_election_interval_seconds: int = 60
+    discovery_election_grace_seconds: int = 60
+
     # Data retention. Since A-4 this governs the **raw** check_results only —
     # history beyond it is carried by the rollups, at their own horizon below.
     # Left at 90 days on purpose: shortening it is a per-deployment call (it

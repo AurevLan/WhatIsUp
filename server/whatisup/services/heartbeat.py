@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 import structlog
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.models.incident import IS_AVAILABILITY_INCIDENT, Incident, IncidentScope
 from whatisup.models.monitor import Monitor
@@ -37,54 +38,75 @@ async def check_heartbeats() -> None:
         )
 
         for monitor in monitors:
-            interval = monitor.heartbeat_interval_seconds
-            grace = monitor.heartbeat_grace_seconds or 60
-            last = monitor.last_heartbeat_at or datetime(1970, 1, 1, tzinfo=UTC)
-            deadline = last + timedelta(seconds=interval + grace)
-            is_overdue = now > deadline
+            # Commit per monitor, like `renotify.py` and `metric_alerts.py`:
+            # with a single commit at the end of the loop, one monitor failing
+            # inside `_fire_alerts` (a channel dispatch, a network call) would
+            # roll back the incidents already flushed for every monitor
+            # processed before it in this tick.
+            try:
+                await _check_one(db, monitor, now)
+                await db.commit()
+            except Exception:
+                logger.exception("heartbeat_check_failed", monitor_id=str(monitor.id))
+                await db.rollback()
 
-            open_incident = (
-                await db.execute(
-                    select(Incident).where(
-                        Incident.monitor_id == monitor.id,
-                        Incident.resolved_at.is_(None),
-                        IS_AVAILABILITY_INCIDENT,
-                    )
-                )
-            ).scalar_one_or_none()
 
-            if is_overdue and open_incident is None:
-                incident = Incident(
-                    monitor_id=monitor.id,
-                    started_at=now,
-                    scope=IncidentScope.global_,
-                    affected_probe_ids=[],
-                    first_failure_at=deadline,
-                )
-                db.add(incident)
-                try:
-                    await db.flush()
-                except IntegrityError:
-                    await db.rollback()
-                    logger.info("heartbeat_incident_deduplicated", monitor_id=str(monitor.id))
-                    continue
-                await _fire_alerts(db, incident, monitor, event_type="incident_opened")
-                logger.warning(
-                    "heartbeat_overdue",
-                    monitor_id=str(monitor.id),
-                    name=monitor.name,
-                    last_ping=last.isoformat(),
-                )
-            elif not is_overdue and open_incident is not None:
-                duration = int((now - open_incident.started_at).total_seconds())
-                open_incident.resolved_at = now
-                open_incident.duration_seconds = duration
-                await _fire_alerts(db, open_incident, monitor, event_type="incident_resolved")
-                logger.info(
-                    "heartbeat_recovered",
-                    monitor_id=str(monitor.id),
-                    name=monitor.name,
-                    duration_seconds=duration,
-                )
+async def _check_one(db: AsyncSession, monitor: Monitor, now: datetime) -> None:
+    """Open or resolve the availability incident of one heartbeat monitor."""
+    interval = monitor.heartbeat_interval_seconds
+    grace = monitor.heartbeat_grace_seconds or 60
+    last = monitor.last_heartbeat_at or datetime(1970, 1, 1, tzinfo=UTC)
+    # Committing per monitor means later iterations may read their row back
+    # from the database, and a backend that doesn't persist the offset (SQLite,
+    # under tests) hands back a naive value that can't be compared to `now`.
+    # No-op on PostgreSQL, where the column is `timestamptz`.
+    if last.tzinfo is None:
+        last = last.replace(tzinfo=UTC)
+    deadline = last + timedelta(seconds=interval + grace)
+    is_overdue = now > deadline
 
-        await db.commit()
+    open_incident = (
+        await db.execute(
+            select(Incident).where(
+                Incident.monitor_id == monitor.id,
+                Incident.resolved_at.is_(None),
+                IS_AVAILABILITY_INCIDENT,
+            )
+        )
+    ).scalar_one_or_none()
+
+    if is_overdue and open_incident is None:
+        incident = Incident(
+            monitor_id=monitor.id,
+            started_at=now,
+            scope=IncidentScope.global_,
+            affected_probe_ids=[],
+            first_failure_at=deadline,
+        )
+        db.add(incident)
+        try:
+            await db.flush()
+        except IntegrityError:
+            # Someone else opened it between our SELECT and this INSERT: not an
+            # error, and nothing left to do for this monitor.
+            await db.rollback()
+            logger.info("heartbeat_incident_deduplicated", monitor_id=str(monitor.id))
+            return
+        await _fire_alerts(db, incident, monitor, event_type="incident_opened")
+        logger.warning(
+            "heartbeat_overdue",
+            monitor_id=str(monitor.id),
+            name=monitor.name,
+            last_ping=last.isoformat(),
+        )
+    elif not is_overdue and open_incident is not None:
+        duration = int((now - open_incident.started_at).total_seconds())
+        open_incident.resolved_at = now
+        open_incident.duration_seconds = duration
+        await _fire_alerts(db, open_incident, monitor, event_type="incident_resolved")
+        logger.info(
+            "heartbeat_recovered",
+            monitor_id=str(monitor.id),
+            name=monitor.name,
+            duration_seconds=duration,
+        )

@@ -69,6 +69,7 @@ import { Pause, Play } from 'lucide-vue-next'
 import { useIncidentPlayback } from '../../composables/useIncidentPlayback'
 import { colorForAsn } from '../../lib/asnPalette'
 import { cssVar, withAlpha } from '../../lib/themeColors'
+import { buildMapPopup } from '../../lib/mapPopup'
 
 const props = defineProps({
   incidentId: { type: String, required: true },
@@ -150,10 +151,19 @@ function renderFrame() {
       iconAnchor: [0, 0],
     })
     const marker = L.marker([point.probe_lat, point.probe_lng], { icon }).addTo(leafletMap)
+    // `probe_name` is tenant-supplied and bindTooltip renders a string as
+    // innerHTML — build the node so it goes through textContent instead.
     marker.bindTooltip(
-      `<b>${point.probe_name || point.probe_id}</b><br>` +
-      `<span style="font-size:11px;color:${fill};">${point.status.toUpperCase()}</span>` +
-      (point.probe_asn ? `<br><span style="font-family:monospace;font-size:10px;color:${ring};">AS${point.probe_asn}</span>` : ''),
+      buildMapPopup([
+        { text: point.probe_name || point.probe_id, bold: true },
+        { text: point.status.toUpperCase(), style: `font-size:11px;color:${fill};` },
+        point.probe_asn
+          ? {
+              text: `AS${point.probe_asn}`,
+              style: `font-family:monospace;font-size:10px;color:${ring};`,
+            }
+          : null,
+      ]),
       { className: 'probe-popup', sticky: true }
     )
     leafletMarkers.push(marker)

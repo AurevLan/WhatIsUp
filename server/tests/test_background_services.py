@@ -16,6 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import whatisup.core.database as db_mod
+import whatisup.services.heartbeat as heartbeat_mod
 from whatisup.models.alert import (
     AlertCondition,
     AlertRule,
@@ -184,6 +185,75 @@ async def test_heartbeat_opens_incident_when_overdue(
     assert inc is not None
     assert inc.resolved_at is None
     assert inc.scope == IncidentScope.global_
+
+
+@pytest.mark.asyncio
+async def test_heartbeat_one_failing_monitor_does_not_lose_the_others(
+    bg_session: AsyncSession, test_user: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A failure mid-loop must not roll back the incidents already opened.
+
+    With a single commit at the end of the loop it did: the session was closed
+    without committing and every incident of that tick vanished, alert included
+    — the exact bug `renotify.py` and `metric_alerts.py` already fixed by
+    committing per item.
+    """
+    for idx in range(3):
+        bg_session.add(
+            Monitor(
+                name=f"hb-isolation-{idx}",
+                url="http://hb",
+                owner_id=test_user.id,
+                check_type="heartbeat",
+                heartbeat_slug=f"isolation-{idx}",
+                heartbeat_token=f"tok-isolation-{idx}",
+                heartbeat_interval_seconds=60,
+                heartbeat_grace_seconds=30,
+                last_heartbeat_at=datetime.now(UTC) - timedelta(hours=2),
+            )
+        )
+    await bg_session.flush()
+
+    # Blow up on the second monitor the loop touches, whichever that is.
+    # `bg_session` already stubs `_fire_alerts` to a no-op; only the ORM state
+    # is off-limits here, since a rollback in the loop expires it.
+    fired = {"n": 0}
+
+    async def exploding_fire(*_args, **_kwargs):
+        fired["n"] += 1
+        if fired["n"] == 2:
+            raise RuntimeError("channel dispatch blew up")
+        return None
+
+    monkeypatch.setattr(heartbeat_mod, "_fire_alerts", exploding_fire)
+
+    commits = {"n": 0}
+    real_commit = bg_session.commit
+
+    async def counting_commit():
+        commits["n"] += 1
+        await real_commit()
+
+    # `bg_session` is the *test's* session, wrapped in an outer SAVEPOINT by
+    # conftest: letting the service's rollback through would unwind the whole
+    # test (fixtures included), which says nothing about the loop. Count it
+    # instead — that it fires exactly once is the point.
+    rollbacks = {"n": 0}
+
+    async def counting_rollback():
+        rollbacks["n"] += 1
+
+    monkeypatch.setattr(bg_session, "commit", counting_commit)
+    monkeypatch.setattr(bg_session, "rollback", counting_rollback)
+
+    await check_heartbeats()
+
+    # Before the fix the exception escaped the loop: the third monitor was
+    # never looked at, and the single trailing commit never ran — so the
+    # incident already flushed for the first monitor was silently dropped.
+    assert fired["n"] == 3, "the loop must keep going after one monitor fails"
+    assert commits["n"] == 2, "the two healthy monitors are each committed on their own"
+    assert rollbacks["n"] == 1, "only the failing monitor is rolled back"
 
 
 @pytest.mark.asyncio

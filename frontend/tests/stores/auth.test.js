@@ -31,6 +31,7 @@ vi.mock('../../src/lib/biometricAuth', () => ({
 }))
 
 import { useAuthStore } from '../../src/stores/auth'
+import { useWebSocketStore } from '../../src/stores/websocket'
 
 beforeEach(() => {
   setActivePinia(createPinia())
@@ -91,6 +92,36 @@ describe('auth store', () => {
     expect(localStorage.getItem('refresh_token')).toBe(null)
     expect(auth.isAuthenticated).toBe(false)
     expect(auth.user).toBe(null)
+  })
+
+  // The Pinia store is a singleton and `connect()` early-returns on an
+  // already-OPEN socket: a logout that leaves it up hands the next user to log
+  // in on this browser the previous user's live stream.
+  it('logout closes the websocket and drops the previous user events', async () => {
+    localStorage.setItem('access_token', 't')
+    localStorage.setItem('refresh_token', 'r')
+    apiPost.mockResolvedValueOnce({ data: {} })
+
+    const ws = useWebSocketStore()
+    ws.events = [{ type: 'check_result', monitor_id: 'previous-user-monitor' }]
+    const disconnect = vi.spyOn(ws, 'disconnect')
+
+    await useAuthStore().logout()
+
+    expect(disconnect).toHaveBeenCalledOnce()
+    expect(ws.events).toEqual([])
+  })
+
+  it('logout still closes the websocket when the API call fails', async () => {
+    localStorage.setItem('refresh_token', 'r')
+    apiPost.mockRejectedValueOnce(new Error('network'))
+
+    const ws = useWebSocketStore()
+    const disconnect = vi.spyOn(ws, 'disconnect')
+
+    await useAuthStore().logout()
+
+    expect(disconnect).toHaveBeenCalledOnce()
   })
 
   it('logout swallows API errors and still clears local state', async () => {

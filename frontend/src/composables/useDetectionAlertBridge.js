@@ -9,11 +9,13 @@
 // flow instead of each one re-implementing (or omitting) its own.
 
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import api from '../api/client'
 import { useToast } from './useToast'
 
 export function useDetectionAlertBridge(monitorRef) {
   const { error: toastError } = useToast()
+  const { t } = useI18n()
 
   const alertModal = ref(false)
   const alertChannels = ref([])
@@ -74,7 +76,7 @@ export function useDetectionAlertBridge(monitorRef) {
       wired.value = true
       alertModal.value = false
     } catch (e) {
-      toastError(e.response?.data?.detail || 'Error creating the alert rule')
+      toastError(e.response?.data?.detail || t('detection_alert.create_error'))
     } finally {
       alertCreating.value = false
     }

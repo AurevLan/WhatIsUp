@@ -11,7 +11,7 @@
         <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-(--up) inline-block" />≥ 99 %</span>
         <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-(--warn) inline-block" />≥ 90 %</span>
         <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-(--down) inline-block" />&lt; 90 %</span>
-        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-(--text-3) inline-block" />No data</span>
+        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-(--text-3) inline-block" />{{ t('status.no_data') }}</span>
       </div>
     </div>
 

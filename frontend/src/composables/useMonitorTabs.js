@@ -39,8 +39,11 @@ export function useMonitorTabs(monitorRef, customMetricsRef, { onMapActivated } 
       tabs.push(TAB_MAP)
     }
     tabs.push(TAB_ALERTS)
-    // Metrics tab only when at least one metric has been pushed
-    if (customMetricsRef.value.length > 0) tabs.push(TAB_METRICS)
+    // Always shown — a monitor can push metrics before it ever appears here,
+    // and hiding the tab until the first push left the feature undiscoverable
+    // (chantier ergonomie, item 5b). The tab's own empty state now explains
+    // the feature and links to the push URL, so there's nothing left to gate.
+    tabs.push(TAB_METRICS)
     // Runbook tab — only when enabled on the monitor
     if (monitorRef.value?.runbook_enabled) tabs.push(TAB_RUNBOOK)
     return tabs

@@ -239,6 +239,65 @@ describe('DiscoveryView — sources tab', () => {
       vi.useRealTimers()
     }
   })
+
+  // Chantier ergonomie, item 7c: startScanPolling() used to bail out early
+  // when a poll was already running, without touching the deadline — a
+  // second scan queued late in the first one's 120s budget inherited
+  // whatever was left of it, and its own spinner could time out before the
+  // scan it was tracking ever produced a result.
+  it('gives a scan its own full budget even when it joins an already-running poll', async () => {
+    vi.useFakeTimers()
+    try {
+      const srcA = source({ id: 's-1', last_scan_at: null })
+      const srcB = source({ id: 's-2', last_scan_at: null })
+      // last_scan_at never changes for either source: the only thing that can
+      // end polling here is the deadline, which is exactly what's under test.
+      discoveryApi.sources.list.mockResolvedValue({ data: [srcA, srcB] })
+      discoveryApi.sources.scanNow.mockResolvedValue({ data: { status: 'queued' } })
+      discoveryApi.services.list.mockResolvedValue({ data: [] })
+
+      const router = makeRouter()
+      router.push('/')
+      await router.isReady()
+      const w = mount(DiscoveryView, {
+        global: { plugins: [i18n, createPinia(), router], stubs: { teleport: true } },
+      })
+      await flushPromises()
+      const sourcesTab = w.findAll('button').find((b) => b.text() === en.discovery.tab_sources)
+      await sourcesTab.trigger('click')
+      await flushPromises()
+
+      // Both sources render identically (same fixture target); select by order.
+      const scanButtons = () => w.findAll('button').filter((b) => b.text().includes(en.discovery.scan_now))
+
+      // Start scanning the first source.
+      await scanButtons()[0].trigger('click')
+      await flushPromises()
+
+      // Run the shared poll almost to its original deadline (120s) without
+      // the first scan ever completing.
+      await vi.advanceTimersByTimeAsync(116000)
+      await flushPromises()
+
+      // Now queue the second source's scan, late into the first poll's life.
+      const pendingButtons = () => w.findAll('button').filter((b) => b.text().includes(en.discovery.scan_pending))
+      const stillNow = () => w.findAll('button').filter((b) => b.text().includes(en.discovery.scan_now))
+      expect(stillNow().length).toBe(1) // the second source hasn't been scanned yet
+      await stillNow()[0].trigger('click')
+      await flushPromises()
+      expect(pendingButtons().length).toBe(2)
+
+      // Cross the *original* deadline (120s from the first scan). Without the
+      // fix this tick clears both as "timed out"; with it, the shared
+      // deadline was pushed out by the second scan's own start time.
+      await vi.advanceTimersByTimeAsync(8000)
+      await flushPromises()
+
+      expect(pendingButtons().length).toBe(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })
 
 describe('DiscoveryView — review tab', () => {
@@ -253,6 +312,32 @@ describe('DiscoveryView — review tab', () => {
   it('shows the empty state when there is nothing to review', async () => {
     const w = await mountView({ services: [] })
     expect(w.text()).toContain(en.discovery.no_services)
+  })
+
+  // Chantier ergonomie, item 6: the Review tab's empty state used to have no
+  // CTA and no doc link, unlike the fully-fledged one on the Sources tab.
+  it('offers to create a source when there is nothing to review and no source exists', async () => {
+    const w = await mountView({ services: [], sources: [] })
+    expect(w.text()).toContain(en.discovery.add_source)
+    expect(w.find('a[href*="automatic-discovery"]').exists()).toBe(true)
+
+    const cta = w.findAll('button').find((b) => b.text().includes(en.discovery.add_source))
+    await cta.trigger('click')
+    // The create-source modal opens directly from the review tab's empty state.
+    expect(w.find('.modal-title').text()).toBe(en.discovery.add_source)
+  })
+
+  it('points at the sources tab when sources exist but none produced a proposal', async () => {
+    const w = await mountView({ services: [], sources: [source()] })
+    expect(w.text()).toContain(en.discovery.view_sources_cta)
+
+    const cta = w.findAll('button').find((b) => b.text() === en.discovery.view_sources_cta)
+    await cta.trigger('click')
+    await flushPromises()
+    // Switched to the sources tab: the review-only status/source filters are
+    // gone, and the source registered above is now listed.
+    expect(w.find('select').exists()).toBe(false)
+    expect(w.text()).toContain(en.discovery.source_type_docker)
   })
 
   it('links an orphaned service to its monitor', async () => {

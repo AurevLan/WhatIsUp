@@ -179,8 +179,8 @@
                 ><Activity :size="16" /></button>
                 <button
                   class="btn-icon"
-                  :title="t('correlation.title')"
-                  :aria-label="t('correlation.title')"
+                  :title="t('correlation.button_title')"
+                  :aria-label="t('correlation.button_title')"
                   @click.prevent="toggleCorrelation(item.id)"
                 ><TrendingUp :size="16" /></button>
                 <button v-if="!item.is_resolved && !item.acked_at" class="btn-icon" :title="t('incidents.acknowledge')" :aria-label="t('incidents.acknowledge')" @click.prevent="ack(item)"><CheckCircle :size="16" /></button>
@@ -189,7 +189,7 @@
             </div>
             <div v-if="hasRunbook(item) && expandedRunbooks[item.id]"
               class="inc-runbook runbook-preview prose prose-invert max-w-none text-sm"
-              v-html="renderRunbook(item.runbook_markdown)"
+              v-html="renderRunbook(item)"
             ></div>
             <div v-if="expandedPlayback[item.id]" class="px-3 py-3 bg-(--bg-surface-2)">
               <IncidentPlaybackMap :incident-id="item.id" />
@@ -282,8 +282,18 @@ function hasRunbook(inc) {
 function toggleRunbook(id) {
   expandedRunbooks[id] = !expandedRunbooks[id]
 }
-function renderRunbook(md) {
-  return renderRunbookMarkdown(md || '')
+// Memoized per incident id — v-html here re-executes on every reactive
+// re-render of the row (any WS update touching the list), not just when the
+// runbook text actually changed. The sanitizer is not what's slow to call
+// repeatedly; it's the markdown parse. Keyed on the source text too, so an
+// edited runbook still re-renders under the same incident id.
+const runbookCache = new Map()
+function renderRunbook(item) {
+  const cached = runbookCache.get(item.id)
+  if (cached && cached.md === item.runbook_markdown) return cached.html
+  const html = renderRunbookMarkdown(item.runbook_markdown || '')
+  runbookCache.set(item.id, { md: item.runbook_markdown, html })
+  return html
 }
 
 const statusOpts = computed(() => [

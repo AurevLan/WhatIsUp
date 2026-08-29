@@ -51,7 +51,7 @@
           <div class="oncall-row__main">
             <div class="oncall-row__head">
               <span class="oncall-row__name">{{ s.name }}</span>
-              <span v-if="!s.enabled" class="badge-unknown text-xs">{{ t('oncall.disabled') }}</span>
+              <EnabledBadge v-if="!s.enabled" :enabled="false" :label="t('oncall.disabled')" />
             </div>
             <p class="oncall-row__meta">
               {{ rotationLabel(s) }} · {{ t('oncall.handoff_at', { time: s.handoff_time }) }}
@@ -125,6 +125,7 @@ import { oncallApi } from '../api/oncall'
 import { useToast } from '../composables/useToast'
 import { useConfirm } from '../composables/useConfirm'
 import EmptyState from '../components/shared/EmptyState.vue'
+import EnabledBadge from '../components/shared/EnabledBadge.vue'
 import SkeletonRow from '../components/shared/SkeletonRow.vue'
 import OnCallScheduleModal from '../components/oncall/OnCallScheduleModal.vue'
 import EscalationPolicyModal from '../components/oncall/EscalationPolicyModal.vue'
@@ -166,7 +167,7 @@ function ladderLabel(p) {
         l.target_type === 'schedule'
           ? scheduleNames.value[l.target_schedule_id] || t('oncall.target_schedule')
           : t(`oncall.target_${l.target_type}`)
-      return l.delay_minutes ? `+${l.delay_minutes}min → ${target}` : target
+      return l.delay_minutes ? t('oncall.ladder_rung', { n: l.delay_minutes, target }) : target
     })
     .join(' · ')
 }
@@ -203,7 +204,11 @@ async function onSaved() {
 }
 
 async function removeSchedule(s) {
-  if (!(await confirm({ title: t('oncall.delete_schedule'), message: s.name }))) return
+  if (!(await confirm({
+    title: t('oncall.delete_schedule', { name: s.name }),
+    message: t('oncall.delete_schedule_detail'),
+    confirmLabel: t('common.delete'),
+  }))) return
   try {
     await oncallApi.schedules.remove(s.id)
     success(t('oncall.schedule_deleted'))
@@ -214,7 +219,11 @@ async function removeSchedule(s) {
 }
 
 async function removePolicy(p) {
-  if (!(await confirm({ title: t('oncall.delete_policy'), message: p.name }))) return
+  if (!(await confirm({
+    title: t('oncall.delete_policy', { name: p.name }),
+    message: t('oncall.delete_policy_detail'),
+    confirmLabel: t('common.delete'),
+  }))) return
   try {
     await oncallApi.policies.remove(p.id)
     success(t('oncall.policy_deleted'))

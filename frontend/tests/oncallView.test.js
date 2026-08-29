@@ -24,8 +24,9 @@ vi.mock('../src/api/oncall', () => ({
 vi.mock('../src/composables/useToast', () => ({
   useToast: () => ({ success: vi.fn(), error: vi.fn() }),
 }))
+const confirmMock = vi.fn().mockResolvedValue(true)
 vi.mock('../src/composables/useConfirm', () => ({
-  useConfirm: () => ({ confirm: vi.fn().mockResolvedValue(true) }),
+  useConfirm: () => ({ confirm: confirmMock }),
 }))
 
 import { oncallApi } from '../src/api/oncall'
@@ -64,7 +65,10 @@ function schedule(overrides = {}) {
 }
 
 describe('OnCallView', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    confirmMock.mockResolvedValue(true)
+  })
 
   it('names who is on call right now', async () => {
     const w = await render({
@@ -131,6 +135,38 @@ describe('OnCallView', () => {
       policies: [{ id: 'p-1', name: 'Empty', enabled: true, levels: [] }],
     })
     expect(w.text()).toContain(en.oncall.no_levels)
+  })
+
+  it('names the cascade impact when confirming a rotation delete', async () => {
+    // Deleting a rotation cascades any escalation rung that targets it
+    // (FK ondelete=CASCADE on escalation_policy_levels.target_schedule_id) —
+    // the confirmation must say so, not just repeat the rotation's name.
+    const w = await render({ schedules: [schedule()] })
+    await w.find('[title="Delete"]').trigger('click')
+    await flushPromises()
+    expect(confirmMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: expect.stringContaining('Prod rota'),
+        message: en.oncall.delete_schedule_detail,
+      }),
+    )
+    expect(oncallApi.schedules.remove).toHaveBeenCalledWith('s-1')
+  })
+
+  it('names the silent-fallback impact when confirming a policy delete', async () => {
+    // Deleting a policy sets AlertRule.escalation_policy_id to NULL (FK
+    // ondelete=SET NULL) — a rule using it keeps firing but stops escalating,
+    // with no other signal. The confirmation must spell that out.
+    const w = await render({ policies: [{ id: 'p-1', name: 'Paging', enabled: true, levels: [] }] })
+    await w.find('[title="Delete"]').trigger('click')
+    await flushPromises()
+    expect(confirmMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: expect.stringContaining('Paging'),
+        message: en.oncall.delete_policy_detail,
+      }),
+    )
+    expect(oncallApi.policies.remove).toHaveBeenCalledWith('p-1')
   })
 
   it('still renders the page when the on-call endpoint fails', async () => {

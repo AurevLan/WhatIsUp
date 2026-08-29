@@ -5,10 +5,15 @@
 // from the incident's window start); the composable returns the per-probe
 // state at that exact moment.
 
-import { computed, ref, shallowRef, watch } from 'vue'
+import { computed, onScopeDispose, ref, shallowRef, toValue, watch } from 'vue'
 import api from '../api/client'
 
-export function useIncidentPlayback(incidentId) {
+// `incidentIdSource` accepts a plain string, a ref, or a getter (`() =>
+// props.incidentId`) — `toValue` normalizes all three. A plain string was
+// the only shape ever passed in practice, which is exactly why the
+// "reset on incident change" watcher below never fired: `() => incidentId`
+// closed over a value that could never change.
+export function useIncidentPlayback(incidentIdSource) {
   const loading = ref(false)
   const error = ref(null)
   const timeline = shallowRef(null)  // raw API response
@@ -21,7 +26,7 @@ export function useIncidentPlayback(incidentId) {
     loading.value = true
     error.value = null
     try {
-      const { data } = await api.get(`/incidents/${incidentId}/timeline`, { skipErrorToast: true })
+      const { data } = await api.get(`/incidents/${toValue(incidentIdSource)}/timeline`, { skipErrorToast: true })
       timeline.value = data
       cursorMs.value = 0
     } catch (e) {
@@ -103,13 +108,19 @@ export function useIncidentPlayback(incidentId) {
     cursorMs.value = 0
   }
 
-  // Auto-pause when component unmounts to avoid leaking the interval —
-  // callers should pass cleanup to onUnmounted in their component.
-  watch(() => incidentId, () => {
+  // Reset when the incident being played back changes underneath an instance
+  // that survives it (e.g. a shared player rather than a fresh one per row).
+  watch(() => toValue(incidentIdSource), () => {
     pause()
     timeline.value = null
     cursorMs.value = 0
   })
+
+  // Auto-pause on scope disposal so the 100ms interval never outlives its
+  // owning component — every sibling composable with a timer follows this
+  // convention (useMonitorTesting, useMonitorMap); this one used to leave it
+  // to the caller instead.
+  onScopeDispose(pause)
 
   return {
     // state

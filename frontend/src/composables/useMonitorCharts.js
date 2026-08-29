@@ -117,7 +117,7 @@ export function useMonitorCharts({
             fillColor: down,
             opacity: 0.08,
             label: {
-              text: '⚠ Incident',
+              text: t('monitor_detail.chart_incident_marker'),
               style: { color: down, background: 'transparent', fontSize: '10px' },
               orientation: 'horizontal',
               position: 'front',
@@ -132,7 +132,7 @@ export function useMonitorCharts({
                   borderColor: down,
                   strokeDashArray: 4,
                   label: {
-                    text: `Alert: ${rtThresholdMs.value}ms`,
+                    text: t('monitor_detail.chart_alert_threshold', { ms: rtThresholdMs.value }),
                     style: {
                       color: '#fff',
                       background: down,
@@ -173,7 +173,7 @@ export function useMonitorCharts({
 
     return [
       {
-        name: 'Availability',
+        name: t('monitor_detail.availability'),
         data: buckets.map((b) => ({
           x: b.ts,
           y: b.total > 0 ? Math.round((b.up / b.total) * 100) : null,
@@ -218,7 +218,7 @@ export function useMonitorCharts({
       theme: { mode: 'dark' },
       tooltip: {
         x: { format: 'dd/MM HH:mm' },
-        y: { formatter: (v) => (v !== null ? v + '% probes UP' : t('monitor_detail.no_data')) },
+        y: { formatter: (v) => (v !== null ? v + t('monitor_detail.chart_probes_up_suffix') : t('monitor_detail.no_data')) },
       },
     }
   })

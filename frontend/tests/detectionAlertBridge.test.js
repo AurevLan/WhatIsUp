@@ -9,6 +9,9 @@ vi.mock('../src/api/client', () => ({
 vi.mock('../src/composables/useToast', () => ({
   useToast: () => ({ error: vi.fn(), success: vi.fn() }),
 }))
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({ t: (k) => k }),
+}))
 
 let useDetectionAlertBridge
 beforeEach(async () => {

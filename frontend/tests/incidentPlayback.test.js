@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { nextTick } from 'vue'
+import { effectScope, nextTick, ref } from 'vue'
 
 const apiGet = vi.fn()
 vi.mock('../src/api/client', () => ({
@@ -145,6 +145,51 @@ describe('useIncidentPlayback', () => {
     expect(pb.error.value).toBe('gone')
     expect(pb.timeline.value).toBe(null)
     expect(pb.loading.value).toBe(false)
+  })
+
+  // Chantier ergonomie, item 7a: the reset-on-change watcher used to close
+  // over a plain string (`() => incidentId`), which can never change — the
+  // watcher was dead code. It now accepts a ref/getter and actually reacts.
+  it('resets when the incident id source changes', async () => {
+    apiGet.mockResolvedValueOnce({ data: fixture })
+    const id = ref('inc-1')
+    const pb = useIncidentPlayback(id)
+    await pb.load()
+    pb.seek(2 * 60 * 1000)
+    pb.play()
+    expect(pb.cursorMs.value).toBeGreaterThan(0)
+
+    id.value = 'inc-2'
+    await nextTick()
+
+    expect(pb.playing.value).toBe(false)
+    expect(pb.timeline.value).toBe(null)
+    expect(pb.cursorMs.value).toBe(0)
+  })
+
+  it('still accepts a plain string id (no reactive reset, but no crash)', async () => {
+    apiGet.mockResolvedValueOnce({ data: fixture })
+    const pb = useIncidentPlayback('inc-1')
+    await pb.load()
+    expect(apiGet).toHaveBeenCalledWith('/incidents/inc-1/timeline', { skipErrorToast: true })
+  })
+
+  // Chantier ergonomie, item 7b: every sibling composable with a timer stops
+  // it in onScopeDispose; this one used to leave that to the caller.
+  it('stops the play interval when its owning scope is disposed', async () => {
+    apiGet.mockResolvedValueOnce({ data: fixture })
+    const scope = effectScope()
+    const pb = scope.run(() => useIncidentPlayback('inc-1'))
+    await pb.load()
+    pb.play()
+    expect(pb.playing.value).toBe(true)
+
+    scope.stop()
+    const cursorAtDispose = pb.cursorMs.value
+    vi.advanceTimersByTime(1000)
+
+    expect(pb.playing.value).toBe(false)
+    expect(pb.cursorMs.value).toBe(cursorAtDispose)
   })
 
   it('handles an empty timeline gracefully (durationMs=0, no crash on play)', async () => {

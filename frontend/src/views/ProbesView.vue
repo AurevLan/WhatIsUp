@@ -328,7 +328,7 @@ async function toggleActive(probe, isActive) {
     const { data } = await probesApi.setActive(probe.id, isActive, { skipErrorToast: true })
     const idx = probes.value.findIndex(p => p.id === probe.id)
     if (idx !== -1) probes.value[idx] = data
-    success(`Sonde "${probe.name}" ${isActive ? 'activée' : 'désactivée'}`)
+    success(t(isActive ? 'probes.toast_enabled' : 'probes.toast_disabled', { name: probe.name }))
     refreshMap()
   } catch (err) {
     toastError(t('common.error'))
@@ -346,7 +346,7 @@ async function removeProbe(probe) {
   try {
     await probesApi.remove(probe.id, { skipErrorToast: true })
     probes.value = probes.value.filter(p => p.id !== probe.id)
-    success(`Sonde "${probe.name}" supprimée`)
+    success(t('probes.toast_deleted', { name: probe.name }))
     refreshMap()
   } catch (err) {
     toastError(t('common.error'))
@@ -362,7 +362,7 @@ function onUpdated(updated) {
   const idx = probes.value.findIndex(p => p.id === updated.id)
   if (idx !== -1) probes.value[idx] = updated
   editProbe.value = null
-  success('Sonde mise à jour')
+  success(t('probes.toast_updated'))
   refreshMap()
 }
 

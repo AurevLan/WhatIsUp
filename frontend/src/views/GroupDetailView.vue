@@ -11,7 +11,7 @@
         <h1 class="font-display text-2xl font-bold text-(--text-1)">{{ group.name }}</h1>
         <p v-if="group.description" class="text-(--text-2) text-sm mt-1">{{ group.description }}</p>
       </div>
-      <a v-if="group.public_slug" :href="`/status/${group.public_slug}`" target="_blank"
+      <a v-if="group.public_slug" :href="`/status/${group.public_slug}`" target="_blank" rel="noopener noreferrer"
         class="text-xs text-(--accent) hover:underline font-mono">
         /status/{{ group.public_slug }} ↗
       </a>

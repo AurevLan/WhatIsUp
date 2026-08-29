@@ -250,13 +250,13 @@ async function confirmRevoke(k) {
   if (!ok) return
   await apiKeysApi.revoke(k.id)
   await load()
-  success(`Clé "${k.name}" révoquée`)
+  success(t('apiKeys.toast_revoked', { name: k.name }))
 }
 
 async function copyKey() {
   if (newKey.value?.key) {
     await navigator.clipboard.writeText(newKey.value.key)
-    success('Clé copiée dans le presse-papiers')
+    success(t('apiKeys.toast_copied'))
   }
 }
 

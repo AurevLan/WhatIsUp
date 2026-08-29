@@ -350,6 +350,24 @@ class ProbeScheduler:
                     )
                 )
 
+        # plan E, E-1 — same "scan now" mechanic, scoped to discovery sources
+        # this probe actually schedules (a source skipped above for a missing
+        # capability must not be run here either).
+        for source in available_sources:
+            if source.get("trigger_now"):
+                logger.info("trigger_discovery_immediate", source_id=str(source["id"]))
+                task = asyncio.create_task(self._run_discovery_source(source))
+                task.add_done_callback(
+                    lambda t: (
+                        logger.error(
+                            "trigger_discovery_failed",
+                            error=str(t.exception()),
+                        )
+                        if not t.cancelled() and t.exception()
+                        else None
+                    )
+                )
+
     async def start(self) -> None:
         """Start the scheduler and heartbeat loop."""
         # Clean up any Chromium zombies left by a previous crash

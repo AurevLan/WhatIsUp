@@ -7,6 +7,8 @@ export const discoveryApi = {
     create: (data, config = {}) => api.post('/discovery/sources/', data, config),
     update: (id, data, config = {}) => api.patch(`/discovery/sources/${id}`, data, config),
     remove: (id, config = {}) => api.delete(`/discovery/sources/${id}`, config),
+    // plan E, E-1 — request an out-of-cycle run on the probe's next heartbeat.
+    scanNow: (id, config = {}) => api.post(`/discovery/sources/${id}/scan-now`, {}, config),
   },
 
   services: {

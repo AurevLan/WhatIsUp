@@ -826,6 +826,14 @@ export default {
 
     orphaned_badge: 'Orphaned',
     orphaned_tooltip: 'The service this monitor was created from is no longer seen by its discovery source.',
+
+    // Scan feedback (plan E, E-1)
+    scan_now: 'Scan now',
+    scan_pending: 'Scanning…',
+    scan_queued: 'Scan queued — it will run on the probe’s next check-in',
+    never_scanned: 'Never scanned',
+    last_scan_prefix: 'Last scan {when}',
+    last_scan_targets: '{n} target found | {n} targets found',
   },
 
   // Tag chips

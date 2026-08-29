@@ -169,6 +169,11 @@ class DiscoverySourceOut(BaseModel):
     source_type: str
     params: dict
     enabled: bool
+    # Feedback loop (plan E, E-1) — all three NULL means "never scanned",
+    # never "scanned, found nothing" (that's `last_scan_target_count=0`).
+    last_scan_at: datetime | None
+    last_scan_target_count: int | None
+    last_scan_probe_id: uuid.UUID | None
     created_at: datetime
     updated_at: datetime
 
@@ -189,6 +194,10 @@ class DiscoverySourceForProbe(BaseModel):
     id: uuid.UUID
     source_type: str
     params: dict
+    # plan E, E-1 — mirrors `ProbeMonitorConfig.trigger_now`: set on this one
+    # source's entry when a "scan now" flag is pending in Redis, consumed
+    # (deleted) the same heartbeat cycle it's returned.
+    trigger_now: bool = False
 
     model_config = {"from_attributes": True}
 

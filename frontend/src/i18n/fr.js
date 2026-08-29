@@ -815,6 +815,14 @@ export default {
 
     orphaned_badge: 'Orphelin',
     orphaned_tooltip: 'Le service à l\'origine de ce moniteur n\'est plus vu par sa source de découverte.',
+
+    // Boucle de feedback (plan E, E-1)
+    scan_now: 'Scanner maintenant',
+    scan_pending: 'Scan en cours…',
+    scan_queued: 'Scan mis en file — il s\'exécutera au prochain passage de la sonde',
+    never_scanned: 'Jamais scanné',
+    last_scan_prefix: 'Dernier scan {when}',
+    last_scan_targets: '{n} cible trouvée | {n} cibles trouvées',
   },
 
   tags: {

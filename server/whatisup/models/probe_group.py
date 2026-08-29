@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Column, ForeignKey, String, Table, Text
+from sqlalchemy import Column, ForeignKey, Index, String, Table, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from whatisup.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -19,6 +19,13 @@ probe_group_members = Table(
     Base.metadata,
     Column("probe_group_id", ForeignKey("probe_groups.id", ondelete="CASCADE"), primary_key=True),
     Column("probe_id", ForeignKey("probes.id", ondelete="CASCADE"), primary_key=True),
+    # `probe_id` is the *second* column of the composite PK, so the PK's own
+    # btree does not serve a lookup keyed on `probe_id` alone — and that is
+    # exactly the shape of three hot paths: every probe heartbeat (which
+    # discovery sources target this probe's group?), `push_discovery`'s scope
+    # check, and the admin probe view. Without this index each of those is a
+    # full scan of the association table (audit finding, 2026-08).
+    Index("ix_probe_group_members_probe_id", "probe_id"),
 )
 
 # Association: user ↔ probe_group (visibility access)

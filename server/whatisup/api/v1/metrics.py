@@ -43,6 +43,10 @@ async def _get_accessible_monitor_or_404(
 
 _LABEL_KEY_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9_.\-]*$")
 
+#: Upper slack on ``pushed_at`` — a client's clock is allowed to run a little
+#: fast, not to timestamp a point in the future.
+_PUSHED_AT_MAX_FUTURE = timedelta(minutes=5)
+
 
 class MetricPush(BaseModel):
     metric_name: str = Field(..., max_length=100, pattern=r"^[a-zA-Z0-9_.\-]+$")
@@ -53,6 +57,53 @@ class MetricPush(BaseModel):
     #: `{"port": "8080"}` be two different series is a trap, not a feature.
     labels: dict[str, str | int | float | bool] | None = None
     pushed_at: datetime | None = None  # default to now
+
+    @field_validator("pushed_at")
+    @classmethod
+    def validate_pushed_at(cls, v: datetime | None) -> datetime | None:
+        """Bound ``pushed_at`` to a window around *now* — reject, never clamp.
+
+        An unbounded timestamp is not just a display glitch: ``retention.py``
+        purges on ``time_col < cutoff`` and, on PostgreSQL, drops whole monthly
+        partitions — a point dated far in the future skips both, lands in the
+        catch-all ``DEFAULT`` partition, and stays there forever (that
+        partition is never itself dropped). At up to 6000 points/min/monitor
+        that is an unrecoverable leak, not a cosmetic one.
+
+        Rejecting with a 422 rather than silently clamping to *now* or to the
+        retention floor was the deliberate choice here: every other guard on
+        this ingestion path (the rate quota, the cardinality quota) already
+        refuses loudly instead of quietly reshaping what the caller sent — a
+        clamped timestamp would let a caller believe its data landed exactly
+        where it asked it to, which is precisely the kind of silent
+        discrepancy C-1's quotas were built to avoid. A caller with clock
+        drift gets a clear, actionable error instead of a graph that quietly
+        disagrees with its own logs.
+
+        Bounds: ``+5 min`` in the future (generous clock-drift slack, tight
+        enough to catch a misconfigured client) and, when metrics retention is
+        finite, ``-metrics_retention_days`` in the past — a point older than
+        that would be purged on the very next nightly run, so accepting it is
+        pointless work.
+        """
+        if v is None:
+            return None
+        v = v if v.tzinfo is not None else v.replace(tzinfo=UTC)
+        now = datetime.now(UTC)
+        if v > now + _PUSHED_AT_MAX_FUTURE:
+            raise ValueError(
+                f"pushed_at {v.isoformat()} is more than {_PUSHED_AT_MAX_FUTURE} in the future"
+            )
+        settings = get_settings()
+        if settings.metrics_retention_days > 0:
+            floor = now - timedelta(days=settings.metrics_retention_days)
+            if v < floor:
+                raise ValueError(
+                    f"pushed_at {v.isoformat()} predates the metrics retention window "
+                    f"({settings.metrics_retention_days} days) — it would be purged "
+                    "immediately"
+                )
+        return v
 
     @field_validator("labels")
     @classmethod

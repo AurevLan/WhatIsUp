@@ -120,6 +120,22 @@ class Settings(BaseSettings):
     # so the first nightly run after upgrading does delete what predates the
     # window; set to 0 to keep the previous keep-forever behaviour.
     metrics_retention_days: int = 90  # 0 = keep forever
+    # Discovered services left in a terminal state (chantier D) — `dismissed`
+    # (a human said "not this") and `orphaned` (the target vanished from the
+    # network) accumulated with no horizon at all before this knob existed
+    # (audit finding, 2026-08). Deliberately never touches `proposed` (a
+    # pending decision, not yet acted on) or `accepted` (owns a live monitor):
+    # this governs stale review-queue clutter only, never a proposal awaiting
+    # a human or a monitor's provenance.
+    discovered_services_retention_days: int = 90  # 0 = keep forever
+    # The notification log (`alert_events`) — one row per dispatch attempt,
+    # the one temporal table in the product with no horizon at all before this
+    # (audit finding, 2026-08). Every reader of it looks at a short recent
+    # window (dedup, storm counters, digest) or at one still-open incident's
+    # own events, never at "all events ever" — so ageing out old rows changes
+    # nothing observable except how far back an old *resolved* incident's
+    # alert history reaches.
+    alert_events_retention_days: int = 90  # 0 = keep forever
 
     # Hourly rollups (plan V2, A-2) — pre-aggregation of check_results, read by
     # services/stats.py since A-3. Disabling stops the builder; stats then fall

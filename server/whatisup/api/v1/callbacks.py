@@ -76,29 +76,53 @@ async def _channel_and_secret(db: AsyncSession, channel_id: uuid.UUID) -> tuple[
     return channel, secret
 
 
-async def _resolve_clicker(db: AsyncSession, method: ContactMethod, handle: str) -> User | None:
+async def _resolve_clicker(
+    db: AsyncSession, channel: AlertChannel, method: ContactMethod, handle: str
+) -> User | None:
     """The WhatIsUp user behind a chat identity, via their declared contact.
 
     Deliberately the only bridge: the payload's display name or email is
     attacker-influenced on some providers, whereas a ``UserContact`` row was
     created by an authenticated user under ``_assert_can_page_users``.
+
+    Scoped to ``channel`` — the one the token was minted for — via
+    ``via_channel_id``, not just ``(method, value)``. The uniqueness on
+    ``UserContact`` is ``(user_id, method, value)``, not ``(method, value)``:
+    a contact is self-declared and never verified, so nothing stops two
+    different users from both claiming the same Slack handle. Without the
+    channel scope, whichever row happened to match would decide who gets
+    credited with the ack — and since this endpoint cannot reveal *why* it
+    refused (anti-oracle), the victim would simply find their own ack button
+    silently broken forever, with no diagnostic anywhere.
+    ``via_channel_id`` is mandatory at contact-creation time for every
+    messaging method (``schemas/oncall.py::UserContactCreate``), so this scope
+    costs nothing for a contact created the normal way.
+
+    More than one match — two users who both declared the same handle on this
+    same channel — is treated the same as no match at all. Picking one of them
+    would be an arbitrary, unauditable choice of who gets to act as whom.
     """
     if not handle:
         return None
-    contact = (
-        await db.execute(
-            select(UserContact)
-            .where(
-                UserContact.method == method,
-                UserContact.value == str(handle),
-                UserContact.enabled.is_(True),
+    contacts = (
+        (
+            await db.execute(
+                select(UserContact).where(
+                    UserContact.method == method,
+                    UserContact.value == str(handle),
+                    UserContact.via_channel_id == channel.id,
+                    UserContact.enabled.is_(True),
+                )
             )
-            .limit(1)
         )
-    ).scalar_one_or_none()
-    if contact is None:
+        .scalars()
+        .all()
+    )
+    if len(contacts) != 1:
         return None
-    user = (await db.execute(select(User).where(User.id == contact.user_id))).scalar_one_or_none()
+    user = (
+        await db.execute(select(User).where(User.id == contacts[0].user_id))
+    ).scalar_one_or_none()
     return user if (user and user.is_active) else None
 
 
@@ -205,7 +229,7 @@ async def slack_callback(
         raise _REFUSED
 
     handle = str((payload.get("user") or {}).get("id") or "")
-    user = await _resolve_clicker(db, ContactMethod.slack, handle)
+    user = await _resolve_clicker(db, channel, ContactMethod.slack, handle)
     if user is None:
         logger.warning("channel_ack_unknown_user", provider="slack")
         raise _REFUSED
@@ -256,9 +280,9 @@ async def telegram_callback(
     # are accepted — the contact row is the authority either way.
     sender = str(((query.get("from") or {}).get("id")) or "")
     chat = str((((query.get("message") or {}).get("chat")) or {}).get("id") or "")
-    user = await _resolve_clicker(db, ContactMethod.telegram, sender)
+    user = await _resolve_clicker(db, channel, ContactMethod.telegram, sender)
     if user is None and chat:
-        user = await _resolve_clicker(db, ContactMethod.telegram, chat)
+        user = await _resolve_clicker(db, channel, ContactMethod.telegram, chat)
     if user is None:
         logger.warning("channel_ack_unknown_user", provider="telegram")
         raise _REFUSED

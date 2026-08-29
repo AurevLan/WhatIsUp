@@ -191,11 +191,21 @@ class Incident(Base):
         # The operator class goes in ``postgresql_ops``, not inline in the
         # expression: Alembic gives up on comparing an expression that carries
         # one, and an index it cannot compare is an index it cannot vouch for.
+        #
+        # ``jsonb_ops``, not ``jsonb_path_ops``: the only query this index
+        # serves (``incident_correlation.correlate_common_cause``) uses ``?|``
+        # ("does the array share any element with this list?"), and
+        # ``jsonb_path_ops`` only supports ``@>``/``@?``/``@@`` — ``?|`` planned
+        # against it is a sequential scan, i.e. the index was invisible to the
+        # query it was built for. Swapping the query to ``@>`` instead would
+        # change "any of" into "all of" for a multi-probe list, which is not
+        # the same predicate; the opclass is what had to move, not the query
+        # (audit finding, 2026-08).
         Index(
             "ix_incidents_affected_probes_gin",
             text("((affected_probe_ids)::jsonb)"),
             postgresql_using="gin",
-            postgresql_ops={"((affected_probe_ids)::jsonb)": "jsonb_path_ops"},
+            postgresql_ops={"((affected_probe_ids)::jsonb)": "jsonb_ops"},
         ).ddl_if(dialect="postgresql"),
     )
 

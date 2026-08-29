@@ -44,6 +44,8 @@ async def _retention_job() -> None:
     """
     from whatisup.core.leader import LeaderLock
     from whatisup.services.retention import (
+        purge_old_alert_events,
+        purge_old_discovered_services,
         purge_old_metrics,
         purge_old_results,
         purge_old_rollups,
@@ -76,6 +78,11 @@ async def _retention_job() -> None:
                     # After the points, never before: a series must not lose its
                     # registry row while it still has points nothing can select.
                     await purge_stale_metric_series(settings.metrics_retention_days)
+                    # Independent of the raw/rollup/metrics horizons above —
+                    # neither table is aggregated by anything, so there is no
+                    # ordering constraint with the rest of this job.
+                    await purge_old_discovered_services(settings.discovered_services_retention_days)
+                    await purge_old_alert_events(settings.alert_events_retention_days)
             except Exception as exc:
                 logger.error("retention_job_failed", error_type=type(exc).__name__, error=str(exc))
     finally:

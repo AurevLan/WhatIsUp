@@ -9,6 +9,11 @@
     <p class="empty-state__title">{{ title }}</p>
     <p v-if="text" class="empty-state__text">{{ text }}</p>
 
+    <!-- Room for extra body content between the text and the actions (e.g.
+         a short pipeline explainer) without every caller needing its own
+         wrapper markup — plan E, E-3. -->
+    <slot />
+
     <div v-if="$slots.cta || ctaLabel || docHref || replayTour" class="empty-state__actions">
       <slot name="cta">
         <button

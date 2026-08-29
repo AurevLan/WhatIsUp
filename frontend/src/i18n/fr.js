@@ -776,6 +776,7 @@ export default {
     source_type_port_scan: 'Scan de ports',
     source_type_dns_zone: 'Zone DNS',
     no_capabilities: '« {probe} » n\'a déclaré aucune capacité de découverte à son dernier heartbeat.',
+    no_capabilities_hint: 'Les capacités s\'activent par sonde au déploiement (un réglage docker-compose) — ce n\'est pas quelque chose qui se configure ici.',
     cidr_label: 'CIDR',
     cidr_hint: 'Borné à /24 ou plus petit.',
     ports_label: 'Ports',
@@ -838,6 +839,11 @@ export default {
     never_scanned: 'Jamais scanné',
     last_scan_prefix: 'Dernier scan {when}',
     last_scan_targets: '{n} cible trouvée | {n} cibles trouvées',
+
+    // État vide — pipeline (plan E, E-3)
+    empty_pipeline_step1: 'Créer une source sur une sonde qui a la capacité',
+    empty_pipeline_step2: 'La sonde scanne selon son propre calendrier et repousse ce qu\'elle trouve',
+    empty_pipeline_step3: 'Chaque proposition apparaît ici — acceptée en moniteur pré-rempli, ou rejetée',
   },
 
   tags: {

@@ -32,7 +32,7 @@
 
         <div class="nav-section">{{ t('nav.infrastructure') }}</div>
         <NavLink to="/probes" :icon="MapPin" :label="t('nav.probes')" />
-        <NavLink to="/discovery" :icon="Radar" :label="t('nav.discovery')" />
+        <NavLink to="/discovery" :icon="Radar" :label="t('nav.discovery')" :badge="pendingDiscoveryCount" />
         <NavLink to="/alerts" :icon="Bell" :label="t('nav.alerts')" />
         <NavLink to="/maintenance" :icon="CalendarClock" :label="t('nav.maintenance')" />
         <NavLink to="/silences" :icon="BellOff" :label="t('nav.silences')" />
@@ -164,6 +164,7 @@ import ConfirmModal from '../../components/ConfirmModal.vue'
 import CommandPalette from '../../components/CommandPalette.vue'
 import HotkeysModal from '../../components/shared/HotkeysModal.vue'
 import { useHotkeys } from '../../composables/useHotkeys'
+import { usePendingDiscoveryCount } from '../../composables/usePendingDiscoveryCount'
 import { setLocale, getLocale } from '../../i18n/index.js'
 import { APP_VERSION } from '../../lib/appVersion.js'
 import { setupForegroundListeners } from '../../lib/pushNotifications.js'
@@ -248,6 +249,9 @@ const downCount = computed(() =>
 const openIncidentCount = computed(() =>
   monitorStore.monitors.filter(m => m._hasOpenIncident).length
 )
+
+// plan E, E-3 — "N proposals waiting for review" nav badge.
+const { pendingCount: pendingDiscoveryCount } = usePendingDiscoveryCount()
 
 function toggleLang() {
   const next = currentLang.value === 'en' ? 'fr' : 'en'

@@ -787,6 +787,7 @@ export default {
     source_type_port_scan: 'Port scan',
     source_type_dns_zone: 'DNS zone',
     no_capabilities: '"{probe}" did not declare any discovery capability at its last heartbeat.',
+    no_capabilities_hint: 'Capabilities are opt-in per probe at deploy time (a docker-compose setting) — not something you configure here.',
     cidr_label: 'CIDR',
     cidr_hint: 'Bounded to /24 or smaller.',
     ports_label: 'Ports',
@@ -849,6 +850,11 @@ export default {
     never_scanned: 'Never scanned',
     last_scan_prefix: 'Last scan {when}',
     last_scan_targets: '{n} target found | {n} targets found',
+
+    // Empty-state pipeline (plan E, E-3)
+    empty_pipeline_step1: 'Create a source on a probe that has the capability',
+    empty_pipeline_step2: 'The probe scans on its own schedule and pushes back what it finds',
+    empty_pipeline_step3: 'Each proposal shows up here — accept it into a pre-filled monitor, or dismiss it',
   },
 
   // Tag chips

@@ -78,3 +78,43 @@ async def redis_delete_safe(*keys: str) -> bool:
     except _FAIL_OPEN_ERRORS as exc:
         logger.warning("redis_unavailable_fail_open", op="delete", error=type(exc).__name__)
         return False
+
+
+async def redis_incr_safe(key: str, *, ttl_seconds: int | None = None) -> int | None:
+    """INCR that treats a Redis outage as "unknown" rather than a hard error.
+
+    Returns ``None`` on failure — the caller decides how to fail open (e.g. a
+    per-IP WS connection cap must accept the connection rather than reject
+    everyone when the counter itself is unavailable; this is an anti-abuse
+    guard, not an ingestion quota like ``services/metric_ingest.py``'s, which
+    fails *closed* on purpose).
+
+    ``ttl_seconds``, when given, is applied only on the increment that creates
+    the key (``INCR`` returning 1) — a process that crashes before its
+    matching decrement would otherwise leak the count forever.
+    """
+    try:
+        redis = get_redis()
+        value = await redis.incr(key)
+        if ttl_seconds is not None and value == 1:
+            await redis.expire(key, ttl_seconds)
+        return value
+    except _FAIL_OPEN_ERRORS as exc:
+        logger.warning("redis_unavailable_fail_open", op="incr", error=type(exc).__name__)
+        return None
+
+
+async def redis_decr_safe(key: str) -> None:
+    """DECR that tolerates a Redis outage — best effort, never raises.
+
+    Deletes the key once it reaches zero (or below, which should not happen
+    in steady state but is defensive against the TTL racing a decrement)
+    rather than leaving a stale ``0`` counter around forever.
+    """
+    try:
+        redis = get_redis()
+        value = await redis.decr(key)
+        if value <= 0:
+            await redis.delete(key)
+    except _FAIL_OPEN_ERRORS as exc:
+        logger.warning("redis_unavailable_fail_open", op="decr", error=type(exc).__name__)

@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from whatisup.core.config import get_settings
 from whatisup.models.incident import IS_AVAILABILITY_INCIDENT, Incident, IncidentScope
 from whatisup.models.monitor import Monitor
 from whatisup.services.incident import _fire_alerts
@@ -17,8 +18,19 @@ logger = structlog.get_logger(__name__)
 
 
 async def check_heartbeats() -> None:
-    """Check all heartbeat monitors for overdue pings. Opens/closes incidents."""
+    """Check all heartbeat monitors for overdue pings. Opens/closes incidents.
+
+    Capped per tick (``heartbeat_max_monitors_per_run``), ordered by
+    ``last_heartbeat_at`` ascending (nulls first): the monitors that have gone
+    longest without a ping — the most overdue, most urgent ones — are checked
+    first. A monitor whose ping arrives moves to the back of this ordering on
+    its own, so under a fleet bigger than the cap the tail isn't a fixed set
+    of never-checked monitors; it's whichever are least urgent right now.
+    """
     from whatisup.core.database import get_session_factory
+
+    settings = get_settings()
+    max_per_run = settings.heartbeat_max_monitors_per_run
 
     factory = get_session_factory()
     async with factory() as db:
@@ -26,16 +38,25 @@ async def check_heartbeats() -> None:
         monitors = (
             (
                 await db.execute(
-                    select(Monitor).where(
+                    select(Monitor)
+                    .where(
                         Monitor.check_type == "heartbeat",
                         Monitor.enabled.is_(True),
                         Monitor.heartbeat_interval_seconds.isnot(None),
                     )
+                    .order_by(Monitor.last_heartbeat_at.asc().nulls_first())
+                    .limit(max_per_run)
                 )
             )
             .scalars()
             .all()
         )
+        if len(monitors) >= max_per_run:
+            logger.warning(
+                "heartbeat_run_capped",
+                max_per_run=max_per_run,
+                hint="more heartbeat monitors than the per-tick cap — remainder deferred",
+            )
 
         for monitor in monitors:
             # Commit per monitor, like `renotify.py` and `metric_alerts.py`:

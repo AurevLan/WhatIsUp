@@ -18,7 +18,7 @@ import bcrypt
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient
-from sqlalchemy import delete, insert
+from sqlalchemy import delete, insert, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -782,3 +782,63 @@ async def test_patch_cannot_switch_group_source_to_probe_target(
         headers=_auth(user_token),
     )
     assert resp.status_code == 422
+
+
+# ── Per-tick batch cap (architecture hardening) ────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_run_discovery_elections_caps_batch_and_defers_the_rest(
+    db_session: AsyncSession,
+    regular_user: User,
+    group_probe_a: Probe,
+    group_probe_c: Probe,
+    probe_group: ProbeGroup,
+    monkeypatch,
+) -> None:
+    """More electable, unelected sources than the per-tick cap: the batch is
+    capped this tick, ordered deterministically by ``id`` — whatever doesn't
+    fit is picked up next tick, nothing is dropped."""
+    from whatisup.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "discovery_election_max_sources_per_run", 2)
+
+    sources = []
+    for i in range(3):
+        source = DiscoverySource(
+            owner_id=regular_user.id,
+            probe_group_id=probe_group.id,
+            source_type="port_scan",
+            params={"cidr": "10.0.0.0/24", "ports": [80 + i]},
+        )
+        db_session.add(source)
+        sources.append(source)
+    await db_session.flush()
+    await db_session.commit()
+
+    ordered_ids = (
+        (
+            await db_session.execute(
+                select(DiscoverySource.id)
+                .where(DiscoverySource.id.in_([s.id for s in sources]))
+                .order_by(DiscoverySource.id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    changed = await run_discovery_elections(db_session)
+    assert changed == 2
+
+    by_id = {s.id: s for s in sources}
+    for sid in ordered_ids[:2]:
+        await db_session.refresh(by_id[sid])
+        assert by_id[sid].elected_probe_id is not None
+    await db_session.refresh(by_id[ordered_ids[2]])
+    assert by_id[ordered_ids[2]].elected_probe_id is None  # deferred, not lost
+
+    changed = await run_discovery_elections(db_session)
+    assert changed == 1
+    await db_session.refresh(by_id[ordered_ids[2]])
+    assert by_id[ordered_ids[2]].elected_probe_id is not None

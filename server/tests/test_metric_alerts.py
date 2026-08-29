@@ -391,3 +391,57 @@ async def test_simulate_reports_an_unusable_rule_rather_than_a_silent_false(
     out = await simulate_rule(service_db, rule)
     assert out["would_fire"] is False
     assert "métrique" in out["reason"].lower()
+
+
+# ── Per-tick batch cap (architecture hardening) ────────────────────────────────
+
+
+async def test_evaluate_metric_alerts_caps_batch_and_defers_the_rest(
+    service_db: AsyncSession, test_user: User, monkeypatch
+):
+    """A tenant with more enabled metric rules than the per-tick cap must not
+    have the tail silently dropped: capped this tick, and evaluated as soon
+    as a slot frees up (here: one of the already-evaluated rules is
+    disabled). Unlike `escalation`'s `next_fire_at` or `heartbeat`'s
+    `last_heartbeat_at`, an `AlertRule` carries no timestamp this loop could
+    use to naturally rotate priority while every rule stays enabled — the
+    per-tick order is a plain, deterministic `id` sort, and the fairness
+    guarantee is only "not lost while capacity is exceeded", not "every rule
+    gets an equal share of every tick"."""
+    from whatisup.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "metric_alerts_max_rules_per_run", 2)
+
+    monitors = []
+    rules = []
+    for i in range(3):
+        monitor = Monitor(name=f"mon-{i}", url=f"http://example.com/{i}", owner_id=test_user.id)
+        service_db.add(monitor)
+        await service_db.flush()
+        rule = await _rule(service_db, monitor, test_user, AlertCondition.metric_above)
+        await _push(service_db, monitor, "queue_depth", 150.0, NOW - timedelta(seconds=30))
+        monitors.append(monitor)
+        rules.append(rule)
+
+    # Batch order is `AlertRule.id` ascending — discover it rather than assume
+    # creation order, since the PK is a random UUID.
+    ordered_ids = (
+        (await service_db.execute(select(AlertRule.id).order_by(AlertRule.id))).scalars().all()
+    )
+    rule_by_id = {r.id: r for r in rules}
+    monitor_by_rule_id = {r.id: m for r, m in zip(rules, monitors, strict=True)}
+    ordered_monitors = [monitor_by_rule_id[rid] for rid in ordered_ids]
+
+    changed = await evaluate_metric_alerts(service_db, now=NOW)
+    assert changed == 2
+    assert len(await _open_incidents(service_db, ordered_monitors[0])) == 1
+    assert len(await _open_incidents(service_db, ordered_monitors[1])) == 1
+    assert await _open_incidents(service_db, ordered_monitors[2]) == []  # deferred, not lost
+
+    # Free a slot: disable one of the two rules already evaluated this tick.
+    rule_by_id[ordered_ids[0]].enabled = False
+    await service_db.flush()
+
+    changed = await evaluate_metric_alerts(service_db, now=NOW)
+    assert changed == 1
+    assert len(await _open_incidents(service_db, ordered_monitors[2])) == 1

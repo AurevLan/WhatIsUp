@@ -628,7 +628,7 @@ Toute modification de cette table doit être reportée dans `FEATURES.md` §11.
 | Endpoint | Méthode | Limite | Justification |
 |---|---|---|---|
 | `/auth/login` | POST | **10/min** | Anti brute-force credential |
-| `/auth/register` | POST | *sans limite* | Endpoint désactivé — 403 systématique (invite-only) |
+| `/auth/register` | POST | **10/min** | Endpoint désactivé (403 systématique, invite-only) — alignée sur `/auth/login` pour la cohérence du gate CI de rate-limit |
 | `/auth/refresh` | POST | **30/min** | Mobile + multi-tab |
 | `/auth/me` | PATCH | **30/min** | Self-update |
 | `/auth/oidc/login` | GET | **20/min** | Anti spam redirect provider |
@@ -670,7 +670,7 @@ Toute modification de cette table doit être reportée dans `FEATURES.md` §11.
 
 > **Tout nouvel endpoint public ou écrit DOIT avoir un rate-limit explicite.** Le défaut implicite n'existe pas. **Depuis SEC-3 (2026-07-21), les GET aussi** : le gate CI couvre désormais toutes les méthodes sous `api/v1/`.
 >
-> **Sweep S2 (2026-07-16)** : audit exhaustif de `api/v1/` — 130 fonctions endpoint avaient déjà un décorateur (vagues SA1-SA7), 19 en manquaient : 13 dans le périmètre initial de l'audit (`teams.py` : 9/9, le module n'importait même pas `limiter` ; `alerts.py` : `POST /rules` ; `onboarding.py` : les 2 endpoints ; `audit.py` : `GET /`) plus 6 trouvés hors périmètre pendant le balayage complet (`groups.py POST /`, `api_keys.py DELETE /{id}`, `auth.py POST /logout`, `monitors.py DELETE .../dependencies/{id}` et `.../composite-members/{id}`, `public.py GET .../unsubscribe`). Tous comblés ; `test_rate_limit_coverage.py` fait échouer la CI si un futur endpoint POST/PUT/PATCH/DELETE sous `/api/v1` est ajouté sans décorateur (hors `_EXEMPT_KEYS` documentée : `/auth/register` désactivé, `/probes/register` superadmin-only, tous deux déjà dans ce tableau).
+> **Sweep S2 (2026-07-16)** : audit exhaustif de `api/v1/` — 130 fonctions endpoint avaient déjà un décorateur (vagues SA1-SA7), 19 en manquaient : 13 dans le périmètre initial de l'audit (`teams.py` : 9/9, le module n'importait même pas `limiter` ; `alerts.py` : `POST /rules` ; `onboarding.py` : les 2 endpoints ; `audit.py` : `GET /`) plus 6 trouvés hors périmètre pendant le balayage complet (`groups.py POST /`, `api_keys.py DELETE /{id}`, `auth.py POST /logout`, `monitors.py DELETE .../dependencies/{id}` et `.../composite-members/{id}`, `public.py GET .../unsubscribe`). Tous comblés ; `test_rate_limit_coverage.py` fait échouer la CI si un futur endpoint POST/PUT/PATCH/DELETE sous `/api/v1` est ajouté sans décorateur (hors `_EXEMPT_KEYS` documentée : `/probes/register` superadmin-only, déjà dans ce tableau). `/auth/register` a rejoint la liste décorée (chantier fond d'architecture) : plus d'exemption nécessaire, uniquement par cohérence — le 403 systématique ne coûte rien à protéger davantage.
 >
 > **Sweep SEC-3 (2026-07-21)** : les 30 GET restés sans décorateur sous `api/v1/` sont harmonisés — 60/min standard, 120/min chemins chauds monitors, 10/min export `/config`, 30/min postmortem et publics statiques (`/auth/oidc/config`, `/push/vapid-public-key`). Le gate CI est étendu aux GET (`test_all_get_v1_endpoints_have_rate_limit`), scoping module `whatisup.api.v1.*` — `/api/health` et `/api/metrics` restent volontairement sans limite (hors routers v1).
 

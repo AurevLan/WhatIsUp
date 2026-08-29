@@ -52,6 +52,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from whatisup.core.config import get_settings
 from whatisup.models.alert import METRIC_CONDITIONS, AlertCondition, AlertRule
 from whatisup.models.custom_metric import CustomMetric
 from whatisup.models.incident import Incident, IncidentScope
@@ -466,8 +467,23 @@ async def evaluate_metric_alerts(db: AsyncSession, *, now: datetime | None = Non
 
     ``now`` is injectable so tests can place samples on a fixed clock; the loop
     leaves it None.
+
+    Capped per tick (``metric_alerts_max_rules_per_run``), ordered by ``id`` for
+    determinism — a fleet with more metric rules than the cap simply spreads
+    evaluation of the tail over the following ticks instead of one run doing
+    unbounded work. Unlike escalation's ``next_fire_at`` or heartbeat's
+    ``last_heartbeat_at``, no column here naturally advances while a rule
+    stays enabled, so under a *sustained* excess past the (generous) default
+    the same lowest-id rules keep winning the cap — a real rotation would
+    need a persisted "last evaluated" cursor, which is more machinery than a
+    defensive per-tick cap warrants. The guarantee this cap actually gives is
+    "not one unbounded tick", not "every rule gets an equal share of every
+    tick"; capacity frees up the moment a rule is disabled/removed, same as
+    any of the other capped loops.
     """
     now = now or datetime.now(UTC)
+    settings = get_settings()
+    max_per_run = settings.metric_alerts_max_rules_per_run
 
     rules = (
         (
@@ -480,6 +496,8 @@ async def evaluate_metric_alerts(db: AsyncSession, *, now: datetime | None = Non
                     AlertRule.monitor_id.isnot(None),
                 )
                 .options(selectinload(AlertRule.monitor))
+                .order_by(AlertRule.id)
+                .limit(max_per_run)
             )
         )
         .scalars()
@@ -487,6 +505,12 @@ async def evaluate_metric_alerts(db: AsyncSession, *, now: datetime | None = Non
     )
     if not rules:
         return 0
+    if len(rules) >= max_per_run:
+        logger.warning(
+            "metric_alerts_run_capped",
+            max_per_run=max_per_run,
+            hint="more enabled metric rules than the per-tick cap — remainder deferred",
+        )
 
     changed = 0
     for rule in rules:

@@ -319,6 +319,59 @@ async def test_heartbeat_ignores_disabled_monitor(
     assert incidents == []
 
 
+@pytest.mark.asyncio
+async def test_heartbeat_caps_batch_and_defers_the_rest(
+    bg_session: AsyncSession, test_user: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A fleet bigger than the per-tick cap must not drop the tail outright:
+    the most overdue monitors (oldest ``last_heartbeat_at``) are checked
+    first, and whichever doesn't fit this tick is checked as soon as a slot
+    frees up — here, once one of the processed monitors recovers and its
+    fresher ``last_heartbeat_at`` moves it to the back of the ordering."""
+    from whatisup.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "heartbeat_max_monitors_per_run", 2)
+
+    now = datetime.now(UTC)
+    monitors = []
+    for idx, hours_overdue in enumerate([3, 2, 1]):  # most overdue first, by construction
+        monitor = Monitor(
+            name=f"hb-cap-{idx}",
+            url="http://hb",
+            owner_id=test_user.id,
+            check_type="heartbeat",
+            heartbeat_slug=f"cap-{idx}",
+            heartbeat_token=f"tok-cap-{idx}",
+            heartbeat_interval_seconds=60,
+            heartbeat_grace_seconds=30,
+            last_heartbeat_at=now - timedelta(hours=hours_overdue),
+        )
+        bg_session.add(monitor)
+        monitors.append(monitor)
+    await bg_session.flush()
+
+    async def _open_incident(monitor: Monitor) -> Incident | None:
+        return (
+            await bg_session.execute(select(Incident).where(Incident.monitor_id == monitor.id))
+        ).scalar_one_or_none()
+
+    await check_heartbeats()
+
+    # The two most overdue (idx 0 and 1) got checked; the least overdue (idx 2)
+    # is deferred, not lost.
+    assert await _open_incident(monitors[0]) is not None
+    assert await _open_incident(monitors[1]) is not None
+    assert await _open_incident(monitors[2]) is None
+
+    # idx0 recovers — its `last_heartbeat_at` refreshes, moving it to the back
+    # of the ordering and freeing a slot for idx2 on the next tick.
+    monitors[0].last_heartbeat_at = datetime.now(UTC)
+    await bg_session.flush()
+
+    await check_heartbeats()
+    assert await _open_incident(monitors[2]) is not None
+
+
 # ── renotify ─────────────────────────────────────────────────────────────────
 
 
@@ -451,3 +504,62 @@ async def test_renotify_failure_does_not_discard_prior_incidents(
     # First incident committed before the second one failed and rolled back.
     assert calls["n"] == 2
     assert len(persisted) == 1
+
+
+@pytest.mark.asyncio
+async def test_renotify_caps_batch_and_defers_the_rest(
+    bg_session: AsyncSession, test_user: User, monkeypatch
+) -> None:
+    """More open, renotify-eligible incidents than the per-tick cap: the
+    oldest (longest-open, most urgent) fire this tick, and the rest fire once
+    an older one leaves the open set (acked/resolved) — nothing is skipped."""
+    from whatisup.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "renotify_max_incidents_per_run", 2)
+
+    now = datetime.now(UTC)
+    incidents = []
+    for idx, minutes_open in enumerate([30, 20, 10]):  # oldest first, by construction
+        monitor = Monitor(name=f"renotify-cap-{idx}", url="http://x", owner_id=test_user.id)
+        bg_session.add(monitor)
+        await bg_session.flush()
+        incident = Incident(
+            monitor_id=monitor.id,
+            started_at=now - timedelta(minutes=minutes_open),
+            scope=IncidentScope.global_,
+            affected_probe_ids=[],
+        )
+        bg_session.add(incident)
+        bg_session.add(
+            AlertRule(
+                owner_id=test_user.id,
+                monitor_id=monitor.id,
+                condition=AlertCondition.any_down,
+                renotify_after_minutes=5,
+            )
+        )
+        incidents.append(incident)
+    await bg_session.flush()
+
+    from whatisup.services import incident as inc_mod
+
+    fired_for: list = []
+
+    async def _spy(db, incident, *args, **kwargs):
+        fired_for.append(incident.id)
+
+    monkeypatch.setattr(inc_mod, "_fire_alerts", _spy)
+
+    await check_renotify()
+    assert fired_for == [incidents[0].id, incidents[1].id]
+
+    # The oldest incident acks — it leaves the open set, freeing a slot. Reset
+    # the spy log so the second tick's firings are read on their own: incident
+    # 1 is still open and eligible, so it renotifies again on every tick —
+    # that's unrelated to the cap and would otherwise muddy this assertion.
+    incidents[0].acked_at = datetime.now(UTC)
+    await bg_session.flush()
+    fired_for.clear()
+
+    await check_renotify()
+    assert incidents[2].id in fired_for, "the deferred incident must get its turn once a slot frees"

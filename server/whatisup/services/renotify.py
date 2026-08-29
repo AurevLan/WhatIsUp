@@ -10,6 +10,7 @@ import structlog
 from sqlalchemy import or_, select
 from sqlalchemy.orm import selectinload
 
+from whatisup.core.config import get_settings
 from whatisup.models.alert import AlertRule
 from whatisup.models.incident import Incident
 
@@ -17,9 +18,19 @@ logger = structlog.get_logger(__name__)
 
 
 async def check_renotify() -> None:
-    """Find open, non-acked incidents and fire renotify alerts if due."""
+    """Find open, non-acked incidents and fire renotify alerts if due.
+
+    Capped per tick (``renotify_max_incidents_per_run``), oldest incident
+    first: a tenant open incident is only removed from this query once
+    acked/resolved, so ordering by ``started_at`` ascending means the
+    longest-standing (most urgent) incidents get renotified first, and the
+    tail — if any — is picked up again next tick.
+    """
     from whatisup.core.database import get_session_factory
     from whatisup.services.incident import _fire_alerts
+
+    settings = get_settings()
+    max_per_run = settings.renotify_max_incidents_per_run
 
     factory = get_session_factory()
     async with factory() as db:
@@ -34,6 +45,8 @@ async def check_renotify() -> None:
                         Incident.dependency_suppressed.is_(False),
                     )
                     .options(selectinload(Incident.monitor))
+                    .order_by(Incident.started_at.asc())
+                    .limit(max_per_run)
                 )
             )
             .scalars()
@@ -42,6 +55,12 @@ async def check_renotify() -> None:
 
         if not open_incidents:
             return
+        if len(open_incidents) >= max_per_run:
+            logger.warning(
+                "renotify_run_capped",
+                max_per_run=max_per_run,
+                hint="more open incidents than the per-tick cap — remainder deferred",
+            )
 
         for incident in open_incidents:
             monitor = incident.monitor

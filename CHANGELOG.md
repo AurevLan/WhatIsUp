@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.24.0](https://github.com/AurevLan/WhatIsUp/compare/v1.23.0...v1.24.0) (2026-08-29)
+
+
+### Added
+
+* **discovery:** boucle de feedback — statut de scan par source + scan-now (plan E, E-1) ([#382](https://github.com/AurevLan/WhatIsUp/issues/382)) ([7feaf7b](https://github.com/AurevLan/WhatIsUp/commit/7feaf7b6fc87cfae894c484d0837e20c481ce84f))
+* **discovery:** ciblage des sources par groupe de sondes (plan E, E-2) ([#383](https://github.com/AurevLan/WhatIsUp/issues/383)) ([978b9bf](https://github.com/AurevLan/WhatIsUp/commit/978b9bf8cd8d28bee1b7b690f9f868bc5fd1e432))
+* **discovery:** pédagogie — état vide, hint capacités, badge de propositions (plan E, E-3) ([#384](https://github.com/AurevLan/WhatIsUp/issues/384)) ([fa33376](https://github.com/AurevLan/WhatIsUp/commit/fa333762b9d6146816b753b915465fe3927ce822))
+
+
+### Docs
+
+* mettre FEATURES.md à jour pour v1.23.0 (plan V2 B/C + chantier D) ([#379](https://github.com/AurevLan/WhatIsUp/issues/379)) ([1072a1a](https://github.com/AurevLan/WhatIsUp/commit/1072a1a662365c43ebe60ac83892a8302f168974))
+* repointer les liens de plans vers docs/archived/plans/ ([#381](https://github.com/AurevLan/WhatIsUp/issues/381)) ([e0dd73b](https://github.com/AurevLan/WhatIsUp/commit/e0dd73b84801747e0fecd52082f8ba004a252afe))
+
 ## [1.23.0](https://github.com/AurevLan/WhatIsUp/compare/v1.22.0...v1.23.0) (2026-08-24)
 
 

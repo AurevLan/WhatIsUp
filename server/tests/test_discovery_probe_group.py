@@ -739,6 +739,14 @@ async def test_patch_cannot_switch_probe_source_to_group_target(
     group_visible: ProbeGroup,
 ) -> None:
     probe_id = await _register_probe(client, admin_token, "solo-probe-patch")
+    # Targeting a probe directly needs the same visibility as targeting a
+    # group (`assert_can_use_probe`): put it in the group the user can already
+    # reach, so this test stays about the immutable targeting mode.
+    await client.post(
+        f"/api/v1/admin/probe-groups/{group_visible.id}/probes",
+        json={"probe_ids": [probe_id]},
+        headers=_auth(admin_token),
+    )
     created = (
         await client.post(
             "/api/v1/discovery/sources/",

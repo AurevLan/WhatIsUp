@@ -64,14 +64,59 @@ async def stranger_token(client: AsyncClient, stranger: User) -> str:
     return resp.json()["access_token"]
 
 
-async def _register_probe(client: AsyncClient, admin_token: str, name: str = "probe-d0") -> str:
+async def _register_probe(
+    client: AsyncClient,
+    admin_token: str,
+    name: str = "probe-d0",
+    *,
+    visible_to: list[str] | None = None,
+) -> str:
+    """Register a probe and make it visible to the test's non-admin users.
+
+    Targeting a probe with a discovery source requires the same visibility
+    ``GET /probes/`` enforces (``assert_can_use_probe``): membership in a group
+    the user can reach — a probe in no group is invisible to every regular
+    user, in the API exactly as in the UI's probe picker. These tests are about
+    params validation, source scoping and audit, not about probe tenancy (that
+    lives in ``test_discovery_probe_group.py``), so by default the probe is
+    granted to every non-superadmin user through a throwaway group. Pass
+    ``visible_to=[]`` for the tenancy case itself.
+    """
     resp = await client.post(
         "/api/v1/probes/register",
         json={"name": name, "location_name": "Paris"},
         headers=_auth(admin_token),
     )
     assert resp.status_code == 201, resp.text
-    return resp.json()["id"]
+    probe_id = resp.json()["id"]
+
+    if visible_to is None:
+        users = await client.get("/api/v1/admin/users", headers=_auth(admin_token))
+        assert users.status_code == 200, users.text
+        visible_to = [u["id"] for u in users.json() if not u["is_superadmin"]]
+
+    if visible_to:
+        grp = await client.post(
+            "/api/v1/admin/probe-groups",
+            json={"name": f"grp-{probe_id[:8]}"},
+            headers=_auth(admin_token),
+        )
+        assert grp.status_code == 201, grp.text
+        group_id = grp.json()["id"]
+        members = await client.post(
+            f"/api/v1/admin/probe-groups/{group_id}/probes",
+            json={"probe_ids": [probe_id]},
+            headers=_auth(admin_token),
+        )
+        assert members.status_code == 200, members.text
+        granted = await client.post(
+            f"/api/v1/admin/probe-groups/{group_id}/users",
+            json={"user_ids": visible_to},
+            headers=_auth(admin_token),
+        )
+        assert granted.status_code == 200, granted.text
+
+    return probe_id
 
 
 async def _create_source(
@@ -352,6 +397,53 @@ async def test_create_source_inactive_probe_rejected(
 
 
 # ── DiscoverySource — scoping ─────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_cannot_target_a_probe_the_user_cannot_see(
+    client: AsyncClient, admin_token: str, user_token: str
+) -> None:
+    """A probe-targeted source needs the same visibility as a group-targeted one.
+
+    `Probe` has no owner: membership in a group reachable through
+    `user_probe_group_access` is its only tenancy, and probe UUIDs leak
+    legitimately through monitor results — so without this check, knowing a
+    UUID was enough to make another tenant's probe run a `docker` inventory
+    (or an outbound scan) and to read the result.
+    """
+    probe_id = await _register_probe(client, admin_token, "probe-foreign", visible_to=[])
+
+    resp = await _create_source(client, user_token, probe_id, "docker")
+
+    assert resp.status_code == 403, resp.text
+
+
+@pytest.mark.asyncio
+async def test_patch_cannot_retarget_onto_an_invisible_probe(
+    client: AsyncClient, admin_token: str, user_token: str
+) -> None:
+    """The PATCH branch enforces it too, not just create."""
+    mine = await _register_probe(client, admin_token, "probe-mine")
+    foreign = await _register_probe(client, admin_token, "probe-foreign-patch", visible_to=[])
+    source_id = (await _create_source(client, user_token, mine, "docker")).json()["id"]
+
+    resp = await client.patch(
+        f"/api/v1/discovery/sources/{source_id}",
+        json={"probe_id": foreign},
+        headers=_auth(user_token),
+    )
+
+    assert resp.status_code == 403, resp.text
+
+
+@pytest.mark.asyncio
+async def test_superadmin_may_target_any_probe(client: AsyncClient, admin_token: str) -> None:
+    """Superadmin is exempt here as everywhere else."""
+    probe_id = await _register_probe(client, admin_token, "probe-no-group", visible_to=[])
+
+    resp = await _create_source(client, admin_token, probe_id, "docker")
+
+    assert resp.status_code == 201, resp.text
 
 
 @pytest.mark.asyncio

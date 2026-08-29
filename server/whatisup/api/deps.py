@@ -602,6 +602,45 @@ async def assert_can_assign_group(db: AsyncSession, user: User, group_id: uuid.U
     await check_resource_access(group, user, db, min_role=TeamRole.editor)
 
 
+async def assert_can_use_probe(db: AsyncSession, user: User, probe_id: uuid.UUID) -> Probe:
+    """Reject targeting a ``Probe`` the user cannot see.
+
+    ``Probe`` carries no ``owner_id``/``team_id``: membership in a group the
+    user can reach through ``user_probe_group_access`` is the *only* tenancy a
+    probe has, and it is exactly what ``GET /probes/`` enforces. Anything that
+    makes a probe run work on a caller's behalf has to apply the same rule —
+    otherwise probe UUIDs, which leak legitimately through monitor results,
+    become enough to borrow another tenant's probe.
+
+    Superadmin is exempt, as everywhere else. Returns the probe so the caller
+    can reuse it without a second query.
+    """
+    from whatisup.models.probe_group import probe_group_members, user_probe_group_access
+
+    probe = (await db.execute(select(Probe).where(Probe.id == probe_id))).scalar_one_or_none()
+    if probe is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Probe not found")
+    if user.is_superadmin:
+        return probe
+    visible = (
+        await db.execute(
+            select(probe_group_members.c.probe_id)
+            .join(
+                user_probe_group_access,
+                probe_group_members.c.probe_group_id == user_probe_group_access.c.probe_group_id,
+            )
+            .where(
+                probe_group_members.c.probe_id == probe_id,
+                user_probe_group_access.c.user_id == user.id,
+            )
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if visible is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    return probe
+
+
 async def assert_can_assign_probe_group(
     db: AsyncSession, user: User, probe_group_id: uuid.UUID
 ) -> "ProbeGroup":

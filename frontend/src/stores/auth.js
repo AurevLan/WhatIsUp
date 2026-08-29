@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import axios from 'axios'
 import { apiBaseUrl, isNative } from '../lib/serverConfig'
 import api from '../api/client'
+import { useWebSocketStore } from './websocket'
 import {
   disableBiometric,
   isBiometricAvailable,
@@ -140,6 +141,16 @@ export const useAuthStore = defineStore('auth', () => {
         await api.post('/auth/logout', { refresh_token: refresh })
       } catch {}
     }
+    // Close the dashboard socket before dropping the tokens. The Pinia store
+    // is a singleton and `connect()` early-returns on an already-OPEN socket,
+    // so leaving it up means the *next* user to log in on this browser keeps
+    // streaming the previous user's monitors (and never receives their own).
+    // The JWT the socket authenticated with outlives the refresh token we just
+    // revoked, so the server has no reason to hang up on its own.
+    const wsStore = useWebSocketStore()
+    wsStore.disconnect()
+    wsStore.events = []
+
     user.value = null
     accessToken.value = null
     mfaPending.value = false

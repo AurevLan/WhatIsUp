@@ -10,6 +10,7 @@
 
 import { computed, nextTick, onScopeDispose, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { buildMapPopup } from '../lib/mapPopup'
 import { monitorsApi } from '../api/monitors'
 import { useTimezone } from './useTimezone'
 import { cssVar } from '../lib/themeColors'
@@ -93,13 +94,24 @@ export function useMonitorMap(monitorIdRef) {
       const checkedAt = p.last_checked_at ? fmt(p.last_checked_at) : 'Never'
       const marker = L.marker([p.latitude, p.longitude], { icon })
         .addTo(leafletMap)
-        .bindPopup(`
-          <b>${p.name}</b><br>
-          ${p.location_name}<br>
-          <span style="color:${col.hex}">● ${p.last_status ?? t('monitor_detail.no_check_yet')}</span>
-          ${p.response_time_ms != null ? ` — ${Math.round(p.response_time_ms)}ms` : ''}<br>
-          <small>${checkedAt}</small>
-        `)
+        // Probe name and location are tenant-supplied: never interpolate them
+        // into a popup string (Leaflet renders it as innerHTML).
+        .bindPopup(
+          buildMapPopup([
+            { text: p.name, bold: true, style: 'font-size:13px;' },
+            { text: p.location_name, style: 'color:var(--text-3);font-size:11px;' },
+            [
+              {
+                text: `● ${p.last_status ?? t('monitor_detail.no_check_yet')}`,
+                style: `color:${col.hex};`,
+              },
+              p.response_time_ms != null
+                ? { text: ` — ${Math.round(p.response_time_ms)}ms` }
+                : null,
+            ],
+            { text: checkedAt, style: 'font-size:11px;color:var(--text-3);' },
+          ])
+        )
       markers.push(marker)
     }
   }

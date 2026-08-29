@@ -57,13 +57,42 @@ async def stranger_token(client: AsyncClient, stranger: User) -> str:
 async def _register_probe(
     client: AsyncClient, admin_token: str, name: str = "probe-scan-now"
 ) -> str:
+    """Register a probe visible to every non-superadmin user of the test.
+
+    Targeting a probe with a discovery source needs the same visibility
+    ``GET /probes/`` enforces (``assert_can_use_probe``), so a probe in no
+    group cannot be targeted by a regular user — see ``test_discovery.py``.
+    """
     resp = await client.post(
         "/api/v1/probes/register",
         json={"name": name, "location_name": "Paris"},
         headers=_auth(admin_token),
     )
     assert resp.status_code == 201, resp.text
-    return resp.json()["id"]
+    probe_id = resp.json()["id"]
+
+    users = await client.get("/api/v1/admin/users", headers=_auth(admin_token))
+    assert users.status_code == 200, users.text
+    user_ids = [u["id"] for u in users.json() if not u["is_superadmin"]]
+    if user_ids:
+        grp = await client.post(
+            "/api/v1/admin/probe-groups",
+            json={"name": f"grp-{probe_id[:8]}"},
+            headers=_auth(admin_token),
+        )
+        assert grp.status_code == 201, grp.text
+        group_id = grp.json()["id"]
+        await client.post(
+            f"/api/v1/admin/probe-groups/{group_id}/probes",
+            json={"probe_ids": [probe_id]},
+            headers=_auth(admin_token),
+        )
+        await client.post(
+            f"/api/v1/admin/probe-groups/{group_id}/users",
+            json={"user_ids": user_ids},
+            headers=_auth(admin_token),
+        )
+    return probe_id
 
 
 @pytest_asyncio.fixture

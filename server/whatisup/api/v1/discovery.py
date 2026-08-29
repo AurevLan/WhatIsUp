@@ -33,6 +33,7 @@ from whatisup.api.deps import (
     assert_can_assign_group,
     assert_can_assign_probe_group,
     assert_can_assign_team,
+    assert_can_use_probe,
     check_resource_access,
     get_current_user,
     get_user_team_ids,
@@ -42,7 +43,6 @@ from whatisup.core.limiter import limiter
 from whatisup.core.redis import get_redis
 from whatisup.models.discovery import DiscoveredService, DiscoverySource
 from whatisup.models.monitor import Monitor
-from whatisup.models.probe import Probe
 from whatisup.models.probe_group import ProbeGroup, user_probe_group_access
 from whatisup.models.team import TeamRole
 from whatisup.models.user import User
@@ -118,10 +118,15 @@ def _visibility_filter(user: User, team_ids: list[uuid.UUID]):
     return or_(*clauses)
 
 
-async def _assert_probe_active(db: AsyncSession, probe_id: uuid.UUID) -> None:
-    probe = (await db.execute(select(Probe).where(Probe.id == probe_id))).scalar_one_or_none()
-    if probe is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Probe not found")
+async def _assert_probe_usable(db: AsyncSession, user: User, probe_id: uuid.UUID) -> None:
+    """Tenancy first, then liveness.
+
+    A probe-targeted source makes that probe run work for the caller, exactly
+    like a group-targeted one — so it needs the same visibility check
+    (``assert_can_use_probe``), which the group branch has had since E-2 and
+    this branch, inherited from D-0, never did.
+    """
+    probe = await assert_can_use_probe(db, user, probe_id)
     if not probe.is_active:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Probe is not active")
 
@@ -247,7 +252,7 @@ async def create_source(
 ) -> dict:
     await assert_can_assign_team(db, current_user, payload.team_id)
     if payload.probe_id is not None:
-        await _assert_probe_active(db, payload.probe_id)
+        await _assert_probe_usable(db, current_user, payload.probe_id)
     else:
         # payload's model_validator guarantees exactly one of the two is set.
         group = await assert_can_assign_probe_group(db, current_user, payload.probe_group_id)
@@ -322,7 +327,7 @@ async def update_source(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="probe_id can only be changed on a probe-targeted source",
             )
-        await _assert_probe_active(db, data["probe_id"])
+        await _assert_probe_usable(db, current_user, data["probe_id"])
     if "probe_group_id" in data:
         if source.probe_id is not None or data["probe_group_id"] is None:
             raise HTTPException(

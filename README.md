@@ -727,7 +727,7 @@ See [SECURITY.md](SECURITY.md) for the security checklist, the OWASP mapping, an
 | [SECURITY.md](SECURITY.md) | Security checklist, OWASP matrix, disclosure policy |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Workflow, commit conventions, release procedure |
 | `CLAUDE.md` | Architecture decisions, invariants and known traps for contributors |
-| `plan_v2.md` | The current engineering plan and its shipped results |
+| [docs/archived/plans/](docs/archived/plans/) | Archived engineering plans and their shipped results (plan V2, discovery, …) |
 
 ## License
 

@@ -482,7 +482,7 @@ setLocale('fr')            // persiste dans localStorage('whatisup_lang')
 
 ## Responsive (mobile-first) — conventions
 
-> Cible double : navigateur mobile **et** app native Android (Capacitor). Tailwind v4, breakpoints par défaut `sm:640 / md:768 / lg:1024 / xl:1280`. Suivi : `plan_responsive.md`.
+> Cible double : navigateur mobile **et** app native Android (Capacitor). Tailwind v4, breakpoints par défaut `sm:640 / md:768 / lg:1024 / xl:1280`. Suivi : `docs/archived/plans/plan_responsive.md`.
 
 - **Mobile-first** : la base CSS = mobile ; on élargit avec `md:`/`lg:`. Ne jamais régresser le rendu desktop.
 - **Shell déjà responsive** : `AppLayout` gère drawer off-canvas + hamburger + overlay + scroll-lock (`< 1024px`). Ne pas le retoucher.
@@ -497,7 +497,7 @@ setLocale('fr')            // persiste dans localStorage('whatisup_lang')
 
 ## Design system — boutons & badges
 
-> Consolidation post-VELOURS (`plan_design_system.md`). Objectif : couche composants homogène par-dessus les tokens.
+> Consolidation post-VELOURS (`docs/archived/plans/plan_design_system.md`). Objectif : couche composants homogène par-dessus les tokens.
 
 **Boutons** — variantes × tailles, jamais de surcharge de taille en inline :
 - Variantes : `.btn-primary` · `.btn-secondary` · `.btn-ghost` · `.btn-danger` (définies dans `style.css`, couleurs **tokenisées** — `--accent` / `--down`, plus aucun hex codé en dur ; les 2 thèmes en découlent).
@@ -589,7 +589,7 @@ cd frontend && npm run dev -- --host
 
 ## Health Engine V2 — ops prod
 
-> Engine actif sur 17/17 monitors depuis 2026-05-06. Détails complets : `plan_v2_global_health.md`.
+> Engine actif sur 17/17 monitors depuis 2026-05-06. Détails complets : `docs/archived/plans/plan_v2_global_health.md`.
 
 **Knobs critiques :**
 - Activation per-monitor : toggle UI panel "Quorum & SLO" dans `MonitorDetailView` ou `PATCH /monitors/{id}` body `{"health_engine_enabled": false}`.

@@ -67,7 +67,7 @@ _MUST_HAVE_LIMIT = [
         "/teams/{team_id}/members/{user_id}",
         "whatisup.api.v1.teams.remove_member",
     ),
-    ("POST", "/alerts/rules", "whatisup.api.v1.alerts.create_rule"),
+    ("POST", "/alerts/rules", "whatisup.api.v1.alerts.rules.create_rule"),
     ("GET", "/onboarding/status", "whatisup.api.v1.onboarding.get_onboarding_status"),
     ("POST", "/onboarding/complete", "whatisup.api.v1.onboarding.complete_onboarding"),
     ("GET", "/audit/", "whatisup.api.v1.audit.list_audit_logs"),

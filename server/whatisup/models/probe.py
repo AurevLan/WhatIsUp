@@ -59,6 +59,13 @@ class Probe(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     asn_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     ixp_membership: Mapped[list[str] | None] = mapped_column(_JSON, nullable=True)
     asn_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Plan cap v2, étape 1 — ISO-3166-1 alpha-2 country code, parsed from the
+    # same Cymru origin TXT record as `asn` (services/probe_enrichment.py).
+    # Replaces the previous heuristic of splitting `location_name` (free text
+    # entered by the operator, e.g. "Saran, FR" vs "Orléans 45000"), which
+    # fabricated geographic diversity that was never real. Not indexed: only
+    # read a handful of probes at a time (network_verdict per-incident).
+    country_code: Mapped[str | None] = mapped_column(String(2), nullable=True)
 
     # V2-02-07 — Outbound IP intelligence.
     # `public_ip` above is observed server-side (request.client.host).

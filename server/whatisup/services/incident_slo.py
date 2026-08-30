@@ -121,6 +121,30 @@ async def open_incident_from_health(
             error=str(exc),
         )
 
+    # V2-02-02 — classify network verdict, mirroring the legacy pipeline
+    # (services/incident.py). Best-effort: any failure leaves the verdict null
+    # and is logged; the background task retries every 5 min while open.
+    #
+    # Two deliberate choices here. The savepoint bounds the fallback: the
+    # classifier flushes, and a failed flush poisons the surrounding
+    # transaction — without it, a verdict error would take the incident down
+    # with it, which is the exact opposite of best-effort. And `except
+    # Exception` is broad on purpose: an unclassified incident is far better
+    # than a swallowed one, so no exception type may reach the caller. Same
+    # reasoning as `recompute_open_incidents_verdicts`.
+    try:
+        from whatisup.services.network_verdict import classify_network_verdict
+
+        async with db.begin_nested():
+            await classify_network_verdict(db, incident, persist=True)
+    except Exception as exc:  # noqa: BLE001 — must never block incident opening
+        logger.warning(
+            "slo_network_verdict_initial_failed",
+            incident_id=str(incident.id),
+            error_type=type(exc).__name__,
+            error=str(exc),
+        )
+
     logger.info(
         "slo_incident_opened",
         monitor_id=str(monitor_id),

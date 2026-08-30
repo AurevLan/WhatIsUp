@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.26.0](https://github.com/AurevLan/WhatIsUp/compare/v1.25.0...v1.26.0) (2026-08-30)
+
+
+### Added
+
+* **ci:** signature Cosign keyless + SBOM pour les releases ([#392](https://github.com/AurevLan/WhatIsUp/issues/392)) ([b9927cd](https://github.com/AurevLan/WhatIsUp/commit/b9927cdc497a0bdd992bb5989ff14802ee62fe41))
+
+
+### Changed
+
+* **api:** découper alerts.py en package (channels, rules, matrix, suggestions) ([#390](https://github.com/AurevLan/WhatIsUp/issues/390)) ([2cd6000](https://github.com/AurevLan/WhatIsUp/commit/2cd60008df609d04770476999339b1b2afb7088a))
+
 ## [1.25.0](https://github.com/AurevLan/WhatIsUp/compare/v1.24.0...v1.25.0) (2026-08-30)
 
 

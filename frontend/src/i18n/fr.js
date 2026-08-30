@@ -1005,7 +1005,7 @@ export default {
     suggested_threshold: 'Seuil suggéré : {ms}ms',
     apply_suggestion: 'Appliquer',
     webhook_template: 'Template personnalisé (optionnel)',
-    webhook_template_placeholder: '{"text": "[$status] $monitor_name — $event_type"}',
+    webhook_template_placeholder: '{\'{\'}"text": "[$status] $monitor_name — $event_type"{\'}\'}',
     webhook_template_hint: 'Variables : $monitor_name, $monitor_id, $check_type, $status, $started_at, $resolved_at, $duration, $scope, $event_type',
     // Modale d'ajout de canal. Les noms de produits (Slack, PagerDuty…), les
     // masques d'URL et les codes P1-P5 d'Opsgenie restent non traduits.
@@ -1483,7 +1483,7 @@ export default {
     report_schedule_weekly: 'Hebdomadaire (lundi 08:00 UTC)',
     report_schedule_monthly: 'Mensuel (1er du mois 08:00 UTC)',
     report_emails: 'Emails destinataires',
-    report_emails_hint: 'alice@example.com, bob@example.com',
+    report_emails_hint: 'alice\\@example.com, bob\\@example.com',
     report_emails_desc: "Liste d'adresses email séparées par des virgules",
     public_title: 'Titre de la page',
     public_description: 'Description de la page',
@@ -2018,7 +2018,7 @@ export default {
     subtitle: 'Procédure de réponse à incident pour ce moniteur.',
     enable_label: 'Activer le runbook',
     enable_desc: 'Ajoute un onglet Runbook et affiche la procédure inline sur les incidents ouverts. Le décocher efface le contenu.',
-    placeholder: '## Si ce moniteur est DOWN\n\n### 1. Causes évidentes\n- [ ] Déploiement récent ? → rollback\n- [ ] Pic de trafic ? → dashboard\n\n### 2. Escalade\n- Down > 15 min → ping @lead sur Slack',
+    placeholder: '## Si ce moniteur est DOWN\n\n### 1. Causes évidentes\n- [ ] Déploiement récent ? → rollback\n- [ ] Pic de trafic ? → dashboard\n\n### 2. Escalade\n- Down > 15 min → ping \\@lead sur Slack',
     empty: 'Aucun runbook — cliquez sur Modifier pour rédiger la procédure.',
     markdown_hint: 'Markdown supporté : titres (# ## ###), listes, cases à cocher [ ] [x], **gras**, *italique*, `code`, blocs de code, liens http(s).',
     saved: 'Runbook enregistré.',

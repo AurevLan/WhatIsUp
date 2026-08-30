@@ -143,6 +143,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write  # Cosign keyless (Fulcio/Rekor): mints the OIDC token this job signs with
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -221,9 +222,39 @@ jobs:
             -Pandroid.injected.signing.key.alias=$ANDROID_KEY_ALIAS \
             -Pandroid.injected.signing.key.password=$ANDROID_KEY_PASSWORD
 
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6  # v4.1.2
+
+      # D-1/D-2: this is a blob, not an OCI image — Android's own APK signing
+      # (the keystore above) proves provenance to a phone, but ties to nothing
+      # a workstation can check against a CI run. Cosign keyless covers that
+      # gap: sign-blob writes a Sigstore bundle (signature + ephemeral Fulcio
+      # cert + Rekor inclusion proof, all in one file) shipped next to the APK.
+      - name: Sign APK (Cosign, keyless)
+        working-directory: frontend/android/app/build/outputs/apk/release
+        run: |
+          cosign sign-blob --yes \
+            --bundle app-release.apk.sigstore.json \
+            app-release.apk
+
+      # D-4/D-5: self-check right after signing — two separate workflows means
+      # two separate certificate identities (release.yml vs mobile-release.yml).
+      # A malformed identity must fail the release here, not ship an
+      # unverifiable signature nobody notices.
+      - name: Verify APK signature (self-check)
+        working-directory: frontend/android/app/build/outputs/apk/release
+        run: |
+          cosign verify-blob \
+            --bundle app-release.apk.sigstore.json \
+            --certificate-identity-regexp '^https://github\.com/AurevLan/WhatIsUp/\.github/workflows/mobile-release\.yml@refs/(heads/main|tags/v.*)$' \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            app-release.apk
+
       - name: Attach APK to GitHub release
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228  # v3
         with:
           tag_name: ${{ inputs.tag || github.ref_name }}
-          files: frontend/android/app/build/outputs/apk/release/app-release.apk
+          files: |
+            frontend/android/app/build/outputs/apk/release/app-release.apk
+            frontend/android/app/build/outputs/apk/release/app-release.apk.sigstore.json
           fail_on_unmatched_files: true

@@ -82,6 +82,7 @@ Conditions were dispatched by three parallel `if/elif` chains — what pages, th
 
 ### Security & supply chain
 
+- Every release image and the Android APK are **signed keylessly with Cosign** (Fulcio/Rekor, GitHub OIDC — no private key to manage), with SBOMs (SPDX) published alongside. `scripts/verify-release.sh <version>` checks all of it in one command — see [SECURITY.md § Vérifier une release](SECURITY.md#10-supply-chain).
 - Post-audit structural hardening: SSRF guards **pin the resolved IP** (defeating DNS rebinding, with per-hop redirect re-validation), per-account login lockout with anti-enumeration, zero-downtime `FERNET_KEY` rotation, tenant-scoped WebSocket broadcasts, hardened auth caches with immediate key revocation, and rate limits closed on every mutating endpoint with a CI coverage gate.
 - Every GitHub Actions workflow is SHA-pinned with least-privilege `permissions`; a [Plumber](https://getplumber.io) compliance gate (100% / A) runs on every PR and uploads findings to Code Scanning. `main` is ruleset-protected.
 - Model↔schema drift is a build failure: `compare_metadata` must return zero diff against a migrated database on every PR.

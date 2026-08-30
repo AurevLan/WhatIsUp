@@ -579,9 +579,70 @@ redis-cli DEL "whatisup:lockout:lock:${IDX}"
 - ✅ npm audit hebdo — `security-audit.yml`
 - ✅ CodeQL `security-extended` — `codeql.yml`
 - ✅ Hardening des workflows — `plumber.yml` (gate bloquant, cf. §4)
-- ⏳ **À ajouter** : génération SBOM (`anchore/sbom-action`) sur `release.yml`
+- ✅ Génération SBOM (SPDX) — `anchore/sbom-action` sur `release.yml`, attaché en artefact GH Release ; plus l'attestation SBOM native BuildKit (`sbom: true` + `provenance: mode=max`), inspectable via `docker buildx imagetools inspect`
 - ⏳ **À ajouter** : détection de secrets commités — secret scanning GitHub + push protection (gratuits sur ce repo public, actuellement **désactivés**), complétés par un scan `trufflehog --only-verified` en CI
-- ⏳ **À ajouter** : signature des images GHCR via Cosign keyless (OIDC GitHub)
+- ✅ Signature des images GHCR et de l'APK via Cosign keyless (OIDC GitHub) — cf. « Vérifier une release » ci-dessous
+
+### Vérifier une release
+
+> Chantier S (2026-08-30) : `release.yml` et `mobile-release.yml` signent chaque artefact avec
+> **Cosign en mode keyless** (Fulcio/Rekor, OIDC GitHub Actions) — aucune clé privée à gérer, l'identité
+> attestée est le workflow qui a produit l'artefact. Chaque signature est auto-vérifiée dans le
+> workflow lui-même : une identité mal formée fait échouer la release, pas passer inaperçue.
+
+**Prérequis** : [`cosign`](https://docs.sigstore.dev/cosign/installation/) installé.
+
+**Commande unique** — vérifie les deux images et l'APK en une fois :
+
+```bash
+scripts/verify-release.sh 1.25.0    # ou v1.25.0, les deux formes sont acceptées
+```
+
+**Commandes détaillées**, si tu veux vérifier une chose à la fois :
+
+```bash
+# Signature de l'image serveur (identité = release.yml, appelé par release-please.yml)
+cosign verify \
+  --certificate-identity-regexp '^https://github\.com/AurevLan/WhatIsUp/\.github/workflows/release\.yml@refs/(heads/main|tags/v.*)$' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  ghcr.io/aurevlan/whatisup-server:1.25.0
+
+# Idem pour la sonde
+cosign verify \
+  --certificate-identity-regexp '^https://github\.com/AurevLan/WhatIsUp/\.github/workflows/release\.yml@refs/(heads/main|tags/v.*)$' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  ghcr.io/aurevlan/whatisup-probe:1.25.0
+
+# Attestation SBOM (SPDX) signée sur l'une ou l'autre image
+cosign verify-attestation \
+  --type spdxjson \
+  --certificate-identity-regexp '^https://github\.com/AurevLan/WhatIsUp/\.github/workflows/release\.yml@refs/(heads/main|tags/v.*)$' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  ghcr.io/aurevlan/whatisup-server:1.25.0
+
+# Signature de l'APK (identité = mobile-release.yml — workflow distinct, identité distincte)
+curl -fsSLO https://github.com/AurevLan/WhatIsUp/releases/download/v1.25.0/app-release.apk
+curl -fsSLO https://github.com/AurevLan/WhatIsUp/releases/download/v1.25.0/app-release.apk.sigstore.json
+cosign verify-blob \
+  --bundle app-release.apk.sigstore.json \
+  --certificate-identity-regexp '^https://github\.com/AurevLan/WhatIsUp/\.github/workflows/mobile-release\.yml@refs/(heads/main|tags/v.*)$' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  app-release.apk
+```
+
+**Ce que ça prouve** : l'artefact a été produit par un run GitHub Actions de ce dépôt exécutant
+exactement ce fichier de workflow (`release.yml` ou `mobile-release.yml`, sur `main` ou sur un tag
+`v*`), et n'a pas été modifié depuis — chaque signature est aussi inscrite au journal de transparence
+public Rekor.
+
+**Ce que ça ne prouve PAS** :
+- que le code du workflow, au moment de ce run, faisait ce que son nom laisse penser (une modification
+  malveillante mais mergée légitimement sur `main` produirait une signature tout aussi valide) ;
+- que les dépendances embarquées sont exemptes de vulnérabilité — c'est le rôle du SBOM (ci-dessus),
+  pas de la signature ;
+- que l'image tourne sans modification après le pull — seule une politique d'admission qui revérifie
+  au déploiement (policy controller, admission webhook) le garantit ; c'est un choix côté exploitant,
+  hors périmètre de ce dépôt.
 
 ### Verrouillage versions
 

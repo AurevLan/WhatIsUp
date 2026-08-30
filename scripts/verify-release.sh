@@ -14,9 +14,13 @@
 # something, or it is worse than not running it at all.
 #
 # Usage:
-#   scripts/verify-release.sh <version>       # e.g. 1.25.0 or v1.25.0
+#   scripts/verify-release.sh <version>       # e.g. 1.26.0 or v1.26.0
 #
-# Requires: cosign (https://docs.sigstore.dev/cosign/installation/), curl.
+# Requires: curl, plus either cosign (https://docs.sigstore.dev/cosign/installation/)
+# or Docker — without a cosign binary the script falls back to running
+# $COSIGN_IMAGE (default: cgr.dev/chainguard/cosign) in a container.
+#
+# Signing starts at v1.26.0; earlier releases are unsigned and will fail here.
 #
 # What a green run here proves, and what it does NOT prove — see
 # SECURITY.md § "Vérifier une release".
@@ -33,17 +37,39 @@ log() { printf '\033[1;34m[verify-release]\033[0m %s\n' "$*" >&2; }
 fail() { printf '\033[1;31m[verify-release] FAIL:\033[0m %s\n' "$*" >&2; exit 1; }
 
 if [ "$#" -ne 1 ] || [ -z "${1:-}" ]; then
-  fail "usage: $0 <version>  (e.g. $0 1.25.0 or $0 v1.25.0)"
+  fail "usage: $0 <version>  (e.g. $0 1.26.0 or $0 v1.26.0)"
 fi
 
 RAW_VERSION="$1"
 VERSION="${RAW_VERSION#v}"          # bare X.Y.Z — Docker tags carry no 'v'
 TAG="v${VERSION}"                    # vX.Y.Z — GitHub release tag / asset URL
 
-command -v cosign >/dev/null 2>&1 \
-  || fail "cosign not found on PATH — install it: https://docs.sigstore.dev/cosign/installation/"
 command -v curl >/dev/null 2>&1 \
   || fail "curl not found on PATH"
+
+# cosign, or a container standing in for it. Plenty of machines run everything
+# through Docker and have no cosign binary; refusing to work there would make
+# this script unusable exactly where release verification matters most.
+#
+# The fallback mounts the caller's temp dir at the SAME absolute path inside the
+# container, so every path this script builds stays valid on both sides and no
+# call site has to know which mode is active.
+COSIGN_IMAGE="${COSIGN_IMAGE:-cgr.dev/chainguard/cosign:latest}"
+COSIGN_MOUNT=""
+if command -v cosign >/dev/null 2>&1; then
+  cosign_run() { cosign "$@"; }
+elif command -v docker >/dev/null 2>&1; then
+  log "cosign not on PATH — falling back to ${COSIGN_IMAGE} via Docker"
+  cosign_run() {
+    if [ -n "$COSIGN_MOUNT" ]; then
+      docker run --rm -v "${COSIGN_MOUNT}:${COSIGN_MOUNT}" "$COSIGN_IMAGE" "$@"
+    else
+      docker run --rm "$COSIGN_IMAGE" "$@"
+    fi
+  }
+else
+  fail "neither cosign nor docker found on PATH — install cosign: https://docs.sigstore.dev/cosign/installation/"
+fi
 
 FAILURES=0
 note_failure() {
@@ -54,7 +80,7 @@ note_failure() {
 verify_image_signature() {
   local image_ref="$1"
   log "verifying signature: ${image_ref}"
-  if ! cosign verify \
+  if ! cosign_run verify \
         --certificate-identity-regexp "$RELEASE_IDENTITY_REGEXP" \
         --certificate-oidc-issuer "$ISSUER" \
         "$image_ref" >/dev/null 2>&1; then
@@ -67,7 +93,7 @@ verify_image_signature() {
 verify_image_sbom() {
   local image_ref="$1"
   log "verifying SBOM attestation: ${image_ref}"
-  if ! cosign verify-attestation \
+  if ! cosign_run verify-attestation \
         --type spdxjson \
         --certificate-identity-regexp "$RELEASE_IDENTITY_REGEXP" \
         --certificate-oidc-issuer "$ISSUER" \
@@ -82,6 +108,11 @@ verify_apk() {
   local workdir apk bundle base_url
   workdir="$(mktemp -d)"
   trap 'rm -rf "$workdir"' RETURN
+  # mktemp -d gives 700, and the container fallback runs as a non-root user that
+  # then cannot even traverse the directory — the APK check failed while the
+  # signature was perfectly valid. These are public release artifacts, so
+  # widening to 755 costs nothing.
+  chmod 755 "$workdir"
   base_url="https://github.com/${REPO_SLUG}/releases/download/${TAG}"
   apk="${workdir}/app-release.apk"
   bundle="${workdir}/app-release.apk.sigstore.json"
@@ -97,14 +128,19 @@ verify_apk() {
   fi
 
   log "verifying APK signature"
-  if ! cosign verify-blob \
+  # The only check reading local files: expose the temp dir to the container
+  # fallback (a no-op when a real cosign binary is in use).
+  COSIGN_MOUNT="$workdir"
+  if ! cosign_run verify-blob \
         --bundle "$bundle" \
         --certificate-identity-regexp "$MOBILE_IDENTITY_REGEXP" \
         --certificate-oidc-issuer "$ISSUER" \
         "$apk" >/dev/null 2>&1; then
+    COSIGN_MOUNT=""
     note_failure "no valid Cosign signature on the APK for identity ${MOBILE_IDENTITY_REGEXP}"
     return 1
   fi
+  COSIGN_MOUNT=""
   log "  APK signature OK"
 }
 

@@ -590,12 +590,29 @@ redis-cli DEL "whatisup:lockout:lock:${IDX}"
 > attestée est le workflow qui a produit l'artefact. Chaque signature est auto-vérifiée dans le
 > workflow lui-même : une identité mal formée fait échouer la release, pas passer inaperçue.
 
+> ⚠️ **La signature commence à la v1.26.0.** Les versions antérieures ne sont pas signées : un
+> `cosign verify` sur `1.25.0` ou plus ancien répond `no signatures found`, ce qui est attendu et ne
+> traduit aucune compromission.
+
 **Prérequis** : [`cosign`](https://docs.sigstore.dev/cosign/installation/) installé.
+
+Sans cosign sur la machine, tout ce qui suit s'exécute aussi bien dans un conteneur — l'image
+officielle Chainguard a `cosign` pour point d'entrée :
+
+```bash
+# Vérifier une image (accès réseau seul, rien à monter)
+docker run --rm cgr.dev/chainguard/cosign verify …
+
+# Vérifier un fichier local (APK) : monter le répertoire courant
+docker run --rm -v "$PWD:/w" -w /w cgr.dev/chainguard/cosign verify-blob …
+```
+
+`scripts/verify-release.sh` bascule tout seul sur cette forme quand `cosign` est absent du `PATH`.
 
 **Commande unique** — vérifie les deux images et l'APK en une fois :
 
 ```bash
-scripts/verify-release.sh 1.25.0    # ou v1.25.0, les deux formes sont acceptées
+scripts/verify-release.sh 1.26.0    # ou v1.26.0, les deux formes sont acceptées
 ```
 
 **Commandes détaillées**, si tu veux vérifier une chose à la fois :
@@ -605,30 +622,44 @@ scripts/verify-release.sh 1.25.0    # ou v1.25.0, les deux formes sont acceptée
 cosign verify \
   --certificate-identity-regexp '^https://github\.com/AurevLan/WhatIsUp/\.github/workflows/release\.yml@refs/(heads/main|tags/v.*)$' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-  ghcr.io/aurevlan/whatisup-server:1.25.0
+  ghcr.io/aurevlan/whatisup-server:1.26.0
 
 # Idem pour la sonde
 cosign verify \
   --certificate-identity-regexp '^https://github\.com/AurevLan/WhatIsUp/\.github/workflows/release\.yml@refs/(heads/main|tags/v.*)$' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-  ghcr.io/aurevlan/whatisup-probe:1.25.0
+  ghcr.io/aurevlan/whatisup-probe:1.26.0
 
 # Attestation SBOM (SPDX) signée sur l'une ou l'autre image
 cosign verify-attestation \
   --type spdxjson \
   --certificate-identity-regexp '^https://github\.com/AurevLan/WhatIsUp/\.github/workflows/release\.yml@refs/(heads/main|tags/v.*)$' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-  ghcr.io/aurevlan/whatisup-server:1.25.0
+  ghcr.io/aurevlan/whatisup-server:1.26.0
 
 # Signature de l'APK (identité = mobile-release.yml — workflow distinct, identité distincte)
-curl -fsSLO https://github.com/AurevLan/WhatIsUp/releases/download/v1.25.0/app-release.apk
-curl -fsSLO https://github.com/AurevLan/WhatIsUp/releases/download/v1.25.0/app-release.apk.sigstore.json
+curl -fsSLO https://github.com/AurevLan/WhatIsUp/releases/download/v1.26.0/app-release.apk
+curl -fsSLO https://github.com/AurevLan/WhatIsUp/releases/download/v1.26.0/app-release.apk.sigstore.json
 cosign verify-blob \
   --bundle app-release.apk.sigstore.json \
   --certificate-identity-regexp '^https://github\.com/AurevLan/WhatIsUp/\.github/workflows/mobile-release\.yml@refs/(heads/main|tags/v.*)$' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   app-release.apk
 ```
+
+> ⚠️ **Si tu épingles par digest, prends celui de l'index — pas celui du manifeste enfant.**
+> Les images embarquent leurs attestations (`sbom` + `provenance`), donc ce qui est poussé est un
+> **index** ; c'est lui qui est signé. Vérifier par tag ne pose aucun problème, le tag pointe sur
+> l'index. Mais `docker manifest inspect -v` renvoie le digest d'un manifeste **enfant** :
+> le vérifier répond `no signatures found` sur une image pourtant parfaitement signée.
+>
+> ```bash
+> # ✅ le digest signé
+> docker buildx imagetools inspect ghcr.io/aurevlan/whatisup-server:1.26.0 --format '{{.Manifest.Digest}}'
+>
+> # ❌ un digest enfant — la vérification échouera à tort
+> docker manifest inspect -v ghcr.io/aurevlan/whatisup-server:1.26.0
+> ```
 
 **Ce que ça prouve** : l'artefact a été produit par un run GitHub Actions de ce dépôt exécutant
 exactement ce fichier de workflow (`release.yml` ou `mobile-release.yml`, sur `main` ou sur un tag

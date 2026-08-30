@@ -107,22 +107,29 @@ jobs:
         id: ver
         env:
           TAG: ${{ env.RELEASE_TAG }}
+          OWNER: ${{ github.repository_owner }}
         run: |
           VERSION="${TAG#v}"
           MAJOR_MINOR=$(echo "$VERSION" | cut -d. -f1-2)
           IS_PRERELEASE="false"
           case "$VERSION" in *-*) IS_PRERELEASE="true" ;; esac
+          # An OCI reference must be lowercase, but `github.repository_owner`
+          # keeps the account's original casing ("AurevLan"). metadata-action
+          # lowercases its own `images:` input, which is why build and push
+          # were fine while every raw interpolation below — cosign, sbom-action
+          # — died on "could not parse reference" (v1.26.0).
           {
             echo "version=$VERSION"
             echo "major_minor=$MAJOR_MINOR"
             echo "is_prerelease=$IS_PRERELEASE"
+            echo "owner_lc=$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')"
           } >> "$GITHUB_OUTPUT"
 
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302  # v6
         with:
-          images: ghcr.io/${{ github.repository_owner }}/${{ matrix.image_name }}
+          images: ghcr.io/${{ steps.ver.outputs.owner_lc }}/${{ matrix.image_name }}
           tags: |
             type=raw,value=${{ steps.ver.outputs.version }}
             type=raw,value=${{ steps.ver.outputs.major_minor }}
@@ -147,7 +154,7 @@ jobs:
       # the tag moves.
       - name: Sign image (Cosign, keyless)
         env:
-          IMAGE_DIGEST: ghcr.io/${{ github.repository_owner }}/${{ matrix.image_name }}@${{ steps.build.outputs.digest }}
+          IMAGE_DIGEST: ghcr.io/${{ steps.ver.outputs.owner_lc }}/${{ matrix.image_name }}@${{ steps.build.outputs.digest }}
         run: cosign sign --yes "$IMAGE_DIGEST"
 
       # D-4/D-5: self-check right after signing — under workflow_call the
@@ -157,7 +164,7 @@ jobs:
       # unverifiable signature nobody notices.
       - name: Verify image signature (self-check)
         env:
-          IMAGE_DIGEST: ghcr.io/${{ github.repository_owner }}/${{ matrix.image_name }}@${{ steps.build.outputs.digest }}
+          IMAGE_DIGEST: ghcr.io/${{ steps.ver.outputs.owner_lc }}/${{ matrix.image_name }}@${{ steps.build.outputs.digest }}
         run: |
           cosign verify \
             --certificate-identity-regexp '^https://github\.com/AurevLan/WhatIsUp/\.github/workflows/release\.yml@refs/(heads/main|tags/v.*)$' \
@@ -170,7 +177,7 @@ jobs:
       - name: Generate SBOM (SPDX JSON)
         uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26  # v0.24.2
         with:
-          image: ghcr.io/${{ github.repository_owner }}/${{ matrix.image_name }}@${{ steps.build.outputs.digest }}
+          image: ghcr.io/${{ steps.ver.outputs.owner_lc }}/${{ matrix.image_name }}@${{ steps.build.outputs.digest }}
           format: spdx-json
           output-file: sbom-${{ matrix.image_name }}.spdx.json
           artifact-name: sbom-${{ matrix.image_name }}.spdx.json
@@ -184,7 +191,7 @@ jobs:
       # something Cosign can verify a signer identity against on its own.
       - name: Attest SBOM (Cosign, keyless)
         env:
-          IMAGE_DIGEST: ghcr.io/${{ github.repository_owner }}/${{ matrix.image_name }}@${{ steps.build.outputs.digest }}
+          IMAGE_DIGEST: ghcr.io/${{ steps.ver.outputs.owner_lc }}/${{ matrix.image_name }}@${{ steps.build.outputs.digest }}
         run: |
           cosign attest --yes \
             --predicate sbom-${{ matrix.image_name }}.spdx.json \
@@ -193,7 +200,7 @@ jobs:
 
       - name: Verify SBOM attestation (self-check)
         env:
-          IMAGE_DIGEST: ghcr.io/${{ github.repository_owner }}/${{ matrix.image_name }}@${{ steps.build.outputs.digest }}
+          IMAGE_DIGEST: ghcr.io/${{ steps.ver.outputs.owner_lc }}/${{ matrix.image_name }}@${{ steps.build.outputs.digest }}
         run: |
           cosign verify-attestation \
             --type spdxjson \

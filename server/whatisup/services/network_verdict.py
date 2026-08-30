@@ -1,10 +1,15 @@
 """V2-02-02 — Classify an incident as service-down vs network partition.
 
 Goal: stop paging on-call when a transit-level outage from one carrier makes a
-service look "down" from a subset of probes only. Computed at incident open and
-periodically while the incident remains open, using the latest CheckResult per
-probe (already loaded by ``services/incident.py``) plus the ASN/country fields
-populated by ``services/probe_enrichment.py``.
+service look "down" from a subset of probes only. Computed at incident open
+(both the legacy pipeline in ``services/incident.py`` and the Health Engine
+bridge in ``services/incident_slo.py``) and periodically while the incident
+remains open, using the latest CheckResult per probe plus the ASN/country
+fields populated by ``services/probe_enrichment.py``. The geo axis reads
+``Probe.country_code`` (an ISO-3166-1 alpha-2 parsed from the Cymru TXT
+record) and produces no verdict when it is unset — never inferred from the
+operator-entered ``location_name`` free text, which is not a reliable country
+signal.
 
 Verdicts:
   service_down            — overwhelming majority of diversified probes report DOWN
@@ -62,18 +67,17 @@ def _is_down(result: CheckResult) -> bool:
 
 
 def _country_of(probe: Probe) -> str | None:
-    """Coarse country bucket — falls back to the location_name when missing."""
-    # Probes do not carry an ISO country code today; location_name is free text
-    # but typically prefixed by a city / country. As a pragmatic substitute we
-    # split on the first non-letter and take the first token. Refined later if
-    # we add a dedicated `country_code` column.
-    name = (probe.location_name or "").strip().lower()
-    if not name:
-        return None
-    for sep in (",", "/", "-", " "):
-        if sep in name:
-            return name.split(sep, 1)[0].strip() or None
-    return name
+    """Return the probe's ISO country code, or None when it has not been enriched.
+
+    Deliberately does **not** fall back to ``location_name``: that field is
+    free text entered by the operator ("Saran, FR", "Olivet, Loiret, FR",
+    "Orléans 45000") and splitting it on a separator fabricated distinct
+    "countries" out of what was really the same country — producing false
+    ``network_partition_geo`` verdicts. Without a real country code, a
+    geographic verdict is impossible rather than invented.
+    """
+    code = (probe.country_code or "").strip().upper()
+    return code or None
 
 
 def _classify(

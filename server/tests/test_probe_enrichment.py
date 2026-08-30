@@ -91,6 +91,46 @@ async def test_enrich_probe_persists_asn_info(service_db: AsyncSession) -> None:
     assert probe.asn == 15169
     assert probe.asn_name == "GOOGLE, US"
     assert probe.asn_updated_at is not None
+    assert probe.country_code == "US"
+
+
+@pytest.mark.asyncio
+async def test_enrich_probe_normalizes_country_to_uppercase(service_db: AsyncSession) -> None:
+    probe = Probe(name="p1b", location_name="Paris", api_key_hash="x")
+    service_db.add(probe)
+    await service_db.flush()
+
+    fake_info = AsnInfo(asn=15169, asn_name="GOOGLE, US", country="us")
+    with patch("whatisup.services.probe_enrichment.lookup_asn", return_value=fake_info):
+        await enrich_probe(service_db, probe, "8.8.8.8")
+
+    assert probe.country_code == "US"
+
+
+@pytest.mark.asyncio
+async def test_enrich_probe_ignores_invalid_country_value(service_db: AsyncSession) -> None:
+    """Cymru occasionally returns empty or non-ISO noise for the country field
+    (e.g. an empty string, or something that isn't 2 letters) — plan_cap_v2
+    requires ignoring anything that isn't exactly 2 letters rather than
+    persisting garbage that would later be read as a country code."""
+    probe = Probe(name="p1c", location_name="Paris", api_key_hash="x")
+    service_db.add(probe)
+    await service_db.flush()
+
+    fake_info = AsnInfo(asn=15169, asn_name="GOOGLE, US", country="")
+    with patch("whatisup.services.probe_enrichment.lookup_asn", return_value=fake_info):
+        await enrich_probe(service_db, probe, "8.8.8.8")
+    assert probe.country_code is None
+
+    fake_info_bad = AsnInfo(asn=15169, asn_name="GOOGLE, US", country="USA")
+    with patch("whatisup.services.probe_enrichment.lookup_asn", return_value=fake_info_bad):
+        await enrich_probe(service_db, probe, "8.8.8.8")
+    assert probe.country_code is None
+
+    fake_info_none = AsnInfo(asn=15169, asn_name="GOOGLE, US", country=None)
+    with patch("whatisup.services.probe_enrichment.lookup_asn", return_value=fake_info_none):
+        await enrich_probe(service_db, probe, "8.8.8.8")
+    assert probe.country_code is None
 
 
 @pytest.mark.asyncio

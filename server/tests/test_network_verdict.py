@@ -16,11 +16,18 @@ from whatisup.models.user import User
 from whatisup.services.network_verdict import (
     NetworkVerdict,
     _classify,
+    _country_of,
     classify_network_verdict,
 )
 
 
-def _make_probe(name: str, *, asn: int | None, location: str = "Paris, FR") -> Probe:
+def _make_probe(
+    name: str,
+    *,
+    asn: int | None,
+    location: str = "Paris, FR",
+    country: str | None = None,
+) -> Probe:
     return Probe(
         id=uuid.uuid4(),
         name=name,
@@ -28,6 +35,7 @@ def _make_probe(name: str, *, asn: int | None, location: str = "Paris, FR") -> P
         api_key_hash="x",
         is_active=True,
         asn=asn,
+        country_code=country,
     )
 
 
@@ -84,23 +92,17 @@ def test_classify_network_partition_asn() -> None:
 
 
 def test_classify_network_partition_geo_when_asn_missing() -> None:
-    """No ASN data, but country split — partition_geo via location_name."""
-    p1 = _make_probe("p1", asn=None, location="Paris, FR")
-    p2 = _make_probe("p2", asn=None, location="Lyon, FR")
-    p3 = _make_probe("p3", asn=None, location="Berlin, DE")
-    p4 = _make_probe("p4", asn=None, location="Munich, DE")
+    """No ASN data, but country_code split — partition_geo via the real ISO code."""
+    p1 = _make_probe("p1", asn=None, location="Paris, FR", country="FR")
+    p2 = _make_probe("p2", asn=None, location="Lyon, FR", country="FR")
+    p3 = _make_probe("p3", asn=None, location="Berlin, DE", country="DE")
+    p4 = _make_probe("p4", asn=None, location="Munich, DE", country="DE")
     latest = {
         p1.id: _make_result(p1.id, CheckStatus.down),
         p2.id: _make_result(p2.id, CheckStatus.down),
         p3.id: _make_result(p3.id, CheckStatus.up),
         p4.id: _make_result(p4.id, CheckStatus.up),
     }
-    # _country_of strips on first separator — both Paris and Lyon end up "paris"/"lyon"
-    # We make the partition explicit by using identical first tokens per group.
-    p1.location_name = "fr-paris"
-    p2.location_name = "fr-lyon"
-    p3.location_name = "de-berlin"
-    p4.location_name = "de-munich"
     assert _classify(latest, [p1, p2, p3, p4]) == NetworkVerdict.NETWORK_PARTITION_GEO
 
 
@@ -255,16 +257,52 @@ def test_classify_inconclusive_when_no_diversity_and_mixed_signal() -> None:
 
 def test_classify_partition_geo_when_asn_field_present_but_same() -> None:
     """When all probes share the same ASN, ASN-level partition is impossible;
-    geo-level partition can still fire if locations cluster correctly."""
-    p_paris1 = _make_probe("pa1", asn=15169, location="Paris, FR")
-    p_paris2 = _make_probe("pa2", asn=15169, location="Paris, FR")
-    p_berlin = _make_probe("pb", asn=15169, location="Berlin, DE")
+    geo-level partition can still fire if country_code clusters correctly."""
+    p_paris1 = _make_probe("pa1", asn=15169, location="Paris, FR", country="FR")
+    p_paris2 = _make_probe("pa2", asn=15169, location="Paris, FR", country="FR")
+    p_berlin = _make_probe("pb", asn=15169, location="Berlin, DE", country="DE")
     latest = {
         p_paris1.id: _make_result(p_paris1.id, CheckStatus.down),
         p_paris2.id: _make_result(p_paris2.id, CheckStatus.down),
         p_berlin.id: _make_result(p_berlin.id, CheckStatus.up),
     }
     assert _classify(latest, [p_paris1, p_paris2, p_berlin]) == NetworkVerdict.NETWORK_PARTITION_GEO
+
+
+def test_country_of_returns_code_when_set() -> None:
+    p = _make_probe("p1", asn=None, country="fr")
+    assert _country_of(p) == "FR"
+
+
+def test_country_of_returns_none_when_unset() -> None:
+    p = _make_probe("p1", asn=None, country=None)
+    assert _country_of(p) is None
+
+
+def test_country_of_never_reads_location_name() -> None:
+    """Regression guard: _country_of must not fall back to location_name,
+    even when it looks like it carries a usable country hint."""
+    p = _make_probe("p1", asn=None, location="Paris, FR", country=None)
+    assert _country_of(p) is None
+
+
+def test_no_geo_partition_without_country_code_real_world_fleet() -> None:
+    """Non-regression for the real bug: three probes named 'Saran, FR',
+    'Olivet, Loiret, FR', 'Orléans 45000' — all in France, none with a
+    country_code populated yet. Before the fix, splitting location_name on
+    the first separator produced three distinct fake "countries" ('saran',
+    'olivet', 'orléans 45000') and a false NETWORK_PARTITION_GEO verdict.
+    After the fix, no country diversity exists at all -> no geo axis."""
+    p1 = _make_probe("p1", asn=None, location="Saran, FR", country=None)
+    p2 = _make_probe("p2", asn=None, location="Olivet, Loiret, FR", country=None)
+    p3 = _make_probe("p3", asn=None, location="Orléans 45000", country=None)
+    latest = {
+        p1.id: _make_result(p1.id, CheckStatus.down),
+        p2.id: _make_result(p2.id, CheckStatus.up),
+        p3.id: _make_result(p3.id, CheckStatus.up),
+    }
+    assert _classify(latest, [p1, p2, p3]) != NetworkVerdict.NETWORK_PARTITION_GEO
+    assert _classify(latest, [p1, p2, p3]) == NetworkVerdict.INCONCLUSIVE
 
 
 def test_classify_unknown_probe_id_in_latest_is_dropped_silently() -> None:

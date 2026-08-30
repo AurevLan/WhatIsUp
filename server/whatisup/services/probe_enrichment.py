@@ -247,12 +247,16 @@ async def enrich_probe(db: AsyncSession, probe: Probe, public_ip: str) -> bool:
     probe.asn = info.asn
     probe.asn_name = info.asn_name
     probe.asn_updated_at = now
+    country = (info.country or "").strip().upper()
+    if len(country) == 2 and country.isalpha():
+        probe.country_code = country
     logger.info(
         "asn_enriched",
         probe_id=str(probe.id),
         ip=public_ip,
         asn=info.asn,
         asn_name=info.asn_name,
+        country_code=probe.country_code,
     )
     return True
 

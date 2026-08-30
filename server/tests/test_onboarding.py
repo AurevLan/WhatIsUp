@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 from httpx import AsyncClient
 
+from whatisup.core.config import get_settings
 from whatisup.schemas.user import UserOut
 
 # ── UserOut.onboarding_completed computed field ──────────────────────────────
@@ -104,6 +105,52 @@ async def test_onboarding_status_after_complete(client: AsyncClient, user_token:
     )
     assert resp.status_code == 200
     assert resp.json()["completed"] is True
+
+
+# ── email_available reflects SMTP configuration (plan_cap_v2.md, étape 2) ────
+
+
+@pytest.mark.asyncio
+async def test_onboarding_status_email_available_when_smtp_host_set(
+    client: AsyncClient, user_token: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """email_available should be True when a non-blank SMTP host is configured."""
+    monkeypatch.setattr(get_settings(), "smtp_host", "smtp.example.com")
+    resp = await client.get(
+        "/api/v1/onboarding/status",
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["email_available"] is True
+
+
+@pytest.mark.asyncio
+async def test_onboarding_status_email_unavailable_when_smtp_host_empty(
+    client: AsyncClient, user_token: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """email_available should be False when the SMTP host is an empty string."""
+    monkeypatch.setattr(get_settings(), "smtp_host", "")
+    resp = await client.get(
+        "/api/v1/onboarding/status",
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["email_available"] is False
+
+
+@pytest.mark.asyncio
+async def test_onboarding_status_email_unavailable_when_smtp_host_blank(
+    client: AsyncClient, user_token: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """email_available should be False for a whitespace-only SMTP host (docker-compose.yml
+    style `SMTP_HOST: ${SMTP_HOST:-}` can produce blank-but-not-empty values)."""
+    monkeypatch.setattr(get_settings(), "smtp_host", "   ")
+    resp = await client.get(
+        "/api/v1/onboarding/status",
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["email_available"] is False
 
 
 # ── Status reflects monitors/channels ────────────────────────────────────────

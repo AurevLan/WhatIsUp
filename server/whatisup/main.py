@@ -506,7 +506,8 @@ def create_app() -> FastAPI:
         app.include_router(monitors_sub_router, prefix="/api/v1")
     app.include_router(groups.router, prefix="/api/v1")
     app.include_router(probes.router, prefix="/api/v1")
-    app.include_router(alerts.router, prefix="/api/v1")
+    for alerts_sub_router in alerts.routers:
+        app.include_router(alerts_sub_router, prefix="/api/v1")
     app.include_router(public.router, prefix="/api/v1")
     app.include_router(status.router, prefix="/api/v1")
     app.include_router(ws.router)

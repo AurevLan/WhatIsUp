@@ -57,9 +57,14 @@ jobs:
     name: Docker images (GHCR)
     needs: release-please
     if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    # A reusable workflow's own job-level `permissions:` can only narrow what
+    # its caller grants, never widen it — release.yml's `docker` job asks for
+    # `id-token: write` (Cosign keyless signing) and gets nothing unless it's
+    # granted here too.
     permissions:
       contents: write
       packages: write
+      id-token: write
     # No `secrets:` map: release.yml only uses `secrets.GITHUB_TOKEN` (GHCR
     # login), which the runner provides to a called workflow on its own.
     uses: ./.github/workflows/release.yml
@@ -70,8 +75,12 @@ jobs:
     name: Android APK
     needs: release-please
     if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    # Same permission-ceiling rule as the `docker` job above: mobile-release.yml's
+    # `release` job asks for `id-token: write` (Cosign keyless signing of the
+    # APK) and gets nothing unless it's granted here too.
     permissions:
       contents: write
+      id-token: write
     # Forward only the signing secrets mobile-release.yml declares — never
     # `inherit`, which hands the callee every secret this repo holds.
     secrets:

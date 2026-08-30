@@ -75,6 +75,7 @@ jobs:
     needs: [release-notes, ci-gate]
     permissions:
       packages: write
+      id-token: write  # Cosign keyless (Fulcio/Rekor): mints the OIDC token this job signs with
     strategy:
       matrix:
         include:
@@ -98,6 +99,9 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e  # v4
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6  # v4.1.2
 
       - name: Compute version tags
         id: ver
@@ -125,6 +129,7 @@ jobs:
             type=raw,value=latest,enable=${{ steps.ver.outputs.is_prerelease == 'false' }}
 
       - name: Build and push
+        id: build
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a  # v7
         with:
           context: ${{ matrix.context }}
@@ -134,6 +139,67 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          sbom: true
+          provenance: mode=max
+
+      # D-2: sign the digest build-push-action just pushed, never a tag — a tag
+      # is mutable and a signature on it would stop meaning anything the moment
+      # the tag moves.
+      - name: Sign image (Cosign, keyless)
+        env:
+          IMAGE_DIGEST: ghcr.io/${{ github.repository_owner }}/${{ matrix.image_name }}@${{ steps.build.outputs.digest }}
+        run: cosign sign --yes "$IMAGE_DIGEST"
+
+      # D-4/D-5: self-check right after signing — under workflow_call the
+      # certificate identity is the *called* workflow at the ref it was called
+      # from (release.yml@refs/heads/main via release-please, not @refs/tags/…).
+      # A malformed identity must fail the release here, not ship an
+      # unverifiable signature nobody notices.
+      - name: Verify image signature (self-check)
+        env:
+          IMAGE_DIGEST: ghcr.io/${{ github.repository_owner }}/${{ matrix.image_name }}@${{ steps.build.outputs.digest }}
+        run: |
+          cosign verify \
+            --certificate-identity-regexp '^https://github\.com/AurevLan/WhatIsUp/\.github/workflows/release\.yml@refs/(heads/main|tags/v.*)$' \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            "$IMAGE_DIGEST"
+
+      # D-3: SPDX SBOM for the humans auditing a release without pulling the
+      # image — uploaded as a build artifact, attached to the GitHub Release
+      # by the github-release job below.
+      - name: Generate SBOM (SPDX JSON)
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26  # v0.24.2
+        with:
+          image: ghcr.io/${{ github.repository_owner }}/${{ matrix.image_name }}@${{ steps.build.outputs.digest }}
+          format: spdx-json
+          output-file: sbom-${{ matrix.image_name }}.spdx.json
+          artifact-name: sbom-${{ matrix.image_name }}.spdx.json
+          upload-release-assets: false
+
+      # Sign the same SBOM as a Cosign attestation, tied to the same OIDC
+      # identity as the image signature above — this is what makes
+      # `cosign verify-attestation` (D-3) meaningful: the `sbom: true` +
+      # `provenance: mode=max` attachment above is BuildKit's own unsigned
+      # attestation, readable with `docker buildx imagetools inspect`, but not
+      # something Cosign can verify a signer identity against on its own.
+      - name: Attest SBOM (Cosign, keyless)
+        env:
+          IMAGE_DIGEST: ghcr.io/${{ github.repository_owner }}/${{ matrix.image_name }}@${{ steps.build.outputs.digest }}
+        run: |
+          cosign attest --yes \
+            --predicate sbom-${{ matrix.image_name }}.spdx.json \
+            --type spdxjson \
+            "$IMAGE_DIGEST"
+
+      - name: Verify SBOM attestation (self-check)
+        env:
+          IMAGE_DIGEST: ghcr.io/${{ github.repository_owner }}/${{ matrix.image_name }}@${{ steps.build.outputs.digest }}
+        run: |
+          cosign verify-attestation \
+            --type spdxjson \
+            --certificate-identity-regexp '^https://github\.com/AurevLan/WhatIsUp/\.github/workflows/release\.yml@refs/(heads/main|tags/v.*)$' \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            "$IMAGE_DIGEST" > /dev/null
 
   # ── Create GitHub Release ────────────────────────────────────────────────────
   github-release:
@@ -147,12 +213,21 @@ jobs:
         with:
           ref: ${{ env.RELEASE_TAG }}
 
+      - name: Download SBOMs
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
+        with:
+          pattern: sbom-*.spdx.json
+          path: sboms
+          merge-multiple: true
+
       - name: Create Release
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228  # v3
         with:
           tag_name: ${{ env.RELEASE_TAG }}
           name: "WhatIsUp ${{ env.RELEASE_TAG }}"
           body: ${{ needs.release-notes.outputs.notes }}
+          files: sboms/*.spdx.json
+          fail_on_unmatched_files: true
           draft: false
           prerelease: ${{ contains(env.RELEASE_TAG, '-rc') || contains(env.RELEASE_TAG, '-beta') || contains(env.RELEASE_TAG, '-alpha') }}
           generate_release_notes: false

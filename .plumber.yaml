@@ -34,6 +34,8 @@ github:
         - docker/login-action               # release.yml
         - docker/metadata-action            # release.yml
         - docker/build-push-action          # release.yml
+        - sigstore/cosign-installer         # release.yml + mobile-release.yml
+        - anchore/sbom-action               # release.yml
 
     # An action pinned to a SHA the upstream repo does not have (typo, removed
     # commit) silently falls back to the default branch.

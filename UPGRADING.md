@@ -124,6 +124,17 @@ A light theme is now available. Toggle via the sun/moon button in the top bar. T
 
 ## Docker upgrade
 
+Optional but recommended: verify the release before pulling it. Starting with
+the first release built after the supply-chain-signing change, `whatisup-server`
+and `whatisup-probe` images (and the release APK) are signed keylessly with
+[Cosign](https://docs.sigstore.dev/cosign/overview/) — see
+[SECURITY.md § Vérifier une release](SECURITY.md#10-supply-chain) for what the
+signature does and does not prove.
+
+```bash
+scripts/verify-release.sh 1.25.0   # requires cosign — fails loudly on a missing/invalid signature
+```
+
 ```bash
 docker compose pull
 docker compose up -d

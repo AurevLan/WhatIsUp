@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.25.0](https://github.com/AurevLan/WhatIsUp/compare/v1.24.0...v1.25.0) (2026-08-30)
+
+
+### Added
+
+* **ux:** rattacher l'escalade aux règles, passe i18n et cohérence des parcours ([#388](https://github.com/AurevLan/WhatIsUp/issues/388)) ([f30607f](https://github.com/AurevLan/WhatIsUp/commit/f30607fd8fa6f668d7c0d90ae64833ff0e2ccddc))
+
+
+### Fixed
+
+* **security:** durcissement — clamp pushed_at, contact scopé au canal, purges et index manquants ([#387](https://github.com/AurevLan/WhatIsUp/issues/387)) ([f41f655](https://github.com/AurevLan/WhatIsUp/commit/f41f655574c7125b4804d836b4759b07d5f78a42))
+* **security:** échapper les popups de carte, vérifier la tenancy des sondes, fermer le WS au logout ([#385](https://github.com/AurevLan/WhatIsUp/issues/385)) ([80e5df1](https://github.com/AurevLan/WhatIsUp/commit/80e5df1717aa040ec3a01aca34cb931387654ae5))
+
+
+### Performance
+
+* **core:** batcher push_discovery, paginer, borner les boucles leader et partager le plafond WS ([#389](https://github.com/AurevLan/WhatIsUp/issues/389)) ([fcdd66a](https://github.com/AurevLan/WhatIsUp/commit/fcdd66a6bbcf309fed12c5ea6caf44dc5503a9a0))
+
 ## [1.24.0](https://github.com/AurevLan/WhatIsUp/compare/v1.23.0...v1.24.0) (2026-08-29)
 
 

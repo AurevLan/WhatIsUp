@@ -12,7 +12,7 @@ rely on, and that every mutation leaves an audit trail.
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 import pytest_asyncio
@@ -844,3 +844,96 @@ async def test_list_services_scoped_to_owner(
         headers=_auth(stranger_token),
     )
     assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_default_page_is_unbounded_so_nothing_is_hidden(
+    client: AsyncClient, user_token: str, db_session: AsyncSession, owned_source: DiscoverySource
+) -> None:
+    """No implicit page size on the review screen.
+
+    Pagination here is opt-in: the review UI has no pager, so a default page
+    size would leave every proposal past it invisible *and* unreviewable, with
+    nothing on screen to say so. 120 rows — comfortably past the 100 a
+    conventional default would have used.
+    """
+    services = [_make_service(owned_source, host=f"10.1.{i // 256}.{i % 256}") for i in range(120)]
+    db_session.add_all(services)
+    await db_session.flush()
+    await db_session.commit()
+
+    resp = await client.get(
+        "/api/v1/discovery/services/",
+        params={"source_id": str(owned_source.id)},
+        headers=_auth(user_token),
+    )
+
+    assert resp.status_code == 200
+    assert resp.headers["X-Total-Count"] == "120"
+    assert len(resp.json()) == 120
+
+
+@pytest.mark.asyncio
+async def test_list_services_pagination_limit_and_offset(
+    client: AsyncClient, user_token: str, db_session: AsyncSession, owned_source: DiscoverySource
+) -> None:
+    """Same `limit`/`offset` contract as `GET /monitors/` — no more
+    unbounded scan of every discovered service on every screen open."""
+    base = datetime.now(UTC)
+    services = []
+    for i in range(5):
+        svc = _make_service(owned_source, host=f"10.0.0.{i}")
+        svc.last_seen_at = base + timedelta(seconds=i)  # distinct, increasing
+        services.append(svc)
+    db_session.add_all(services)
+    await db_session.flush()
+    await db_session.commit()
+
+    # Default (no limit/offset): all 5 returned, most-recent first.
+    resp = await client.get(
+        "/api/v1/discovery/services/",
+        params={"source_id": str(owned_source.id)},
+        headers=_auth(user_token),
+    )
+    assert resp.status_code == 200
+    assert resp.headers["X-Total-Count"] == "5"
+    assert [row["host"] for row in resp.json()] == [
+        "10.0.0.4",
+        "10.0.0.3",
+        "10.0.0.2",
+        "10.0.0.1",
+        "10.0.0.0",
+    ]
+
+    # limit=2, offset=0 — first page.
+    resp = await client.get(
+        "/api/v1/discovery/services/",
+        params={"source_id": str(owned_source.id), "limit": 2, "offset": 0},
+        headers=_auth(user_token),
+    )
+    assert resp.status_code == 200
+    assert resp.headers["X-Total-Count"] == "5"
+    assert [row["host"] for row in resp.json()] == ["10.0.0.4", "10.0.0.3"]
+
+    # limit=2, offset=2 — second page, no overlap/loss with the first.
+    resp = await client.get(
+        "/api/v1/discovery/services/",
+        params={"source_id": str(owned_source.id), "limit": 2, "offset": 2},
+        headers=_auth(user_token),
+    )
+    assert resp.status_code == 200
+    assert [row["host"] for row in resp.json()] == ["10.0.0.2", "10.0.0.1"]
+
+    # Out-of-range bounds rejected, same as `GET /monitors/`.
+    resp = await client.get(
+        "/api/v1/discovery/services/",
+        params={"source_id": str(owned_source.id), "limit": 0},
+        headers=_auth(user_token),
+    )
+    assert resp.status_code == 422
+    resp = await client.get(
+        "/api/v1/discovery/services/",
+        params={"source_id": str(owned_source.id), "offset": -1},
+        headers=_auth(user_token),
+    )
+    assert resp.status_code == 422

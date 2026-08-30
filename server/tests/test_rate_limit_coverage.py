@@ -37,10 +37,6 @@ _MUTATING_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 # must be documented in SECURITY.md §12 with the reason — do not add to this
 # set without updating that table too.
 _EXEMPT_KEYS = {
-    # Public registration is disabled on this instance: the handler is a
-    # single `raise HTTPException(403)` with no DB/IO cost, so a dedicated
-    # limit adds no protection. See SECURITY.md §12 "/auth/register".
-    "whatisup.api.v1.auth.register",
     # Probe registration requires an already-authenticated superadmin JWT
     # (get_current_probe is not used here); the JWT auth + require_superadmin
     # gate is the actual control. See SECURITY.md §12 "/probes/register".

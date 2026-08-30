@@ -11,6 +11,7 @@ import json
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+import pytest_asyncio
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.websockets import WebSocketDisconnect
@@ -39,6 +40,19 @@ def _fake_ws() -> AsyncMock:
     ws.accept = AsyncMock()
     ws.send_text = AsyncMock()
     return ws
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def _ws_redis(fake_redis):
+    """The per-IP connection counter lives in Redis now (shared across
+    replicas) — every ``ConnectionManager`` test needs a backend, not just the
+    ``ws_client`` ones. Reuses the same ``fake_redis`` instance those already
+    wire in, so a test requesting both sees one consistent counter."""
+    import whatisup.core.redis as redis_module
+
+    redis_module._redis = fake_redis
+    yield
+    redis_module._redis = None
 
 
 @pytest.mark.asyncio
@@ -72,6 +86,81 @@ async def test_manager_disconnect_frees_ip_slot() -> None:
 
     ws_new = _fake_ws()
     assert await manager.connect(ws_new, client_ip="1.2.3.4") is True
+
+
+class _BrokenRedis:
+    """Every operation raises, like a down/unreachable Redis (mirrors
+    ``test_auth_redis_failopen.py``'s stand-in for the same purpose)."""
+
+    def __getattr__(self, name: str):
+        from redis.exceptions import ConnectionError as RedisConnectionError
+
+        async def _boom(*args: object, **kwargs: object) -> None:
+            raise RedisConnectionError("Connection refused")
+
+        return _boom
+
+
+@pytest.mark.asyncio
+async def test_manager_shares_the_ip_counter_across_manager_instances() -> None:
+    """The counter is not process-local state on ``ConnectionManager`` — two
+    independent instances (standing in for two replicas) see the same Redis
+    key, so the limit holds across them."""
+    manager_a = ConnectionManager()
+    manager_b = ConnectionManager()
+
+    for _ in range(MAX_CONNECTIONS_PER_IP):
+        assert await manager_a.connect(_fake_ws(), client_ip="9.9.9.9") is True
+
+    # A "different replica" sees the same IP already at its cap.
+    assert await manager_b.connect(_fake_ws(), client_ip="9.9.9.9") is False
+
+
+@pytest.mark.asyncio
+async def test_manager_fails_open_when_redis_is_unavailable(monkeypatch) -> None:
+    """A Redis outage must not turn the anti-abuse cap into a dashboard outage:
+    connections are accepted, uncounted, past what would otherwise be the cap."""
+    import whatisup.core.redis as redis_module
+
+    monkeypatch.setattr(redis_module, "_redis", _BrokenRedis())
+
+    manager = ConnectionManager()
+    for _ in range(MAX_CONNECTIONS_PER_IP + 5):
+        ws = _fake_ws()
+        assert await manager.connect(ws, client_ip="1.2.3.4") is True
+        # disconnect must not raise either, even though nothing was counted
+        await manager.disconnect(ws)
+
+
+@pytest.mark.asyncio
+async def test_manager_disconnect_after_fail_open_connect_does_not_touch_counter(
+    monkeypatch, fake_redis
+) -> None:
+    """A connection accepted while Redis was down must not decrement the
+    counter on disconnect once Redis comes back — it was never counted, and
+    doing so would wrongly free a slot that belongs to a real connection from
+    the same IP."""
+    import whatisup.core.redis as redis_module
+
+    manager = ConnectionManager()
+
+    monkeypatch.setattr(redis_module, "_redis", _BrokenRedis())
+    uncounted = _fake_ws()
+    assert await manager.connect(uncounted, client_ip="1.2.3.4") is True
+
+    # Redis is back — a real connection from the same IP takes a real slot.
+    monkeypatch.setattr(redis_module, "_redis", fake_redis)
+    counted = _fake_ws()
+    assert await manager.connect(counted, client_ip="1.2.3.4") is True
+
+    key = "whatisup:ws:ip_count:1.2.3.4"
+    assert int(await fake_redis.get(key)) == 1
+
+    await manager.disconnect(uncounted)  # never counted — must not touch the key
+    assert int(await fake_redis.get(key)) == 1
+
+    await manager.disconnect(counted)
+    assert await fake_redis.get(key) is None
 
 
 @pytest.mark.asyncio
@@ -264,7 +353,9 @@ def test_ws_public_unknown_slug_closed(ws_client: TestClient, monkeypatch) -> No
     assert exc_info.value.code == 4004
 
 
-def test_ws_public_scope_error_closes_1011_and_frees_ip(ws_client: TestClient, monkeypatch) -> None:
+def test_ws_public_scope_error_closes_1011_and_frees_ip(
+    ws_client: TestClient, monkeypatch, fake_redis
+) -> None:
     """A transient failure computing the initial public scope must not leak a slot.
 
     ``manager.connect`` has already accepted the socket and taken a per-IP slot
@@ -273,7 +364,7 @@ def test_ws_public_scope_error_closes_1011_and_frees_ip(ws_client: TestClient, m
     ``manager._connections`` and the per-IP counter would never be decremented —
     progressively exhausting the 10 slots (worse behind a reverse-proxy). The
     route must close 1011 (server error, not an auth refusal) and clean up the
-    manager, releasing the per-IP slot.
+    manager, releasing the per-IP slot (the Redis counter, since the fix).
     """
     import uuid
     from types import SimpleNamespace
@@ -289,7 +380,7 @@ def test_ws_public_scope_error_closes_1011_and_frees_ip(ws_client: TestClient, m
 
     monkeypatch.setattr(ws_module, "_compute_public_scope", _boom)
 
-    ip_counts_before = dict(ws_module.manager._ip_counts)
+    keys_before = asyncio.run(fake_redis.keys(f"{ws_module._IP_COUNT_KEY_PREFIX}*"))
 
     with ws_client.websocket_connect("/ws/public/boom") as ws:
         closed = ws.receive()
@@ -297,7 +388,8 @@ def test_ws_public_scope_error_closes_1011_and_frees_ip(ws_client: TestClient, m
         assert closed["code"] == 1011
 
     # Slot released: no lingering connection, per-IP counter back to its prior state.
-    assert ws_module.manager._ip_counts == ip_counts_before
+    keys_after = asyncio.run(fake_redis.keys(f"{ws_module._IP_COUNT_KEY_PREFIX}*"))
+    assert keys_after == keys_before
 
 
 # ── Tenant scoping — ConnectionManager fan-out filter (finding audit M1) ───────

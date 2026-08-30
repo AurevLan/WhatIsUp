@@ -547,34 +547,50 @@ async def push_discovery(
         return {"accepted": 0}
 
     now = datetime.now(UTC)
-    accepted = 0
     seen_targets: set[str] = set()
+    # Dedup pass first, in memory — two entries normalizing to the same
+    # target ("HOST" vs "host") would otherwise both insert and trip
+    # uq_discovered_services_source_target at commit — a malformed snapshot
+    # must not turn into a 500. Keeps only the first occurrence, same as the
+    # previous per-row loop.
+    to_upsert: dict[str, tuple[str, int | None, str, dict]] = {}
     for svc in payload.services:
         host, target = _normalize_discovery_target(svc.proto, svc.host, svc.port)
-        # Two entries normalizing to the same target ("HOST" vs "host") would
-        # otherwise both insert and trip uq_discovered_services_source_target
-        # at commit — a malformed snapshot must not turn into a 500.
         if target in seen_targets:
             continue
         seen_targets.add(target)
         proto = svc.proto.strip().lower()
         hints = _sanitize_hints(svc.hints)
+        to_upsert[target] = (host, svc.port, proto, hints)
 
-        existing = (
-            await db.execute(
-                select(DiscoveredService).where(
-                    DiscoveredService.source_id == source.id,
-                    DiscoveredService.normalized_target == target,
+    # One grouped SELECT for the whole snapshot instead of one per service
+    # (mirrors the `.in_(seen_targets)` batching already used by the
+    # reconciliation helpers in services/discovery.py, and for the same
+    # reason: up to 500 services per push, one push per scan cycle per probe).
+    existing_by_target: dict[str, DiscoveredService] = {}
+    if seen_targets:
+        existing_rows = (
+            (
+                await db.execute(
+                    select(DiscoveredService).where(
+                        DiscoveredService.source_id == source.id,
+                        DiscoveredService.normalized_target.in_(seen_targets),
+                    )
                 )
             )
-        ).scalar_one_or_none()
+            .scalars()
+            .all()
+        )
+        existing_by_target = {row.normalized_target: row for row in existing_rows}
 
+    for target, (host, port, proto, hints) in to_upsert.items():
+        existing = existing_by_target.get(target)
         if existing is None:
             db.add(
                 DiscoveredService(
                     source_id=source.id,
                     host=host,
-                    port=svc.port,
+                    port=port,
                     proto=proto,
                     normalized_target=target,
                     hints=hints,
@@ -592,7 +608,7 @@ async def push_discovery(
             existing.last_seen_at = now
             existing.hints = hints
 
-        accepted += 1
+    accepted = len(to_upsert)
 
     # plan D, D-2 — turn this snapshot into reviewable state: match new
     # proposals against the owner's existing monitors, orphan/drop what's

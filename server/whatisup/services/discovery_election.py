@@ -116,21 +116,46 @@ async def run_discovery_elections(db: AsyncSession, *, now: datetime | None = No
 
     Returns how many elections actually changed (0 is the common case — most
     ticks find every sticky pick still alive and capable).
+
+    Capped per tick (``discovery_election_max_sources_per_run``), ordered
+    with never-yet-elected sources first (then ``id`` for determinism within
+    each group). Unlike a ``next_fire_at``-style backlog, this query has no
+    timestamp that naturally advances — every enabled electable source is
+    "due" every tick — so a plain ``id`` order would let a fleet bigger than
+    the cap starve the *same* tail forever. Prioritizing
+    ``elected_probe_id IS NULL`` first gives real progress instead: a source
+    that has never scanned at all outranks one that's merely due for a
+    sticky-election recheck, and once elected it sorts behind whatever is
+    still unelected — so a chronic excess drains one cap's worth of "new"
+    sources per tick rather than only ever confirming the same head of the
+    list.
     """
     now = now or datetime.now(UTC)
+    settings = get_settings()
+    max_per_run = settings.discovery_election_max_sources_per_run
+
     sources = (
         (
             await db.execute(
-                select(DiscoverySource).where(
+                select(DiscoverySource)
+                .where(
                     DiscoverySource.probe_group_id.is_not(None),
                     DiscoverySource.source_type.in_(ELECTABLE_SOURCE_TYPES),
                     DiscoverySource.enabled.is_(True),
                 )
+                .order_by(DiscoverySource.elected_probe_id.is_not(None), DiscoverySource.id)
+                .limit(max_per_run)
             )
         )
         .scalars()
         .all()
     )
+    if len(sources) >= max_per_run:
+        logger.warning(
+            "discovery_election_run_capped",
+            max_per_run=max_per_run,
+            hint="more electable sources than the per-tick cap — remainder deferred",
+        )
     changed = 0
     for source in sources:
         before = source.elected_probe_id

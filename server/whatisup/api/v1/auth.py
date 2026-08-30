@@ -52,7 +52,8 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/register")
-async def register() -> None:
+@limiter.limit("10/minute")
+async def register(request: Request) -> None:
     """Public registration is disabled on this instance (invite-only)."""
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,

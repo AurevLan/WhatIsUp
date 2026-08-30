@@ -424,3 +424,52 @@ async def test_a_paused_monitor_stops_escalating(
 
     assert await run_due_escalations(service_db, now=NOW) == 0
     assert sent == []
+
+
+# ── Per-tick batch cap (architecture hardening) ────────────────────────────────
+
+
+async def test_run_due_escalations_caps_batch_and_defers_the_rest(
+    service_db: AsyncSession, test_user: User, sent: list, monkeypatch
+):
+    """A backlog bigger than the per-tick cap must not be dropped: the most
+    overdue rungs (lowest ``next_fire_at``) fire this tick, and the rest fire
+    on the next one — nothing is skipped."""
+    from whatisup.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "escalation_max_states_per_run", 2)
+
+    policy = await _policy(service_db, test_user)
+    channel = await _channel(service_db, test_user, "ops")
+    await _level(
+        service_db,
+        policy,
+        0,
+        0,
+        target_type=EscalationTargetType.channel,
+        target_channel_id=channel.id,
+    )
+
+    incidents = []
+    for i in range(3):
+        monitor = Monitor(name=f"mon-{i}", url=f"http://example.com/{i}", owner_id=test_user.id)
+        service_db.add(monitor)
+        await service_db.flush()
+        rule = await _rule(service_db, test_user, monitor, policy)
+        incident = await _incident(service_db, monitor)
+        # Distinct, increasing next_fire_at so processing order is deterministic.
+        await arm_escalation(service_db, incident, rule, now=NOW + timedelta(seconds=i))
+        incidents.append(incident)
+
+    assert await _states(service_db) == 3
+
+    # Cap of 2: only the two most-overdue rungs fire this tick.
+    fired = await run_due_escalations(service_db, now=NOW + timedelta(minutes=5))
+    assert fired == 2
+    assert await _states(service_db) == 1  # the third rung is still pending, not lost
+
+    # Next tick drains what's left.
+    fired = await run_due_escalations(service_db, now=NOW + timedelta(minutes=5))
+    assert fired == 1
+    assert await _states(service_db) == 0
+    assert len(sent) == 3

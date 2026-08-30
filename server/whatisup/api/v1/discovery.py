@@ -25,7 +25,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -463,8 +463,17 @@ async def _serialize_service(
 @limiter.limit("60/minute")
 async def list_services(
     request: Request,
+    response: Response,
     source_id: uuid.UUID | None = None,
     status_filter: str | None = Query(default=None, alias="status"),
+    # Opt-in, deliberately unbounded by default: the review screen has no
+    # pagination UI yet, and a default page size would silently hide every
+    # proposal past it — a source that found 300 services would leave 200 of
+    # them unreviewable, with nothing on screen saying so. `X-Total-Count` is
+    # always set, so a client can page as soon as it is ready to; the cost
+    # stays bounded by `le=500` for callers that do.
+    limit: int | None = Query(default=None, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[dict]:
@@ -488,7 +497,13 @@ async def list_services(
     if status_filter is not None:
         stmt = stmt.where(DiscoveredService.status == status_filter)
 
-    rows = (await db.execute(stmt.order_by(DiscoveredService.last_seen_at.desc()))).all()
+    total_count = (await db.execute(select(func.count()).select_from(stmt.subquery()))).scalar_one()
+    response.headers["X-Total-Count"] = str(total_count)
+
+    paged = stmt.order_by(DiscoveredService.last_seen_at.desc()).offset(offset)
+    if limit is not None:
+        paged = paged.limit(limit)
+    rows = (await db.execute(paged)).all()
 
     # One batched lookup for every suggested check_type in the page, instead
     # of a query per row.

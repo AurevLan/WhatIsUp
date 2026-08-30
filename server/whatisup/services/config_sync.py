@@ -47,6 +47,8 @@ _MONITOR_EXPORT_FIELDS = [
     "dns_nameservers",
     "dns_drift_alert",
     "dns_split_enabled",
+    "dns_baseline_ips_internal",
+    "dns_baseline_ips_external",
     "keyword",
     "keyword_negate",
     "expected_json_path",
@@ -68,6 +70,10 @@ _MONITOR_EXPORT_FIELDS = [
     "scenario_steps",
     "scenario_variables",
     "composite_aggregation",
+    "data_retention_days",
+    "runbook_enabled",
+    "runbook_markdown",
+    "health_engine_enabled",
 ]
 
 
@@ -508,6 +514,8 @@ _DEFAULTS = {
     "heartbeat_grace_seconds": 60,
     "dns_drift_alert": False,
     "dns_split_enabled": False,
+    "runbook_enabled": False,
+    "health_engine_enabled": False,
 }
 
 

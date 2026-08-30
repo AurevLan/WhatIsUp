@@ -49,7 +49,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.api.deps import build_access_filter, get_user_team_ids
 from whatisup.core.database import get_session_factory
-from whatisup.core.redis import get_redis
+from whatisup.core.redis import get_redis, redis_decr_safe, redis_incr_safe
 from whatisup.core.security import decode_token
 from whatisup.models.monitor import Monitor, MonitorGroup
 from whatisup.models.user import User
@@ -59,6 +59,24 @@ router = APIRouter(tags=["websocket"])
 
 REDIS_CHANNEL = "whatisup:events"
 MAX_CONNECTIONS_PER_IP = 10
+
+# The per-IP WS connection cap used to live in a process-local dict: behind N
+# replicas the real cap became N × MAX_CONNECTIONS_PER_IP, precisely when
+# scaling out is what makes the limit matter, and the public status page
+# mutualizes many visitors behind one reverse-proxy IP on top of that. The
+# broadcast fan-out is already correctly scaled via Redis pub/sub
+# (``_redis_subscriber``) — this closes the same gap for the counter.
+_IP_COUNT_KEY_PREFIX = "whatisup:ws:ip_count:"
+# Safety net, not a cadence: a process that crashes between INCR and DECR
+# (killed connection, OOM) would otherwise leak one slot forever. 24h bounds
+# that leak without expiring under any connection that pings normally, since
+# the TTL is only (re-)armed on the increment that creates the key.
+_IP_COUNT_TTL_SECONDS = 24 * 60 * 60
+
+
+def _ip_count_key(client_ip: str) -> str:
+    return f"{_IP_COUNT_KEY_PREFIX}{client_ip}"
+
 
 # Scope refresh cadence (seconds). The keep-alive loop waits at most this long
 # for a client frame (``asyncio.wait_for``); on timeout it recomputes the scope.
@@ -87,25 +105,42 @@ class ConnectionManager:
     def __init__(self) -> None:
         # ws → {"kind": "dashboard"|"public"|None, "scope": UNAUTHED|None|set[str]}
         self._connections: dict[WebSocket, dict] = {}
-        self._ip_counts: dict[str, int] = {}
         self._lock = asyncio.Lock()
 
     async def connect(self, websocket: WebSocket, client_ip: str | None = None) -> bool:
         """Accept a WebSocket connection. Returns False if per-IP limit exceeded.
 
+        The per-IP counter lives in Redis (``redis_incr_safe``/``redis_decr_safe``),
+        shared across every replica — a process-local dict would let each one
+        grant its own ``MAX_CONNECTIONS_PER_IP``. Fails **open**: this is an
+        anti-abuse guard, not an ingestion quota (contrast
+        ``services/metric_ingest.py``'s rate limiter, which fails closed
+        because Redis is its source of truth). If the counter is unavailable
+        the connection is accepted uncounted rather than shutting the
+        dashboard for everyone — a Redis outage must not become a second
+        outage.
+
         The connection starts ``UNAUTHED`` and receives **no** broadcast until
         :meth:`authorize` attaches a scope.
         """
+        counted = False
         if client_ip:
-            async with self._lock:
-                if self._ip_counts.get(client_ip, 0) >= MAX_CONNECTIONS_PER_IP:
+            count = await redis_incr_safe(
+                _ip_count_key(client_ip), ttl_seconds=_IP_COUNT_TTL_SECONDS
+            )
+            if count is None:
+                logger.warning("ws_ip_counter_unavailable_fail_open", client_ip=client_ip)
+            else:
+                counted = True
+                if count > MAX_CONNECTIONS_PER_IP:
+                    await redis_decr_safe(_ip_count_key(client_ip))
                     return False
-                self._ip_counts[client_ip] = self._ip_counts.get(client_ip, 0) + 1
         await websocket.accept()
         async with self._lock:
             self._connections[websocket] = {"kind": None, "scope": UNAUTHED}
             if client_ip:
                 websocket._client_ip = client_ip  # store for cleanup
+                websocket._ip_counted = counted  # only decrement what we actually counted
         return True
 
     async def authorize(self, websocket: WebSocket, kind: str, scope: set[str] | None) -> None:
@@ -134,12 +169,13 @@ class ConnectionManager:
     async def disconnect(self, websocket: WebSocket) -> None:
         async with self._lock:
             self._connections.pop(websocket, None)
-            # Decrement IP counter
-            client_ip = getattr(websocket, "_client_ip", None)
-            if client_ip and client_ip in self._ip_counts:
-                self._ip_counts[client_ip] = max(0, self._ip_counts[client_ip] - 1)
-                if self._ip_counts[client_ip] == 0:
-                    del self._ip_counts[client_ip]
+        client_ip = getattr(websocket, "_client_ip", None)
+        # Only decrement if this connection actually incremented the Redis
+        # counter (fail-open connects, made when Redis was unavailable, never
+        # touched it — decrementing anyway could wrongly discount someone
+        # else's real connection from the same IP once Redis comes back).
+        if client_ip and getattr(websocket, "_ip_counted", False):
+            await redis_decr_safe(_ip_count_key(client_ip))
 
     @staticmethod
     def _should_deliver(conn: dict, monitor_id: str | None) -> bool:

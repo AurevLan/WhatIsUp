@@ -47,6 +47,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from whatisup.core.config import get_settings
 from whatisup.models.alert import AlertChannel, AlertRule
 from whatisup.models.incident import Incident
 from whatisup.models.monitor import Monitor
@@ -235,7 +236,6 @@ async def _page_person_directly(
         await dispatch_web_push_for_incident(db, incident, monitor, "incident_opened")
         return
 
-    from whatisup.core.config import get_settings
     from whatisup.services.channels import CHANNEL_REGISTRY
 
     handler = CHANNEL_REGISTRY.get("email")
@@ -340,8 +340,19 @@ async def _advance(db: AsyncSession, state: EscalationState, levels, now: dateti
 
 
 async def run_due_escalations(db: AsyncSession, *, now: datetime | None = None) -> int:
-    """Fire every rung whose turn has come. Returns how many rungs fired."""
+    """Fire every rung whose turn has come. Returns how many rungs fired.
+
+    Capped per tick (``escalation_max_states_per_run``), oldest-due first —
+    after a prolonged Redis outage or a leader-election gap, every rung whose
+    ``next_fire_at`` came due while nobody ran this loop shows up at once.
+    Ordering by ``next_fire_at`` ascending and capping the batch means the
+    most overdue rungs fire first and get a fresh (future) ``next_fire_at``
+    from ``_advance``/deletion, so whatever doesn't fit this tick is simply
+    the next-most-overdue batch next tick — nothing is skipped.
+    """
     now = now or datetime.now(UTC)
+    settings = get_settings()
+    max_per_run = settings.escalation_max_states_per_run
 
     states = list(
         (
@@ -349,6 +360,8 @@ async def run_due_escalations(db: AsyncSession, *, now: datetime | None = None) 
                 select(EscalationState)
                 .where(EscalationState.next_fire_at <= now)
                 .options(selectinload(EscalationState.incident))
+                .order_by(EscalationState.next_fire_at.asc())
+                .limit(max_per_run)
             )
         )
         .scalars()
@@ -356,6 +369,12 @@ async def run_due_escalations(db: AsyncSession, *, now: datetime | None = None) 
     )
     if not states:
         return 0
+    if len(states) >= max_per_run:
+        logger.warning(
+            "escalation_run_capped",
+            max_per_run=max_per_run,
+            hint="backlog exceeds the per-tick cap — remainder deferred to next tick",
+        )
 
     fired = 0
     for state in states:

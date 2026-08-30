@@ -599,6 +599,142 @@ async def test_push_discovery_duplicate_targets_in_one_payload(
     assert row.hints == {"first": "yes"}
 
 
+# ── POST /probes/discovery — batching (N+1 fix) ──────────────────────────────
+
+
+async def _count_discovered_service_selects(
+    client: AsyncClient, engine, source_id, n_services: int
+) -> int:
+    from sqlalchemy import event
+
+    counter = {"n": 0}
+
+    def _before_cursor_execute(conn, cursor, statement, parameters, context, executemany):
+        if "discovered_services" in statement and statement.strip().upper().startswith("SELECT"):
+            counter["n"] += 1
+
+    event.listen(engine.sync_engine, "before_cursor_execute", _before_cursor_execute)
+    try:
+        resp = await client.post(
+            "/api/v1/probes/discovery",
+            json={"source_id": str(source_id), "services": _services_payload(n_services)},
+            headers=_PROBE_A_HEADERS,
+        )
+    finally:
+        event.remove(engine.sync_engine, "before_cursor_execute", _before_cursor_execute)
+    assert resp.status_code == 202
+    assert resp.json() == {"accepted": n_services}
+    return counter["n"]
+
+
+@pytest.mark.asyncio
+async def test_push_discovery_batches_lookup_into_one_select(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    regular_user: User,
+    probe_a: Probe,
+    engine,
+) -> None:
+    """The number of SELECTs against `discovered_services` for one snapshot
+    must not scale with the number of pushed services — up to 500/snapshot,
+    one snapshot per scan cycle per probe. Mirrors the `.in_(seen_targets)`
+    batching already used by `services/discovery.py`'s reconciliation
+    helpers. Two independent sources (rather than two pushes to the same one)
+    keep the counts comparable: `reconcile_source_push`'s own helpers issue a
+    handful of *fixed-cost* SELECTs per push (unrelated to N) — the point
+    here is that count staying flat as N grows from 5 to 80, not any
+    particular literal value."""
+
+    def _new_source() -> DiscoverySource:
+        source = DiscoverySource(
+            owner_id=regular_user.id,
+            probe_id=probe_a.id,
+            source_type="port_scan",
+            params={"cidr": "10.0.0.0/24", "ports": [80]},
+            enabled=True,
+        )
+        db_session.add(source)
+        return source
+
+    small_source = _new_source()
+    large_source = _new_source()
+    await db_session.flush()
+    await db_session.commit()
+
+    small_count = await _count_discovered_service_selects(client, engine, small_source.id, 5)
+    large_count = await _count_discovered_service_selects(client, engine, large_source.id, 80)
+
+    assert large_count == small_count, (
+        "SELECT count against discovered_services grew with the snapshot size "
+        f"(5 services -> {small_count} SELECTs, 80 services -> {large_count}) — "
+        "the per-service N+1 lookup is back."
+    )
+
+    rows = (
+        (
+            await db_session.execute(
+                select(DiscoveredService).where(DiscoveredService.source_id == large_source.id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert len(rows) == 80
+
+
+@pytest.mark.asyncio
+async def test_push_discovery_batched_mix_of_new_and_existing(
+    client: AsyncClient, db_session: AsyncSession, source_on_a: DiscoverySource, engine
+) -> None:
+    """Same results as the old per-row loop when a snapshot mixes services
+    already known (refreshed in place) with brand-new ones (inserted) —
+    the batched lookup must not change which branch a given target takes."""
+    first = await client.post(
+        "/api/v1/probes/discovery",
+        json={"source_id": str(source_on_a.id), "services": _services_payload(3)},
+        headers=_PROBE_A_HEADERS,
+    )
+    assert first.status_code == 202
+    assert first.json() == {"accepted": 3}
+
+    existing_rows = (
+        (
+            await db_session.execute(
+                select(DiscoveredService).where(DiscoveredService.source_id == source_on_a.id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    first_seen_by_target = {r.normalized_target: r.first_seen_at for r in existing_rows}
+    assert len(first_seen_by_target) == 3
+
+    # Second push: services 1-3 reappear (refreshed), 4-5 are new (inserted).
+    second = await client.post(
+        "/api/v1/probes/discovery",
+        json={"source_id": str(source_on_a.id), "services": _services_payload(5)},
+        headers=_PROBE_A_HEADERS,
+    )
+    assert second.status_code == 202
+    assert second.json() == {"accepted": 5}
+
+    rows = (
+        (
+            await db_session.execute(
+                select(DiscoveredService).where(DiscoveredService.source_id == source_on_a.id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert len(rows) == 5
+    for row in rows:
+        if row.normalized_target in first_seen_by_target:
+            # Refreshed in place, not re-inserted — same first_seen_at.
+            assert row.first_seen_at == first_seen_by_target[row.normalized_target]
+        assert row.status == "proposed"
+
+
 # ── POST /probes/discovery — scope-binding (no oracle) ───────────────────────
 
 

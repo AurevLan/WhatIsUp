@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.api.deps import get_current_user
+from whatisup.core.config import get_settings
 from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
 from whatisup.models.alert import AlertChannel
@@ -20,6 +21,17 @@ from whatisup.models.user import User
 router = APIRouter(prefix="/onboarding", tags=["onboarding"])
 
 
+def _email_available() -> bool:
+    """Whether the server can actually attempt to deliver e-mail.
+
+    Derived at read time from settings, never stored: a non-empty SMTP host
+    (after stripping whitespace) is the only thing that makes an email alert
+    channel more than a row in a table. Owning a channel is not being
+    reachable — see plan_cap_v2.md, étape 2.
+    """
+    return bool(get_settings().smtp_host.strip())
+
+
 class OnboardingStatus(BaseModel):
     completed: bool
     completed_at: str | None = None
@@ -28,6 +40,7 @@ class OnboardingStatus(BaseModel):
     has_team: bool
     monitor_count: int
     channel_count: int
+    email_available: bool
 
 
 @router.get("/status", response_model=OnboardingStatus)
@@ -72,6 +85,7 @@ async def get_onboarding_status(
         has_team=has_team,
         monitor_count=monitor_count,
         channel_count=channel_count,
+        email_available=_email_available(),
     )
 
 
@@ -118,4 +132,5 @@ async def complete_onboarding(
         has_team=has_team,
         monitor_count=monitor_count,
         channel_count=channel_count,
+        email_available=_email_available(),
     )

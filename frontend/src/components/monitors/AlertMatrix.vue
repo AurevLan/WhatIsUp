@@ -23,7 +23,7 @@
 
     <div v-if="!channels.length" class="card text-sm text-(--text-2)">
       {{ t('alert_matrix.no_channels') }}
-      <router-link to="/settings/alerts" class="text-(--accent) underline ml-1">
+      <router-link to="/alerts" class="text-(--accent) underline ml-1">
         {{ t('alert_matrix.create_channel') }}
       </router-link>
     </div>

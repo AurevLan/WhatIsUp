@@ -1918,13 +1918,24 @@ export default {
     alert_title: 'Set up alerts',
     alert_text: 'Get notified when something goes down. We\'ll create a default alert rule for your monitor.',
     alert_email: 'Notification email',
-    alert_email_placeholder: 'you@example.com',
+    // Escaped: a raw "@" makes vue-i18n's message compiler throw ("Invalid
+    // linked format") — it tries to parse `@…` as a `@:key` linked message.
+    // Crashed step 3's render whenever this placeholder was actually
+    // compiled; nothing previously mounted the wizard that far to notice.
+    alert_email_placeholder: 'you\\@example.com',
     create_alert: 'Enable alerts',
     done_title: 'You\'re all set!',
     done_text: 'Your monitoring is ready. Head to the dashboard to see your data coming in.',
     monitor_created: 'Monitor created and running',
-    alert_created: 'Email alerts configured',
+    alert_created: 'Email alerts configured and verified',
     go_dashboard: 'Go to dashboard',
+    monitor_error: 'Couldn\'t create the monitor. Check the URL and try again, or skip this step.',
+    alert_error: 'Couldn\'t create the alert channel. Try again, or skip this step.',
+    alert_test_error: 'the test could not be completed',
+    smtp_unavailable_notice: 'The server has no SMTP host configured yet, so email alerts can\'t be delivered. You can still create this channel now and fix SMTP later.',
+    smtp_unavailable_detail: 'the server has no SMTP host configured',
+    alert_created_inactive: 'Email alerts are not active: {detail}.',
+    alert_fix_link: 'See how to fix this',
   },
 
   // Dependency graph

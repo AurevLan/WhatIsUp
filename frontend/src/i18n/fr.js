@@ -1888,13 +1888,23 @@ export default {
     alert_title: 'Configurer les alertes',
     alert_text: 'Soyez notifié quand quelque chose tombe en panne. Nous créerons une règle d\'alerte par défaut pour votre moniteur.',
     alert_email: 'Email de notification',
-    alert_email_placeholder: 'vous@exemple.com',
+    // Échappé : un "@" brut fait planter le compilateur de messages de
+    // vue-i18n ("Invalid linked format", il tente de lire `@…` comme un
+    // message lié `@:clé`). Voir le commentaire dans en.js.
+    alert_email_placeholder: 'vous\\@exemple.com',
     create_alert: 'Activer les alertes',
     done_title: 'Tout est prêt !',
     done_text: 'Votre monitoring est configuré. Rendez-vous sur le tableau de bord pour voir vos données arriver.',
     monitor_created: 'Moniteur créé et actif',
-    alert_created: 'Alertes email configurées',
+    alert_created: 'Alertes email configurées et vérifiées',
     go_dashboard: 'Aller au tableau de bord',
+    monitor_error: 'Impossible de créer le moniteur. Vérifiez l\'URL et réessayez, ou passez cette étape.',
+    alert_error: 'Impossible de créer le canal d\'alerte. Réessayez, ou passez cette étape.',
+    alert_test_error: 'le test n\'a pas pu être effectué',
+    smtp_unavailable_notice: 'Le serveur n\'a pas encore d\'hôte SMTP configuré : les alertes email ne pourront pas être envoyées. Vous pouvez tout de même créer ce canal maintenant et configurer SMTP plus tard.',
+    smtp_unavailable_detail: 'le serveur n\'a pas d\'hôte SMTP configuré',
+    alert_created_inactive: 'Les alertes email ne sont pas actives : {detail}.',
+    alert_fix_link: 'Voir comment corriger',
   },
 
   // Dependency graph

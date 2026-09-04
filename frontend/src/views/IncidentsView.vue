@@ -106,12 +106,7 @@
               >
                 <router-link :to="`/monitors/${inc.monitor_id}`" class="inc-col inc-col--status">
                   <span class="inc-badge" :class="badgeClass(inc)">{{ badgeLabel(inc) }}</span>
-                  <span
-                    v-if="verdictBadge(inc)"
-                    class="inc-badge inc-badge--verdict"
-                    :class="verdictBadgeClass(inc)"
-                    :title="verdictTooltip(inc)"
-                  >{{ verdictBadge(inc) }}</span>
+                  <NetworkVerdictBadge :verdict="inc.network_verdict" />
                 </router-link>
                 <router-link :to="`/monitors/${inc.monitor_id}`" class="inc-col inc-col--monitor">{{ inc.monitor_name }}</router-link>
                 <span class="inc-col inc-col--type">{{ inc.monitor_check_type }}</span>
@@ -138,12 +133,7 @@
             <div class="inc-row inc-row--data">
               <router-link :to="`/monitors/${item.monitor_id}`" class="inc-col inc-col--status">
                 <span class="inc-badge" :class="badgeClass(item)">{{ badgeLabel(item) }}</span>
-                <span
-                  v-if="verdictBadge(item)"
-                  class="inc-badge inc-badge--verdict"
-                  :class="verdictBadgeClass(item)"
-                  :title="verdictTooltip(item)"
-                >{{ verdictBadge(item) }}</span>
+                <NetworkVerdictBadge :verdict="item.network_verdict" />
               </router-link>
               <router-link :to="`/monitors/${item.monitor_id}`" class="inc-col inc-col--monitor">{{ item.monitor_name }}</router-link>
               <span class="inc-col inc-col--type">{{ item.monitor_check_type }}</span>
@@ -222,6 +212,7 @@ import { renderRunbookMarkdown } from '../lib/runbookMarkdown'
 import { useFilterPreset } from '../composables/useFilterPreset'
 import BulkActionBar from '../components/shared/BulkActionBar.vue'
 import EmptyState from '../components/shared/EmptyState.vue'
+import NetworkVerdictBadge from '../components/shared/NetworkVerdictBadge.vue'
 import IncidentPlaybackMap from '../components/dashboard/IncidentPlaybackMap.vue'
 import IncidentDiagnosticPanel from '../components/incidents/IncidentDiagnosticPanel.vue'
 import IncidentMetricCorrelationPanel from '../components/incidents/IncidentMetricCorrelationPanel.vue'
@@ -427,33 +418,6 @@ function badgeLabel(inc) {
   return t('incidents.ongoing')
 }
 
-// V2-02-02 — render a small badge next to the status when a network verdict
-// is available. inconclusive is rendered as nothing to avoid noise.
-function verdictBadge(inc) {
-  switch (inc.network_verdict) {
-    case 'service_down':           return t('incidents.verdict_short_service_down')
-    case 'network_partition_asn':  return t('incidents.verdict_short_partition_asn')
-    case 'network_partition_geo':  return t('incidents.verdict_short_partition_geo')
-    default: return null
-  }
-}
-function verdictBadgeClass(inc) {
-  switch (inc.network_verdict) {
-    case 'service_down':           return 'inc-badge--verdict-service'
-    case 'network_partition_asn':  return 'inc-badge--verdict-asn'
-    case 'network_partition_geo':  return 'inc-badge--verdict-geo'
-    default: return ''
-  }
-}
-function verdictTooltip(inc) {
-  switch (inc.network_verdict) {
-    case 'service_down':           return t('incidents.verdict_service_down_tip')
-    case 'network_partition_asn':  return t('incidents.verdict_partition_asn_tip')
-    case 'network_partition_geo':  return t('incidents.verdict_partition_geo_tip')
-    default: return ''
-  }
-}
-
 // T1-12 — multi-select + bulk ack
 const selectedIds = ref(new Set())
 function canSelect(inc) {
@@ -652,28 +616,7 @@ async function unack(inc) {
   border: 1px solid color-mix(in srgb, var(--warn) 25%, transparent);
 }
 
-/* V2-02-02 — network verdict badges (rendered next to the status badge) */
-.inc-badge--verdict {
-  margin-left: 4px;
-  font-size: .58rem;
-  letter-spacing: .03em;
-  cursor: help;
-}
-.inc-badge--verdict-service {
-  background: color-mix(in srgb, var(--down) 12%, transparent);
-  color: var(--down);
-  border: 1px solid color-mix(in srgb, var(--down) 25%, transparent);
-}
-.inc-badge--verdict-asn {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  color: var(--accent);
-  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
-}
-.inc-badge--verdict-geo {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  color: var(--accent);
-  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
-}
+/* Network verdict badge next to the status badge → components/shared/NetworkVerdictBadge.vue */
 
 /* Boutons d'action (ack/playback/diagnostic) → .btn-icon global (taille + tactile gérés) */
 

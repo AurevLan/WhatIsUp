@@ -197,6 +197,47 @@ def scope_label_fr(incident: Incident, ctx: dict) -> str:
     return f"Panne géographique — sondes : {', '.join(names)}"
 
 
+#: plan_cap_v2 §3a — one-line explanation added to the alert body when the
+#: incident's network verdict is a partition. `service_down` stays implicit
+#: (the alert already says the service is down) and `inconclusive` adds
+#: nothing (silence beats a sentence that teaches nothing) — both map to
+#: None here so callers can `if note:` without a third branch.
+_NETWORK_VERDICT_NOTES_FR: dict[str, str] = {
+    "network_partition_asn": (
+        "Joignable depuis d'autres points d'observation — probable incident "
+        "réseau chez un opérateur, pas côté service."
+    ),
+    "network_partition_geo": (
+        "Joignable depuis d'autres régions — probable incident réseau régional, pas côté service."
+    ),
+}
+
+_NETWORK_VERDICT_NOTES_EN: dict[str, str] = {
+    "network_partition_asn": (
+        "Reachable from other observation points — likely a carrier-side "
+        "network issue, not your service."
+    ),
+    "network_partition_geo": (
+        "Reachable from other regions — likely a regional network issue, not your service."
+    ),
+}
+
+
+def network_verdict_note_fr(incident: Incident) -> str | None:
+    """French one-liner for a partition verdict, or None (see module note).
+
+    ``getattr`` rather than a direct attribute access: several channel test
+    suites build the incident as a bare ``SimpleNamespace`` without this
+    field, matching the pre-#396 shape.
+    """
+    return _NETWORK_VERDICT_NOTES_FR.get(getattr(incident, "network_verdict", None) or "")
+
+
+def network_verdict_note_en(incident: Incident) -> str | None:
+    """English one-liner for a partition verdict, or None (see module note)."""
+    return _NETWORK_VERDICT_NOTES_EN.get(getattr(incident, "network_verdict", None) or "")
+
+
 def scope_label_en(incident: Incident, ctx: dict) -> str:
     """English scope label for notifications."""
     metric = _metric_scope_label(incident, ctx, fr=False)

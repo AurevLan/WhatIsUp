@@ -543,6 +543,8 @@ export default {
   },
 
   monitor_detail: {
+    // plan_cap_v2 §3a — bandeau réunissant error_message + verdict réseau
+    incident_banner_since: 'En panne depuis {date}',
     test_now: 'Tester maintenant',
     testing_queued: 'En file…',
     testing_running: 'En cours…',
@@ -1184,13 +1186,16 @@ export default {
     verdict_filter_all_tip: 'Afficher tous les incidents indépendamment du verdict réseau',
     verdict_service_down: 'Service down',
     verdict_service_down_tip: 'La majorité des sondes diversifiées voient DOWN — le service est réellement indisponible.',
-    verdict_partition_asn: 'Partition (ASN)',
-    verdict_partition_asn_tip: 'Panne concentrée sur un opérateur (ASN). Les autres opérateurs voient le service UP.',
-    verdict_partition_geo: 'Partition (géo)',
-    verdict_partition_geo_tip: 'Panne concentrée sur une zone géographique. Les autres régions voient le service UP.',
+    verdict_partition_asn: 'Réseau opérateur',
+    verdict_partition_asn_tip: "Le réseau d'un opérateur semble en cause, pas votre service : la panne touche un seul fournisseur, les autres routes restent up.",
+    verdict_partition_geo: 'Réseau régional',
+    verdict_partition_geo_tip: "Le réseau d'une zone géographique semble en cause, pas votre service : les autres régions voient le service up.",
+    verdict_inconclusive: 'Indéterminé',
+    verdict_inconclusive_tip: 'Pas assez de sondes diversifiées (opérateurs/pays) pour distinguer une panne réseau d\'une panne service.',
     verdict_short_service_down: 'Service',
-    verdict_short_partition_asn: 'ASN',
-    verdict_short_partition_geo: 'Géo',
+    verdict_short_partition_asn: 'Opérateur',
+    verdict_short_partition_geo: 'Régional',
+    verdict_short_inconclusive: 'Indéterminé',
     // V2-02-06 — playback de l'incident sur carte
     playback_title: "Rejouer l'incident",
     playback_play: 'Lecture',

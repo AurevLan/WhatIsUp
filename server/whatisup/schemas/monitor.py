@@ -363,6 +363,13 @@ class MonitorOut(BaseModel):
     uptime_24h: float | None = None
     last_response_time_ms: float | None = None
     sparkline: list[float] | None = None
+    # plan_cap_v2 §3a — surfaced so the dashboard / monitor list can carry the
+    # same network-verdict badge as IncidentsView without a second round trip.
+    # `has_open_incident` mirrors it: both were already read by the frontend
+    # (stores/monitors.js) but never actually reached the wire — an unknown
+    # dict key silently dropped by pydantic's default `extra="ignore"`.
+    has_open_incident: bool = False
+    network_verdict: str | None = None
 
     @field_validator("scenario_variables", mode="before")
     @classmethod

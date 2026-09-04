@@ -8,7 +8,7 @@ from typing import Any
 import httpx
 import structlog
 
-from ._helpers import scope_label_en
+from ._helpers import network_verdict_note_en, scope_label_en
 from .base import BaseAlertChannel
 
 logger = structlog.get_logger(__name__)
@@ -60,15 +60,20 @@ class PagerDutyChannel(BaseAlertChannel):
         url = "https://events.pagerduty.com/v2/enqueue"
         event_action = "trigger" if inc_status == "down" else "resolve"
         status_emoji = "🔴" if inc_status == "down" else "✅"
+        event_payload: dict[str, Any] = {
+            "summary": f"{status_emoji} {monitor_name}: {details}",
+            "severity": config.get("severity", "critical"),
+            "source": "WhatIsUp",
+        }
+        # plan_cap_v2 §3a — network verdict, in the body itself.
+        note = network_verdict_note_en(incident)
+        if note:
+            event_payload["custom_details"] = {"network": note}
         payload = {
             "routing_key": config["integration_key"],
             "event_action": event_action,
             "dedup_key": f"whatisup-{incident.id}",
-            "payload": {
-                "summary": f"{status_emoji} {monitor_name}: {details}",
-                "severity": config.get("severity", "critical"),
-                "source": "WhatIsUp",
-            },
+            "payload": event_payload,
         }
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.post(url, json=payload)

@@ -9,7 +9,7 @@ import string
 from datetime import UTC, datetime
 from typing import Any
 
-from ._helpers import ssrf_safe_client, validate_webhook_url
+from ._helpers import network_verdict_note_en, ssrf_safe_client, validate_webhook_url
 from .base import BaseAlertChannel
 
 
@@ -48,6 +48,10 @@ class WebhookChannel(BaseAlertChannel):
         monitor_name = ctx.get("monitor_name", str(incident.monitor_id))
         monitor_url = ctx.get("monitor_url")
         check_type = ctx.get("check_type", "unknown")
+        # plan_cap_v2 §3a — network verdict, in the body itself. Empty string
+        # (not None) so `string.Template.safe_substitute` below never leaves
+        # a literal "None" in a custom template.
+        verdict_note = network_verdict_note_en(incident) or ""
         # Template variables available for custom webhook templates
         template_vars = {
             "monitor_name": monitor_name,
@@ -59,6 +63,8 @@ class WebhookChannel(BaseAlertChannel):
             "duration": str(incident.duration_seconds or 0),
             "scope": incident.scope.value,
             "event_type": enriched_event_type,
+            "network_verdict": getattr(incident, "network_verdict", None) or "",
+            "network_verdict_note": verdict_note,
         }
 
         # Check for custom webhook template on the channel model
@@ -102,6 +108,8 @@ class WebhookChannel(BaseAlertChannel):
                         incident.resolved_at.isoformat() if incident.resolved_at else None
                     ),
                     "scope": incident.scope.value,
+                    "network_verdict": getattr(incident, "network_verdict", None),
+                    "network_verdict_note": verdict_note or None,
                 },
             }
             payload_bytes = json.dumps(payload).encode()

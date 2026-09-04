@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from ._helpers import scope_label_en, ssrf_safe_client, validate_webhook_url
+from ._helpers import (
+    network_verdict_note_en,
+    scope_label_en,
+    ssrf_safe_client,
+    validate_webhook_url,
+)
 from .base import BaseAlertChannel
 
 
@@ -85,6 +90,10 @@ class TeamsChannel(BaseAlertChannel):
         ]
         if is_resolved and incident.duration_seconds:
             facts.append({"title": "Duration", "value": f"{incident.duration_seconds}s"})
+        # plan_cap_v2 §3a — network verdict, in the body itself.
+        note = network_verdict_note_en(incident)
+        if note:
+            facts.append({"title": "Network", "value": note})
 
         card = _adaptive_card(f"WhatIsUp — {status_text}", color_style, facts)
         payload = {

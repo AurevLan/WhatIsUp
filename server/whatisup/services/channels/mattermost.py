@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from ._helpers import scope_label_en, ssrf_safe_client, validate_webhook_url
+from ._helpers import (
+    network_verdict_note_en,
+    scope_label_en,
+    ssrf_safe_client,
+    validate_webhook_url,
+)
 from .base import BaseAlertChannel
 
 
@@ -56,6 +61,10 @@ class MattermostChannel(BaseAlertChannel):
             fields.append(
                 {"title": "Duration", "value": f"{incident.duration_seconds}s", "short": True}
             )
+        # plan_cap_v2 §3a — network verdict, in the body itself.
+        note = network_verdict_note_en(incident)
+        if note:
+            fields.append({"title": "Network", "value": note, "short": False})
 
         payload = {
             "username": "WhatIsUp",

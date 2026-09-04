@@ -553,6 +553,8 @@ export default {
   },
 
   monitor_detail: {
+    // plan_cap_v2 §3a — incident banner reuniting error_message + network verdict
+    incident_banner_since: 'Down since {date}',
     test_now: 'Test now',
     testing_queued: 'Queued…',
     testing_running: 'Running…',
@@ -1202,13 +1204,16 @@ export default {
     verdict_filter_all_tip: 'Show every incident regardless of network verdict',
     verdict_service_down: 'Service down',
     verdict_service_down_tip: 'Most diversified probes report DOWN — the service is genuinely unavailable.',
-    verdict_partition_asn: 'Partition (ASN)',
-    verdict_partition_asn_tip: 'Failure concentrated on one operator (ASN). Other carriers see the service UP.',
-    verdict_partition_geo: 'Partition (geo)',
-    verdict_partition_geo_tip: 'Failure concentrated in one geographic zone. Other regions see the service UP.',
+    verdict_partition_asn: 'Carrier network',
+    verdict_partition_asn_tip: "One carrier's network looks like the cause, not your service: the outage is confined to a single provider, other routes stay up.",
+    verdict_partition_geo: 'Regional network',
+    verdict_partition_geo_tip: 'A regional network looks like the cause, not your service: other regions see the service up.',
+    verdict_inconclusive: 'Inconclusive',
+    verdict_inconclusive_tip: 'Not enough diversified probes (carriers/countries) to tell a network issue from a service outage.',
     verdict_short_service_down: 'Service',
-    verdict_short_partition_asn: 'ASN',
-    verdict_short_partition_geo: 'Geo',
+    verdict_short_partition_asn: 'Carrier',
+    verdict_short_partition_geo: 'Regional',
+    verdict_short_inconclusive: 'Inconclusive',
     // V2-02-06 — incident playback map
     playback_title: 'Incident playback',
     playback_play: 'Play',

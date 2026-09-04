@@ -25,6 +25,14 @@
       </div>
     </div>
 
+    <!-- Down + network verdict, reunited at the top (plan_cap_v2 §3a) -->
+    <MonitorIncidentBanner
+      v-if="isMonitorDown"
+      :incident="openIncident"
+      :error-message="latestErrorMessage"
+      :format-date-time="fmtDateTime"
+    />
+
     <!-- No alert rules banner + auto-alert setup modal -->
     <MonitorAlertSetupBanner />
 
@@ -363,6 +371,7 @@ import {
 } from '../components/monitors/detail/injectionKeys'
 import MonitorRecentChecksTable from '../components/monitors/detail/MonitorRecentChecksTable.vue'
 import MonitorAlertSetupBanner from '../components/monitors/detail/MonitorAlertSetupBanner.vue'
+import MonitorIncidentBanner from '../components/monitors/detail/MonitorIncidentBanner.vue'
 import MonitorDnsValueBanner from '../components/monitors/detail/MonitorDnsValueBanner.vue'
 import MonitorStatsCards from '../components/monitors/detail/MonitorStatsCards.vue'
 import MonitorDnsPanel from '../components/monitors/detail/MonitorDnsPanel.vue'
@@ -465,6 +474,18 @@ const incidentsState = useMonitorIncidents(monitor, monitorIdRef)
 provide(IncidentsStateKey, incidentsState)
 // `incidents` feeds useMonitorCharts annotations; loadIncidents fires on mount.
 const { incidents, loadIncidents } = incidentsState
+
+// plan_cap_v2 §3a — reunite error_message + network verdict at the top of
+// the page, only while the monitor is actually down (an open availability
+// incident doesn't mean much for a monitor that's currently reporting up —
+// e.g. a lingering metric incident, C-4, which carries no network verdict
+// anyway).
+const isMonitorDown = computed(() =>
+  ['down', 'error', 'timeout'].includes(monitor.value?.last_status ?? monitor.value?._lastStatus),
+)
+const openIncident = computed(() => incidents.value.find((i) => !i.resolved_at) || null)
+// `results` is ordered most-recent-first (monitorsApi.results → checked_at DESC).
+const latestErrorMessage = computed(() => results.value?.[0]?.error_message || null)
 
 // ── Annotations ───────────────────────────────────────────────────────────────
 // Sub-component (MonitorAnnotationsPanel) reads via inject(AnnotationsStateKey);

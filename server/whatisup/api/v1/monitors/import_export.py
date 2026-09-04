@@ -47,6 +47,8 @@ _EXPORT_STRIP_FIELDS = {
     "last_response_time_ms",
     "p95_response_time_ms",
     "sparkline",
+    "has_open_incident",
+    "network_verdict",
     "last_heartbeat_at",
     "schema_baseline",
     "schema_baseline_updated_at",

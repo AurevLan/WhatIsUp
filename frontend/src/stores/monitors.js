@@ -37,6 +37,7 @@ export const useMonitorStore = defineStore('monitors', () => {
       _lastStatus:          m.last_status ?? null,
       _uptime24h:           m.uptime_24h ?? null,
       _hasOpenIncident:     m.has_open_incident ?? false,
+      _networkVerdict:      m.network_verdict ?? null,
       _lastResponseTimeMs:  m.last_response_time_ms ?? null,
       _p95ResponseTimeMs:   m.p95_response_time_ms ?? null,
       _sparkline:           m.sparkline ?? [],

@@ -1021,7 +1021,7 @@ export default {
     suggested_threshold: 'Suggested threshold: {ms}ms',
     apply_suggestion: 'Apply',
     webhook_template: 'Custom template (optional)',
-    webhook_template_placeholder: '{"text": "[$status] $monitor_name — $event_type"}',
+    webhook_template_placeholder: '{\'{\'}"text": "[$status] $monitor_name — $event_type"{\'}\'}',
     webhook_template_hint: 'Variables: $monitor_name, $monitor_id, $check_type, $status, $started_at, $resolved_at, $duration, $scope, $event_type',
     // Add-channel modal. Product names (Slack, PagerDuty…), URL masks and
     // Opsgenie's P1-P5 codes stay untranslated on purpose.
@@ -1514,7 +1514,7 @@ export default {
     report_schedule_weekly: 'Weekly (Monday 08:00 UTC)',
     report_schedule_monthly: 'Monthly (1st day 08:00 UTC)',
     report_emails: 'Recipient emails',
-    report_emails_hint: 'alice@example.com, bob@example.com',
+    report_emails_hint: 'alice\\@example.com, bob\\@example.com',
     report_emails_desc: 'Comma-separated list of email addresses',
     public_title: 'Page title',
     public_description: 'Page description',
@@ -2048,7 +2048,7 @@ export default {
     subtitle: 'Incident response procedure for this monitor.',
     enable_label: 'Enable runbook',
     enable_desc: 'Adds a Runbook tab and shows the procedure inline on open incidents. Disabling wipes the content.',
-    placeholder: '## If this monitor is DOWN\n\n### 1. Obvious causes\n- [ ] Recent deploy? → rollback\n- [ ] Traffic spike? → dashboard\n\n### 2. Escalation\n- Down > 15 min → ping @lead on Slack',
+    placeholder: '## If this monitor is DOWN\n\n### 1. Obvious causes\n- [ ] Recent deploy? → rollback\n- [ ] Traffic spike? → dashboard\n\n### 2. Escalation\n- Down > 15 min → ping \\@lead on Slack',
     empty: 'No runbook yet — click Edit to write the procedure.',
     markdown_hint: 'Markdown supported: headings (# ## ###), lists, task checkboxes [ ] [x], **bold**, *italic*, `code`, code blocks, http(s) links.',
     saved: 'Runbook saved.',

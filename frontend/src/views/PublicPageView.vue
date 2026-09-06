@@ -65,6 +65,41 @@
         </div>
       </div>
 
+      <!-- Announcements (cap V2, 5b) — human narration, never an Incident:
+           see api/v1/status_announcements.py + models/status_announcement.py.
+           Never touches uptime/SLA; purely narrative. -->
+      <section v-if="announcements.length" class="space-y-4 mb-8">
+        <div v-for="a in announcements" :key="a.id"
+          class="rounded-xl border px-5 py-4 text-sm"
+          :class="a.is_active
+            ? 'bg-(--accent-glow) border-(--accent-border) text-(--accent)'
+            : 'bg-(--bg-surface) border-(--border) text-(--text-2)'">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex-1 min-w-0">
+              <p class="font-semibold" :class="a.is_active ? '' : 'text-(--text-1)'">{{ a.title }}</p>
+              <p class="text-xs opacity-80 mt-0.5">
+                {{ t(`public.announcement_status_${a.status}`) }} · {{ formatDatetime(a.started_at) }}
+                <template v-if="a.ended_at"> → {{ formatDatetime(a.ended_at) }}</template>
+              </p>
+            </div>
+            <span v-if="!a.is_active"
+              class="text-xs font-semibold px-2 py-0.5 rounded-full border border-(--border) bg-(--bg-surface-2) text-(--text-3) shrink-0">
+              {{ t('public.announcement_closed') }}
+            </span>
+          </div>
+          <div v-if="a.updates?.length" class="mt-3 ml-1 border-l-2 pl-4 space-y-2"
+            :class="a.is_active ? 'border-(--accent-border)' : 'border-(--border)'">
+            <div v-for="u in a.updates" :key="u.id">
+              <p class="text-xs opacity-70">
+                {{ formatDatetime(u.created_at) }} ·
+                <span class="font-semibold">{{ t(`public.announcement_status_${u.status}`) }}</span>
+              </p>
+              <p class="text-sm" :class="a.is_active ? '' : 'text-(--text-2)'">{{ u.message }}</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- Maintenance windows (cap V2, 5a) — the fact and the time window are
            always shown; the operator's optional message replaces the generic
            sentence, but the window's internal name/description never appear
@@ -335,6 +370,7 @@ const page = ref(null)
 const monitors = ref([])
 const incidents30d = ref([])
 const maintenanceWindows = ref([])
+const announcements = ref([])
 const loading = ref(true)
 const nowTime = () => new Date().toLocaleTimeString(intlLocale.value)
 const lastUpdated = ref(nowTime())
@@ -566,6 +602,7 @@ onMounted(async () => {
     monitors.value = monResp.data
     incidents30d.value = statusResp.data.incidents_30d ?? []
     maintenanceWindows.value = statusResp.data.maintenance_windows ?? []
+    announcements.value = statusResp.data.announcements ?? []
   } catch {
     loadError.value = true
   } finally {

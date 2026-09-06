@@ -64,6 +64,65 @@
       </div>
     </div>
 
+    <!-- Status page announcements (cap V2, 5b) — human narration, decoupled
+         from Incident: see api/v1/status_announcements.py. -->
+    <div v-if="group.public_slug" class="card mb-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-sm font-semibold text-(--text-2)">{{ t('announcements.title') }}</h2>
+        <button @click="showNewAnnouncement = true" class="btn-primary btn-sm">+ {{ t('announcements.new') }}</button>
+      </div>
+
+      <div v-if="announcements.length === 0" class="text-center text-(--text-3) py-6 text-sm">
+        {{ t('announcements.none') }}
+      </div>
+
+      <div v-else class="space-y-3">
+        <div v-for="a in announcements" :key="a.id" class="border border-(--border) rounded-lg p-3">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-sm font-semibold text-(--text-1)">{{ a.title }}</span>
+                <span class="text-xs font-semibold px-2 py-0.5 rounded-full border" :class="announcementStatusClass(a.status)">{{ t(`announcements.status.${a.status}`) }}</span>
+                <span v-if="!a.ended_at" class="text-xs font-semibold px-2 py-0.5 rounded-full border bg-(--accent-glow) border-(--accent-border) text-(--accent)">{{ t('announcements.active') }}</span>
+                <span v-else class="text-xs font-semibold px-2 py-0.5 rounded-full border border-(--border) bg-(--bg-surface-2) text-(--text-3)">{{ t('announcements.closed') }}</span>
+              </div>
+              <p class="text-xs text-(--text-3) mt-1">{{ formatDate(a.started_at) }}<template v-if="a.ended_at"> → {{ formatDate(a.ended_at) }}</template></p>
+            </div>
+            <button @click="toggleAnnouncement(a.id)" class="text-xs text-(--accent) hover:underline shrink-0">
+              {{ expandedAnnouncement === a.id ? t('announcements.hide_thread') : t('announcements.show_thread') }}
+            </button>
+          </div>
+
+          <div v-if="expandedAnnouncement === a.id" class="mt-3 ml-2 border-l-2 border-(--border) pl-4 space-y-2">
+            <div v-for="u in a.updates" :key="u.id" class="text-xs">
+              <p class="text-(--text-3)">{{ formatDate(u.created_at) }} · <span class="font-semibold">{{ t(`announcements.status.${u.status}`) }}</span><span v-if="!u.is_public"> · {{ t('announcements.internal_only') }}</span></p>
+              <p class="text-(--text-2)">{{ u.message }}</p>
+            </div>
+
+            <form v-if="!a.ended_at" @submit.prevent="submitUpdate(a)" class="flex flex-col gap-2 mt-2">
+              <div class="flex gap-2 flex-wrap">
+                <select v-model="updateForms[a.id].status" class="input flex-1 min-w-32">
+                  <option value="investigating">{{ t('announcements.status.investigating') }}</option>
+                  <option value="identified">{{ t('announcements.status.identified') }}</option>
+                  <option value="monitoring">{{ t('announcements.status.monitoring') }}</option>
+                  <option value="resolved">{{ t('announcements.status.resolved') }}</option>
+                </select>
+                <label class="flex items-center gap-1.5 text-xs text-(--text-2)">
+                  <input type="checkbox" v-model="updateForms[a.id].is_public" />
+                  {{ t('announcements.is_public') }}
+                </label>
+              </div>
+              <textarea v-model="updateForms[a.id].message" class="input w-full" rows="2" :placeholder="t('announcements.message_placeholder')" required></textarea>
+              <div class="flex justify-end gap-2">
+                <button type="button" @click="closeAnnouncement(a)" class="btn-secondary btn-sm">{{ t('announcements.close_action') }}</button>
+                <button type="submit" class="btn-primary btn-sm">{{ t('announcements.post_update') }}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- SLA Reports -->
     <div class="card mb-6">
       <h2 class="text-sm font-semibold text-(--text-2) mb-4">{{ t('groups.sla_reports') }}</h2>
@@ -168,6 +227,37 @@
         </button>
       </template>
     </BaseModal>
+
+    <!-- New announcement modal (cap V2, 5b) -->
+    <BaseModal v-model="showNewAnnouncement" :title="t('announcements.new_title')">
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs text-(--text-2) mb-1">{{ t('common.name') }}</label>
+          <input v-model="newAnnouncement.title" type="text" class="input w-full" maxlength="255" />
+        </div>
+        <div>
+          <label class="block text-xs text-(--text-2) mb-1">{{ t('common.status') }}</label>
+          <select v-model="newAnnouncement.status" class="input w-full">
+            <option value="investigating">{{ t('announcements.status.investigating') }}</option>
+            <option value="identified">{{ t('announcements.status.identified') }}</option>
+            <option value="monitoring">{{ t('announcements.status.monitoring') }}</option>
+            <option value="resolved">{{ t('announcements.status.resolved') }}</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-(--text-2) mb-1">{{ t('announcements.message_placeholder') }}</label>
+          <textarea v-model="newAnnouncement.message" class="input w-full" rows="3"></textarea>
+        </div>
+      </div>
+      <template #footer>
+        <button @click="showNewAnnouncement = false" class="flex-1 px-4 py-2 border border-(--border) text-(--text-2) rounded-lg hover:bg-(--bg-surface-2)">
+          {{ t('common.cancel') }}
+        </button>
+        <button @click="createAnnouncement" :disabled="!newAnnouncement.title.trim() || !newAnnouncement.message.trim()" class="flex-1 btn-primary">
+          {{ t('common.create') }}
+        </button>
+      </template>
+    </BaseModal>
   </div>
   <div v-else class="p-8 text-(--text-2)">{{ t('common.loading') }}</div>
 </template>
@@ -177,10 +267,13 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { groupsApi, monitorsApi } from '../api/monitors'
+import { statusAnnouncementsApi } from '../api/statusAnnouncements'
 import BaseModal from '../components/BaseModal.vue'
 import StatusBadge from '../components/shared/StatusBadge.vue'
+import { useDateFormat } from '../composables/useDateFormat'
 
 const { t } = useI18n()
+const { formatDate } = useDateFormat()
 const route = useRoute()
 const group = ref(null)
 const monitors = ref([])
@@ -199,6 +292,13 @@ const reportConfig = reactive({
   report_schedule: null,
   report_emails_raw: '',
 })
+
+// Cap V2, 5b — status page announcements (decoupled from Incident).
+const announcements = ref([])
+const showNewAnnouncement = ref(false)
+const newAnnouncement = reactive({ title: '', status: 'investigating', message: '' })
+const expandedAnnouncement = ref(null)
+const updateForms = reactive({})
 
 const upCount = computed(() => monitors.value.filter(m => m.last_status === 'up').length)
 const downCount = computed(() => monitors.value.filter(m => m.last_status && m.last_status !== 'up').length)
@@ -237,6 +337,71 @@ async function load() {
     const { data } = await monitorsApi.list()
     allMonitors.value = data
   } catch {}
+  if (group.value?.public_slug) {
+    await loadAnnouncements()
+  }
+}
+
+async function loadAnnouncements() {
+  try {
+    const { data } = await statusAnnouncementsApi.list(route.params.id, { skipErrorToast: true })
+    announcements.value = data
+    for (const a of data) {
+      if (!updateForms[a.id]) {
+        updateForms[a.id] = { status: a.status, message: '', is_public: true }
+      }
+    }
+  } catch {
+    // Non-blocking — the rest of the page still works without announcements.
+  }
+}
+
+async function createAnnouncement() {
+  try {
+    await statusAnnouncementsApi.create(route.params.id, { ...newAnnouncement }, { skipErrorToast: true })
+    showNewAnnouncement.value = false
+    newAnnouncement.title = ''
+    newAnnouncement.status = 'investigating'
+    newAnnouncement.message = ''
+    await loadAnnouncements()
+  } catch {
+    showError(t('announcements.error_create'))
+  }
+}
+
+function announcementStatusClass(status) {
+  if (status === 'resolved') {
+    return 'bg-[color-mix(in_srgb,var(--up)_15%,transparent)] border-[color-mix(in_srgb,var(--up)_35%,transparent)] text-(--up)'
+  }
+  if (status === 'investigating') {
+    return 'bg-[color-mix(in_srgb,var(--warn)_15%,transparent)] border-[color-mix(in_srgb,var(--warn)_35%,transparent)] text-(--warn)'
+  }
+  return 'bg-(--accent-glow) border-(--accent-border) text-(--accent)'
+}
+
+function toggleAnnouncement(id) {
+  expandedAnnouncement.value = expandedAnnouncement.value === id ? null : id
+}
+
+async function submitUpdate(announcement) {
+  const form = updateForms[announcement.id]
+  if (!form?.message?.trim()) return
+  try {
+    await statusAnnouncementsApi.addUpdate(route.params.id, announcement.id, { ...form }, { skipErrorToast: true })
+    form.message = ''
+    await loadAnnouncements()
+  } catch {
+    showError(t('announcements.error_update'))
+  }
+}
+
+async function closeAnnouncement(announcement) {
+  try {
+    await statusAnnouncementsApi.close(route.params.id, announcement.id, { skipErrorToast: true })
+    await loadAnnouncements()
+  } catch {
+    showError(t('announcements.error_close'))
+  }
 }
 
 async function saveCustomization() {

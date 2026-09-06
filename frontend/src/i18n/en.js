@@ -1513,6 +1513,14 @@ export default {
     maintenance_active_generic: 'This service is undergoing scheduled maintenance.',
     maintenance_scheduled_title: 'Scheduled maintenance',
     maintenance_scheduled_generic: 'Scheduled maintenance is planned for this service.',
+    // Cap v2, 5b — human-authored announcements, never an Incident (see
+    // CLAUDE.md "Deux familles d'incidents"). Reuses the same state
+    // vocabulary as incident updates.
+    announcement_status_investigating: 'Investigating',
+    announcement_status_identified: 'Identified',
+    announcement_status_monitoring: 'Monitoring',
+    announcement_status_resolved: 'Resolved',
+    announcement_closed: 'Closed',
   },
 
   // Groups
@@ -1853,6 +1861,33 @@ export default {
     error_save_report: 'Failed to save report configuration',
     error_remove: 'Could not remove monitor from group',
     error_add: 'Could not add monitor to group',
+  },
+
+  // Status page announcements — cap V2, 5b. A human narration on the public
+  // page, decoupled from Incident (see CLAUDE.md "Deux familles d'incidents").
+  announcements: {
+    title: 'Status page announcements',
+    new: 'New announcement',
+    new_title: 'New announcement',
+    none: 'No announcements yet.',
+    active: 'Active',
+    closed: 'Closed',
+    show_thread: 'Show thread',
+    hide_thread: 'Hide thread',
+    is_public: 'Public',
+    internal_only: 'internal note',
+    message_placeholder: 'Message',
+    post_update: 'Post update',
+    close_action: 'Close announcement',
+    error_create: 'Could not create the announcement',
+    error_update: 'Could not post the update',
+    error_close: 'Could not close the announcement',
+    status: {
+      investigating: 'Investigating',
+      identified: 'Identified',
+      monitoring: 'Monitoring',
+      resolved: 'Resolved',
+    },
   },
 
   // Create monitor modal

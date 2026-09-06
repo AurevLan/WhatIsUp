@@ -1482,6 +1482,14 @@ export default {
     maintenance_active_generic: "Ce service fait l'objet d'une maintenance planifiée.",
     maintenance_scheduled_title: 'Maintenance planifiée',
     maintenance_scheduled_generic: 'Une maintenance planifiée est prévue pour ce service.',
+    // Cap v2, 5b — annonces rédigées par un humain, jamais un Incident (cf.
+    // CLAUDE.md « Deux familles d'incidents »). Réutilise le même vocabulaire
+    // d'état que les mises à jour d'incident.
+    announcement_status_investigating: 'En investigation',
+    announcement_status_identified: 'Cause identifiée',
+    announcement_status_monitoring: 'Sous surveillance',
+    announcement_status_resolved: 'Résolu',
+    announcement_closed: 'Clôturée',
   },
 
   // Groupes
@@ -1823,6 +1831,34 @@ export default {
     error_save_report: 'Erreur lors de la sauvegarde de la configuration des rapports',
     error_remove: 'Impossible de retirer le monitor du groupe',
     error_add: 'Impossible d\'ajouter le monitor au groupe',
+  },
+
+  // Annonces de page de statut — cap V2, 5b. Une narration humaine sur la
+  // page publique, découplée d'Incident (cf. CLAUDE.md « Deux familles
+  // d'incidents »).
+  announcements: {
+    title: 'Annonces de la page de statut',
+    new: 'Nouvelle annonce',
+    new_title: 'Nouvelle annonce',
+    none: 'Aucune annonce pour le moment.',
+    active: 'Active',
+    closed: 'Clôturée',
+    show_thread: 'Voir le fil',
+    hide_thread: 'Masquer le fil',
+    is_public: 'Publique',
+    internal_only: 'note interne',
+    message_placeholder: 'Message',
+    post_update: 'Publier la mise à jour',
+    close_action: 'Clôturer l\'annonce',
+    error_create: 'Impossible de créer l\'annonce',
+    error_update: 'Impossible de publier la mise à jour',
+    error_close: 'Impossible de clôturer l\'annonce',
+    status: {
+      investigating: 'En investigation',
+      identified: 'Cause identifiée',
+      monitoring: 'Sous surveillance',
+      resolved: 'Résolu',
+    },
   },
 
   // Modal de création de monitor

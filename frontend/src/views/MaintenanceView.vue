@@ -187,6 +187,21 @@
           />
         </div>
 
+        <!-- Public message (cap V2, 5a) -->
+        <div>
+          <label class="text-sm text-(--text-2)">
+            {{ t('maintenance.public_message_label') }}
+            <span class="text-(--text-3)">({{ t('common.optional') }})</span>
+          </label>
+          <p class="text-xs text-(--text-3) mt-0.5">{{ t('maintenance.public_message_hint') }}</p>
+          <textarea
+            v-model="form.public_message"
+            class="input w-full mt-1 resize-none"
+            rows="2"
+            :placeholder="t('maintenance.public_message_placeholder')"
+          />
+        </div>
+
         <!-- Start / End pickers -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
@@ -323,6 +338,7 @@ function defaultForm() {
   return {
     name:            '',
     description:     '',
+    public_message:  '',
     monitor_id:      null,
     group_id:        null,
     starts_at:       '',
@@ -469,6 +485,7 @@ function openEdit(w) {
   form.value = {
     name:            w.name,
     description:     w.description || '',
+    public_message:  w.public_message || '',
     monitor_id:      w.monitor_id || null,
     group_id:        w.group_id || null,
     starts_at:       toLocalDt(w.starts_at),
@@ -488,6 +505,7 @@ async function submitWindow() {
     const payload = {
       name:            form.value.name.trim(),
       description:     form.value.description || null,
+      public_message:  form.value.public_message?.trim() || null,
       monitor_id:      form.value.monitor_id || null,
       group_id:        form.value.group_id || null,
       starts_at:       new Date(form.value.starts_at).toISOString(),

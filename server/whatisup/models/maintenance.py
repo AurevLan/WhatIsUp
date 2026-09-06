@@ -20,6 +20,12 @@ class MaintenanceWindow(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Cap v2, 5a — the only field of this model ever shown to an unauthenticated
+    # visitor. `name`/`description` were written assuming they were internal and
+    # must never be republished automatically (see api/v1/public.py). Nullable:
+    # the operator opts in by writing something here, otherwise the status page
+    # only announces the fact and window, never a reason.
+    public_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     owner_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),

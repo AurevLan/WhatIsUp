@@ -79,6 +79,7 @@ async def create_window(
     window = MaintenanceWindow(
         name=payload.name,
         description=payload.description,
+        public_message=payload.public_message,
         owner_id=current_user.id,
         monitor_id=payload.monitor_id,
         group_id=payload.group_id,

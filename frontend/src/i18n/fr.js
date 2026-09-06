@@ -1427,6 +1427,9 @@ export default {
     monitor_none: 'Aucun (tous les moniteurs)',
     error_required: 'Le nom, la date de début et la date de fin sont obligatoires.',
     schedule_maintenance: 'Planifier une maintenance',
+    public_message_label: 'Message public',
+    public_message_hint: 'Affiché tel quel sur la page de statut publique. Laisser vide pour n\'annoncer que le fait et la fenêtre horaire — le nom et la description ci-dessus ne sont jamais montrés aux visiteurs.',
+    public_message_placeholder: 'ex. Nous mettons à jour notre base de données, certains contrôles peuvent apparaître en panne.',
   },
   public: {
     all_operational: 'Tous les systèmes sont opérationnels',
@@ -1470,6 +1473,15 @@ export default {
     network_verdict_note: 'Le service répond depuis {reachable} de nos {total} points d\'observation. Certains réseaux semblent affectés ; le service lui-même paraît fonctionner.',
     network_verdict_note_no_counts: 'Certains réseaux semblent affectés ; le service lui-même paraît fonctionner.',
     network_verdict_note_resolved: 'Certains réseaux semblaient affectés pendant cet incident ; le service lui-même semblait fonctionner.',
+    // Cap v2, 5a — un moniteur en panne pour une raison planifiée n'est pas
+    // une panne. Seuls le fait et la fenêtre horaire sont montrés ici (plus
+    // un message optionnel écrit par l'exploitant) ; le nom et la
+    // description de la fenêtre n'atteignent jamais cette page — cf. CLAUDE.md.
+    maintenance_in_progress: 'Maintenance en cours',
+    maintenance_active_title: 'Maintenance en cours',
+    maintenance_active_generic: "Ce service fait l'objet d'une maintenance planifiée.",
+    maintenance_scheduled_title: 'Maintenance planifiée',
+    maintenance_scheduled_generic: 'Une maintenance planifiée est prévue pour ce service.',
   },
 
   // Groupes

@@ -12,6 +12,9 @@ class MaintenanceWindowCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str = Field(min_length=1, max_length=255)
     description: str | None = None
+    # Cap v2, 5a — optional text shown to status-page visitors. Never derived
+    # from name/description: the operator writes it, or nothing is shown.
+    public_message: str | None = None
     monitor_id: uuid.UUID | None = None
     group_id: uuid.UUID | None = None
     starts_at: datetime
@@ -31,6 +34,7 @@ class MaintenanceWindowOut(BaseModel):
     id: uuid.UUID
     name: str
     description: str | None
+    public_message: str | None
     monitor_id: uuid.UUID | None
     group_id: uuid.UUID | None
     starts_at: datetime

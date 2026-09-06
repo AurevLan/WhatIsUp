@@ -47,6 +47,16 @@
             <span class="w-2.5 h-2.5 rounded-full bg-(--down) animate-pulse"></span>
             {{ t('public.major_outage') }}
           </div>
+          <!-- Cap v2, 5a — a monitor under active maintenance is excluded from
+               the down/degraded computation entirely (see globalStatus below).
+               When that leaves nothing else to report, this dedicated state
+               replaces red with a neutral "maintenance" pill instead of
+               claiming a false "all operational". -->
+          <div v-else-if="globalStatus === 'maintenance'"
+            class="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-(--accent-glow) border border-(--accent-border) text-(--accent) font-semibold">
+            <span class="w-2.5 h-2.5 rounded-full bg-(--accent)"></span>
+            {{ t('public.maintenance_in_progress') }}
+          </div>
           <div v-else
             class="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-(--bg-surface-2) border border-(--border) text-(--text-2) font-semibold">
             <span class="w-2.5 h-2.5 rounded-full bg-(--text-3)"></span>
@@ -54,6 +64,31 @@
           </div>
         </div>
       </div>
+
+      <!-- Maintenance windows (cap V2, 5a) — the fact and the time window are
+           always shown; the operator's optional message replaces the generic
+           sentence, but the window's internal name/description never appear
+           here (see api/v1/public.py). -->
+      <section v-if="activeMaintenanceWindows.length || upcomingMaintenanceWindows.length" class="space-y-3 mb-8">
+        <div v-for="w in activeMaintenanceWindows" :key="`active-${w.id}`"
+          class="flex items-start gap-3 rounded-xl border px-5 py-3 text-sm bg-(--accent-glow) border-(--accent-border) text-(--accent)">
+          <span class="w-2.5 h-2.5 rounded-full bg-(--accent) shrink-0 mt-1"></span>
+          <div class="flex-1 min-w-0">
+            <p class="font-semibold">{{ t('public.maintenance_active_title') }}</p>
+            <p class="mt-0.5">{{ w.message || t('public.maintenance_active_generic') }}</p>
+            <p class="text-xs opacity-80 mt-1">{{ formatDatetime(w.starts_at) }} → {{ formatDatetime(w.ends_at) }}</p>
+          </div>
+        </div>
+        <div v-for="w in upcomingMaintenanceWindows" :key="`upcoming-${w.id}`"
+          class="flex items-start gap-3 rounded-xl border border-(--border) bg-(--bg-surface) px-5 py-3 text-sm text-(--text-2)">
+          <span class="w-2.5 h-2.5 rounded-full bg-(--text-3) shrink-0 mt-1"></span>
+          <div class="flex-1 min-w-0">
+            <p class="font-semibold text-(--text-1)">{{ t('public.maintenance_scheduled_title') }}</p>
+            <p class="mt-0.5">{{ w.message || t('public.maintenance_scheduled_generic') }}</p>
+            <p class="text-xs text-(--text-3) mt-1">{{ formatDatetime(w.starts_at) }} → {{ formatDatetime(w.ends_at) }}</p>
+          </div>
+        </div>
+      </section>
 
       <!-- Composants (moniteurs) -->
       <section class="space-y-4 mb-10">
@@ -299,6 +334,7 @@ const route = useRoute()
 const page = ref(null)
 const monitors = ref([])
 const incidents30d = ref([])
+const maintenanceWindows = ref([])
 const loading = ref(true)
 const nowTime = () => new Date().toLocaleTimeString(intlLocale.value)
 const lastUpdated = ref(nowTime())
@@ -345,11 +381,53 @@ const subMessage = ref('')
 const subError = ref(false)
 
 // ────────────────────────────────────────────────
+// Maintenance (cap V2, 5a)
+// ────────────────────────────────────────────────
+// The backend already restricts the list to current + upcoming (ends_at >=
+// now at fetch time); recomputed client-side too so a window that started
+// while the tab was open moves from "scheduled" to "active" without a reload.
+function maintenanceWindowStatus(w) {
+  const now = Date.now()
+  const starts = new Date(w.starts_at).getTime()
+  const ends = new Date(w.ends_at).getTime()
+  return starts <= now && now <= ends ? 'active' : 'scheduled'
+}
+
+const activeMaintenanceWindows = computed(() =>
+  maintenanceWindows.value.filter(w => maintenanceWindowStatus(w) === 'active')
+)
+const upcomingMaintenanceWindows = computed(() =>
+  maintenanceWindows.value
+    .filter(w => maintenanceWindowStatus(w) === 'scheduled')
+    .sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at))
+)
+
+// A monitor covered by an *active* window (targeted directly, or every
+// monitor when the window is group-wide, i.e. monitor_id is null) is not
+// down — it's paused on purpose. It must not contribute to globalStatus.
+const maintainedMonitorIds = computed(() => {
+  const ids = new Set()
+  for (const w of activeMaintenanceWindows.value) {
+    if (w.monitor_id) {
+      ids.add(w.monitor_id)
+    } else {
+      monitors.value.forEach(m => ids.add(m.id))
+    }
+  }
+  return ids
+})
+
+// ────────────────────────────────────────────────
 // Statut global
 // ────────────────────────────────────────────────
 const globalStatus = computed(() => {
   if (!monitors.value.length) return 'no_data'
-  const statuses = monitors.value.map(m => m.current_status)
+  // Plan cap V2, 5a — "a monitor under maintenance is not down". Excluding
+  // maintained monitors from the aggregate is what stops a planned window
+  // from painting the whole page red (see test in publicPageMaintenance.test.js).
+  const relevant = monitors.value.filter(m => !maintainedMonitorIds.value.has(m.id))
+  if (relevant.length === 0) return 'maintenance'
+  const statuses = relevant.map(m => m.current_status)
   if (statuses.some(s => s === 'down')) return 'down'
   if (statuses.some(s => s === 'timeout' || s === 'error')) return 'degraded'
   if (statuses.every(s => s === 'up')) return 'operational'
@@ -487,6 +565,7 @@ onMounted(async () => {
     page.value = pageResp.data
     monitors.value = monResp.data
     incidents30d.value = statusResp.data.incidents_30d ?? []
+    maintenanceWindows.value = statusResp.data.maintenance_windows ?? []
   } catch {
     loadError.value = true
   } finally {

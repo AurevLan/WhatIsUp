@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, EmailStr
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import Response
 
@@ -17,6 +17,7 @@ from whatisup.core.limiter import limiter
 from whatisup.core.redis import redis_get_safe, redis_setex_safe
 from whatisup.models.incident import IS_AVAILABILITY_INCIDENT, Incident
 from whatisup.models.incident_update import IncidentUpdate
+from whatisup.models.maintenance import MaintenanceWindow
 from whatisup.models.monitor import Monitor, MonitorGroup
 from whatisup.models.probe import Probe
 from whatisup.models.result import CheckResult
@@ -285,8 +286,44 @@ async def get_public_status(
     monitor_ids = [m.id for m in monitors]
     monitor_by_id = {m.id: m for m in monitors}
 
+    now = datetime.now(UTC)
+
+    # Cap v2, 5a — a scheduled/active maintenance window is a *fact*, not an
+    # outage. Only the window and an optional operator-written message are
+    # published; `name`/`description` were written assuming they were
+    # internal (e.g. "migration PG16 prod-db-02") and must never appear here.
+    # Scoped to this group only: its own group-wide windows, plus windows
+    # targeting one of its own monitors — never a window on another group's
+    # monitor. `ends_at >= now` keeps the list to current + upcoming, capped
+    # so a heavy maintenance schedule can't inflate the payload.
+    maintenance_conditions = [MaintenanceWindow.group_id == group.id]
+    if monitor_ids:
+        maintenance_conditions.append(MaintenanceWindow.monitor_id.in_(monitor_ids))
+    window_rows = (
+        (
+            await db.execute(
+                select(MaintenanceWindow)
+                .where(or_(*maintenance_conditions), MaintenanceWindow.ends_at >= now)
+                .order_by(MaintenanceWindow.starts_at.asc())
+                .limit(20)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    maintenance_windows = [
+        {
+            "id": str(w.id),
+            "monitor_id": str(w.monitor_id) if w.monitor_id else None,
+            "starts_at": w.starts_at.isoformat(),
+            "ends_at": w.ends_at.isoformat(),
+            "message": w.public_message,
+        }
+        for w in window_rows
+    ]
+
     # Incidents des 30 derniers jours
-    cutoff_30d = datetime.now(UTC) - timedelta(days=30)
+    cutoff_30d = now - timedelta(days=30)
     incident_rows = (
         (
             await db.execute(
@@ -409,6 +446,7 @@ async def get_public_status(
         "public_accent_color": group.public_accent_color,
         "public_custom_css": group.public_custom_css,
         "incidents_30d": incidents_30d,
+        "maintenance_windows": maintenance_windows,
     }
 
 

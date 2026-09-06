@@ -1456,6 +1456,9 @@ export default {
     monitor_none: 'None (all monitors)',
     error_required: 'Name, start and end date are required.',
     schedule_maintenance: 'Schedule maintenance',
+    public_message_label: 'Public message',
+    public_message_hint: 'Shown as-is on the public status page. Leave empty to only announce the fact and the time window — name and description above are never shown to visitors.',
+    public_message_placeholder: 'e.g. We are upgrading our database, some checks may show as down.',
   },
 
   // Public status page
@@ -1501,6 +1504,15 @@ export default {
     network_verdict_note: 'The service is responding from {reachable} of our {total} observation points. Some networks appear to be affected; the service itself appears to be working.',
     network_verdict_note_no_counts: 'Some networks appear to be affected; the service itself appears to be working.',
     network_verdict_note_resolved: 'Some networks appeared to be affected during this incident; the service itself appeared to be working.',
+    // Cap v2, 5a — a monitor down for a scheduled reason is not an outage.
+    // Only the fact and the time window are ever shown here (plus an
+    // optional operator-written message); the window's name/description
+    // never reach this page — see CLAUDE.md.
+    maintenance_in_progress: 'Maintenance in progress',
+    maintenance_active_title: 'Maintenance in progress',
+    maintenance_active_generic: 'This service is undergoing scheduled maintenance.',
+    maintenance_scheduled_title: 'Scheduled maintenance',
+    maintenance_scheduled_generic: 'Scheduled maintenance is planned for this service.',
   },
 
   // Groups

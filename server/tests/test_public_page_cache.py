@@ -60,7 +60,7 @@ async def test_public_monitors_payload_is_cached(
     assert first.status_code == 200
     assert [m["name"] for m in first.json()] == ["Mon1"]
 
-    cache_key = f"whatisup:public:monitors:{gid}"
+    cache_key = f"whatisup:public:monitors:v2:{gid}"
     assert await fake_redis.exists(cache_key)
     ttl = await fake_redis.ttl(cache_key)
     assert 0 < ttl <= PUBLIC_MONITORS_CACHE_TTL
@@ -104,7 +104,7 @@ async def test_public_monitors_empty_page_is_not_cached(
     empty = await client.get("/api/v1/public/pages/emptygroup/monitors")
     assert empty.status_code == 200
     assert empty.json() == []
-    assert not await fake_redis.exists(f"whatisup:public:monitors:{gid}")
+    assert not await fake_redis.exists(f"whatisup:public:monitors:v2:{gid}")
 
     await _add_monitor(client, user_token, gid, "FirstMon")
     filled = await client.get("/api/v1/public/pages/emptygroup/monitors")

@@ -84,6 +84,16 @@ class SubscribeRequest(BaseModel):
     email: EmailStr
 
 
+def _public_monitor_name(monitor: Monitor) -> str:
+    """Cap v2, 5c — the visitor-facing name.
+
+    Falls back to the internal ``name`` an operator never bothered to
+    override, so a monitor that never sets ``public_name`` sees no change
+    from what was already published.
+    """
+    return monitor.public_name or monitor.name
+
+
 async def _get_group_by_slug(slug: str, db: AsyncSession) -> MonitorGroup:
     group = (
         await db.execute(select(MonitorGroup).where(MonitorGroup.public_slug == slug))
@@ -104,11 +114,16 @@ async def get_uptime_badge(
     """Return a shields.io-style SVG badge with 24h uptime for a monitor."""
     group = await _get_group_by_slug(slug, db)
 
+    # Cap v2, 5c — the visitor only ever sees `_public_monitor_name` (the
+    # badge-copy button in PublicPageView.vue builds this URL from that same
+    # value), so the lookup must match on it too, not on the internal `name`
+    # a monitor with a `public_name` no longer exposes.
+    effective_name = func.coalesce(Monitor.public_name, Monitor.name)
     monitor = (
         await db.execute(
             select(Monitor).where(
                 Monitor.group_id == group.id,
-                func.lower(Monitor.name) == monitor_name.lower(),
+                func.lower(effective_name) == monitor_name.lower(),
             )
         )
     ).scalar_one_or_none()
@@ -167,7 +182,10 @@ async def get_public_monitors(
 ) -> list[dict]:
     group = await _get_group_by_slug(slug, db)
 
-    cache_key = f"whatisup:public:monitors:{group.id}"
+    # Cap v2, 5c — bumped to v2: the cached payload shape changed (inventory
+    # fields dropped), and the previous key must never be reread post-deploy
+    # even for the ≤60s the old TTL could otherwise still be alive.
+    cache_key = f"whatisup:public:monitors:v2:{group.id}"
     cached = await redis_get_safe(cache_key)
     if cached:
         return json.loads(cached)
@@ -246,15 +264,17 @@ async def get_public_monitors(
         results.append(
             {
                 "id": str(m.id),
-                "name": m.name,
-                "url": m.url,
-                "check_type": m.check_type,
-                "tcp_port": m.tcp_port,
-                "dns_record_type": m.dns_record_type,
+                # Cap v2, 5c — no more `url`, `tcp_port`, `dns_record_type` or
+                # `current_value` (= `latest.final_url`, the URL *after*
+                # redirection): this endpoint is unauthenticated, and none of
+                # that is anything a visitor needs to know whether the
+                # service is up. `check_type` drops too — PublicPageView.vue
+                # used it only to pick which of those now-removed fields to
+                # render, never for an icon.
+                "name": _public_monitor_name(m),
                 "uptime_24h": uptime.get("uptime_percent", 100.0),
                 "avg_response_time_ms": uptime.get("avg_response_time_ms"),
                 "current_status": latest.status.value if latest else None,
-                "current_value": latest.final_url if latest else None,
                 "last_checked_at": latest.checked_at.isoformat() if latest else None,
                 "history_90d": history_90d,
             }
@@ -466,7 +486,7 @@ async def get_public_status(
         item = {
             "id": str(inc.id),
             "monitor_id": str(inc.monitor_id),
-            "monitor_name": mon.name if mon else None,
+            "monitor_name": _public_monitor_name(mon) if mon else None,
             "started_at": inc.started_at.isoformat(),
             "resolved_at": inc.resolved_at.isoformat() if inc.resolved_at else None,
             "duration_minutes": duration_minutes,

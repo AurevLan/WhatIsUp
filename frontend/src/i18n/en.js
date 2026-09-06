@@ -249,6 +249,13 @@ export default {
     duplicate: 'Duplicate',
     duplicate_name_prefix: 'Copy of {name}',
     edit_title: 'Edit monitor',
+    public_name: {
+      label: 'Public name',
+      placeholder: 'e.g. Storefront',
+      // Cap v2, 5c — the public status page is unauthenticated; the internal
+      // name often mirrors real inventory (server hostnames, etc).
+      desc: 'Shown on the public status page instead of the name above. Leave empty to publish the name above as-is.',
+    },
     no_monitors: 'No monitors yet',
     no_results: 'No monitors match your filters',
     col_target: 'Target',

@@ -310,6 +310,28 @@ async def _create_monitor_from_payload(
             ) from None
         raise
 
+    # V2 Global Health Engine, plan Cap v2 4a: a monitor created with the
+    # engine active must never be silent (CLAUDE.md "Health Engine V2 — ops
+    # prod" pitfall #1: engine ON + zero active SLORule = no incident, ever).
+    # min_probes=1 — not DEFAULT_RULE_KWARGS' 2 — is what makes the new
+    # default safe: a single-probe install (the embedded probe-local on a
+    # fresh deployment) behaves exactly like the legacy per-probe decider,
+    # and the consensus activates on its own as soon as a second probe
+    # reports. Manual toggles / rule deletions afterwards are not
+    # re-guaranteed here — see services/health.evaluate_slos, which logs
+    # instead so that state stays visible rather than silent.
+    if monitor.health_engine_enabled:
+        from whatisup.models.monitor_health import SLORule
+        from whatisup.scripts.migrate_to_health_engine import DEFAULT_RULE_KWARGS
+
+        db.add(
+            SLORule(
+                monitor_id=monitor.id,
+                **{**DEFAULT_RULE_KWARGS, "min_probes": 1},
+            )
+        )
+        await db.flush()
+
     # Auto-create alert rules if channels were specified
     if payload.alert_channel_ids:
         from whatisup.models.alert import AlertChannel, AlertRule

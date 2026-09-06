@@ -266,10 +266,18 @@ async def test_update_monitor(client: AsyncClient, user_token: str) -> None:
 @pytest.mark.asyncio
 async def test_health_engine_toggle_roundtrip(client: AsyncClient, user_token: str) -> None:
     """V2-M4: ``health_engine_enabled`` is editable via PATCH and surfaces in
-    MonitorOut so the frontend toggle reflects the persisted state."""
+    MonitorOut so the frontend toggle reflects the persisted state.
+
+    Creation defaults to True since plan Cap v2 4a — start this one off
+    explicitly disabled so the roundtrip (False -> True -> False) still
+    exercises both PATCH directions."""
     create = await client.post(
         "/api/v1/monitors/",
-        json={"name": "Toggle Me", "url": "https://example.com"},
+        json={
+            "name": "Toggle Me",
+            "url": "https://example.com",
+            "health_engine_enabled": False,
+        },
         headers={"Authorization": f"Bearer {user_token}"},
     )
     monitor_id = create.json()["id"]

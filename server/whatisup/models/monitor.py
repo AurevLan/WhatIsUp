@@ -349,7 +349,13 @@ class Monitor(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         DateTime(timezone=True), nullable=True
     )
 
-    # Global Health Engine opt-in (V2). Default False = legacy per-probe pipeline.
+    # Global Health Engine opt-in (V2). Column-level default stays False —
+    # it's the fallback for paths that build a Monitor without going through
+    # schemas.monitor.MonitorCreate (JSON import, IaC config_sync), which
+    # must not change behavior here. The applicative default for monitors
+    # created through the API (POST /monitors, discovery accept) is True,
+    # set on MonitorCreate itself (plan Cap v2 4a) and paired there with an
+    # auto-provisioned SLORule so it's never silent.
     health_engine_enabled: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default="false", nullable=False
     )

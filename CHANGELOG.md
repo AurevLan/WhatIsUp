@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.28.0](https://github.com/AurevLan/WhatIsUp/compare/v1.27.0...v1.28.0) (2026-09-06)
+
+
+### Added
+
+* **health:** activer le Health Engine par défaut à la création d'un moniteur ([#410](https://github.com/AurevLan/WhatIsUp/issues/410)) ([d17a3a0](https://github.com/AurevLan/WhatIsUp/commit/d17a3a0213613aaed2d6b4eadcc730448652e6ae))
+* **probes:** signaler les agents de sonde obsolètes ou muets ([#413](https://github.com/AurevLan/WhatIsUp/issues/413)) ([27f767c](https://github.com/AurevLan/WhatIsUp/commit/27f767c0cc8dc18b87caaf8624235d86b75a75fb))
+* **public:** nom public de moniteur, arrêt de la divulgation d'inventaire ([#417](https://github.com/AurevLan/WhatIsUp/issues/417)) ([b185a19](https://github.com/AurevLan/WhatIsUp/commit/b185a1966087fd3a29b318edcb72df50f0c14a29))
+* **status:** annoncer la maintenance planifiée sur la page publique ([#415](https://github.com/AurevLan/WhatIsUp/issues/415)) ([afec632](https://github.com/AurevLan/WhatIsUp/commit/afec632f5b4282128e291d190dcfba608f7a65ac))
+* **status:** annoncer sans qu'une sonde ait basculé (plan cap V2, 5b) ([#416](https://github.com/AurevLan/WhatIsUp/issues/416)) ([dbf8e7b](https://github.com/AurevLan/WhatIsUp/commit/dbf8e7b8adc6acf074b2c0458f14eee6e35f68c2))
+
+
+### Fixed
+
+* **probes:** réexposer la version de l'agent sur /probes/stats ([#412](https://github.com/AurevLan/WhatIsUp/issues/412)) ([22bf721](https://github.com/AurevLan/WhatIsUp/commit/22bf72164dbb00423851bc7ce08e55c55e0ebfaa))
+
+
+### Changed
+
+* **incidents:** retirer le décideur historique, le Health Engine reste seul ([#414](https://github.com/AurevLan/WhatIsUp/issues/414)) ([1a650fd](https://github.com/AurevLan/WhatIsUp/commit/1a650fd7e21d33dd0147e8c47b0fc43ca79520d2))
+
 ## [1.27.0](https://github.com/AurevLan/WhatIsUp/compare/v1.26.0...v1.27.0) (2026-09-06)
 
 

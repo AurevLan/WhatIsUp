@@ -65,6 +65,7 @@
       <router-link v-for="m in openIncidents.slice(0, 6)" :key="m.id" :to="`/monitors/${m.id}`" class="dash__incident">
         <span class="dash__incident-pip" aria-hidden="true" />
         <span class="dash__incident-name">{{ m.name }}</span>
+        <NetworkVerdictBadge :verdict="m._networkVerdict" />
         <span class="dash__incident-type">{{ m.check_type }}</span>
         <span class="dash__incident-go" aria-hidden="true">→</span>
       </router-link>
@@ -139,6 +140,7 @@ import ProbeMap from '../components/dashboard/ProbeMap.vue'
 import OnboardingWizard from '../components/onboarding/OnboardingWizard.vue'
 import SkeletonRow from '../components/shared/SkeletonRow.vue'
 import EmptyState from '../components/shared/EmptyState.vue'
+import NetworkVerdictBadge from '../components/shared/NetworkVerdictBadge.vue'
 import { useTour } from '../composables/useTour'
 import api from '../api/client'
 

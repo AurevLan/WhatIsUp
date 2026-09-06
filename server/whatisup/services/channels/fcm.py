@@ -20,7 +20,7 @@ from whatisup.models.alert import AlertChannel
 from whatisup.models.device_token import DeviceToken
 from whatisup.services import fcm
 
-from ._helpers import scope_label_fr
+from ._helpers import network_verdict_note_fr, scope_label_fr
 from .base import BaseAlertChannel
 
 
@@ -81,6 +81,10 @@ class FcmChannel(BaseAlertChannel):
         body_lines = [scope, f"Type: {check_type}"]
         if is_resolved and incident.duration_seconds:
             body_lines.append(f"Durée: {incident.duration_seconds}s")
+        # plan_cap_v2 §3a — network verdict, in the body itself.
+        note = network_verdict_note_fr(incident)
+        if note:
+            body_lines.append(note)
 
         payload = {
             "title": title,

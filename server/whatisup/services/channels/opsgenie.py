@@ -8,7 +8,7 @@ from typing import Any
 import httpx
 import structlog
 
-from ._helpers import scope_label_en
+from ._helpers import network_verdict_note_en, scope_label_en
 from .base import BaseAlertChannel
 
 logger = structlog.get_logger(__name__)
@@ -67,6 +67,10 @@ class OpsgenieChannel(BaseAlertChannel):
                 "priority": config.get("priority", "P1"),
                 "source": "WhatIsUp",
             }
+            # plan_cap_v2 §3a — network verdict, in the body itself.
+            note = network_verdict_note_en(incident)
+            if note:
+                payload["description"] = note
             async with httpx.AsyncClient(timeout=10) as client:
                 resp = await client.post(url, json=payload, headers=headers)
                 resp.raise_for_status()

@@ -8,7 +8,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from ._helpers import scope_label_fr, ssrf_safe_client, validate_webhook_url
+from ._helpers import (
+    network_verdict_note_fr,
+    scope_label_fr,
+    ssrf_safe_client,
+    validate_webhook_url,
+)
 from .base import BaseAlertChannel
 
 
@@ -57,6 +62,11 @@ class SignalChannel(BaseAlertChannel):
             lines.append(f"Résolu : {incident.resolved_at.strftime('%Y-%m-%d %H:%M UTC')}")
             if incident.duration_seconds:
                 lines.append(f"Durée : {incident.duration_seconds}s")
+
+        # plan_cap_v2 §3a — network verdict, in the body itself.
+        note = network_verdict_note_fr(incident)
+        if note:
+            lines.append(f"Réseau : {note}")
 
         message = "\n".join(lines)
 

@@ -8,7 +8,7 @@ import httpx
 
 from whatisup.services.channel_ack import make_ack_token, signing_secret_configured
 
-from ._helpers import scope_label_fr
+from ._helpers import network_verdict_note_fr, scope_label_fr
 from .base import BaseAlertChannel
 
 
@@ -68,6 +68,11 @@ class TelegramChannel(BaseAlertChannel):
             lines.append(f"<b>Résolu :</b> {incident.resolved_at.strftime('%Y-%m-%d %H:%M UTC')}")
             if incident.duration_seconds:
                 lines.append(f"<b>Durée :</b> {incident.duration_seconds}s")
+
+        # plan_cap_v2 §3a — network verdict, in the body itself.
+        note = network_verdict_note_fr(incident)
+        if note:
+            lines.append(f"<b>Réseau :</b> {note}")
 
         text = "\n".join(lines)
 

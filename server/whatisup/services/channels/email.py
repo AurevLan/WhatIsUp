@@ -8,7 +8,7 @@ from typing import Any
 
 import aiosmtplib
 
-from ._helpers import scope_label_fr
+from ._helpers import network_verdict_note_fr, scope_label_fr
 from .base import BaseAlertChannel
 
 
@@ -102,6 +102,13 @@ def _build_email_body(
         if incident.duration_seconds:
             resolved_line += f"<p><b>Durée :</b> {incident.duration_seconds}s</p>"
 
+    # plan_cap_v2 §3a — surface the network verdict in the body itself, not
+    # just as a suppression signal (services/alert.py fire_alerts).
+    verdict_line = ""
+    note = network_verdict_note_fr(incident)
+    if note:
+        verdict_line = f'<p style="color:#4F9CF9;"><b>Réseau :</b> {html.escape(note)}</p>'
+
     return f"""
     <html><body style="font-family: sans-serif; color: #333;">
     <h2>{status_emoji} WhatIsUp — {scope}</h2>
@@ -109,6 +116,7 @@ def _build_email_body(
     <p><b>Type :</b> {check_type.upper()}</p>
     <p><b>Début :</b> {incident.started_at.strftime("%Y-%m-%d %H:%M:%S UTC")}</p>
     {resolved_line}
+    {verdict_line}
     <hr><p style="color:#888; font-size:12px;">WhatIsUp Monitoring</p>
     </body></html>
     """

@@ -170,7 +170,10 @@
                 <span class="uppercase mr-1.5">{{ monitor.check_type }}</span>· {{ formatTarget(monitor) }}
               </p>
             </div>
-            <StatusBadge :status="monitor._lastStatus" :dot="false" class="flex-shrink-0" />
+            <span class="flex-shrink-0 flex items-center">
+              <StatusBadge :status="monitor._lastStatus" :dot="false" />
+              <NetworkVerdictBadge :verdict="monitor._networkVerdict" />
+            </span>
           </div>
           <div class="flex items-center justify-between mt-3 text-xs">
             <div>
@@ -239,6 +242,7 @@
             <!-- Status -->
             <td class="td pl-2">
               <StatusBadge :status="monitor._lastStatus" />
+              <NetworkVerdictBadge :verdict="monitor._networkVerdict" />
             </td>
 
             <!-- Name -->
@@ -495,6 +499,7 @@ import { useMonitorImportExport } from '../composables/useMonitorImportExport'
 import { useMonitorDisplay } from '../composables/useMonitorDisplay'
 import { useOrphanedMonitors } from '../composables/useOrphanedMonitors'
 import StatusBadge from '../components/shared/StatusBadge.vue'
+import NetworkVerdictBadge from '../components/shared/NetworkVerdictBadge.vue'
 import CreateMonitorModal from '../components/monitors/CreateMonitorModal.vue'
 import CreateMonitorWizard from '../components/monitors/CreateMonitorWizard.vue'
 import EditMonitorModal from '../components/monitors/EditMonitorModal.vue'

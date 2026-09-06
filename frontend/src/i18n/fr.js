@@ -1468,6 +1468,7 @@ export default {
     checked_ago: 'Vérifié {ago}',
     avg_response_ms: 'Réponse moy. {ms}ms',
     last_updated: 'Dernière mise à jour',
+    atom_feed: 'Flux Atom',
     day_status_up: 'Opérationnel',
     day_status_degraded: 'Dégradé',
     day_status_down: 'Panne',

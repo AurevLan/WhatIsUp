@@ -1,5 +1,6 @@
 """Public status page endpoints — no authentication required."""
 
+import html
 import json
 import secrets
 import uuid
@@ -13,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from starlette.responses import Response
 
+from whatisup.core.config import get_settings
 from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
 from whatisup.core.redis import redis_get_safe, redis_setex_safe
@@ -24,6 +26,7 @@ from whatisup.models.probe import Probe
 from whatisup.models.result import CheckResult
 from whatisup.models.status_announcement import StatusAnnouncement
 from whatisup.models.status_subscription import StatusSubscription
+from whatisup.services.atom_feed import AtomEntry, render_atom_feed
 from whatisup.services.network_verdict import _DOWN_STATUSES
 from whatisup.services.stats import (
     compute_daily_history_bulk,
@@ -55,6 +58,13 @@ PUBLIC_MONITORS_CACHE_TTL = 60
 
 
 def _badge_svg(label: str, value: str, color: str) -> str:
+    # `label`/`value` reach this f-string unescaped: today both call sites pass
+    # literals ("uptime", a percentage), but the signature invites a monitor's
+    # public name — html.escape() closes that off cheaply without pulling in
+    # a real XML serializer for a two-value SVG (unlike the Atom feed below,
+    # which does need one).
+    safe_label = html.escape(label, quote=True)
+    safe_value = html.escape(value, quote=True)
     label_w = len(label) * 6.5 + 12
     value_w = len(value) * 6.5 + 12
     total_w = label_w + value_w
@@ -69,12 +79,12 @@ def _badge_svg(label: str, value: str, color: str) -> str:
         f'  <rect rx="3" width="{total_w}" height="20" fill="url(#a)"/>\n'
         f'  <g fill="#fff" text-anchor="middle"'
         f' font-family="DejaVu Sans,Verdana,Geneva,sans-serif" font-size="11">\n'
-        f'    <text x="{label_w / 2}" y="15" fill="#010101" fill-opacity=".3">{label}</text>\n'
-        f'    <text x="{label_w / 2}" y="14">{label}</text>\n'
+        f'    <text x="{label_w / 2}" y="15" fill="#010101" fill-opacity=".3">{safe_label}</text>\n'
+        f'    <text x="{label_w / 2}" y="14">{safe_label}</text>\n'
         f'    <text x="{label_w + value_w / 2}" y="15"'
-        f' fill="#010101" fill-opacity=".3">{value}</text>\n'
+        f' fill="#010101" fill-opacity=".3">{safe_value}</text>\n'
         f'    <text x="{label_w + value_w / 2}" y="14">'
-        f"{value}</text>\n"
+        f"{safe_value}</text>\n"
         f"  </g>\n"
         f"</svg>"
     )
@@ -101,6 +111,18 @@ async def _get_group_by_slug(slug: str, db: AsyncSession) -> MonitorGroup:
     if group is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Status page not found")
     return group
+
+
+def _feed_monitor_name(monitor: Monitor | None) -> str:
+    """Name a monitor the same way the rest of the public page will once
+    ``Monitor.public_name`` exists (cap v2, 5c — not merged as of this lot):
+    prefer it, fall back to the internal `name`, and degrade to plain `name`
+    today without the column at all. Never the URL, TCP port, DNS record
+    type or `check_type` — that inventory was closed off by 5c and a new
+    endpoint must not reopen it (see module docstring / PR #417)."""
+    if monitor is None:
+        return "unknown monitor"
+    return getattr(monitor, "public_name", None) or monitor.name
 
 
 @router.get("/badge/{slug}/{monitor_name}")
@@ -522,6 +544,210 @@ async def get_public_status(
         "maintenance_windows": maintenance_windows,
         "announcements": announcements,
     }
+
+
+# Cap v2, 5d — an Atom feed is table stakes for a status page (Statuspage,
+# Better Stack and Instatus all ship one); nothing here offered a subscriber
+# anything to follow before this endpoint. Same cache trade-off as the two
+# endpoints above: unauthenticated, so it is memoised per group.
+PUBLIC_FEED_CACHE_TTL = 60
+# Bounded like `incidents_30d` above — an unauthenticated endpoint with an
+# unbounded feed is an amplification vector, not a feature.
+PUBLIC_FEED_MAX_ENTRIES = 100
+
+
+@router.get("/pages/{slug}/feed.atom")
+@limiter.limit("60/minute")
+async def get_public_atom_feed(
+    request: Request, slug: str, db: AsyncSession = Depends(get_db)
+) -> Response:
+    """Public Atom 1.0 feed for a status page: availability incidents (5c
+    scope — never a metric incident), announcements with their update thread
+    (5b), and published maintenance windows (5a). One entry per *object*, not
+    per state change — `id` is stable and `updated` moves with the object so
+    a feed reader can dedupe instead of re-surfacing every edit as new.
+
+    Never republishes what 5c closed off: a monitor is named (public name,
+    falling back to its internal name), never addressed by URL, TCP port,
+    DNS record type or check type.
+    """
+    group = await _get_group_by_slug(slug, db)
+
+    cache_key = f"whatisup:public:feed:{group.id}"
+    cached = await redis_get_safe(cache_key)
+    if cached:
+        return Response(content=cached, media_type="application/atom+xml; charset=utf-8")
+
+    monitors = (
+        (
+            await db.execute(
+                select(Monitor).where(
+                    Monitor.group_id == group.id,
+                    Monitor.enabled.is_(True),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    monitor_ids = [m.id for m in monitors]
+    monitor_by_id = {m.id: m for m in monitors}
+
+    now = datetime.now(UTC)
+    cutoff_30d = now - timedelta(days=30)
+
+    settings = get_settings()
+    base = str(settings.public_base_url).rstrip("/")
+    page_url = f"{base}/status/{slug}"
+
+    entries: list[AtomEntry] = []
+
+    # ── Incidents — availability only. A metric incident (C-4) is an
+    # internal application signal, never published here, same restriction as
+    # `incidents_30d` above. ──
+    if monitor_ids:
+        incident_rows = (
+            (
+                await db.execute(
+                    select(Incident)
+                    .where(
+                        Incident.monitor_id.in_(monitor_ids),
+                        Incident.started_at >= cutoff_30d,
+                        IS_AVAILABILITY_INCIDENT,
+                    )
+                    .order_by(Incident.started_at.desc())
+                    .limit(PUBLIC_FEED_MAX_ENTRIES)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for inc in incident_rows:
+            monitor_name = _feed_monitor_name(monitor_by_id.get(inc.monitor_id))
+            # No `updated_at` column on `Incident` — resolution is the only
+            # modification a public reader is told about, so it doubles as
+            # the Atom `updated` timestamp (dedup breaks otherwise: an
+            # incident that later resolves must not look unchanged).
+            updated = inc.resolved_at or inc.started_at
+            if inc.is_resolved:
+                title = f"{monitor_name}: resolved"
+                summary = f"{monitor_name} recovered."
+                if inc.duration_seconds is not None:
+                    summary += f" Duration: {inc.duration_seconds // 60} min."
+            else:
+                title = f"{monitor_name}: ongoing incident"
+                summary = f"{monitor_name} is currently experiencing an incident."
+                # Same public restriction as `incidents_30d`: only the two
+                # network-partition verdicts are ever named, never the
+                # ASN/country identity behind them.
+                if inc.network_verdict in _PUBLIC_VERDICTS:
+                    summary += (
+                        " Classified as a network partition, not necessarily a service outage."
+                    )
+            entries.append(
+                AtomEntry(
+                    entry_id=f"urn:whatisup:incident:{inc.id}",
+                    title=title,
+                    updated=updated,
+                    published=inc.started_at,
+                    summary=summary,
+                    link=page_url,
+                )
+            )
+
+    # ── Announcements (5b) — the update thread is folded into the entry's
+    # summary rather than emitted as separate entries: one announcement is
+    # one narrative, and a reader dedupes on the announcement, not each post
+    # in its thread. `updated_at` (TimestampMixin) already bumps on title
+    # edits, new posts and close (see api/v1/status_announcements.py). ──
+    announcement_rows = (
+        (
+            await db.execute(
+                select(StatusAnnouncement)
+                .options(selectinload(StatusAnnouncement.updates))
+                .where(
+                    StatusAnnouncement.group_id == group.id,
+                    or_(
+                        StatusAnnouncement.ended_at.is_(None),
+                        StatusAnnouncement.ended_at >= cutoff_30d,
+                    ),
+                )
+                .order_by(StatusAnnouncement.started_at.desc())
+                .limit(PUBLIC_FEED_MAX_ENTRIES)
+            )
+        )
+        .scalars()
+        .unique()
+        .all()
+    )
+    for ann in announcement_rows:
+        public_posts = [u for u in ann.updates if u.is_public]
+        summary = "\n\n".join(f"[{u.status.value}] {u.message}" for u in public_posts) or ann.title
+        entries.append(
+            AtomEntry(
+                entry_id=f"urn:whatisup:announcement:{ann.id}",
+                title=ann.title,
+                updated=ann.updated_at,
+                published=ann.started_at,
+                summary=summary,
+                link=page_url,
+            )
+        )
+
+    # ── Maintenance windows (5a) — same group scoping as the block above,
+    # widened to also cover windows that ended within the last 30 days: the
+    # `/status` endpoint only needs current+upcoming, but a feed reader that
+    # last polled before a short window both started and ended would
+    # otherwise never see it. ──
+    maintenance_conditions = [MaintenanceWindow.group_id == group.id]
+    if monitor_ids:
+        maintenance_conditions.append(MaintenanceWindow.monitor_id.in_(monitor_ids))
+    window_rows = (
+        (
+            await db.execute(
+                select(MaintenanceWindow)
+                .where(or_(*maintenance_conditions), MaintenanceWindow.ends_at >= cutoff_30d)
+                .order_by(MaintenanceWindow.starts_at.desc())
+                .limit(PUBLIC_FEED_MAX_ENTRIES)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for window in window_rows:
+        # `name`/`description` are internal (see models/maintenance.py) —
+        # only the operator-written `public_message` is ever shown, exactly
+        # like the `/status` endpoint above.
+        summary = window.public_message or (
+            f"Scheduled maintenance from {window.starts_at.isoformat()} "
+            f"to {window.ends_at.isoformat()}."
+        )
+        entries.append(
+            AtomEntry(
+                entry_id=f"urn:whatisup:maintenance:{window.id}",
+                title="Scheduled maintenance",
+                updated=window.updated_at,
+                published=window.created_at,
+                summary=summary,
+                link=page_url,
+            )
+        )
+
+    # Three independently-capped sources can still exceed the feed's own
+    # cap once merged — sort by most-recently-updated and truncate.
+    entries.sort(key=lambda e: e.updated, reverse=True)
+    entries = entries[:PUBLIC_FEED_MAX_ENTRIES]
+
+    feed_xml = render_atom_feed(
+        feed_id=f"urn:whatisup:statuspage:{group.id}",
+        title=f"{group.public_title or group.name} — Status",
+        self_url=f"{base}/api/v1/public/pages/{slug}/feed.atom",
+        alternate_url=page_url,
+        entries=entries,
+    )
+
+    await redis_setex_safe(cache_key, PUBLIC_FEED_CACHE_TTL, feed_xml)
+    return Response(content=feed_xml, media_type="application/atom+xml; charset=utf-8")
 
 
 @router.get("/pages/{slug}/incidents/{incident_id}/updates")

@@ -1494,6 +1494,7 @@ export default {
     checked_ago: 'Checked {ago}',
     avg_response_ms: 'Avg. response {ms}ms',
     last_updated: 'Last updated',
+    atom_feed: 'Atom feed',
     day_status_up: 'Operational',
     day_status_degraded: 'Degraded',
     day_status_down: 'Outage',

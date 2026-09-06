@@ -3,7 +3,7 @@
       <form @submit.prevent="handleSubmit" class="space-y-4">
 
         <MonitorFormFields mode="edit" :json-schema-error="jsonSchemaError">
-          <template #before-flapping>
+          <template #before-advanced-detection>
           <!-- Runbook -->
           <div class="border border-(--border) rounded-lg overflow-hidden">
             <div class="flex items-center justify-between px-4 py-2.5 bg-(--bg-surface-2)">
@@ -113,8 +113,6 @@ const form = ref({
   expected_headers_list: headersFromMonitor,
   custom_headers_list: customHeadersFromMonitor,
   json_schema_text: m.json_schema ? JSON.stringify(m.json_schema, null, 2) : '',
-  flap_threshold: m.flap_threshold ?? 5,
-  flap_window_minutes: m.flap_window_minutes ?? 10,
   auto_pause_after: m.auto_pause_after ?? null,
   dns_drift_alert: m.dns_drift_alert ?? false,
   dns_split_enabled: m.dns_split_enabled ?? false,
@@ -237,11 +235,6 @@ function buildPayload() {
     p.custom_headers = validCustom.length
       ? Object.fromEntries(validCustom.map(h => [h.key.trim(), h.value]))
       : null
-  }
-
-  if (form.value.check_type !== 'heartbeat') {
-    p.flap_threshold = form.value.flap_threshold
-    p.flap_window_minutes = form.value.flap_window_minutes
   }
 
   // Auto-pause after N consecutive failures

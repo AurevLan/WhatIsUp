@@ -340,10 +340,7 @@ export default {
       weight: 'Poids',
       no_members: "Aucun membre pour l'instant.",
     },
-    flapping_settings: 'Détection de flapping',
-    flapping_desc: 'Remplace les seuils globaux de détection de flapping pour ce moniteur.',
-    flap_threshold: 'Seuil de transitions',
-    flap_window_minutes: 'Fenêtre (minutes)',
+    advanced_detection_settings: 'Détection avancée',
     auto_pause_after: 'Auto-pause après échecs consécutifs',
     auto_pause_after_hint: 'Met automatiquement le moniteur en pause après N échecs consécutifs sur toutes les sondes (laisser vide pour désactiver)',
     channels: {

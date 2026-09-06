@@ -18,9 +18,13 @@ Usage (inside the server container or a venv with the package installed):
 Default rule created per monitor:
     quorum_down · 60% / 5 min · min 2 probes · cooldown 60s
 
-To roll back, either:
-    - Disable per-monitor: ``UPDATE monitors SET health_engine_enabled=false WHERE …``
-    - Disable globally: set env ``LEGACY_INCIDENT_ENGINE=true`` and restart.
+To roll back: disable per-monitor with ``UPDATE monitors SET
+health_engine_enabled=false WHERE …``. There is no global rollback flag any
+more (``LEGACY_INCIDENT_ENGINE`` retired in plan Cap v2 4b along with the
+per-probe decider it short-circuited to) — disabling a monitor here now
+leaves it with no detection at all unless you also keep a matching active
+``SLORule``, see ``provision_missing_health_engine_coverage`` below for the
+migration invariant this tool no longer enforces alone.
 """
 
 from __future__ import annotations
@@ -29,8 +33,9 @@ import argparse
 import asyncio
 import sys
 import uuid
+from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.core.database import get_session_factory
@@ -45,6 +50,84 @@ DEFAULT_RULE_KWARGS = {
     "min_probes": 2,
     "cooldown_seconds": 60,
 }
+
+
+def provision_missing_health_engine_coverage(bind) -> int:
+    """Flip ``health_engine_enabled`` + backfill a default ``SLORule`` for
+    every monitor still stuck on the retired legacy per-probe decider (plan
+    Cap v2 4b).
+
+    Runs against a plain synchronous ``Connection`` — Alembic's
+    ``op.get_bind()`` in production, or a SQLite connection borrowed via
+    ``AsyncConnection.run_sync()`` in tests (same idiom as
+    ``Base.metadata.create_all`` in ``tests/conftest.py``) — using the ORM's
+    mapped ``Table`` objects rather than raw SQL. That matters specifically
+    for ``rule_type``: it's a native Postgres enum, and only a Core insert
+    against the *typed* ``SLORule.__table__`` column gets it bound correctly;
+    an untyped ``sa.table()`` would hand the driver a plain string the server
+    rejects with "column is of type slo_rule_type but expression is of type
+    text". This dialect-agnostic path is what lets this exact function run
+    unit-tested against SQLite and unmodified against Postgres in prod.
+
+    Idempotent and never leaves a monitor uncovered:
+    - A monitor already on ``health_engine_enabled=True`` is left untouched
+      (a second run over an already-migrated fleet is a no-op).
+    - A monitor that already carries *any* active ``SLORule`` (someone may
+      have hand-configured ``quorum_slow`` before flipping the flag — or this
+      function ran once already) does not get a duplicate ``quorum_down``.
+    - ``min_probes=1`` here, not ``DEFAULT_RULE_KWARGS``' 2 (crud.py's
+      MonitorCreate path made the same call in plan Cap v2 4a) — a
+      single-probe install must not go blind the moment its last monitor is
+      migrated off the legacy decider.
+
+    Returns the number of monitors migrated.
+    """
+    monitors_table = Monitor.__table__
+    slo_table = SLORule.__table__
+
+    monitor_ids = (
+        bind.execute(
+            select(monitors_table.c.id).where(monitors_table.c.health_engine_enabled.is_(False))
+        )
+        .scalars()
+        .all()
+    )
+    if not monitor_ids:
+        return 0
+
+    covered = set(
+        bind.execute(
+            select(slo_table.c.monitor_id).where(
+                slo_table.c.monitor_id.in_(monitor_ids),
+                slo_table.c.enabled.is_(True),
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    now = datetime.now(UTC)
+    to_create = [
+        {
+            "id": uuid.uuid4(),
+            "created_at": now,
+            "updated_at": now,
+            "monitor_id": monitor_id,
+            **DEFAULT_RULE_KWARGS,
+            "min_probes": 1,
+        }
+        for monitor_id in monitor_ids
+        if monitor_id not in covered
+    ]
+    if to_create:
+        bind.execute(insert(slo_table), to_create)
+
+    bind.execute(
+        update(monitors_table)
+        .where(monitors_table.c.health_engine_enabled.is_(False))
+        .values(health_engine_enabled=True)
+    )
+    return len(monitor_ids)
 
 
 async def _ensure_quorum_rule(db: AsyncSession, monitor_id: uuid.UUID) -> bool:

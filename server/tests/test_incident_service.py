@@ -1,4 +1,13 @@
-"""Tests for the incident detection service."""
+"""Tests for the incident detection service.
+
+Flapping detection (``_is_flapping``) and direct incident open/resolve via
+``process_check_result`` were removed/moved in plan Cap v2 4b: the legacy
+per-probe decider retired, and availability incidents are now opened/resolved
+exclusively through the Health Engine (``services.health.evaluate_slos`` /
+``services.incident_slo``). The tests below exercise that path directly —
+mirroring the real background flow in ``api/v1/probes.py``: ``process_check_result``
+then ``health.ingest(..., publish_event=...)``.
+"""
 
 from __future__ import annotations
 
@@ -10,14 +19,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.models.incident import Incident, IncidentScope
 from whatisup.models.monitor import Monitor, MonitorDependency
+from whatisup.models.monitor_health import SLORule, SLORuleType
 from whatisup.models.probe import Probe
 from whatisup.models.result import CheckResult, CheckStatus
 from whatisup.models.user import User
-from whatisup.services.incident import (
-    _is_flapping,
-    _is_suppressed_by_dependency,
-    process_check_result,
-)
+from whatisup.services import health
+from whatisup.services.incident import _is_suppressed_by_dependency, process_check_result
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -40,59 +47,35 @@ async def _add_result(
     return r
 
 
+async def _add_default_slo_rule(db: AsyncSession, monitor: Monitor) -> SLORule:
+    """Mirrors the rule crud.py auto-provisions on creation (plan Cap v2 4a):
+    quorum_down, min_probes=1 — behaves like the legacy per-probe decider at
+    a single probe."""
+    rule = SLORule(
+        monitor_id=monitor.id,
+        rule_type=SLORuleType.quorum_down,
+        enabled=True,
+        quorum_ratio=0.6,
+        window_seconds=300,
+        min_probes=1,
+        cooldown_seconds=60,
+    )
+    db.add(rule)
+    await db.flush()
+    return rule
+
+
+async def _run_pipeline(db: AsyncSession, result: CheckResult, publish_event) -> None:
+    await process_check_result(db, result, publish_event)
+    await health.ingest(db, result, publish_event=publish_event)
+
+
 class _EventCollector:
     def __init__(self) -> None:
         self.events: list[dict] = []
 
     async def __call__(self, event: dict) -> None:
         self.events.append(event)
-
-
-# ── _is_flapping ──────────────────────────────────────────────────────────────
-
-
-@pytest.mark.asyncio
-async def test_flapping_no_data(service_db: AsyncSession, test_monitor: Monitor) -> None:
-    assert await _is_flapping(service_db, test_monitor) is False
-
-
-@pytest.mark.asyncio
-async def test_flapping_stable_down(
-    service_db: AsyncSession, test_monitor: Monitor, test_probe: Probe
-) -> None:
-    for i in range(8):
-        await _add_result(
-            service_db,
-            test_monitor,
-            test_probe,
-            CheckStatus.down,
-            datetime.now(UTC) - timedelta(minutes=i),
-        )
-    assert await _is_flapping(service_db, test_monitor) is False
-
-
-@pytest.mark.asyncio
-async def test_flapping_detects_oscillation(
-    service_db: AsyncSession, test_monitor: Monitor, test_probe: Probe
-) -> None:
-    statuses = [
-        CheckStatus.up,
-        CheckStatus.down,
-        CheckStatus.up,
-        CheckStatus.down,
-        CheckStatus.up,
-        CheckStatus.down,
-    ]
-    for i, st in enumerate(statuses):
-        await _add_result(
-            service_db,
-            test_monitor,
-            test_probe,
-            st,
-            datetime.now(UTC) - timedelta(minutes=i),
-        )
-    # 5 transitions >= default threshold (5) → flapping
-    assert await _is_flapping(service_db, test_monitor) is True
 
 
 # ── _is_suppressed_by_dependency ──────────────────────────────────────────────
@@ -157,17 +140,18 @@ async def test_suppressed_parent_incident_resolved(
     assert await _is_suppressed_by_dependency(service_db, test_monitor.id) is False
 
 
-# ── process_check_result ──────────────────────────────────────────────────────
+# ── process_check_result + health.ingest (Health Engine, plan Cap v2 4b) ──────
 
 
 @pytest.mark.asyncio
 async def test_process_opens_incident_when_down(
     service_db: AsyncSession, test_monitor: Monitor, test_probe: Probe
 ) -> None:
+    await _add_default_slo_rule(service_db, test_monitor)
     result = await _add_result(service_db, test_monitor, test_probe, CheckStatus.down)
     collector = _EventCollector()
 
-    await process_check_result(service_db, result, collector)
+    await _run_pipeline(service_db, result, collector)
 
     incident = (
         await service_db.execute(
@@ -179,6 +163,8 @@ async def test_process_opens_incident_when_down(
     ).scalar_one_or_none()
     assert incident is not None
     assert incident.scope == IncidentScope.global_
+    assert incident.slo_rule_id is not None
+    assert incident.trigger_kind == "quorum_down"
     assert any(e["type"] == "incident_opened" for e in collector.events)
 
 
@@ -186,12 +172,16 @@ async def test_process_opens_incident_when_down(
 async def test_process_resolves_incident_when_up(
     service_db: AsyncSession, test_monitor: Monitor, test_probe: Probe
 ) -> None:
-    # Pre-existing open incident
+    rule = await _add_default_slo_rule(service_db, test_monitor)
+    # Pre-existing open incident, tied to the active rule like open_incident_from_health
+    # would have created it — resolution is keyed on (monitor_id, slo_rule_id).
     incident = Incident(
         monitor_id=test_monitor.id,
         started_at=datetime.now(UTC) - timedelta(minutes=5),
         scope=IncidentScope.global_,
         affected_probe_ids=[],
+        slo_rule_id=rule.id,
+        trigger_kind="quorum_down",
     )
     service_db.add(incident)
     await service_db.flush()
@@ -199,42 +189,8 @@ async def test_process_resolves_incident_when_up(
     result = await _add_result(service_db, test_monitor, test_probe, CheckStatus.up)
     collector = _EventCollector()
 
-    await process_check_result(service_db, result, collector)
+    await _run_pipeline(service_db, result, collector)
 
     await service_db.refresh(incident)
     assert incident.resolved_at is not None
     assert any(e["type"] == "incident_resolved" for e in collector.events)
-
-
-@pytest.mark.asyncio
-async def test_process_no_incident_when_flapping(
-    service_db: AsyncSession, test_monitor: Monitor, test_probe: Probe
-) -> None:
-    # Create oscillating history to trigger flap detection
-    statuses = [
-        CheckStatus.up,
-        CheckStatus.down,
-        CheckStatus.up,
-        CheckStatus.down,
-        CheckStatus.up,
-    ]
-    for i, st in enumerate(statuses):
-        await _add_result(
-            service_db,
-            test_monitor,
-            test_probe,
-            st,
-            datetime.now(UTC) - timedelta(minutes=5 - i),
-        )
-
-    # Now submit a down result — should be suppressed by flapping
-    result = await _add_result(service_db, test_monitor, test_probe, CheckStatus.down)
-    collector = _EventCollector()
-
-    await process_check_result(service_db, result, collector)
-
-    incident = (
-        await service_db.execute(select(Incident).where(Incident.monitor_id == test_monitor.id))
-    ).scalar_one_or_none()
-    assert incident is None
-    assert any(e["type"] == "flapping_detected" for e in collector.events)

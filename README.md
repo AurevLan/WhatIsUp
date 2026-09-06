@@ -42,7 +42,7 @@
 There's no shortage of uptime tools. WhatIsUp focuses on three things most of them don't do well at once:
 
 - 🌍 **Real multi-probe correlation** — deploy lightweight probes in any datacenter, office, or region, and let WhatIsUp tell you whether an outage is global, regional, probe-local, or actually an upstream network partition. One failed probe no longer means one false page.
-- 🔕 **Alerting that shuts up** — flapping suppression, incident groups, dependency-aware cascade suppression, maintenance windows, storm protection, business-hours schedules, and an impact preview that replays your rules against the last 30 days so you calibrate thresholds with data instead of vibes.
+- 🔕 **Alerting that shuts up** — quorum-based incident detection with a per-rule cooldown against flapping, incident groups, dependency-aware cascade suppression, maintenance windows, storm protection, business-hours schedules, and an impact preview that replays your rules against the last 30 days so you calibrate thresholds with data instead of vibes.
 - 🎛 **Self-hosted, batteries included** — one `docker compose up`, no SaaS lock-in, no per-monitor pricing. Playwright scenarios, SSO/OIDC, teams & RBAC, IaC import/export, and an Android app all ship in the box.
 
 Built for teams who want Datadog-grade monitoring without Datadog-grade bills, and who'd rather own their data than rent it.
@@ -242,7 +242,6 @@ docker compose --env-file .env exec server alembic upgrade head
 | `METRICS_MAX_LABELS_PER_POINT` | `10` | Labels are a dimension, not a payload |
 | `METRIC_ALERTS_ENABLED` | `true` | Pushed-metric conditions. This loop is the **only** thing that fires them |
 | `METRIC_ALERTS_INTERVAL_SECONDS` | `60` | Worst-case alerting delay for pushed metrics. Evaluation is deliberately off the ingestion path so a slow webhook cannot throttle the agent that pushes |
-| `LEGACY_INCIDENT_ENGINE` | unset | Set to `true` to bypass the Health Engine SLO bridge globally. No migration involved — a rollback switch |
 | `SMTP_HOST` / `SMTP_PORT` | `localhost` / `587` | SMTP server for email alerts |
 | `SMTP_USER` / `SMTP_PASSWORD` | — | SMTP credentials |
 | `SMTP_FROM` | `noreply@example.com` | Sender address |
@@ -329,8 +328,8 @@ Advanced assertions across types: regex body check, response header validation (
 
 ### Incidents & alerting
 
-- **Automatic lifecycle** — open on failure, resolve on recovery, flapping detection with per-monitor thresholds
-- **Global Health Engine V2** — quorum-based judgement (`quorum_down`, `quorum_slow`) with per-probe divergence exclusion
+- **Automatic lifecycle** — open on failure, resolve on recovery, driven by cross-probe quorum with a per-rule cooldown against rapid re-opening
+- **Global Health Engine V2** — quorum-based judgement (`quorum_down`, `quorum_slow`) with per-probe divergence exclusion; the only detection engine (the legacy per-probe decider was retired)
 - **Network verdict** — distinguishes a real outage from an upstream partition; rules can opt out of paging on the latter
 - **Incident groups** — monitors sharing failing probes within a 90 s window are grouped; one notification instead of N
 - **Monitor dependencies** — child incidents suppressed while a parent is down

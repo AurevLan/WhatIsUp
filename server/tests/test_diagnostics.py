@@ -1,8 +1,8 @@
 """Tests for V2-01-01 — incident-open auto-traceroute pipeline.
 
 Covers four contracts:
-1. ``process_check_result`` enqueues a Redis diagnostic request when an
-   incident opens.
+1. Opening an incident (via the Health Engine, plan Cap v2 4b) enqueues a
+   Redis diagnostic request.
 2. ``POST /probes/diagnostics`` validates the payload schema and persists rows.
 3. Multiple probes may post concurrently for the same incident with no FK
    collision.
@@ -28,9 +28,11 @@ import whatisup.core.redis as redis_module
 from whatisup.models.incident import Incident, IncidentScope
 from whatisup.models.incident_diagnostic import IncidentDiagnostic
 from whatisup.models.monitor import Monitor
+from whatisup.models.monitor_health import SLORule, SLORuleType
 from whatisup.models.probe import Probe
 from whatisup.models.result import CheckResult, CheckStatus
 from whatisup.models.user import User
+from whatisup.services import health
 from whatisup.services.diagnostics import (
     drain_pending_diagnostics,
     enqueue_diagnostic_requests,
@@ -67,12 +69,29 @@ async def test_incident_open_enqueues_diagnostic_requests(
     test_user: User,
     fake_redis: FakeRedis,
 ) -> None:
+    """Incident opening now flows through the Health Engine (plan Cap v2 4b) —
+    ``open_incident_from_health`` reuses the same ``enqueue_diagnostic_requests``
+    call the retired legacy decider used, so the contract under test is
+    unchanged even though the opening mechanism is."""
     monitor = Monitor(name="diag-mon", url="https://example.com", owner_id=test_user.id)
     service_db.add(monitor)
     await service_db.flush()
 
     probe = Probe(name="p1", location_name="DC1", api_key_hash="x", is_active=True)
     service_db.add(probe)
+    await service_db.flush()
+
+    service_db.add(
+        SLORule(
+            monitor_id=monitor.id,
+            rule_type=SLORuleType.quorum_down,
+            enabled=True,
+            quorum_ratio=0.6,
+            window_seconds=300,
+            min_probes=1,
+            cooldown_seconds=60,
+        )
+    )
     await service_db.flush()
 
     redis_module._redis = fake_redis
@@ -86,7 +105,9 @@ async def test_incident_open_enqueues_diagnostic_requests(
     service_db.add(result)
     await service_db.flush()
 
-    await process_check_result(service_db, result, _Collector())
+    collector = _Collector()
+    await process_check_result(service_db, result, collector)
+    await health.ingest(service_db, result, publish_event=collector)
 
     incident = (
         await service_db.execute(select(Incident).where(Incident.monitor_id == monitor.id))

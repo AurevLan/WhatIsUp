@@ -52,8 +52,6 @@ export const useWebSocketStore = defineStore('websocket', () => {
         const monitorStore = useMonitorStore()
         if (data.type === 'check_result') {
           monitorStore.applyCheckResult(data)
-        } else if (data.type === 'flapping_detected') {
-          monitorStore.setFlapping(data.monitor_id)
         }
       } catch (err) {
         if (import.meta.env.DEV) console.error('[ws] message handler error:', err)

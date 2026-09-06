@@ -55,7 +55,6 @@ describe('monitors store', () => {
     expect(m._uptime24h).toBe(99.5)
     expect(m._hasOpenIncident).toBe(false)
     expect(m._sparkline).toEqual([110, 115, 120])
-    expect(m._isFlapping).toBe(false)
     expect(['A', 'B', 'C', 'D', 'F']).toContain(m._healthScore)
   })
 
@@ -172,22 +171,4 @@ describe('monitors store', () => {
     ).not.toThrow()
   })
 
-  it('setFlapping flips the flag and auto-clears after 10 minutes', async () => {
-    apiList.mockResolvedValueOnce({ data: [fixture()] })
-    const store = useMonitorStore()
-    await store.fetchAll()
-
-    store.setFlapping('mon-1')
-    expect(store.monitors[0]._isFlapping).toBe(true)
-
-    vi.advanceTimersByTime(10 * 60 * 1000 + 1000)
-    expect(store.monitors[0]._isFlapping).toBe(false)
-  })
-
-  it('setFlapping is a no-op for unknown monitor ids', async () => {
-    apiList.mockResolvedValueOnce({ data: [fixture()] })
-    const store = useMonitorStore()
-    await store.fetchAll()
-    expect(() => store.setFlapping('ghost')).not.toThrow()
-  })
 })

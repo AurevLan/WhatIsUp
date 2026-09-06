@@ -344,33 +344,26 @@
   </template>
 
   <!-- Blocs propres à une modale intercalés ici (le runbook de l'édition
-       s'affiche avant le flapping) — sans ce slot, l'extraction déplacerait
+       s'affiche avant ce panneau) — sans ce slot, l'extraction déplacerait
        ce bloc dans l'écran. -->
-  <slot name="before-flapping" />
+  <slot name="before-advanced-detection" />
 
-  <!-- Flapping detection overrides -->
+  <!-- Auto-pause. Was also home to per-monitor flapping overrides
+       (flap_threshold / flap_window_minutes) until plan Cap v2 4b: the
+       Health Engine (only detection engine left) damps rapid oscillation via
+       its quorum window + cooldown instead, so the per-monitor setting was
+       retired rather than left inert (CLAUDE.md "Health Engine V2"). -->
   <div v-if="form.check_type !== 'heartbeat'" class="border border-(--border) rounded-lg overflow-hidden">
     <button
       type="button"
-      @click="showFlapping = !showFlapping"
+      @click="showAdvancedDetection = !showAdvancedDetection"
       class="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium text-(--text-2) hover:text-(--text-1) hover:bg-(--bg-surface-2) transition-colors"
     >
-      <span>{{ t('monitors.flapping_settings') }}</span>
-      <span class="text-xs transition-transform" :class="showFlapping ? 'rotate-180' : ''">▼</span>
+      <span>{{ t('monitors.advanced_detection_settings') }}</span>
+      <span class="text-xs transition-transform" :class="showAdvancedDetection ? 'rotate-180' : ''">▼</span>
     </button>
-    <div v-if="showFlapping" class="px-4 pb-4 pt-2 space-y-3 border-t border-(--border) bg-(--bg-surface-2)">
-      <p class="text-xs text-(--text-3)">{{ t('monitors.flapping_desc') }}</p>
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <label class="block text-xs text-(--text-2) mb-1">{{ t('monitors.flap_threshold') }}</label>
-          <input v-model.number="form.flap_threshold" type="number" min="2" max="50" class="input w-full" />
-        </div>
-        <div>
-          <label class="block text-xs text-(--text-2) mb-1">{{ t('monitors.flap_window_minutes') }}</label>
-          <input v-model.number="form.flap_window_minutes" type="number" min="1" max="60" class="input w-full" />
-        </div>
-      </div>
-      <div class="mt-3">
+    <div v-if="showAdvancedDetection" class="px-4 pb-4 pt-2 space-y-3 border-t border-(--border) bg-(--bg-surface-2)">
+      <div>
         <label class="block text-xs text-(--text-2) mb-1">{{ t('monitors.auto_pause_after') }}</label>
         <input v-model.number="form.auto_pause_after" type="number" min="2" max="100" class="input w-full" />
         <p class="text-xs text-(--text-3) mt-1">{{ t('monitors.auto_pause_after_hint') }}</p>
@@ -441,7 +434,7 @@ const showAdvanced = ref(
   ),
 )
 const showCustomHeaders = ref(Boolean(form.value.custom_headers_list?.length))
-const showFlapping = ref(false)
+const showAdvancedDetection = ref(false)
 const selectedUaPreset = ref('')
 
 const jsonSchemaError = computed(() => props.jsonSchemaError)

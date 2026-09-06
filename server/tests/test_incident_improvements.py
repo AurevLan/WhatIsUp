@@ -1,4 +1,10 @@
-"""Tests for incident improvements: ack, atomic creation, SLA, renotify, digest persistence."""
+"""Tests for incident improvements: ack, atomic creation, SLA, renotify, digest persistence.
+
+Availability incidents are opened/resolved exclusively through the Health
+Engine since plan Cap v2 4b — the tests below run the full pipeline
+(``process_check_result`` then ``health.ingest``), mirroring the real
+background flow in ``api/v1/probes.py``.
+"""
 
 from __future__ import annotations
 
@@ -10,9 +16,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.models.incident import Incident, IncidentScope
 from whatisup.models.monitor import Monitor
+from whatisup.models.monitor_health import SLORule, SLORuleType
 from whatisup.models.probe import Probe
 from whatisup.models.result import CheckResult, CheckStatus
 from whatisup.models.user import User
+from whatisup.services import health
 from whatisup.services.incident import process_check_result
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -36,6 +44,26 @@ async def _add_result(
     return r
 
 
+async def _add_default_slo_rule(db: AsyncSession, monitor: Monitor) -> SLORule:
+    rule = SLORule(
+        monitor_id=monitor.id,
+        rule_type=SLORuleType.quorum_down,
+        enabled=True,
+        quorum_ratio=0.6,
+        window_seconds=300,
+        min_probes=1,
+        cooldown_seconds=60,
+    )
+    db.add(rule)
+    await db.flush()
+    return rule
+
+
+async def _run_pipeline(db: AsyncSession, result: CheckResult, publish_event) -> None:
+    await process_check_result(db, result, publish_event)
+    await health.ingest(db, result, publish_event=publish_event)
+
+
 class _EventCollector:
     def __init__(self) -> None:
         self.events: list[dict] = []
@@ -51,9 +79,10 @@ class _EventCollector:
 async def test_incident_has_first_failure_at(
     service_db: AsyncSession, test_monitor: Monitor, test_probe: Probe
 ) -> None:
+    await _add_default_slo_rule(service_db, test_monitor)
     result = await _add_result(service_db, test_monitor, test_probe, CheckStatus.down)
     collector = _EventCollector()
-    await process_check_result(service_db, result, collector)
+    await _run_pipeline(service_db, result, collector)
 
     incident = (
         await service_db.execute(
@@ -64,8 +93,14 @@ async def test_incident_has_first_failure_at(
         )
     ).scalar_one()
     assert incident.first_failure_at is not None
-    # SQLite strips timezone info, so compare without tz
-    assert incident.first_failure_at.replace(tzinfo=None) == result.checked_at.replace(tzinfo=None)
+    # open_incident_from_health stamps `now` at detection time — a fleet-state
+    # transition, not a single CheckResult, so unlike the retired legacy
+    # decider there's no exact result.checked_at to tie it to. Both happen
+    # within the same test run, so a tight tolerance still catches a real bug
+    # (e.g. first_failure_at left null or wildly off) without asserting exact
+    # equality with a timestamp the new pipeline never reads for this field.
+    delta = abs((incident.first_failure_at.replace(tzinfo=UTC) - datetime.now(UTC)).total_seconds())
+    assert delta < 5
 
 
 # ── Ack clears on resolve ───────────────────────────────────────────────────
@@ -78,6 +113,7 @@ async def test_ack_cleared_on_resolve(
     test_probe: Probe,
     test_user: User,
 ) -> None:
+    rule = await _add_default_slo_rule(service_db, test_monitor)
     incident = Incident(
         monitor_id=test_monitor.id,
         started_at=datetime.now(UTC) - timedelta(minutes=5),
@@ -85,6 +121,8 @@ async def test_ack_cleared_on_resolve(
         affected_probe_ids=[],
         acked_at=datetime.now(UTC),
         acked_by_id=test_user.id,
+        slo_rule_id=rule.id,
+        trigger_kind="quorum_down",
     )
     service_db.add(incident)
     await service_db.flush()
@@ -92,7 +130,7 @@ async def test_ack_cleared_on_resolve(
     # Submit an up result to resolve
     result = await _add_result(service_db, test_monitor, test_probe, CheckStatus.up)
     collector = _EventCollector()
-    await process_check_result(service_db, result, collector)
+    await _run_pipeline(service_db, result, collector)
 
     await service_db.refresh(incident)
     assert incident.resolved_at is not None
@@ -107,13 +145,15 @@ async def test_ack_cleared_on_resolve(
 async def test_no_duplicate_open_incidents(
     service_db: AsyncSession, test_monitor: Monitor, test_probe: Probe
 ) -> None:
-    # Create first incident via process_check_result
+    await _add_default_slo_rule(service_db, test_monitor)
+
+    # Create first incident via the pipeline
     result1 = await _add_result(service_db, test_monitor, test_probe, CheckStatus.down)
-    await process_check_result(service_db, result1, _EventCollector())
+    await _run_pipeline(service_db, result1, _EventCollector())
 
     # Manually insert a second down result — should not create a second incident
     result2 = await _add_result(service_db, test_monitor, test_probe, CheckStatus.down)
-    await process_check_result(service_db, result2, _EventCollector())
+    await _run_pipeline(service_db, result2, _EventCollector())
 
     open_incidents = (
         (

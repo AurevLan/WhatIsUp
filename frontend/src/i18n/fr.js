@@ -1464,6 +1464,12 @@ export default {
     day_status_degraded: 'Dégradé',
     day_status_down: 'Panne',
     day_status_no_data: 'Pas de données',
+    // Plan cap V2, 3b — le visiteur en panne se demande « est-ce eux ou moi ? ».
+    // On publie la forme (des compteurs sur notre dispositif d'observation),
+    // jamais l'accusation (aucun ASN, opérateur ni pays ici — cf. CLAUDE.md).
+    network_verdict_note: 'Le service répond depuis {reachable} de nos {total} points d\'observation. Certains réseaux semblent affectés ; le service lui-même paraît fonctionner.',
+    network_verdict_note_no_counts: 'Certains réseaux semblent affectés ; le service lui-même paraît fonctionner.',
+    network_verdict_note_resolved: 'Certains réseaux semblaient affectés pendant cet incident ; le service lui-même semblait fonctionner.',
   },
 
   // Groupes

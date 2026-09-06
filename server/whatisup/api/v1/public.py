@@ -3,6 +3,7 @@
 import json
 import secrets
 import uuid
+from collections import defaultdict
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -17,7 +18,10 @@ from whatisup.core.redis import redis_get_safe, redis_setex_safe
 from whatisup.models.incident import IS_AVAILABILITY_INCIDENT, Incident
 from whatisup.models.incident_update import IncidentUpdate
 from whatisup.models.monitor import Monitor, MonitorGroup
+from whatisup.models.probe import Probe
+from whatisup.models.result import CheckResult
 from whatisup.models.status_subscription import StatusSubscription
+from whatisup.services.network_verdict import _DOWN_STATUSES
 from whatisup.services.stats import (
     compute_daily_history_bulk,
     compute_uptime,
@@ -27,6 +31,14 @@ from whatisup.services.stats import (
 from whatisup.services.status_subscription import send_confirmation_email
 
 router = APIRouter(prefix="/public", tags=["public"])
+
+# Plan V2, cap V2 3b — only these two verdicts are worth telling a visitor
+# about. `service_down` needs no extra sentence (an open, unresolved incident
+# already says "it's down"), and null/inconclusive means we don't actually
+# know — publishing "inconclusive" would read as a category when it's really
+# silence. Never widen this to expose the ASN/country identity itself: the
+# *category* is public, the operator name and AS number stay authenticated-only.
+_PUBLIC_VERDICTS = {"network_partition_asn", "network_partition_geo"}
 
 # Public status pages are unauthenticated and rate-limited at 60 req/min, while
 # their monitor payload costs a 90-day aggregation over the raw check_results
@@ -298,6 +310,61 @@ async def get_public_status(
         .all()
     )
 
+    # cap V2 3b — reachability counters ("joignable depuis N de nos M points
+    # d'observation"). Only meaningful for *open* incidents: the count reflects
+    # the current state of the fleet, and a resolved incident showing today's
+    # count would silently misdescribe the moment the outage happened (same
+    # reasoning that ruled out backfilling historical incidents at step 1).
+    # One grouped query for every such incident, not one per incident — the
+    # list is capped at 100 and open partition-verdict incidents are rare.
+    #
+    # Deliberately re-derived from live CheckResults rather than from
+    # ``Incident.affected_probe_ids``: that column is populated inconsistently
+    # across the two incident-opening paths (legacy pipeline vs Health Engine
+    # bridge — one leaves it empty), so it cannot be trusted for a number shown
+    # to an unauthenticated visitor. Mirrors the sampling ``classify_network_verdict``
+    # itself uses (latest CheckResult per active probe for the monitor).
+    open_partition_monitor_ids = {
+        inc.monitor_id
+        for inc in incident_rows
+        if not inc.is_resolved and inc.network_verdict in _PUBLIC_VERDICTS
+    }
+    reachability: dict[uuid.UUID, tuple[int, int]] = {}
+    if open_partition_monitor_ids:
+        latest_probe_subq = (
+            select(
+                CheckResult.monitor_id,
+                CheckResult.probe_id,
+                func.max(CheckResult.checked_at).label("max_at"),
+            )
+            .where(
+                CheckResult.monitor_id.in_(open_partition_monitor_ids),
+                CheckResult.probe_id.isnot(None),
+            )
+            .group_by(CheckResult.monitor_id, CheckResult.probe_id)
+            .subquery()
+        )
+        latest_rows = (
+            await db.execute(
+                select(CheckResult.monitor_id, CheckResult.status)
+                .join(Probe, Probe.id == CheckResult.probe_id)
+                .join(
+                    latest_probe_subq,
+                    (CheckResult.monitor_id == latest_probe_subq.c.monitor_id)
+                    & (CheckResult.probe_id == latest_probe_subq.c.probe_id)
+                    & (CheckResult.checked_at == latest_probe_subq.c.max_at),
+                )
+                .where(Probe.is_active.is_(True))
+            )
+        ).all()
+        totals: dict[uuid.UUID, int] = defaultdict(int)
+        reachable: dict[uuid.UUID, int] = defaultdict(int)
+        for monitor_id, check_status in latest_rows:
+            totals[monitor_id] += 1
+            if check_status not in _DOWN_STATUSES:
+                reachable[monitor_id] += 1
+        reachability = {mid: (reachable[mid], total) for mid, total in totals.items()}
+
     incidents_30d = []
     for inc in incident_rows:
         mon = monitor_by_id.get(inc.monitor_id)
@@ -306,18 +373,28 @@ async def get_public_status(
             duration_minutes = inc.duration_seconds // 60
         elif inc.resolved_at is not None:
             duration_minutes = int((inc.resolved_at - inc.started_at).total_seconds() // 60)
-        incidents_30d.append(
-            {
-                "id": str(inc.id),
-                "monitor_id": str(inc.monitor_id),
-                "monitor_name": mon.name if mon else None,
-                "started_at": inc.started_at.isoformat(),
-                "resolved_at": inc.resolved_at.isoformat() if inc.resolved_at else None,
-                "duration_minutes": duration_minutes,
-                "scope": inc.scope.value,
-                "is_resolved": inc.is_resolved,
-            }
-        )
+        item = {
+            "id": str(inc.id),
+            "monitor_id": str(inc.monitor_id),
+            "monitor_name": mon.name if mon else None,
+            "started_at": inc.started_at.isoformat(),
+            "resolved_at": inc.resolved_at.isoformat() if inc.resolved_at else None,
+            "duration_minutes": duration_minutes,
+            "scope": inc.scope.value,
+            "is_resolved": inc.is_resolved,
+        }
+        # A number is worse than no number: a resolved incident only ever gets
+        # the verdict category, never counters computed from the fleet's
+        # *current* state (rule below). `service_down` and inconclusive/null
+        # verdicts get nothing at all — see `_PUBLIC_VERDICTS` above.
+        if inc.network_verdict in _PUBLIC_VERDICTS:
+            item["network_verdict"] = inc.network_verdict
+            if not inc.is_resolved:
+                counts = reachability.get(inc.monitor_id)
+                if counts and counts[1] > 0:
+                    item["reachable_probes"] = counts[0]
+                    item["total_probes"] = counts[1]
+        incidents_30d.append(item)
 
     return {
         "name": group.name,

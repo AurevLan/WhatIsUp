@@ -184,6 +184,12 @@
                     · {{ t('public.ended') }}: {{ formatDatetime(inc.resolved_at) }}
                   </template>
                 </p>
+                <!-- Plan cap V2, 3b — "is it them, or is it me?" A number is
+                     worse than no number: counters only for an open incident,
+                     the category alone once it's resolved (§ CLAUDE.md). -->
+                <p v-if="inc.network_verdict" class="text-(--text-3) text-xs mt-1.5 italic">
+                  {{ networkVerdictNote(inc) }}
+                </p>
               </div>
 
               <!-- Durée -->
@@ -374,6 +380,23 @@ const formatDatetime = (iso) =>
     day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   })
+
+// Plan cap V2, 3b — the counters describe *now*, so they only make sense next
+// to a still-open incident; a resolved one only ever gets the category (see
+// backend `api/v1/public.py::get_public_status`, which never sends
+// reachable_probes/total_probes for a resolved incident in the first place —
+// this is just picking the right sentence for what the API actually sent).
+function networkVerdictNote(inc) {
+  if (inc.reachable_probes != null && inc.total_probes != null) {
+    return t('public.network_verdict_note', {
+      reachable: inc.reachable_probes,
+      total: inc.total_probes,
+    })
+  }
+  return inc.is_resolved
+    ? t('public.network_verdict_note_resolved')
+    : t('public.network_verdict_note_no_counts')
+}
 
 function dayTooltip(day) {
   const known = ['up', 'degraded', 'down', 'no_data']

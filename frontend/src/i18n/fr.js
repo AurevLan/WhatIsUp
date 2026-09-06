@@ -231,6 +231,9 @@ export default {
     all_operational: 'Tout opérationnel',
     n_down: '{n} en panne',
     offline_probes: 'Sondes hors ligne',
+    stale_probes: 'Agents de sonde à mettre à jour',
+    stale_probe_outdated: 'agent v{version}, serveur en {server}',
+    stale_probe_unreported: 'version non déclarée — agent probablement ancien',
   },
   monitors: {
     title: 'Moniteurs',

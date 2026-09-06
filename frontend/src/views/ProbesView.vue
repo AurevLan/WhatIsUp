@@ -69,16 +69,16 @@
                   class="text-xs px-2 py-0.5 rounded-full border">
                   {{ probe.network_type === 'internal' ? '🏢 ' + t('probes.network_internal_badge') : '🌐 ' + t('probes.network_external_badge') }}
                 </span>
-                <span v-if="probe.version && !isOutdated(probe)"
+                <span v-if="probe.agent_status === 'current' && probe.version"
                   class="text-xs px-2 py-0.5 rounded-full border bg-(--bg-surface-2) text-(--text-2) border-(--border)">
                   v{{ probe.version }}
                 </span>
-                <span v-else-if="probe.version && isOutdated(probe)"
+                <span v-else-if="probe.agent_status === 'outdated'"
                   class="text-xs px-2 py-0.5 rounded-full border bg-[color-mix(in_srgb,var(--warn)_15%,transparent)] text-(--warn) border-[color-mix(in_srgb,var(--warn)_35%,transparent)]"
-                  :title="t('probes.version_outdated_tooltip', { probe: probe.version, server: serverVersion })">
+                  :title="t('probes.version_outdated_tooltip', { probe: probe.version, server: APP_VERSION })">
                   ⚠️ v{{ probe.version }} — {{ t('probes.version_outdated') }}
                 </span>
-                <span v-else-if="probe.last_seen_at"
+                <span v-else-if="probe.agent_status === 'unreported' && probe.last_seen_at"
                   class="text-xs px-2 py-0.5 rounded-full border bg-[color-mix(in_srgb,var(--warn)_15%,transparent)] text-(--warn) border-[color-mix(in_srgb,var(--warn)_35%,transparent)]"
                   :title="t('probes.version_unknown_tooltip')">
                   ⚠️ {{ t('probes.version_unknown') }}
@@ -231,8 +231,8 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../stores/auth'
 import { probesApi } from '../api/probes'
-import { apiBaseUrl } from '../lib/serverConfig'
 import { cssVar, withAlpha } from '../lib/themeColors'
+import { APP_VERSION } from '../lib/appVersion'
 import { useToast } from '../composables/useToast'
 import { useConfirm } from '../composables/useConfirm'
 import { useDateFormat } from '../composables/useDateFormat'
@@ -459,26 +459,9 @@ watch(activeTab, async (tab) => {
 })
 
 let refreshTimer = null
-// Server version — used to flag probes running an outdated agent build
-const serverVersion = ref(null)
-async function loadServerVersion() {
-  try {
-    const healthUrl = apiBaseUrl().replace(/\/api\/v1\/?$/, '') + '/api/health'
-    const res = await fetch(healthUrl)
-    const data = await res.json()
-    serverVersion.value = data?.version || null
-  } catch {
-    serverVersion.value = null
-  }
-}
-
-function isOutdated(probe) {
-  return Boolean(serverVersion.value && probe.version && probe.version !== serverVersion.value)
-}
 
 onMounted(() => {
   loadProbes()
-  loadServerVersion()
   refreshTimer = setInterval(loadProbes, 60_000)
 })
 onUnmounted(() => clearInterval(refreshTimer))

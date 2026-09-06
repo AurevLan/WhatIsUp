@@ -5,11 +5,13 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, computed_field, field_validator
 
+from whatisup.core.config import get_settings
 from whatisup.models.probe import NetworkType
 from whatisup.models.result import CheckStatus
 from whatisup.schemas.discovery import DiscoverySourceForProbe
+from whatisup.services.probe_version import agent_status_for
 
 
 class ProbeCreate(BaseModel):
@@ -54,6 +56,18 @@ class ProbeOut(BaseModel):
     discovery_capabilities: list[str] | None = None
 
     model_config = {"from_attributes": True}
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def agent_status(self) -> str:
+        """``current`` / ``outdated`` / ``unreported`` — see ``services/probe_version.py``.
+
+        Always derived, never stored: comparing ``version`` against the
+        server's own release at read time means it never goes stale, and a
+        server upgrade instantly reclassifies every probe without touching a
+        row.
+        """
+        return agent_status_for(self.version, get_settings().app_version)
 
 
 class ProbeRegistered(ProbeOut):

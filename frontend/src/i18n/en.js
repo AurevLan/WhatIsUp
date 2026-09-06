@@ -1495,6 +1495,12 @@ export default {
     day_status_degraded: 'Degraded',
     day_status_down: 'Outage',
     day_status_no_data: 'No data',
+    // Plan cap V2, 3b — the visitor mid-outage is asking "is it them or me?".
+    // We publish the shape (counters over our own observation setup), never
+    // the accusation (no ASN, carrier or country here — see CLAUDE.md).
+    network_verdict_note: 'The service is responding from {reachable} of our {total} observation points. Some networks appear to be affected; the service itself appears to be working.',
+    network_verdict_note_no_counts: 'Some networks appear to be affected; the service itself appears to be working.',
+    network_verdict_note_resolved: 'Some networks appeared to be affected during this incident; the service itself appeared to be working.',
   },
 
   // Groups

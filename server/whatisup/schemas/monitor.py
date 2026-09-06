@@ -156,8 +156,12 @@ class MonitorCreate(BaseModel):
     slo_window_days: int = Field(30, ge=1, le=365)
     # Schema drift detection (API fingerprint computed by the probe)
     schema_drift_enabled: bool = False
-    # V2 Global Health Engine — opt-in toggle
-    health_engine_enabled: bool = False
+    # V2 Global Health Engine — plan Cap v2 4a: on for new monitors. Safe
+    # because monitor creation always provisions a matching default SLORule
+    # with min_probes=1 (see crud.py), so a single-probe install behaves
+    # exactly like the legacy per-probe decider. Existing monitors are
+    # untouched — this is a schema default, not a migration.
+    health_engine_enabled: bool = True
     # Probe scope
     network_scope: str = Field(default="all", pattern=r"^(all|internal|external)$")
     # Flapping detection — per-monitor overrides

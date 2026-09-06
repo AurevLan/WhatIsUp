@@ -13,10 +13,10 @@ can be evaluated against a fleet view rather than per-probe local decisions.
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
 
+import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,7 +24,11 @@ from whatisup.models.monitor import Monitor
 from whatisup.models.monitor_health import MonitorHealthState
 from whatisup.models.result import CheckResult, CheckStatus
 
-logger = logging.getLogger(__name__)
+# structlog, not stdlib logging — the existing `logger.info("event", key=value)`
+# calls below pass structlog-style kwargs, which plain `logging.Logger` methods
+# don't accept (TypeError). Matches the convention used everywhere else in
+# services/ (see core/logging.py).
+logger = structlog.get_logger(__name__)
 
 _FIVE_MIN = timedelta(minutes=5)
 _DOWN_STATES = {CheckStatus.down.value, CheckStatus.timeout.value, CheckStatus.error.value}
@@ -212,6 +216,18 @@ async def evaluate_slos(
 
     now = now or datetime.now(UTC)
     rules = await slo_module.active_rules_for_monitor(db, monitor.id)
+    if not rules:
+        # Engine active + zero active SLORule = mute monitor: neither this
+        # path nor the legacy per-probe decider (bypassed once
+        # health_engine_enabled=True, see incident.process_check_result) can
+        # ever open an incident for it. Monitor creation always provisions a
+        # default rule (crud.py, plan Cap v2 4a) so this only fires when a
+        # rule was disabled/deleted after the fact, or the flag was toggled
+        # on by hand — CLAUDE.md "Health Engine V2" diagnostic pitfall #1.
+        # Not auto-healed here: surfacing it beats guessing what the operator
+        # wanted back.
+        logger.warning("health_engine_no_active_rule", monitor_id=str(monitor.id))
+        return
     for rule in rules:
         decision = slo_module.evaluate_rule(rule, state, now)
         if isinstance(decision, slo_module.Open):

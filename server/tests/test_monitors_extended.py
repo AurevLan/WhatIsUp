@@ -376,7 +376,10 @@ async def test_slo_rule_create_quorum_down(client: AsyncClient, user_token: str)
 
 @pytest.mark.asyncio
 async def test_slo_rule_list_after_create(client: AsyncClient, user_token: str) -> None:
-    m = await _make_monitor(client, user_token, name="SLOList")
+    # health_engine_enabled=False: creation itself now auto-provisions a
+    # default quorum_down rule (plan Cap v2 4a) — disabled here so this test
+    # keeps isolating the one rule it creates explicitly.
+    m = await _make_monitor(client, user_token, name="SLOList", health_engine_enabled=False)
     await client.post(
         f"/api/v1/monitors/{m['id']}/slo-rules",
         json={

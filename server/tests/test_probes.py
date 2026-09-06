@@ -488,3 +488,48 @@ async def test_probe_incident_timeline_requires_superadmin(
         headers={"Authorization": f"Bearer {user_token}"},
     )
     assert resp.status_code == 403
+
+
+# ── Parité des schémas de sortie ──────────────────────────────────────────────
+
+
+def test_probe_stats_out_is_a_superset_of_probe_out() -> None:
+    """``/probes/stats`` is documented as the *enriched* view, so it must expose
+    everything the basic list does.
+
+    It used to be a parallel model, and four fields added to ``ProbeOut`` after
+    it was written were never mirrored — FastAPI then dropped them from the
+    response without a word. Because ``/stats`` is the superadmin path, the
+    agent version was invisible to exactly the people administering the fleet.
+    This guard fails the day the two drift again.
+    """
+    from whatisup.schemas.probe import ProbeOut, ProbeStatsOut
+
+    missing = set(ProbeOut.model_fields) - set(ProbeStatsOut.model_fields)
+    assert not missing, f"ProbeStatsOut ne réexpose pas : {sorted(missing)}"
+
+
+@pytest.mark.asyncio
+async def test_probe_stats_exposes_agent_version(
+    client: AsyncClient, admin_token: str, db_session: AsyncSession
+) -> None:
+    """The regression this lot fixes: a probe reporting its version showed as
+    "unknown" in the UI for superadmins, because ``/stats`` never carried the
+    field."""
+    probe = Probe(
+        name="versioned-probe",
+        location_name="Paris",
+        api_key_hash="x",
+        version="1.27.0",
+    )
+    db_session.add(probe)
+    await db_session.flush()
+    await db_session.commit()
+
+    resp = await client.get(
+        "/api/v1/probes/stats",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    row = next(p for p in resp.json() if p["name"] == "versioned-probe")
+    assert row["version"] == "1.27.0"

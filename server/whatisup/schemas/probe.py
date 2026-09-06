@@ -240,28 +240,22 @@ class ProbeMonitorStatus(BaseModel):
     response_time_ms: float | None
 
 
-class ProbeStatsOut(BaseModel):
-    """Probe with 24h availability stats and live health — used for dashboard map."""
+class ProbeStatsOut(ProbeOut):
+    """Enriched view of a probe: everything ``ProbeOut`` carries, plus 24 h
+    aggregates and live health.
 
-    id: uuid.UUID
-    name: str
-    location_name: str
-    latitude: float | None
-    longitude: float | None
-    is_active: bool
-    last_seen_at: datetime | None
-    network_type: NetworkType
+    Inherits rather than re-declaring its own field list. It used to be a
+    parallel `BaseModel`, and every field added to ``ProbeOut`` since had to be
+    remembered here too — four were not (`version`, `discovery_capabilities`,
+    `ixp_membership`, `asn_updated_at`), so FastAPI silently dropped them from
+    ``GET /probes/stats``. That endpoint is superadmin-only, so the agent
+    version was invisible to exactly the people administering the fleet.
+    Inheritance makes "enriched" true by construction.
+    """
+
     uptime_24h: float | None
     check_count_24h: int
     health: ProbeHealthPayload | None = None
-    # V2-02-06 + V2-02-07 — surface network intelligence fields on the dashboard map.
-    public_ip: str | None = None
-    asn: int | None = None
-    asn_name: str | None = None
-    self_reported_ip: str | None = None
-    self_reported_asn: int | None = None
-
-    model_config = {"from_attributes": True}
 
 
 class ProbeDiscoveredServiceIn(BaseModel):

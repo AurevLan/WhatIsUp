@@ -87,7 +87,7 @@ async def probe_stats(
     request: Request,
     _user: User = Depends(require_superadmin),
     db: AsyncSession = Depends(get_db),
-) -> list[dict]:
+) -> list[ProbeStatsOut]:
     """Return all probes with their 24h uptime percentage — used for dashboard map."""
     since = datetime.now(UTC) - timedelta(hours=24)
 
@@ -127,26 +127,18 @@ async def probe_stats(
         total = int(row.total) if row else 0
         up = int(row.up_count) if row else 0
         uptime = round(up / total * 100, 2) if total > 0 else None
+        # Derived from the ORM row rather than hand-copied field by field: the
+        # previous literal dict silently omitted every field added to ProbeOut
+        # after it was written (version, discovery_capabilities,
+        # ixp_membership, asn_updated_at). Building from the object means a new
+        # probe field reaches this endpoint the day it reaches the model.
         out.append(
-            {
-                "id": probe.id,
-                "name": probe.name,
-                "location_name": probe.location_name,
-                "latitude": probe.latitude,
-                "longitude": probe.longitude,
-                "is_active": probe.is_active,
-                "last_seen_at": probe.last_seen_at,
-                "network_type": probe.network_type,
-                "uptime_24h": uptime,
-                "check_count_24h": total,
-                "health": health_map.get(probe.id),
-                # V2-02-06 + V2-02-07 — surface ASN + outbound IP info to the map.
-                "public_ip": probe.public_ip,
-                "asn": probe.asn,
-                "asn_name": probe.asn_name,
-                "self_reported_ip": probe.self_reported_ip,
-                "self_reported_asn": probe.self_reported_asn,
-            }
+            ProbeStatsOut(
+                **ProbeOut.model_validate(probe).model_dump(),
+                uptime_24h=uptime,
+                check_count_24h=total,
+                health=health_map.get(probe.id),
+            )
         )
     return out
 

@@ -299,14 +299,33 @@ async def test_open_metric_incident_does_not_mask_a_real_outage(
     by ``process_check_result``'s ``scalar_one_or_none()`` as *the* open incident
     for the monitor: the outage would have opened none, sent no
     ``incident_opened``, and been recorded as having started when the metric
-    breached.
+    breached. Availability incidents are opened by the Health Engine since
+    plan Cap v2 4b (the legacy per-probe decider retired), so the outage half
+    of this test now goes through ``health.ingest`` too, with an active
+    ``quorum_down`` rule on the monitor — mirroring the real background flow
+    in ``api/v1/probes.py``.
     """
+    from whatisup.models.monitor_health import SLORule, SLORuleType
+    from whatisup.services import health
     from whatisup.services.incident import process_check_result
 
     await _rule(service_db, test_monitor, test_user, AlertCondition.metric_above)
     await _push(service_db, test_monitor, "queue_depth", 150.0, NOW - timedelta(seconds=10))
     await evaluate_metric_alerts(service_db, now=NOW)
     metric_incident = (await _open_incidents(service_db, test_monitor))[0]
+
+    service_db.add(
+        SLORule(
+            monitor_id=test_monitor.id,
+            rule_type=SLORuleType.quorum_down,
+            enabled=True,
+            quorum_ratio=0.6,
+            window_seconds=300,
+            min_probes=1,
+            cooldown_seconds=60,
+        )
+    )
+    await service_db.flush()
 
     result = CheckResult(
         monitor_id=test_monitor.id,
@@ -323,6 +342,7 @@ async def test_open_metric_incident_does_not_mask_a_real_outage(
         events.append(payload)
 
     await process_check_result(service_db, result, publish_event)
+    await health.ingest(service_db, result, publish_event=publish_event)
 
     open_now = await _open_incidents(service_db, test_monitor)
     assert len(open_now) == 2, "the outage must get its own incident"

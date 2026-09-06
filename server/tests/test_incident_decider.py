@@ -1,4 +1,9 @@
-"""Tests for incident_decider — flapping detection + dependency suppression."""
+"""Tests for incident_decider — dependency suppression.
+
+Flapping detection (``is_flapping``) was removed in plan Cap v2 4b along with
+the legacy per-probe decider that was its only caller — see
+``services/incident_decider.py`` module docstring.
+"""
 
 from __future__ import annotations
 
@@ -9,32 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.models.incident import Incident, IncidentScope
 from whatisup.models.monitor import Monitor, MonitorDependency
-from whatisup.models.probe import Probe
-from whatisup.models.result import CheckResult, CheckStatus
 from whatisup.models.user import User
-from whatisup.services.incident_decider import (
-    has_ancestor_incident,
-    is_flapping,
-    is_suppressed_by_dependency,
-)
-
-
-async def _add_result(
-    db: AsyncSession,
-    monitor: Monitor,
-    probe: Probe,
-    status: CheckStatus,
-    dt: datetime,
-) -> CheckResult:
-    r = CheckResult(
-        monitor_id=monitor.id,
-        probe_id=probe.id,
-        checked_at=dt,
-        status=status,
-    )
-    db.add(r)
-    await db.flush()
-    return r
+from whatisup.services.incident_decider import has_ancestor_incident, is_suppressed_by_dependency
 
 
 async def _new_monitor(db: AsyncSession, owner: User, name: str = "mon") -> Monitor:
@@ -42,93 +23,6 @@ async def _new_monitor(db: AsyncSession, owner: User, name: str = "mon") -> Moni
     db.add(m)
     await db.flush()
     return m
-
-
-# ── is_flapping ───────────────────────────────────────────────────────────────
-
-
-@pytest.mark.asyncio
-async def test_is_flapping_returns_false_when_too_few_results(
-    service_db: AsyncSession, test_monitor: Monitor, test_probe: Probe
-) -> None:
-    """Below the threshold count: no flapping verdict."""
-    now = datetime.now(UTC)
-    # Default threshold = 5 — only 3 results
-    for i in range(3):
-        await _add_result(
-            service_db, test_monitor, test_probe, CheckStatus.up, now - timedelta(minutes=i)
-        )
-    assert await is_flapping(service_db, test_monitor) is False
-
-
-@pytest.mark.asyncio
-async def test_is_flapping_returns_true_when_oscillation_exceeds_threshold(
-    service_db: AsyncSession, test_monitor: Monitor, test_probe: Probe
-) -> None:
-    """Alternating up/down >= flap_threshold within window triggers flapping."""
-    now = datetime.now(UTC)
-    # 6 alternating results → 5 transitions → meets default threshold of 5
-    statuses = [
-        CheckStatus.up,
-        CheckStatus.down,
-        CheckStatus.up,
-        CheckStatus.down,
-        CheckStatus.up,
-        CheckStatus.down,
-    ]
-    for i, status in enumerate(statuses):
-        await _add_result(
-            service_db, test_monitor, test_probe, status, now - timedelta(seconds=60 - i * 10)
-        )
-    assert await is_flapping(service_db, test_monitor) is True
-
-
-@pytest.mark.asyncio
-async def test_is_flapping_ignores_results_outside_window(
-    service_db: AsyncSession, test_monitor: Monitor, test_probe: Probe
-) -> None:
-    """Old results outside flap_window_minutes are excluded."""
-    now = datetime.now(UTC)
-    # 6 alternating but 30 min in the past — outside the default 10-min window
-    statuses = [CheckStatus.up, CheckStatus.down] * 3
-    for i, status in enumerate(statuses):
-        await _add_result(
-            service_db, test_monitor, test_probe, status, now - timedelta(minutes=30 + i)
-        )
-    assert await is_flapping(service_db, test_monitor) is False
-
-
-@pytest.mark.asyncio
-async def test_is_flapping_respects_per_monitor_threshold(
-    service_db: AsyncSession, test_user: User, test_probe: Probe
-) -> None:
-    """Per-monitor flap_threshold overrides the global default."""
-    now = datetime.now(UTC)
-    monitor = await _new_monitor(service_db, test_user, "low-threshold")
-    monitor.flap_threshold = 2
-    monitor.flap_window_minutes = 10
-    await service_db.flush()
-
-    # 3 alternating results → 2 transitions → meets threshold=2
-    statuses = [CheckStatus.up, CheckStatus.down, CheckStatus.up]
-    for i, status in enumerate(statuses):
-        await _add_result(
-            service_db, monitor, test_probe, status, now - timedelta(seconds=60 - i * 10)
-        )
-    assert await is_flapping(service_db, monitor) is True
-
-
-@pytest.mark.asyncio
-async def test_is_flapping_returns_false_when_all_same_status(
-    service_db: AsyncSession, test_monitor: Monitor, test_probe: Probe
-) -> None:
-    """No transitions = not flapping, even with many results."""
-    now = datetime.now(UTC)
-    for i in range(10):
-        await _add_result(
-            service_db, test_monitor, test_probe, CheckStatus.up, now - timedelta(seconds=i * 10)
-        )
-    assert await is_flapping(service_db, test_monitor) is False
 
 
 # ── has_ancestor_incident ─────────────────────────────────────────────────────

@@ -562,7 +562,7 @@ cd frontend && npm run dev -- --host
 
 - `services/stats.py` : `compute_uptime()`, `compute_daily_history()`, `latest_results_subq()` — lit
   `check_rollups_1h` + brut depuis A-3 (cf. § `stats.py` lit rollups + brut)
-- `services/incident.py` : pipeline post-check (flapping → incident → renotify → common_cause). Bridge SLO via Health Engine si `Monitor.health_engine_enabled=True` (et flag env `LEGACY_INCIDENT_ENGINE` non set)
+- `services/incident.py` : maintenance suppression, cycle de vie composite, effets de bord post-décision (`_post_decider_side_effects` : cascade composite, dérive de schéma, anomalie, auto-pause). Les incidents de disponibilité sont ouverts/résolus par `services/health.evaluate_slos` (Health Engine), seul moteur de détection depuis le plan Cap v2 4b
 - `services/alert.py` : dispatch email/webhook/Telegram/Slack/Discord/Mattermost/Teams/PagerDuty/Opsgenie/Signal + SSRF guard + digest Redis + `suppress_on_network_partition`
 - `services/health.py` + `services/slo.py` : **Health Engine V2** — agrégation 5 min p50/p95/p99, quorum_down/quorum_slow, divergence_score probe (seuil 0.5)
 - `services/network_verdict.py` : classification incident `service_down` / `network_partition_asn|geo` / `inconclusive` (recompute toutes les 5 min)
@@ -589,19 +589,23 @@ cd frontend && npm run dev -- --host
 
 ## Health Engine V2 — ops prod
 
-> Engine actif sur 17/17 monitors depuis 2026-05-06. Détails complets : `docs/archived/plans/plan_v2_global_health.md`.
+> Seul moteur de détection depuis le plan Cap v2 4b (retrait du décideur historique par sonde,
+> 2026-09) : `Monitor.health_engine_enabled` vaut `True` par défaut (colonne **et** schéma), et une
+> migration a basculé les derniers moniteurs restés dessus, en leur provisionnant une `SLORule`
+> `quorum_down` (`min_probes: 1`) au passage — jamais l'un sans l'autre. `LEGACY_INCIDENT_ENGINE` a
+> disparu avec le code qu'il court-circuitait : il n'y a plus de pipeline vers lequel replier.
+> Détails complets : `docs/archived/plans/plan_v2_global_health.md`.
 
 **Knobs critiques :**
-- Activation per-monitor : toggle UI panel "Quorum & SLO" dans `MonitorDetailView` ou `PATCH /monitors/{id}` body `{"health_engine_enabled": false}`.
-- Rollback global : env `LEGACY_INCIDENT_ENGINE=true` → court-circuite le bridge SLO dans `services/incident.process_check_result`. Aucune migration.
-- Règle par défaut migration : `quorum_down` 60% / 5 min / min 2 probes / cooldown 60 s.
+- Activation per-monitor : toggle UI panel "Quorum & SLO" dans `MonitorDetailView` ou `PATCH /monitors/{id}` body `{"health_engine_enabled": false}`. ⚠️ Depuis 4b il n'y a **aucun filet** derrière ce toggle : le désactiver sans laisser une `SLORule` active rend le moniteur définitivement muet (pas de décideur historique pour prendre le relais).
+- Règle par défaut (création via l'API, et migration de rattrapage 4b) : `quorum_down` 60% / 5 min / min 1 probe / cooldown 60 s. `min_probes: 1` (pas 2) est ce qui rend le défaut sûr sur une installation à une seule sonde.
 - Seuil divergence : `divergence_score > 0.5` → probe exclue du quorum (constante `_DIVERGENCE_EXCLUSION_THRESHOLD` dans `services/slo.py`).
+- Anti-flapping : plus de réglage `flap_threshold`/`flap_window_minutes` par moniteur (colonnes retirées en 4b, jamais honorées que par le décideur historique) — la fenêtre de quorum (`window_seconds`) et le `cooldown_seconds` de la `SLORule` jouent ce rôle.
 
 **Diagnostic rapide** quand l'utilisateur signale un comportement bizarre incidents/alertes :
-1. `Monitor.health_engine_enabled` ? Toggle ON sans `SLORule` active = monitor silencieux.
+1. `Monitor.health_engine_enabled` ? Toggle OFF, ou ON sans `SLORule` active = monitor silencieux — plus rien d'autre ne détecte pour lui.
 2. Faux positif `quorum_down` ? Check `monitor_health_states.probe_health` JSONB pour le `divergence_score` des probes.
-3. Pas d'alerte perf alors que p95 élevé ? La migration ne crée que `quorum_down`. Créer manuellement une `quorum_slow`.
-4. Comportement bizarre sur tous les monitors d'un coup ? Check `LEGACY_INCIDENT_ENGINE` env + redémarrages.
+3. Pas d'alerte perf alors que p95 élevé ? La création par défaut ne provisionne que `quorum_down`. Créer manuellement une `quorum_slow`.
 
 ```sql
 -- État engine d'un monitor

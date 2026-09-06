@@ -149,17 +149,20 @@ async def test_single_probe_down_opens_incident_on_freshly_created_monitor(
 
 
 @pytest.mark.asyncio
-async def test_existing_monitor_with_engine_disabled_keeps_legacy_path(
+async def test_existing_monitor_with_engine_disabled_opens_nothing(
     service_db: AsyncSession,
     test_user: User,
     test_probe: Probe,
 ) -> None:
-    """A monitor whose stored ``health_engine_enabled`` is False (the
-    pre-4a state of every monitor created before this change) must not be
-    flipped by the new default — nothing here migrates existing rows."""
+    """Plan Cap v2 4b retired the legacy per-probe decider that used to run
+    for ``health_engine_enabled=False`` monitors — there is no fallback path
+    left. A monitor stuck at False (manual toggle; the migration in
+    ``h2i3j4k5l6m7`` catches every row left over from before 4a) now detects
+    nothing at all, consistent with CLAUDE.md "Health Engine V2" pitfall #1:
+    disabling the engine is no longer a safe no-op, it's silence."""
     monitor = Monitor(
-        name="mon-preexisting-legacy",
-        url="http://legacy-existing.test",
+        name="mon-engine-disabled",
+        url="http://engine-disabled.test",
         owner_id=test_user.id,
         health_engine_enabled=False,
     )
@@ -179,15 +182,14 @@ async def test_existing_monitor_with_engine_disabled_keeps_legacy_path(
     service_db.add(cr)
     await service_db.flush()
     await process_check_result(service_db, cr, publish)
+    await health.ingest(service_db, cr, publish_event=publish)
 
     incidents = (
         (await service_db.execute(select(Incident).where(Incident.monitor_id == monitor.id)))
         .scalars()
         .all()
     )
-    assert len(incidents) == 1
-    assert incidents[0].slo_rule_id is None
-    assert incidents[0].trigger_kind == "legacy"
+    assert incidents == []
 
 
 @pytest.mark.asyncio

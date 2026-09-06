@@ -15,13 +15,15 @@ from whatisup.services import health
 
 
 @pytest.mark.asyncio
-async def test_monitor_health_engine_disabled_by_default(
+async def test_monitor_health_engine_enabled_by_default(
     service_db: AsyncSession, test_monitor: Monitor
 ) -> None:
-    """Existing monitors must keep using the legacy pipeline — opt-in only."""
+    """Plan Cap v2 4b: the column default flipped to True — there is no
+    other detection path for a Monitor built without going through
+    MonitorCreate (or this test fixture) to fall back to."""
     fresh = await service_db.get(Monitor, test_monitor.id)
     assert fresh is not None
-    assert fresh.health_engine_enabled is False
+    assert fresh.health_engine_enabled is True
 
 
 @pytest.mark.asyncio

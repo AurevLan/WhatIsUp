@@ -1,56 +1,29 @@
-"""Incident decision primitives — flapping & dependency suppression.
+"""Incident decision primitives — dependency suppression.
 
 Pure-ish helpers extracted from ``services.incident`` so they can be unit-tested
 in isolation. Each function takes an ``AsyncSession`` and reads from the DB but
 does not mutate state, dispatch alerts, or publish events.
+
+Flapping detection (``is_flapping``) lived here until plan Cap v2 4b: it was
+only ever consulted by the legacy per-probe decider, which retired along with
+it. The Global Health Engine's quorum window + ``cooldown_seconds`` play the
+equivalent damping role for the surviving detection path — see CLAUDE.md
+"Health Engine V2 — ops prod".
 """
 
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.models.incident import IS_AVAILABILITY_INCIDENT, Incident
-from whatisup.models.monitor import Monitor, MonitorDependency
-from whatisup.models.result import CheckResult, CheckStatus
-
-# Global defaults — overridden per-monitor by flap_threshold / flap_window_minutes
-_DEFAULT_FLAP_THRESHOLD = 5
-_DEFAULT_FLAP_WINDOW_MINUTES = 10
+from whatisup.models.monitor import MonitorDependency
 
 # Maximum hops walked when traversing the dependency chain. Keeps suppression
 # bounded even on misconfigured graphs.
 _DEPENDENCY_MAX_DEPTH = 5
-
-
-async def is_flapping(db: AsyncSession, monitor: Monitor) -> bool:
-    """Detect rapid up/down oscillation within the monitor's flap window."""
-    threshold = monitor.flap_threshold or _DEFAULT_FLAP_THRESHOLD
-    window = monitor.flap_window_minutes or _DEFAULT_FLAP_WINDOW_MINUTES
-    cutoff = datetime.now(UTC) - timedelta(minutes=window)
-    rows = (
-        await db.execute(
-            select(CheckResult.status, CheckResult.checked_at)
-            .where(
-                CheckResult.monitor_id == monitor.id,
-                CheckResult.checked_at >= cutoff,
-            )
-            .order_by(CheckResult.checked_at.asc())
-        )
-    ).all()
-
-    if len(rows) < threshold:
-        return False
-
-    transitions = sum(
-        1
-        for i in range(1, len(rows))
-        if (rows[i].status == CheckStatus.up) != (rows[i - 1].status == CheckStatus.up)
-    )
-    return transitions >= threshold
 
 
 async def has_ancestor_incident(

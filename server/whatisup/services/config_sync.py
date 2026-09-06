@@ -61,8 +61,6 @@ _MONITOR_EXPORT_FIELDS = [
     "slo_target",
     "slo_window_days",
     "network_scope",
-    "flap_threshold",
-    "flap_window_minutes",
     "auto_pause_after",
     "heartbeat_slug",
     "heartbeat_interval_seconds",
@@ -509,13 +507,15 @@ _DEFAULTS = {
     "schema_drift_enabled": False,
     "slo_window_days": 30,
     "network_scope": "all",
-    "flap_threshold": 5,
-    "flap_window_minutes": 10,
     "heartbeat_grace_seconds": 60,
     "dns_drift_alert": False,
     "dns_split_enabled": False,
     "runbook_enabled": False,
-    "health_engine_enabled": False,
+    # Must track Monitor.health_engine_enabled's column default (plan Cap v2
+    # 4b) — this dict only gates the export's "skip default-valued fields"
+    # logic above, but a stale value here would make every monitor export
+    # health_engine_enabled: true needlessly (harmless, just noisy IaC docs).
+    "health_engine_enabled": True,
 }
 
 

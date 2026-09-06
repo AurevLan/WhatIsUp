@@ -2,9 +2,6 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { monitorsApi } from '../api/monitors'
 
-// Auto-clear flapping state after 10 minutes (matches default flap_window_minutes)
-const FLAP_TTL_MS = 10 * 60 * 1000
-
 // C4 (bilan 2026-07) — module-level registry of monitor ids that were
 // optimistically removed from the UI while their deferred bulk-delete Undo
 // toast (~6s window) is still open. `fetchAll` consults it so an interleaved
@@ -27,7 +24,6 @@ export function clearPendingDeletes() {
 }
 
 export const useMonitorStore = defineStore('monitors', () => {
-  const flapTimers = {}
   const monitors = ref([])
   const loading = ref(false)
 
@@ -41,7 +37,6 @@ export const useMonitorStore = defineStore('monitors', () => {
       _lastResponseTimeMs:  m.last_response_time_ms ?? null,
       _p95ResponseTimeMs:   m.p95_response_time_ms ?? null,
       _sparkline:           m.sparkline ?? [],
-      _isFlapping:          false,
       _healthScore:         _computeHealth(m),
     }
   }
@@ -75,18 +70,6 @@ export const useMonitorStore = defineStore('monitors', () => {
     if (score >= 55)  return 'C'
     if (score >= 35)  return 'D'
     return 'F'
-  }
-
-  function setFlapping(monitorId) {
-    const monitor = monitors.value.find(m => m.id === monitorId)
-    if (!monitor) return
-    monitor._isFlapping = true
-    clearTimeout(flapTimers[monitorId])
-    flapTimers[monitorId] = setTimeout(() => {
-      const m = monitors.value.find(m => m.id === monitorId)
-      if (m) m._isFlapping = false
-      delete flapTimers[monitorId]
-    }, FLAP_TTL_MS)
   }
 
   async function fetchAll(params = {}) {
@@ -147,5 +130,5 @@ export const useMonitorStore = defineStore('monitors', () => {
     }
   }
 
-  return { monitors, loading, fetchAll, create, update, remove, applyCheckResult, setFlapping }
+  return { monitors, loading, fetchAll, create, update, remove, applyCheckResult }
 })

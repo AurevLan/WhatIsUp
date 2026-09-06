@@ -312,14 +312,6 @@ class Monitor(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         String(20), default="all", nullable=False, server_default="all"
     )
 
-    # Flapping detection — per-monitor thresholds (override global defaults)
-    flap_threshold: Mapped[int] = mapped_column(
-        Integer, default=5, nullable=False, server_default="5"
-    )
-    flap_window_minutes: Mapped[int] = mapped_column(
-        Integer, default=10, nullable=False, server_default="10"
-    )
-
     # Auto-pause after N consecutive failures (None = disabled)
     auto_pause_after: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
 
@@ -349,15 +341,17 @@ class Monitor(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         DateTime(timezone=True), nullable=True
     )
 
-    # Global Health Engine opt-in (V2). Column-level default stays False —
-    # it's the fallback for paths that build a Monitor without going through
-    # schemas.monitor.MonitorCreate (JSON import, IaC config_sync), which
-    # must not change behavior here. The applicative default for monitors
-    # created through the API (POST /monitors, discovery accept) is True,
-    # set on MonitorCreate itself (plan Cap v2 4a) and paired there with an
-    # auto-provisioned SLORule so it's never silent.
+    # Global Health Engine — the only detection engine left (plan Cap v2 4b
+    # retired the legacy per-probe decider). Column-level default is now True
+    # too, not just the MonitorCreate schema default (4a): paths that build a
+    # Monitor without going through schemas.monitor.MonitorCreate — JSON
+    # import, IaC config_sync — must also receive the engine, since there is
+    # no other detection path to fall back to. A monitor created through the
+    # API (POST /monitors, discovery accept) also gets an auto-provisioned
+    # SLORule (crud.py) so it's never silent; import/config_sync do not — see
+    # CLAUDE.md "Health Engine V2 — ops prod" pitfall #1.
     health_engine_enabled: Mapped[bool] = mapped_column(
-        Boolean, default=False, server_default="false", nullable=False
+        Boolean, default=True, server_default="true", nullable=False
     )
 
     # Relationships

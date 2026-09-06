@@ -110,7 +110,6 @@
 - `interval_seconds`, `timeout_seconds`, `enabled`
 - `ssl_check_enabled`, `ssl_expiry_warn_days`
 - `network_scope` (`all` / `internal` / `external`)
-- `flap_threshold` + `flap_window_minutes` (override par monitor)
 - `auto_pause_after` (consécutifs, nullable = désactivé)
 - `data_retention_days` (override de la rétention globale)
 - `runbook_enabled` + `runbook_markdown` (renderer maison safe HTML escape)
@@ -266,7 +265,6 @@
 - ✅ Bulk ack `POST /incidents/bulk-ack`
 
 ### Détection
-- ✅ Flapping (`flap_threshold` × `flap_window_minutes`, override par monitor)
 - ✅ **Anomaly detection** — z-score sur fenêtre 7j ± 3h (jour/nuit) (`services/anomaly.py`)
 - ✅ **Threshold advisor** statistique (`services/threshold_advisor.py`)
 - ✅ **Schema drift** (baseline + hash) sur réponses HTTP
@@ -730,13 +728,12 @@
 
 ## 16. Health Engine V2 (Global)
 
-> Refonte du modèle de détection : **probe = capteur**, **serveur = juge unique**. Déployé en prod sur 17/17 monitors depuis 2026-05-06. Voir `plan_v2_global_health.md` pour la genèse.
+> Refonte du modèle de détection : **probe = capteur**, **serveur = juge unique**. Déployé en prod sur 17/17 monitors depuis 2026-05-06 ; devenu le **seul** moteur de détection (plan Cap v2 4b, retrait du décideur historique) — `Monitor.health_engine_enabled` vaut `True` par défaut (colonne et schéma), et une migration a rattrapé les moniteurs restants. Voir `plan_v2_global_health.md` pour la genèse.
 
 ### Foundation (M0–M1)
 - ✅ **M0** — Modèle `MonitorHealthState` + table `monitor_health_states` (état agrégé par monitor, JSONB `probe_health`, percentiles 5 min, sample_count)
 - ✅ **M1** — Aggregator serveur (`services/health.py`) : ingestion en continu des `CheckResult`, calcul p50/p95/p99 sur fenêtre glissante 5 min via `core/percentile.py`, état up/down par probe, ratio quorum
-- ✅ Toggle per-monitor `Monitor.health_engine_enabled` (opt-in à la migration, opt-out via PATCH ou UI)
-- ✅ Rollback global env `LEGACY_INCIDENT_ENGINE=true` (court-circuite le bridge SLO dans `services/incident.py`)
+- ✅ Toggle per-monitor `Monitor.health_engine_enabled` (actif par défaut, opt-out via PATCH ou UI — depuis 4b, désactiver rend le moniteur muet, il n'y a plus de décideur historique en filet)
 
 ### SLO rules (M2–M3)
 - ✅ **M2** — Évaluateur `quorum_down` : "≥ X% des probes voient down sur N min, min M probes" → ouvre `Incident.trigger_kind=quorum_down`

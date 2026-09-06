@@ -345,10 +345,7 @@ export default {
       weight: 'Weight',
       no_members: 'No members yet.',
     },
-    flapping_settings: 'Flapping detection',
-    flapping_desc: 'Override the global flapping detection thresholds for this monitor.',
-    flap_threshold: 'Transitions threshold',
-    flap_window_minutes: 'Window (minutes)',
+    advanced_detection_settings: 'Advanced detection',
     auto_pause_after: 'Auto-pause after consecutive failures',
     auto_pause_after_hint: 'Automatically pause the monitor after N consecutive failures across all probes (leave empty to disable)',
     channels: {

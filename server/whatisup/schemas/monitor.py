@@ -164,9 +164,6 @@ class MonitorCreate(BaseModel):
     health_engine_enabled: bool = True
     # Probe scope
     network_scope: str = Field(default="all", pattern=r"^(all|internal|external)$")
-    # Flapping detection — per-monitor overrides
-    flap_threshold: int = Field(default=5, ge=2, le=50)
-    flap_window_minutes: int = Field(default=10, ge=1, le=60)
     # Auto-pause after N consecutive failures (None = disabled)
     auto_pause_after: int | None = Field(default=None, ge=2, le=100)
     # Per-monitor data retention override (None = use global default)
@@ -266,9 +263,6 @@ class MonitorUpdate(BaseModel):
     slo_window_days: int | None = Field(None, ge=1, le=365)
     # Probe scope
     network_scope: str | None = Field(default=None, pattern=r"^(all|internal|external)$")
-    # Flapping
-    flap_threshold: int | None = Field(default=None, ge=2, le=50)
-    flap_window_minutes: int | None = Field(default=None, ge=1, le=60)
     # Auto-pause after N consecutive failures (None = disabled)
     auto_pause_after: int | None = Field(default=None, ge=2, le=100)
     # Per-monitor data retention override (None = use global default)
@@ -346,9 +340,6 @@ class MonitorOut(BaseModel):
     slo_window_days: int = 30
     # Probe scope
     network_scope: str = "all"
-    # Flapping
-    flap_threshold: int = 5
-    flap_window_minutes: int = 10
     # Auto-pause
     auto_pause_after: int | None = None
     # Per-monitor data retention override
@@ -361,7 +352,7 @@ class MonitorOut(BaseModel):
     runbook_enabled: bool = False
     runbook_markdown: str | None = None
     # V2 Global Health Engine — opt-in toggle
-    health_engine_enabled: bool = False
+    health_engine_enabled: bool = True
     # Runtime fields — populated by list_monitors, not stored in the DB row
     last_status: str | None = None
     uptime_24h: float | None = None

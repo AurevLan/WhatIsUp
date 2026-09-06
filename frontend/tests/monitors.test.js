@@ -1,8 +1,7 @@
 /**
  * Tests for the monitors Pinia store.
  *
- * Covers: enrich(), _computeHealth() scoring, applyCheckResult() sparkline,
- * setFlapping() timer lifecycle.
+ * Covers: enrich(), _computeHealth() scoring, applyCheckResult() sparkline.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -63,7 +62,6 @@ describe('monitors store', () => {
       expect(m._hasOpenIncident).toBe(false)
       expect(m._lastResponseTimeMs).toBe(120)
       expect(m._sparkline).toEqual([100, 110, 120])
-      expect(m._isFlapping).toBe(false)
     })
 
     it('handles missing optional fields with defaults', async () => {
@@ -286,53 +284,6 @@ describe('monitors store', () => {
       })
       // Health should be recalculated (may or may not change depending on uptime)
       expect(store.monitors[0]._healthScore).toBeDefined()
-    })
-  })
-
-  // ── setFlapping() ────────────────────────────────────────────────────
-
-  describe('setFlapping', () => {
-    beforeEach(async () => {
-      vi.useFakeTimers()
-      monitorsApi.list.mockResolvedValue({
-        data: [makeMonitor()],
-      })
-      await store.fetchAll()
-    })
-
-    afterEach(() => {
-      vi.useRealTimers()
-    })
-
-    it('sets _isFlapping to true', () => {
-      store.setFlapping('mon-1')
-      expect(store.monitors[0]._isFlapping).toBe(true)
-    })
-
-    it('auto-clears after 10 minutes', () => {
-      store.setFlapping('mon-1')
-      expect(store.monitors[0]._isFlapping).toBe(true)
-
-      vi.advanceTimersByTime(10 * 60 * 1000)
-      expect(store.monitors[0]._isFlapping).toBe(false)
-    })
-
-    it('resets timer on repeated calls', () => {
-      store.setFlapping('mon-1')
-      vi.advanceTimersByTime(5 * 60 * 1000) // 5 min
-
-      store.setFlapping('mon-1') // reset timer
-      vi.advanceTimersByTime(5 * 60 * 1000) // 5 more min (10 total, but only 5 since reset)
-      expect(store.monitors[0]._isFlapping).toBe(true)
-
-      vi.advanceTimersByTime(5 * 60 * 1000) // 10 min since reset
-      expect(store.monitors[0]._isFlapping).toBe(false)
-    })
-
-    it('ignores unknown monitor ID', () => {
-      store.setFlapping('nonexistent')
-      // No crash
-      expect(store.monitors[0]._isFlapping).toBe(false)
     })
   })
 

@@ -9,7 +9,6 @@ vi.mock('../../src/lib/serverConfig', () => ({
 
 const monitorStore = {
   applyCheckResult: vi.fn(),
-  setFlapping: vi.fn(),
 }
 vi.mock('../../src/stores/monitors', () => ({
   useMonitorStore: () => monitorStore,
@@ -59,7 +58,6 @@ beforeEach(() => {
   setActivePinia(createPinia())
   localStorage.clear()
   monitorStore.applyCheckResult.mockReset()
-  monitorStore.setFlapping.mockReset()
   MockWebSocket.last = null
   MockWebSocket.instances.length = 0
   originalWS = globalThis.WebSocket
@@ -126,10 +124,7 @@ describe('websocket store', () => {
     MockWebSocket.last.onmessage({ data: JSON.stringify({ type: 'check_result', monitor_id: 'm1', status: 'up' }) })
     expect(monitorStore.applyCheckResult).toHaveBeenCalledWith({ type: 'check_result', monitor_id: 'm1', status: 'up' })
 
-    MockWebSocket.last.onmessage({ data: JSON.stringify({ type: 'flapping_detected', monitor_id: 'm2' }) })
-    expect(monitorStore.setFlapping).toHaveBeenCalledWith('m2')
-
-    expect(ws.events.length).toBe(2)
+    expect(ws.events.length).toBe(1)
   })
 
   it('caps the events buffer at 100 entries', () => {

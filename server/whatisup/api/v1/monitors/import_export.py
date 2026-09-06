@@ -155,8 +155,6 @@ async def import_monitors(
         "slo_target",
         "slo_window_days",
         "network_scope",
-        "flap_threshold",
-        "flap_window_minutes",
         "auto_pause_after",
         "data_retention_days",
         "schema_drift_enabled",

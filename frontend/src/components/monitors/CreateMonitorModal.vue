@@ -114,9 +114,6 @@ const form = ref({
   expected_headers_list: [],  // [{key, value}]
   custom_headers_list: [],    // [{key, value}] — request headers (UA override, auth)
   json_schema_text: '',
-  // Flapping
-  flap_threshold: 5,
-  flap_window_minutes: 10,
   auto_pause_after: null,
   // DNS drift
   dns_drift_alert: false,
@@ -285,12 +282,6 @@ function buildPayload() {
     if (validCustom.length) {
       p.custom_headers = Object.fromEntries(validCustom.map(h => [h.key.trim(), h.value]))
     }
-  }
-
-  // Flapping overrides
-  if (form.value.check_type !== 'heartbeat') {
-    p.flap_threshold = form.value.flap_threshold
-    p.flap_window_minutes = form.value.flap_window_minutes
   }
 
   // Auto-pause after N consecutive failures

@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from starlette.responses import Response
 
 from whatisup.core.database import get_db
@@ -21,6 +22,7 @@ from whatisup.models.maintenance import MaintenanceWindow
 from whatisup.models.monitor import Monitor, MonitorGroup
 from whatisup.models.probe import Probe
 from whatisup.models.result import CheckResult
+from whatisup.models.status_announcement import StatusAnnouncement
 from whatisup.models.status_subscription import StatusSubscription
 from whatisup.services.network_verdict import _DOWN_STATUSES
 from whatisup.services.stats import (
@@ -324,6 +326,57 @@ async def get_public_status(
 
     # Incidents des 30 derniers jours
     cutoff_30d = now - timedelta(days=30)
+
+    # Cap v2, 5b — human-authored announcements, scoped to this group only.
+    # Deliberately NOT `Incident`: see models/status_announcement.py. Active
+    # announcements always show; a closed one stays visible for the same
+    # 30-day window as incidents so it isn't presented as active but also
+    # doesn't vanish the moment it's closed. `selectinload` keeps this a
+    # single extra query (IN clause) regardless of how many announcements
+    # come back — no per-announcement round trip.
+    announcement_rows = (
+        (
+            await db.execute(
+                select(StatusAnnouncement)
+                .options(selectinload(StatusAnnouncement.updates))
+                .where(
+                    StatusAnnouncement.group_id == group.id,
+                    or_(
+                        StatusAnnouncement.ended_at.is_(None),
+                        StatusAnnouncement.ended_at >= cutoff_30d,
+                    ),
+                )
+                .order_by(StatusAnnouncement.started_at.desc())
+                .limit(50)
+            )
+        )
+        .scalars()
+        .unique()
+        .all()
+    )
+    announcements = [
+        {
+            "id": str(a.id),
+            "title": a.title,
+            "status": a.status.value,
+            "started_at": a.started_at.isoformat(),
+            "ended_at": a.ended_at.isoformat() if a.ended_at else None,
+            "is_active": a.ended_at is None,
+            "updates": [
+                {
+                    "id": str(u.id),
+                    "status": u.status.value,
+                    "message": u.message,
+                    "created_by_name": u.created_by_name,
+                    "created_at": u.created_at.isoformat(),
+                }
+                for u in a.updates
+                if u.is_public
+            ],
+        }
+        for a in announcement_rows
+    ]
+
     incident_rows = (
         (
             await db.execute(
@@ -447,6 +500,7 @@ async def get_public_status(
         "public_custom_css": group.public_custom_css,
         "incidents_30d": incidents_30d,
         "maintenance_windows": maintenance_windows,
+        "announcements": announcements,
     }
 
 

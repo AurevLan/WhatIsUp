@@ -51,6 +51,7 @@ from whatisup.models.probe_group import ProbeGroup, probe_group_members, user_pr
 from whatisup.models.result import CheckResult, CheckStatus
 from whatisup.models.rollup import CheckRollup1h
 from whatisup.models.silence import AlertSilence
+from whatisup.models.status_announcement import StatusAnnouncement, StatusAnnouncementUpdate
 from whatisup.models.status_subscription import StatusSubscription
 from whatisup.models.system_settings import SystemSettings
 from whatisup.models.tag import Tag
@@ -98,6 +99,8 @@ __all__ = [
     "DiscoveredService",
     "DISCOVERED_SERVICE_STATUSES",
     "MonitorAnnotation",
+    "StatusAnnouncement",
+    "StatusAnnouncementUpdate",
     "StatusSubscription",
     "SystemSettings",
     "UserApiKey",

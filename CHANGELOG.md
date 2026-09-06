@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.27.0](https://github.com/AurevLan/WhatIsUp/compare/v1.26.0...v1.27.0) (2026-09-06)
+
+
+### Added
+
+* **alertes:** montrer le verdict réseau dans l'alerte et sur les vues moniteur ([#406](https://github.com/AurevLan/WhatIsUp/issues/406)) ([3db699e](https://github.com/AurevLan/WhatIsUp/commit/3db699e20aef142e6e472a240e9ae669767afaa8))
+* **status:** montrer le verdict réseau sur la page de statut publique ([#407](https://github.com/AurevLan/WhatIsUp/issues/407)) ([d50a0d7](https://github.com/AurevLan/WhatIsUp/commit/d50a0d71c064c5c9d43afe900cef0654c7de6e46))
+
+
+### Fixed
+
+* **ci:** minusculiser le propriétaire dans les références d'image OCI ([#393](https://github.com/AurevLan/WhatIsUp/issues/393)) ([e92ddee](https://github.com/AurevLan/WhatIsUp/commit/e92ddee24c1f409ac37552a3547fc54b8fdc6609))
+* **i18n:** réparer quatre messages qui ne compilaient pas, et fermer la classe ([#398](https://github.com/AurevLan/WhatIsUp/issues/398)) ([ac73684](https://github.com/AurevLan/WhatIsUp/commit/ac73684fd788cf8b6a42987f6997e2465e1e30cc))
+* **incidents:** calculer le verdict réseau sur le chemin du Health Engine ([#396](https://github.com/AurevLan/WhatIsUp/issues/396)) ([e0fa3ef](https://github.com/AurevLan/WhatIsUp/commit/e0fa3ef31a43779b1337647bc93558b0dc90f588))
+* **onboarding:** cesser d'affirmer une couverture email qui n'existe pas ([#397](https://github.com/AurevLan/WhatIsUp/issues/397)) ([af7dfa2](https://github.com/AurevLan/WhatIsUp/commit/af7dfa2d82818b8be4145796035c5694bca1b2b6))
+
+
+### Docs
+
+* **security:** corriger la vérification de release (version, digest d'index, sans cosign local) ([#395](https://github.com/AurevLan/WhatIsUp/issues/395)) ([b07789f](https://github.com/AurevLan/WhatIsUp/commit/b07789f0e905e2d9a17924ab79c9ca1856d9dde6))
+
 ## [1.26.0](https://github.com/AurevLan/WhatIsUp/compare/v1.25.0...v1.26.0) (2026-08-30)
 
 

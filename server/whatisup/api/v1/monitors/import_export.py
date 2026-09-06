@@ -114,6 +114,7 @@ async def import_monitors(
     # Config fields that map to Monitor columns
     config_fields = {
         "name",
+        "public_name",
         "url",
         "group_id",
         "interval_seconds",

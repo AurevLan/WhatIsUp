@@ -82,6 +82,7 @@ const customHeadersFromMonitor = m.custom_headers
 
 const form = ref({
   name: m.name || '',
+  public_name: m.public_name || '',
   url: bareHostTypes.includes(m.check_type) ? stripScheme(m.url) : (m.url || ''),
   check_type: m.check_type || 'http',
   interval_seconds: m.interval_seconds ?? 60,
@@ -133,6 +134,7 @@ const jsonSchemaError = ref('')
 function buildPayload() {
   const p = {
     name: form.value.name,
+    public_name: form.value.public_name?.trim() || null,
     check_type: form.value.check_type,
     interval_seconds: form.value.interval_seconds,
     timeout_seconds: form.value.timeout_seconds,

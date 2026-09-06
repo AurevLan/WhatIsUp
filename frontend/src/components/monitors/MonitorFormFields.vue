@@ -24,6 +24,15 @@
     <input v-model="form.name" class="input w-full" :placeholder="currentType.namePlaceholder" required />
   </div>
 
+  <!-- Public name (cap v2, 5c) -->
+  <div>
+    <label class="block text-sm font-medium text-(--text-2) mb-1">
+      {{ t('monitors.public_name.label') }} <span class="text-(--text-3)">({{ t('common.optional') }})</span>
+    </label>
+    <input v-model="form.public_name" class="input w-full" :placeholder="t('monitors.public_name.placeholder')" maxlength="255" />
+    <p class="text-xs text-(--text-3) mt-1">{{ t('monitors.public_name.desc') }}</p>
+  </div>
+
   <!-- URL / Host field -->
   <div v-if="!TYPES_WITHOUT_TARGET.includes(form.check_type)">
     <label class="block text-sm font-medium text-(--text-2) mb-1">{{ currentType.urlLabel }} *</label>

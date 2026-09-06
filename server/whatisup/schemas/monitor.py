@@ -100,6 +100,7 @@ class ScenarioVariable(BaseModel):
 
 class MonitorCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
+    public_name: str | None = Field(default=None, max_length=255)
     url: AnyHttpUrl
     group_id: uuid.UUID | None = None
     team_id: uuid.UUID | None = None
@@ -211,6 +212,7 @@ class MonitorUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str | None = Field(default=None, min_length=1, max_length=255)
+    public_name: str | None = Field(default=None, max_length=255)
     url: AnyHttpUrl | None = None
     group_id: uuid.UUID | None = None
     interval_seconds: int | None = Field(default=None, ge=5, le=86400)
@@ -290,6 +292,7 @@ class MonitorUpdate(BaseModel):
 class MonitorOut(BaseModel):
     id: uuid.UUID
     name: str
+    public_name: str | None = None
     url: str
     group_id: uuid.UUID | None
     owner_id: uuid.UUID

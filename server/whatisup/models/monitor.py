@@ -196,6 +196,13 @@ class Monitor(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "monitors"
 
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Cap v2, 5c — the operator-facing name (`name`) often mirrors internal
+    # inventory ("nginx-front-02"); the public status page falls back to it
+    # today, which is exactly the leak this column lets the operator opt out
+    # of ("Site vitrine" instead). NULL/blank means "no override" and the
+    # public endpoint keeps reading `name`, so this column never regresses
+    # what was already published.
+    public_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     url: Mapped[str] = mapped_column(Text, nullable=False)
     group_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid(as_uuid=True),

@@ -241,6 +241,11 @@ export default {
     duplicate: 'Dupliquer',
     duplicate_name_prefix: 'Copie de {name}',
     edit_title: 'Modifier le moniteur',
+    public_name: {
+      label: 'Nom public',
+      placeholder: 'ex. Site vitrine',
+      desc: "Affiché sur la page de statut publique à la place du nom ci-dessus. Laisser vide pour publier tel quel le nom ci-dessus.",
+    },
     no_monitors: 'Aucun moniteur',
     no_results: 'Aucun moniteur ne correspond aux filtres',
     col_target: 'Cible',

@@ -26,6 +26,7 @@ logger = structlog.get_logger(__name__)
 # Fields to include in monitor export (excludes internal/computed fields)
 _MONITOR_EXPORT_FIELDS = [
     "name",
+    "public_name",
     "url",
     "check_type",
     "interval_seconds",

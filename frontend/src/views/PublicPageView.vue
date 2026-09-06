@@ -149,26 +149,6 @@
                     'bg-(--text-3)': !m.current_status,
                   }"></span>
                 <h3 class="font-semibold text-(--text-1) truncate">{{ m.name }}</h3>
-                <span class="text-xs px-1.5 py-0.5 rounded bg-(--bg-surface-2) text-(--text-3) uppercase shrink-0">
-                  {{ m.check_type }}
-                </span>
-              </div>
-
-              <div class="mt-1.5 text-sm font-mono">
-                <template v-if="m.check_type === 'dns'">
-                  <span class="text-(--text-3)">{{ m.dns_record_type || 'A' }} </span>
-                  <span v-if="m.current_value" class="text-(--up)">{{ m.current_value }}</span>
-                  <span v-else class="text-(--text-3)">—</span>
-                </template>
-                <template v-else-if="m.check_type === 'tcp'">
-                  <span class="text-(--text-3)">{{ formatTcpTarget(m) }}</span>
-                </template>
-                <template v-else-if="m.check_type === 'scenario'">
-                  <span class="text-(--text-3)">{{ t('sweep.browser_scenario') }}</span>
-                </template>
-                <template v-else>
-                  <span class="text-(--text-3) truncate block">{{ m.url?.replace(/^https?:\/\//, '') }}</span>
-                </template>
               </div>
             </div>
 
@@ -196,12 +176,13 @@
 
           <!-- Métriques supplémentaires -->
           <div class="mt-3 pt-3 border-t border-(--border) flex items-center gap-4 text-xs text-(--text-3)">
-            <template v-if="m.check_type === 'dns'">
-              <span v-if="m.last_checked_at">{{ t('public.checked_ago', { ago: timeAgo(m.last_checked_at) }) }}</span>
-            </template>
-            <template v-else>
-              <span v-if="m.avg_response_time_ms">{{ t('public.avg_response_ms', { ms: Math.round(m.avg_response_time_ms) }) }}</span>
-            </template>
+            <!-- Cap v2, 5c — no more `check_type` on this payload (dropped
+                 server-side, it was only ever used to pick between these two
+                 lines): a response-time average speaks for itself, and a
+                 monitor whose checks don't measure one just shows the
+                 last-checked time instead. -->
+            <span v-if="m.avg_response_time_ms">{{ t('public.avg_response_ms', { ms: Math.round(m.avg_response_time_ms) }) }}</span>
+            <span v-else-if="m.last_checked_at">{{ t('public.checked_ago', { ago: timeAgo(m.last_checked_at) }) }}</span>
           </div>
 
           <!-- Historique 90 jours -->
@@ -473,15 +454,6 @@ const globalStatus = computed(() => {
 // ────────────────────────────────────────────────
 // Formatage
 // ────────────────────────────────────────────────
-function formatTcpTarget(m) {
-  try {
-    const u = new URL(m.url)
-    return `${u.hostname}:${m.tcp_port || u.port || 80}`
-  } catch {
-    return m.url
-  }
-}
-
 function timeAgo(iso) {
   const diff = Math.floor((Date.now() - new Date(iso)) / 1000)
   if (diff < 60) return t('common.relative_seconds_ago', { n: diff })

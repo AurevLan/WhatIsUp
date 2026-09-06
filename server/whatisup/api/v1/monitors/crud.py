@@ -245,6 +245,7 @@ async def _create_monitor_from_payload(
 
     monitor = Monitor(
         name=payload.name,
+        public_name=payload.public_name,
         url=str(payload.url),
         group_id=payload.group_id,
         owner_id=current_user.id,

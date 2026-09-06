@@ -83,6 +83,7 @@ const monitorStore = useMonitorStore()
 
 const form = ref({
   name: '',
+  public_name: '',
   url: '',
   check_type: 'http',
   interval_seconds: 60,
@@ -177,6 +178,7 @@ const jsonSchemaError = ref('')
 function buildPayload() {
   const p = {
     name: form.value.name,
+    public_name: form.value.public_name?.trim() || null,
     check_type: form.value.check_type,
     interval_seconds: form.value.interval_seconds,
     timeout_seconds: form.value.timeout_seconds,

@@ -237,6 +237,9 @@ export default {
     all_operational: 'All operational',
     n_down: '{n} down',
     offline_probes: 'Offline probes',
+    stale_probes: 'Probe agents needing an update',
+    stale_probe_outdated: 'agent v{version}, server on {server}',
+    stale_probe_unreported: 'version not reported — agent likely outdated',
   },
 
   // Monitors

@@ -82,6 +82,17 @@
       </router-link>
     </section>
 
+    <!-- Stale probe agents -->
+    <section v-if="staleProbes.length" class="dash__section">
+      <h2 class="dash__h2 font-display">{{ t('dashboard.stale_probes') }}</h2>
+      <router-link v-for="p in staleProbes" :key="p.id" to="/probes" class="dash__incident">
+        <TriangleAlert :size="13" class="dash__incident-warn" aria-hidden="true" />
+        <span class="dash__incident-name">{{ p.name }}</span>
+        <span class="dash__incident-type">{{ staleProbeMessage(p) }}</span>
+        <span class="dash__incident-go" aria-hidden="true">→</span>
+      </router-link>
+    </section>
+
     <!-- Services -->
     <section class="dash__section">
       <div class="dash__section-head">
@@ -133,7 +144,8 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Monitor, WifiOff } from 'lucide-vue-next'
+import { Monitor, TriangleAlert, WifiOff } from 'lucide-vue-next'
+import { APP_VERSION } from '../lib/appVersion'
 import { useMonitorStore } from '../stores/monitors'
 import { useAuthStore } from '../stores/auth'
 import ProbeMap from '../components/dashboard/ProbeMap.vue'
@@ -245,6 +257,20 @@ const offlineProbes = computed(() =>
   })
 )
 const probesOnline = computed(() => probes.value.filter(p => p.is_active).length - offlineProbes.value.length)
+
+// Probes whose agent build needs attention (outdated, or too old to even
+// declare a version). Only among active probes that have connected at least
+// once — a disabled probe's agent isn't anyone's problem right now, and a
+// probe freshly registered but never yet seen is "not started", not "stale"
+// (it already shows in the offline-probes section above).
+const staleProbes = computed(() =>
+  probes.value.filter(p => p.is_active && p.last_seen_at && ['outdated', 'unreported'].includes(p.agent_status))
+)
+
+function staleProbeMessage(p) {
+  if (p.agent_status === 'unreported') return t('dashboard.stale_probe_unreported')
+  return t('dashboard.stale_probe_outdated', { version: p.version, server: APP_VERSION })
+}
 
 function probeLastSeen(p) {
   if (!p.last_seen_at) return t('common.never')
@@ -377,6 +403,7 @@ onMounted(async () => {
   animation: dash-pulse 1.6s ease-in-out infinite;
 }
 .dash__incident-wifi { color: var(--down); flex-shrink: 0; }
+.dash__incident-warn { color: var(--warn); flex-shrink: 0; }
 .dash__incident-name { font-weight: 600; font-size: 13.5px; color: var(--text-1); }
 .dash__incident-type { font-size: 12px; color: var(--text-3); }
 .dash__incident-go { margin-left: auto; color: var(--text-3); transition: transform .2s, color .2s; }

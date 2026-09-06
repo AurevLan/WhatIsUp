@@ -199,7 +199,6 @@ async def add_announcement_update(
         )
 
     update = StatusAnnouncementUpdate(
-        announcement_id=announcement.id,
         created_by_id=current_user.id,
         created_by_name=current_user.email,
         status=payload.status,
@@ -207,7 +206,15 @@ async def add_announcement_update(
         is_public=payload.is_public,
         created_at=datetime.now(UTC),
     )
-    db.add(update)
+    # Appended through the relationship, not by setting `announcement_id`:
+    # `_get_announcement_or_404` eager-loads `updates` (selectinload), so the
+    # parent sits in the session's identity map with an already-populated
+    # collection. Creating the child by foreign key leaves that collection
+    # stale, and the next read in the same session returns the thread short a
+    # post — silently, and only on some Python versions, because the identity
+    # map holds weak references and GC timing decides whether the parent
+    # survived. Appending keeps DB and session in step.
+    announcement.updates.append(update)
     # Keep the announcement's current state in sync with its latest post —
     # the public page reads `announcement.status`, not the thread, for the
     # headline state.

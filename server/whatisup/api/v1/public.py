@@ -114,15 +114,15 @@ async def _get_group_by_slug(slug: str, db: AsyncSession) -> MonitorGroup:
 
 
 def _feed_monitor_name(monitor: Monitor | None) -> str:
-    """Name a monitor the same way the rest of the public page will once
-    ``Monitor.public_name`` exists (cap v2, 5c — not merged as of this lot):
-    prefer it, fall back to the internal `name`, and degrade to plain `name`
-    today without the column at all. Never the URL, TCP port, DNS record
-    type or `check_type` — that inventory was closed off by 5c and a new
-    endpoint must not reopen it (see module docstring / PR #417)."""
+    """Name a monitor the way the rest of the public page does: prefer
+    ``public_name``, fall back to the internal ``name``.
+
+    Never the URL, TCP port, DNS record type or ``check_type`` — that
+    inventory was closed off on the public page by PR #417, and a new
+    endpoint is exactly how a closed leak comes back."""
     if monitor is None:
         return "unknown monitor"
-    return getattr(monitor, "public_name", None) or monitor.name
+    return monitor.public_name or monitor.name
 
 
 @router.get("/badge/{slug}/{monitor_name}")

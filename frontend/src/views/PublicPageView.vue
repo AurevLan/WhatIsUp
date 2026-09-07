@@ -324,7 +324,8 @@
       <!-- Footer -->
       <div class="text-center text-xs text-(--text-3)">
         Powered by <span class="text-(--text-3)">WhatIsUp</span> ·
-        {{ t('public.last_updated') }}: {{ lastUpdated }}
+        {{ t('public.last_updated') }}: {{ lastUpdated }} ·
+        <a :href="atomFeedUrl" target="_blank" rel="noopener" class="underline hover:text-(--text-2)">{{ t('public.atom_feed') }}</a>
       </div>
 
       </template>
@@ -366,6 +367,33 @@ const accentStyle = computed(() => {
   }
   return {}
 })
+
+// ────────────────────────────────────────────────
+// Flux Atom (cap V2, 5d)
+// ────────────────────────────────────────────────
+const atomFeedUrl = computed(() => {
+  const origin = getServerUrl() || window.location.origin
+  return `${origin}/api/v1/public/pages/${route.params.slug}/feed.atom`
+})
+
+// Feed readers discover the feed via <link rel="alternate">, same as any
+// other web page — Vue's SPA shell has no static per-route <head>, so it is
+// inserted/removed by hand rather than duplicated per view.
+let atomLinkEl = null
+function mountAtomFeedLink() {
+  atomLinkEl = document.createElement('link')
+  atomLinkEl.rel = 'alternate'
+  atomLinkEl.type = 'application/atom+xml'
+  atomLinkEl.title = page.value?.public_title || page.value?.name || 'Status'
+  atomLinkEl.href = atomFeedUrl.value
+  document.head.appendChild(atomLinkEl)
+}
+function unmountAtomFeedLink() {
+  if (atomLinkEl?.parentNode) {
+    atomLinkEl.parentNode.removeChild(atomLinkEl)
+  }
+  atomLinkEl = null
+}
 
 // Incident updates (public)
 const expandedPublicIncident = ref(null)
@@ -582,6 +610,8 @@ onMounted(async () => {
     lastUpdated.value = nowTime()
   }
 
+  mountAtomFeedLink()
+
   // Mise à jour temps réel via WebSocket (public endpoint)
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   publicWs = new WebSocket(`${protocol}//${window.location.host}/ws/public/${slug}`)
@@ -607,5 +637,6 @@ onUnmounted(() => {
     publicWs.close()
     publicWs = null
   }
+  unmountAtomFeedLink()
 })
 </script>

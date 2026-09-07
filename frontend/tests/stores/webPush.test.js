@@ -28,8 +28,6 @@ function makePushSub({ endpoint = 'https://fcm.example/sub', p256dh = 'p256', au
 }
 
 let pushSubInstance = null
-let originalNavigator
-let originalWindow
 
 beforeEach(() => {
   setActivePinia(createPinia())
@@ -39,9 +37,6 @@ beforeEach(() => {
   apiTest.mockReset()
   vi.spyOn(console, 'log').mockImplementation(() => {})
   vi.spyOn(console, 'error').mockImplementation(() => {})
-
-  originalNavigator = globalThis.navigator
-  originalWindow = globalThis.window
 
   pushSubInstance = makePushSub()
 
@@ -55,20 +50,25 @@ beforeEach(() => {
   }
   globalThis.__pushReg = reg
 
-  globalThis.navigator = {
+  // `vi.stubGlobal`, not a plain assignment: since vitest 5 the jsdom globals
+  // are installed as getter-only accessors, and `globalThis.navigator = ...`
+  // throws `Cannot set property navigator of [object Window]`. stubGlobal goes
+  // through `Object.defineProperty` and `unstubAllGlobals` restores the real
+  // descriptors — which the manual save/restore above never did faithfully.
+  vi.stubGlobal('navigator', {
     serviceWorker: { ready: Promise.resolve(reg) },
     userAgent: 'Mozilla/5.0 (jsdom)',
-  }
-  globalThis.window = {
+  })
+  const fakeWindow = {
     PushManager: function () {},
     Notification: { requestPermission: vi.fn(async () => 'granted') },
   }
-  globalThis.Notification = globalThis.window.Notification
+  vi.stubGlobal('window', fakeWindow)
+  vi.stubGlobal('Notification', fakeWindow.Notification)
 })
 
 afterEach(() => {
-  globalThis.navigator = originalNavigator
-  globalThis.window = originalWindow
+  vi.unstubAllGlobals()
 })
 
 import { afterEach } from 'vitest'

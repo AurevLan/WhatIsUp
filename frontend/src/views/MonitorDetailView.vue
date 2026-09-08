@@ -23,6 +23,18 @@
           <TagChips :model-value="monitor.tags || []" @update:model-value="onTagsChange" />
         </div>
       </div>
+      <!-- Duplicate — available for every check type (plan cap v2, 6a). This
+           is what replaces MonitorTemplate: "create a monitor that looks
+           like this one", without a permanent nav entry for a feature that
+           had 0 rows in production. Pre-fills CreateMonitorModal via the
+           same initial-data prop the discovery accept flow already uses. -->
+      <button
+        class="btn-secondary btn-sm flex items-center gap-1.5 shrink-0"
+        :title="t('monitors.duplicate')"
+        @click="duplicateMonitor"
+      >
+        <Copy class="w-3.5 h-3.5" /> {{ t('monitors.duplicate') }}
+      </button>
     </div>
 
     <!-- Down + network verdict, reunited at the top (plan_cap_v2 §3a) -->
@@ -66,7 +78,6 @@
       :probe-name="probeName"
       :step-type-badge-class="stepTypeBadgeClass"
       @trigger-check="handleTriggerCheck"
-      @duplicate="duplicateMonitor"
       @schedule-maintenance="openScheduleMaintenance"
       @edit-monitor="editingMonitor = monitor"
       @open-screenshot="e => openScreenshot(e.src, e.label)"
@@ -322,7 +333,7 @@
 import { ref, computed, onMounted, provide, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { Ghost } from 'lucide-vue-next'
+import { Ghost, Copy } from 'lucide-vue-next'
 import { monitorsApi } from '../api/monitors'
 import { useOrphanedMonitors } from '../composables/useOrphanedMonitors'
 import BaseModal from '../components/BaseModal.vue'

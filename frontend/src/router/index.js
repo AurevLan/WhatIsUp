@@ -127,12 +127,6 @@ const routes = [
         meta: { titleKey: 'nav.incidents' },
       },
       {
-        path: 'templates',
-        name: 'Templates',
-        component: () => import('../views/TemplatesView.vue'),
-        meta: { titleKey: 'nav.templates' },
-      },
-      {
         path: 'graph',
         name: 'DependencyGraph',
         component: () => import('../views/DependencyGraphView.vue'),

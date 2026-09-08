@@ -38,7 +38,6 @@
         <NavLink to="/silences" :icon="BellOff" :label="t('nav.silences')" />
         <NavLink to="/oncall" :icon="Users" :label="t('nav.oncall')" />
         <NavLink to="/incidents" :icon="Clock" :label="t('nav.incidents')" :badge="openIncidentCount" />
-        <NavLink to="/templates" :icon="Copy" :label="t('nav.templates')" />
         <NavLink to="/tls-fleet" :icon="ShieldCheck" :label="t('nav.tls_fleet')" />
 
         <div class="nav-section">{{ t('nav.account') }}</div>
@@ -151,7 +150,7 @@ import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
-  Activity, Bell, BellOff, CalendarClock, ClipboardList, Clock, Copy,
+  Activity, Bell, BellOff, CalendarClock, ClipboardList, Clock,
   KeyRound, LayoutDashboard, Layers, LogOut, MapPin, Moon, Network, Radar, Search, Settings,
   ShieldCheck, Sun, Users, WifiOff,
 } from 'lucide-vue-next'

@@ -340,6 +340,10 @@ async def get_public_status(
     # targeting one of its own monitors — never a window on another group's
     # monitor. `ends_at >= now` keeps the list to current + upcoming, capped
     # so a heavy maintenance schedule can't inflate the payload.
+    # Cap v2, 6d — the table also holds plain alert silences
+    # (`is_maintenance=False`, ex-`AlertSilence`) since the merge; those are a
+    # private on-call convenience, never a public fact. Only real maintenance
+    # windows are eligible here.
     maintenance_conditions = [MaintenanceWindow.group_id == group.id]
     if monitor_ids:
         maintenance_conditions.append(MaintenanceWindow.monitor_id.in_(monitor_ids))
@@ -347,7 +351,11 @@ async def get_public_status(
         (
             await db.execute(
                 select(MaintenanceWindow)
-                .where(or_(*maintenance_conditions), MaintenanceWindow.ends_at >= now)
+                .where(
+                    or_(*maintenance_conditions),
+                    MaintenanceWindow.ends_at >= now,
+                    MaintenanceWindow.is_maintenance.is_(True),
+                )
                 .order_by(MaintenanceWindow.starts_at.asc())
                 .limit(20)
             )
@@ -699,6 +707,8 @@ async def get_public_atom_feed(
     # `/status` endpoint only needs current+upcoming, but a feed reader that
     # last polled before a short window both started and ended would
     # otherwise never see it. ──
+    # Cap v2, 6d — exclude plain alert silences (is_maintenance=False), same
+    # reasoning as the /status endpoint above.
     maintenance_conditions = [MaintenanceWindow.group_id == group.id]
     if monitor_ids:
         maintenance_conditions.append(MaintenanceWindow.monitor_id.in_(monitor_ids))
@@ -706,7 +716,11 @@ async def get_public_atom_feed(
         (
             await db.execute(
                 select(MaintenanceWindow)
-                .where(or_(*maintenance_conditions), MaintenanceWindow.ends_at >= cutoff_30d)
+                .where(
+                    or_(*maintenance_conditions),
+                    MaintenanceWindow.ends_at >= cutoff_30d,
+                    MaintenanceWindow.is_maintenance.is_(True),
+                )
                 .order_by(MaintenanceWindow.starts_at.desc())
                 .limit(PUBLIC_FEED_MAX_ENTRIES)
             )

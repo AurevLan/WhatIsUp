@@ -1,4 +1,10 @@
-"""Maintenance window service."""
+"""Maintenance window service.
+
+Both functions below only ever look at rows with ``is_maintenance=True``
+(plan cap v2, 6d) — a plain alert silence (``is_maintenance=False``) must not
+suppress incident creation or exclude downtime from uptime; it only mutes
+dispatch, via ``services.alert._is_silenced``. See models/maintenance.py.
+"""
 
 from __future__ import annotations
 
@@ -29,6 +35,7 @@ async def is_in_maintenance(
                 or_(*conditions),
                 MaintenanceWindow.starts_at <= now,
                 MaintenanceWindow.ends_at >= now,
+                MaintenanceWindow.is_maintenance.is_(True),
             )
             .limit(1)
         )
@@ -55,6 +62,7 @@ async def is_group_maintenance_suppressed(
                 MaintenanceWindow.starts_at <= now,
                 MaintenanceWindow.ends_at >= now,
                 MaintenanceWindow.suppress_alerts.is_(True),
+                MaintenanceWindow.is_maintenance.is_(True),
             )
             .limit(1)
         )

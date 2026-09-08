@@ -220,6 +220,9 @@
             {{ t('maintenance.monitor_label') }}
             <span class="text-(--text-3)">({{ t('common.optional') }})</span>
           </label>
+          <p v-if="!form.is_maintenance" class="text-xs text-(--text-3) mt-0.5">
+            {{ t('maintenance.monitor_none_hint_silence') }}
+          </p>
           <div class="relative mt-1">
             <button
               type="button"
@@ -265,8 +268,39 @@
           </div>
         </div>
 
-        <!-- Suppress alerts toggle -->
+        <!-- is_maintenance toggle (plan cap v2, 6d) — the one bit that used
+             to be two tables: checked = counts as planned downtime, excluded
+             from uptime and eligible for the public status page (subject to
+             the public message above); unchecked = a plain silence, the
+             incident opens and counts normally, and no target at all
+             becomes legal ("every monitor I own"). -->
         <div class="flex items-center gap-3 py-1">
+          <button
+            type="button"
+            @click="form.is_maintenance = !form.is_maintenance"
+            :aria-label="t('maintenance.is_maintenance_label')"
+            class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200"
+            :class="form.is_maintenance ? 'bg-(--accent)' : 'bg-(--bg-surface-3)'"
+          >
+            <span
+              class="inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform duration-200"
+              :class="form.is_maintenance ? 'translate-x-4' : 'translate-x-0'"
+            />
+          </button>
+          <span
+            class="text-sm text-(--text-2) cursor-pointer select-none"
+            @click="form.is_maintenance = !form.is_maintenance"
+          >
+            {{ t('maintenance.is_maintenance_label') }}
+          </span>
+        </div>
+        <p class="text-xs text-(--text-3) -mt-2">
+          {{ form.is_maintenance ? t('maintenance.is_maintenance_hint_on') : t('maintenance.is_maintenance_hint_off') }}
+        </p>
+
+        <!-- Suppress alerts toggle — only meaningful for a group-scoped
+             maintenance window (cascading suppression of sibling alerts). -->
+        <div v-if="form.is_maintenance && form.group_id" class="flex items-center gap-3 py-1">
           <button
             type="button"
             @click="form.suppress_alerts = !form.suppress_alerts"
@@ -315,11 +349,6 @@ const { t } = useI18n()
 const { success, error: toastError } = useToast()
 const { confirm } = useConfirm()
 
-// ── Props (for pre-filling from MonitorDetailView) ─────────────────────────
-const props = defineProps({
-  prefilledMonitorId: { type: String, default: null },
-})
-
 // ── State ──────────────────────────────────────────────────────────────────
 const windows            = ref([])
 const allMonitors        = ref([])
@@ -344,6 +373,7 @@ function defaultForm() {
     starts_at:       '',
     ends_at:         '',
     suppress_alerts: true,
+    is_maintenance:  true,
   }
 }
 
@@ -491,6 +521,7 @@ function openEdit(w) {
     starts_at:       toLocalDt(w.starts_at),
     ends_at:         toLocalDt(w.ends_at),
     suppress_alerts: w.suppress_alerts,
+    is_maintenance:  w.is_maintenance,
   }
   showCreate.value = true
 }
@@ -498,6 +529,13 @@ function openEdit(w) {
 async function submitWindow() {
   if (!form.value.name.trim() || !form.value.starts_at || !form.value.ends_at) {
     toastError(t('maintenance.error_required'))
+    return
+  }
+  // A real maintenance window still needs a target; a plain silence may
+  // apply to every monitor the caller owns (server-enforced too, see
+  // schemas/maintenance.py — this is just an earlier, friendlier error).
+  if (form.value.is_maintenance && !form.value.monitor_id && !form.value.group_id) {
+    toastError(t('maintenance.error_target_required'))
     return
   }
   saving.value = true
@@ -511,6 +549,7 @@ async function submitWindow() {
       starts_at:       new Date(form.value.starts_at).toISOString(),
       ends_at:         new Date(form.value.ends_at).toISOString(),
       suppress_alerts: form.value.suppress_alerts,
+      is_maintenance:  form.value.is_maintenance,
     }
     if (editingWindow.value) {
       const { data } = await maintenanceApi.update(editingWindow.value.id, payload, { skipErrorToast: true })
@@ -552,6 +591,5 @@ defineExpose({ openCreate })
 
 onMounted(async () => {
   await Promise.all([loadWindows(), loadMonitors()])
-  if (props.prefilledMonitorId) openCreate(props.prefilledMonitorId)
 })
 </script>

@@ -81,16 +81,13 @@ const routes = [
         meta: { titleKey: 'nav.apiKeys' },
       },
       {
+        // plan cap v2, 6d — merges the former /silences route: a single
+        // "suppression window" concept (maintenance or plain silence,
+        // toggled by is_maintenance), see views/SuppressionsView.vue.
         path: 'maintenance',
         name: 'Maintenance',
-        component: () => import('../views/MaintenanceView.vue'),
+        component: () => import('../views/SuppressionsView.vue'),
         meta: { titleKey: 'nav.maintenance' },
-      },
-      {
-        path: 'silences',
-        name: 'Silences',
-        component: () => import('../views/SilencesView.vue'),
-        meta: { titleKey: 'nav.silences' },
       },
       {
         path: 'oncall',

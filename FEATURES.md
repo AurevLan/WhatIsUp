@@ -18,7 +18,7 @@
 5. [Alerting](#5-alerting)
 6. [Status pages publiques](#6-status-pages-publiques)
 7. [Dashboard & UX](#7-dashboard--ux)
-8. [Maintenance windows](#8-maintenance-windows)
+8. [Suppressions (maintenance + silences fusionnées, plan cap v2 6d)](#8-suppressions-maintenance--silences-fusionnées-plan-cap-v2-6d)
 9. [Audit & Compliance](#9-audit--compliance)
 10. [Infrastructure & Déploiement](#10-infrastructure--déploiement)
 11. [Sécurité](#11-sécurité)
@@ -338,9 +338,9 @@
 - ✅ **Impact preview** `POST /alerts/monitors/{id}/matrix/preview` — replay 30 j + would-fire count par condition, badge `≈ N / 30j`, debounce, tail estimate erfc pour anomaly
 
 ### Silences
-- ✅ `AlertSilence` — name, reason, owner_id, monitor_id (null = catch-all owner-wide), starts_at, ends_at
-- ✅ Guard `_is_silenced()` court-circuite avant tout IO
-- ✅ Vue `SilencesView` + presets durée 15m/1h/4h/1d, badges Actif/Planifié/Passé
+> Fusionnées dans `MaintenanceWindow` (plan cap v2, 6d) — voir § 8 « Suppressions ». `AlertSilence`,
+> `/api/v1/silences/` et `SilencesView.vue` ont disparu ; un silence est désormais une fenêtre de
+> suppression avec `is_maintenance=False`.
 - 🚧 Pas de récurrence cron ni scope par tag/team (follow-up)
 
 ### Sécurité Alerting
@@ -428,14 +428,27 @@
 
 ---
 
-## 8. Maintenance windows
+## 8. Suppressions (maintenance + silences fusionnées, plan cap v2 6d)
+
+Un seul objet « fenêtre de suppression » (`MaintenanceWindow`, `/api/v1/maintenance/`), avec un
+bit `is_maintenance` : coché = comportement maintenance historique (downtime exclu de l'uptime,
+éligible à la page de statut publique) ; décoché = simple silence (ex-`AlertSilence`, table et
+route `/api/v1/silences/` supprimées) — l'incident s'ouvre et compte normalement, seul le dispatch
+est coupé. Une fenêtre sans cible du tout (ni moniteur ni groupe) n'est légale que décochée
+("tous mes moniteurs", le catch-all hérité d'`AlertSilence`).
 
 - ✅ CRUD `/api/v1/maintenance/`
-- ✅ Scope per-monitor OU per-group, team-scoped
-- ✅ Modal create/edit + vue calendrier (`MaintenanceView.vue`, `MaintenanceWindowCard.vue`)
-- ✅ Quick-schedule depuis `MonitorDetailView`
-- ✅ Alertes supprimées pendant la fenêtre (`services/maintenance.py: is_in_maintenance`, `is_group_maintenance_suppressed`)
-- ✅ Uptime distinct (downtime planifié ≠ panne)
+- ✅ Scope per-monitor OU per-group (team-scoped) pour une vraie maintenance ; catch-all
+  owner-wide pour un simple silence
+- ✅ Modal create/edit + vue calendrier (`SuppressionsView.vue`, `MaintenanceWindowCard.vue`) —
+  badge Maintenance/Silence par fenêtre
+- ✅ Quick-schedule depuis `MonitorDetailView` (en-tête, tous types de check), presets de durée
+  30 min/1 h/4 h/jusqu'à demain
+- ✅ Alertes supprimées pendant la fenêtre (`services/maintenance.py: is_in_maintenance`,
+  `is_group_maintenance_suppressed` — filtrés `is_maintenance=True`) + mute canal par propriétaire
+  (`services/alert.py: _is_silenced`, tous types de fenêtre)
+- ✅ Uptime distinct (downtime planifié ≠ panne) — un simple silence ne l'exclut jamais
+- ✅ Une entrée de nav en moins (fusion des deux pages, 12 → 11)
 
 ---
 
@@ -609,7 +622,7 @@
 | `/probes/{id}/rotate-key` | 10/min |
 | `/monitors` POST | 10/min |
 | `/config` GET + PUT | 10/min (export lourd / import déclaratif) |
-| `/silences` | GET 60 / POST 20 / PATCH 30 / DELETE 30/min |
+| `/maintenance` (suppressions — ex-`/silences` fusionné, plan cap v2 6d) | GET 60 / POST 20 / PATCH 30 / DELETE 30/min |
 | `/discovery/sources` | GET 60 / POST 20 / PATCH 30 / DELETE 30/min |
 | `/discovery/services` | GET 60 / accept+dismiss (POST) 30/min / bulk (POST) 10/min |
 | `/probes/discovery` | POST 60/min (push snapshot sonde) |

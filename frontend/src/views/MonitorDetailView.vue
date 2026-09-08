@@ -35,6 +35,17 @@
       >
         <Copy class="w-3.5 h-3.5" /> {{ t('monitors.duplicate') }}
       </button>
+      <!-- Schedule suppression — available for every check type (plan cap
+           v2, 6d). Used to live only in the scenario tab; widened here so
+           any monitor can be muted/put in maintenance from its own page,
+           the actual point of merging maintenance and silences. -->
+      <button
+        class="btn-secondary btn-sm flex items-center gap-1.5 shrink-0"
+        :title="t('maintenance.schedule_maintenance')"
+        @click="openScheduleMaintenance"
+      >
+        <CalendarClock class="w-3.5 h-3.5" /> {{ t('maintenance.schedule_maintenance') }}
+      </button>
     </div>
 
     <!-- Down + network verdict, reunited at the top (plan_cap_v2 §3a) -->
@@ -78,7 +89,6 @@
       :probe-name="probeName"
       :step-type-badge-class="stepTypeBadgeClass"
       @trigger-check="handleTriggerCheck"
-      @schedule-maintenance="openScheduleMaintenance"
       @edit-monitor="editingMonitor = monitor"
       @open-screenshot="e => openScreenshot(e.src, e.label)"
     />
@@ -350,7 +360,7 @@
 import { ref, computed, onMounted, provide, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { Ghost, Copy, Network, ChevronDown } from 'lucide-vue-next'
+import { Ghost, Copy, Network, ChevronDown, CalendarClock } from 'lucide-vue-next'
 import { monitorsApi } from '../api/monitors'
 import { useOrphanedMonitors } from '../composables/useOrphanedMonitors'
 import BaseModal from '../components/BaseModal.vue'

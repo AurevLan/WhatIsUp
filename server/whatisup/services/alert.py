@@ -14,7 +14,7 @@ from typing import Any
 
 import aiosmtplib
 import structlog
-from sqlalchemy import or_, select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.core.config import get_settings
@@ -591,30 +591,45 @@ async def _is_silenced(
     incident: Incident,
     channel: AlertChannel,
 ) -> bool:
-    """Return True if any active AlertSilence covers this incident's monitor.
+    """Return True if any active suppression window covers this incident for
+    this channel's owner (plan cap v2, 6d — ex-``AlertSilence``, now a
+    ``MaintenanceWindow`` row; ``is_maintenance`` doesn't matter here, a
+    "real" maintenance window silences dispatch just as well as a plain one).
 
-    A silence matches when:
+    A window matches when:
       - it is currently within its [starts_at, ends_at] window, AND
       - it belongs to the channel owner, AND
-      - its monitor_id is None (catch-all) OR matches incident.monitor_id.
+      - it targets incident.monitor_id directly, OR is a true catch-all
+        (monitor_id AND group_id both None — the ex-AlertSilence "every
+        monitor I own" shape).
+
+    A group-scoped window (group_id set, monitor_id None) deliberately does
+    NOT match here: it isn't a catch-all, and without the incident's
+    monitor.group_id in hand this function can't tell "this owner's group
+    window" from "this owner's every-monitor silence" — group-wide
+    suppression is already handled correctly at incident-open time by
+    ``is_group_maintenance_suppressed``.
 
     Channel.owner_id is the right scope (not incident.monitor.owner_id) because
     silences are an on-call ergonomic — the user who owns the destination wants
     quiet, even if the monitor itself is shared.
     """
-    from whatisup.models.silence import AlertSilence
+    from whatisup.models.maintenance import MaintenanceWindow
 
     now = datetime.now(UTC)
     row = (
         await db.execute(
-            select(AlertSilence.id)
+            select(MaintenanceWindow.id)
             .where(
-                AlertSilence.owner_id == channel.owner_id,
-                AlertSilence.starts_at <= now,
-                AlertSilence.ends_at > now,
+                MaintenanceWindow.owner_id == channel.owner_id,
+                MaintenanceWindow.starts_at <= now,
+                MaintenanceWindow.ends_at > now,
                 or_(
-                    AlertSilence.monitor_id.is_(None),
-                    AlertSilence.monitor_id == incident.monitor_id,
+                    MaintenanceWindow.monitor_id == incident.monitor_id,
+                    and_(
+                        MaintenanceWindow.monitor_id.is_(None),
+                        MaintenanceWindow.group_id.is_(None),
+                    ),
                 ),
             )
             .limit(1)

@@ -1,4 +1,4 @@
-"""Monitor topology — dependency graph, dependencies, composite members, correlated monitors."""
+"""Monitor topology — dependency graph, dependencies, correlated monitors."""
 
 import logging
 import uuid
@@ -16,11 +16,9 @@ from whatisup.api.deps import (
 from whatisup.api.v1.monitors._common import _get_monitor_or_404
 from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
-from whatisup.models.monitor import CompositeMonitorMember, Monitor
+from whatisup.models.monitor import Monitor
 from whatisup.models.user import User
 from whatisup.schemas.monitor import (
-    CompositeMonitorMemberCreate,
-    CompositeMonitorMemberOut,
     MonitorDependencyCreate,
     MonitorDependencyOut,
 )
@@ -223,200 +221,6 @@ async def remove_dependency(
     if dep is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dependency not found")
     await db.delete(dep)
-
-
-# ---------------------------------------------------------------------------
-# DNS baseline management
-# ---------------------------------------------------------------------------
-
-
-async def _would_create_cycle(
-    db: AsyncSession,
-    composite_id: uuid.UUID,
-    member_id: uuid.UUID,
-) -> bool:
-    """Check if adding member_id to composite_id would create a cycle.
-
-    Iterative BFS with a single edge query: scales linearly in edges rather
-    than issuing one query per node (the previous recursive implementation
-    was O(nodes) round-trips).
-    """
-    if member_id == composite_id:
-        return True
-
-    # Load every composite edge once; building the adjacency map in Python
-    # turns the cycle check into pure in-memory graph traversal.
-    edges = (
-        await db.execute(
-            select(
-                CompositeMonitorMember.composite_id,
-                CompositeMonitorMember.monitor_id,
-            )
-        )
-    ).all()
-    adjacency: dict[uuid.UUID, list[uuid.UUID]] = {}
-    for parent, child in edges:
-        adjacency.setdefault(parent, []).append(child)
-
-    visited: set[uuid.UUID] = set()
-    queue: list[uuid.UUID] = [member_id]
-    while queue:
-        node = queue.pop()
-        if node in visited:
-            continue
-        if node == composite_id:
-            return True
-        visited.add(node)
-        queue.extend(adjacency.get(node, ()))
-    return False
-
-
-@router.get(
-    "/{monitor_id}/composite-members",
-    response_model=list[CompositeMonitorMemberOut],
-)
-@limiter.limit("60/minute")
-async def list_composite_members(
-    request: Request,
-    monitor_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> list:
-    """List all source monitors of a composite monitor."""
-    monitor = await _get_monitor_or_404(monitor_id, current_user, db)
-    if monitor.check_type != "composite":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="This monitor is not a composite monitor",
-        )
-    rows = (
-        (
-            await db.execute(
-                select(CompositeMonitorMember).where(
-                    CompositeMonitorMember.composite_id == monitor_id
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
-    return list(rows)
-
-
-@router.post(
-    "/{monitor_id}/composite-members",
-    response_model=CompositeMonitorMemberOut,
-    status_code=status.HTTP_201_CREATED,
-)
-@limiter.limit("30/minute")
-async def add_composite_member(
-    request: Request,
-    monitor_id: uuid.UUID,
-    payload: CompositeMonitorMemberCreate,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> object:
-    """Add a source monitor to a composite monitor."""
-    composite = await _get_monitor_or_404(monitor_id, current_user, db)
-    if composite.check_type != "composite":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Target monitor is not a composite monitor",
-        )
-    if payload.monitor_id == monitor_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="A composite monitor cannot reference itself",
-        )
-
-    member_monitor = await _get_monitor_or_404(payload.monitor_id, current_user, db)
-
-    # Cycle detection: if member is itself a composite, check for transitive cycles
-    if member_monitor.check_type == "composite":
-        if await _would_create_cycle(db, monitor_id, payload.monitor_id):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Adding this member would create a circular dependency",
-            )
-
-    existing = (
-        await db.execute(
-            select(CompositeMonitorMember).where(
-                CompositeMonitorMember.composite_id == monitor_id,
-                CompositeMonitorMember.monitor_id == payload.monitor_id,
-            )
-        )
-    ).scalar_one_or_none()
-    if existing:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Member already added")
-
-    member = CompositeMonitorMember(
-        composite_id=monitor_id,
-        monitor_id=payload.monitor_id,
-        weight=payload.weight,
-        role=payload.role,
-    )
-    db.add(member)
-    await db.flush()
-    return member
-
-
-@router.patch(
-    "/{monitor_id}/composite-members/{member_id}",
-    response_model=CompositeMonitorMemberOut,
-)
-@limiter.limit("30/minute")
-async def update_composite_member(
-    request: Request,
-    monitor_id: uuid.UUID,
-    member_id: uuid.UUID,
-    payload: CompositeMonitorMemberCreate,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> object:
-    """Update weight or role of a composite member."""
-    await _get_monitor_or_404(monitor_id, current_user, db)
-    member = (
-        await db.execute(
-            select(CompositeMonitorMember).where(
-                CompositeMonitorMember.id == member_id,
-                CompositeMonitorMember.composite_id == monitor_id,
-            )
-        )
-    ).scalar_one_or_none()
-    if member is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Member not found")
-    member.weight = payload.weight
-    member.role = payload.role
-    await db.flush()
-    return member
-
-
-@router.delete(
-    "/{monitor_id}/composite-members/{member_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-)
-@limiter.limit("30/minute")
-async def remove_composite_member(
-    request: Request,
-    monitor_id: uuid.UUID,
-    member_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> None:
-    """Remove a source monitor from a composite monitor."""
-    await _get_monitor_or_404(monitor_id, current_user, db)
-    member = (
-        await db.execute(
-            select(CompositeMonitorMember).where(
-                CompositeMonitorMember.id == member_id,
-                CompositeMonitorMember.composite_id == monitor_id,
-            )
-        )
-    ).scalar_one_or_none()
-    if member is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Member not found")
-    await db.delete(member)
 
 
 # ── Correlation patterns ─────────────────────────────────────────────────

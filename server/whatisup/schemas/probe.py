@@ -231,8 +231,6 @@ class ProbeMonitorConfig(BaseModel):
     # SMTP checks
     smtp_port: int | None = None
     smtp_starttls: bool = False
-    # UDP checks
-    udp_port: int | None = None
     # Domain expiry checks
     domain_expiry_warn_days: int = 30
     # Auto-pause after N consecutive failures (informational — enforced server-side)

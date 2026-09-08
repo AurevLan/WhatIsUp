@@ -2,8 +2,8 @@
 
 ``services.health`` calls into these two functions when an SLO rule's verdict
 changes. The legacy per-probe pipeline in ``services.incident.process_check_result``
-still owns composite, schema drift, anomaly detection and auto-pause; we only
-mint/resolve incidents here.
+still owns schema drift, anomaly detection and auto-pause; we only mint/resolve
+incidents here.
 
 Diagnostic enqueue + correlation + alert dispatch are reused from the legacy
 path so health-engine incidents are observability-equivalent.

@@ -53,15 +53,14 @@ from whatisup.models.probe_group import ProbeGroup
 #: outbound target at all) or produce false positives (`dns`/`ping`/
 #: `domain_expiry` store a queried domain with no associated port at all;
 #: falling through to a default port would collide with an unrelated
-#: discovered port 80/443 service on the same host). `composite` aggregates
-#: other monitors and has no network target of its own.
-_NON_MATCHABLE_CHECK_TYPES = frozenset({"heartbeat", "dns", "ping", "domain_expiry", "composite"})
+#: discovered port 80/443 service on the same host).
+_NON_MATCHABLE_CHECK_TYPES = frozenset({"heartbeat", "dns", "ping", "domain_expiry"})
 
 #: `Monitor` fields that carry the real port for their check_type — the
 #: check-type-specific field always wins over whatever the URL parses to
 #: (mirrors how the probe checkers read config, e.g.
 #: `probe/whatisup_probe/checkers/tcp.py`: `config.get("tcp_port") or parsed.port`).
-_PORT_FIELD_BY_CHECK_TYPE = {"tcp": "tcp_port", "udp": "udp_port", "smtp": "smtp_port"}
+_PORT_FIELD_BY_CHECK_TYPE = {"tcp": "tcp_port", "smtp": "smtp_port"}
 
 #: Scheme -> default port, used only when a check_type has no dedicated port
 #: field and the URL itself doesn't name one (plain `http`/`https` monitors).
@@ -69,8 +68,8 @@ _SCHEME_DEFAULT_PORTS = {"http": 80, "https": 443}
 
 #: Ports mapped to a `check_type` deduction (plan_discovery.md D-2: "443→http,
 #: 80→http, 5432/6379/etc.→tcp, 25/465/587→smtp, 53→dns…, défaut tcp"). Ports
-#: not listed here — 5432, 6379, 22, ... — already fall through to the
-#: tcp/udp default below; listing them would just restate that default.
+#: not listed here — 5432, 6379, 22, ... — already fall through to the tcp
+#: default below; listing them would just restate that default.
 _HTTP_PORTS = frozenset({80, 443, 8080, 8443, 8000})
 _SMTP_PORTS = frozenset({25, 465, 587})
 _DNS_PORTS = frozenset({53})
@@ -83,14 +82,21 @@ _COMPOSE_SERVICE_LABEL = "com.docker.compose.service"
 
 
 def deduce_check_type(port: int | None, proto: str) -> str:
-    """Best-effort ``check_type`` guess from what the scan actually observed."""
+    """Best-effort ``check_type`` guess from what the scan actually observed.
+
+    ``proto`` (e.g. a docker-reported ``udp`` exposed port) is otherwise
+    ignored: the generic `udp` check type was cut (C2) for rendering a false
+    verdict, so a discovered UDP service on a port we don't otherwise
+    recognize falls through to the same ``tcp`` default as any other port —
+    the caller can still retype it at accept time.
+    """
     if port in _HTTP_PORTS:
         return "http"
     if port in _SMTP_PORTS:
         return "smtp"
     if port in _DNS_PORTS:
         return "dns"
-    return "udp" if proto == "udp" else "tcp"
+    return "tcp"
 
 
 def _suggest_name(service: DiscoveredService) -> str:
@@ -218,9 +224,9 @@ def _build_target_url(host: str, port: int | None, check_type: str) -> str:
     For `http` it's the real request target (scheme carries meaning: 443/8443
     get `https://`). For every other check_type the probe checkers only ever
     pull the hostname back out of it (`urlparse(config["url"]).hostname`, see
-    `probe/whatisup_probe/checkers/{tcp,udp,smtp,dns,ping,domain_expiry}.py`)
-    — the real port lives in `tcp_port`/`udp_port`/`smtp_port` instead, so the
-    URL itself is a bare `http://{host}` wrapper.
+    `probe/whatisup_probe/checkers/{tcp,smtp,dns,ping,domain_expiry}.py`)
+    — the real port lives in `tcp_port`/`smtp_port` instead, so the URL
+    itself is a bare `http://{host}` wrapper.
     """
     if check_type == "http":
         if port in (443, 8443):
@@ -257,7 +263,7 @@ def default_monitor_fields(service: DiscoveredService, source: DiscoverySource) 
 
 
 def port_field_for_check_type(check_type: str) -> str | None:
-    """`Monitor` field name (`tcp_port`/`udp_port`/`smtp_port`) carrying the
+    """`Monitor` field name (`tcp_port`/`smtp_port`) carrying the
     port for this check_type, or ``None`` for check_types with no dedicated
     port field. Exposed for `api/v1/discovery.py`: when a caller overrides
     `check_type` at accept time, the prefill's port field no longer applies
@@ -288,8 +294,7 @@ def monitor_network_target(monitor: Monitor) -> str | None:
     if port is None:
         port = _SCHEME_DEFAULT_PORTS.get(parsed.scheme)
 
-    proto = "udp" if monitor.check_type == "udp" else "tcp"
-    return f"{proto}://{host}:{port}" if port is not None else f"{proto}://{host}"
+    return f"tcp://{host}:{port}" if port is not None else f"tcp://{host}"
 
 
 async def _owner_team_monitor_targets(

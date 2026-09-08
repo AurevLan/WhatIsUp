@@ -69,10 +69,6 @@
                 <span class="shrink-0">{{ t('alert_matrix.min_duration') }}</span>
                 <input v-model.number="row.min_duration_seconds" type="number" min="0" class="input text-xs w-full py-1" />
               </label>
-              <label class="flex items-center gap-1.5">
-                <span class="shrink-0">{{ t('alert_matrix.renotify') }}</span>
-                <input v-model.number="row.renotify_after_minutes" type="number" min="1" class="input text-xs w-full py-1" />
-              </label>
             </div>
           </div>
         </div>

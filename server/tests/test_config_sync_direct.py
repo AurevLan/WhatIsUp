@@ -69,7 +69,6 @@ async def test_export_with_data(service_db: AsyncSession, test_user: User) -> No
         monitor_id=mon.id,
         condition=AlertCondition.any_down,
         min_duration_seconds=60,
-        renotify_after_minutes=15,
         threshold_value=2500.0,
         digest_minutes=5,
         channels=[chan],
@@ -96,7 +95,6 @@ async def test_export_with_data(service_db: AsyncSession, test_user: User) -> No
     assert rule_out["condition"] == "any_down"
     assert rule_out["threshold_value"] == 2500.0
     assert rule_out["min_duration_seconds"] == 60
-    assert rule_out["renotify_after_minutes"] == 15
     assert rule_out["digest_minutes"] == 5
     assert rule_out["enabled"] is False
 

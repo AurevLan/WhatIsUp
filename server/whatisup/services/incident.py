@@ -49,8 +49,9 @@ from whatisup.services.stats import invalidate_uptime_cache
 
 logger = structlog.get_logger(__name__)
 
-# Backwards-compatible private aliases — external callers (heartbeat, renotify)
-# and tests still import these names from ``services.incident``.
+# Backwards-compatible private aliases — external callers (heartbeat, the
+# metric-alerts evaluator) and tests still import these names from
+# ``services.incident``.
 _has_ancestor_incident = has_ancestor_incident
 _is_suppressed_by_dependency = is_suppressed_by_dependency
 _correlate_common_cause = correlate_common_cause

@@ -1,7 +1,7 @@
 """Distributed leader election for singleton background loops.
 
 WhatIsUp runs a handful of periodic background loops from the FastAPI lifespan
-(heartbeat watchdog, retention purge, renotify, digest flusher, SLA reports,
+(heartbeat watchdog, retention purge, escalation, digest flusher, SLA reports,
 network-verdict recompute, ASN refresh). When the API is scaled to N replicas
 each of those loops would otherwise run N times — duplicating incidents,
 alerts and purges.

@@ -209,10 +209,10 @@ async def snooze_incident(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Incident:
-    """Suppress renotify dispatches for a bounded duration (T1-04).
+    """Suppress escalation dispatches for a bounded duration (T1-04).
 
     Distinct from /ack which is open-ended. Snooze auto-expires once
-    ``snooze_until`` is in the past — the next renotify cycle picks the
+    ``snooze_until`` is in the past — the next escalation tick picks the
     incident back up.
     """
     incident = await _get_incident_for_user(incident_id, current_user, db)

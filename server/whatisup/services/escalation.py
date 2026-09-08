@@ -1,8 +1,14 @@
 """Timed escalation ladders (plan V2, B-1).
 
-``renotify`` re-pages the *same* channels on a timer. An escalation ladder pages
-*different* targets in order — L1, then L2 if nobody acknowledged, then the
-on-call rotation — which is the gap this closes.
+An escalation ladder pages *different* targets in order — L1, then L2 if
+nobody acknowledged, then the on-call rotation. Before plan cap v2, 6e, a
+second mechanism (``services/renotify.py``, since removed) re-paged the
+*same* channels on a timer, independently of any ladder. The two answered the
+same question — "what happens if nobody acknowledges" — so 6e folded the
+second into the first: a policy with a single rung (target = a rule's own
+channel) and a high ``repeat_count`` re-pages that one channel forever, which
+is exactly what the old renotify loop did. A multi-rung ladder still pages
+different targets as before.
 
 How a ladder runs
 ─────────────────
@@ -320,8 +326,12 @@ async def _advance(db: AsyncSession, state: EscalationState, levels, now: dateti
     """Move to the next rung, replaying the ladder if the policy repeats.
 
     Returns False when the ladder is finished for good — the caller then drops
-    the state and lets ``renotify`` take over, which is the historical behaviour
-    for an incident nobody acknowledges.
+    the state and nothing pages this incident again until it changes state.
+    Plan cap v2, 6e removed the standalone renotify loop that used to keep
+    paging independently of any ladder: "keep paging until someone acks" is
+    now expressed as a policy whose ``repeat_count`` is high enough that it
+    never practically runs out — see migration ``o9p0q1r2s3t4`` for how a bare
+    ``renotify_after_minutes`` was converted into exactly that shape.
     """
     state.next_position += 1
     if state.next_position < len(levels):
@@ -382,9 +392,9 @@ async def run_due_escalations(db: AsyncSession, *, now: datetime | None = None) 
             fired += await _run_one(db, state, now)
             await db.commit()
         except Exception:
-            # Commit per state, for the same reason as the renotify loop: one
-            # failing incident must not roll back the pages already delivered
-            # for the others in this tick.
+            # Commit per state, for the same reason as the heartbeat and
+            # metric-alerts loops: one failing incident must not roll back
+            # the pages already delivered for the others in this tick.
             await db.rollback()
             logger.exception("escalation_state_failed", incident_id=str(state.incident_id))
     return fired

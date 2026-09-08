@@ -1,9 +1,9 @@
 """Coverage for background services that open their own DB sessions.
 
-retention / heartbeat / renotify all reach for ``get_session_factory()`` at
-runtime (they run from FastAPI lifespan loops, not request handlers).  We
-patch the global session factory so they reuse the same in-memory test
-session that owns the seed data, then assert on the side effects.
+retention / heartbeat all reach for ``get_session_factory()`` at runtime
+(they run from FastAPI lifespan loops, not request handlers).  We patch the
+global session factory so they reuse the same in-memory test session that
+owns the seed data, then assert on the side effects.
 """
 
 from __future__ import annotations
@@ -17,17 +17,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import whatisup.core.database as db_mod
 import whatisup.services.heartbeat as heartbeat_mod
-from whatisup.models.alert import (
-    AlertCondition,
-    AlertRule,
-)
 from whatisup.models.incident import Incident, IncidentScope
 from whatisup.models.monitor import Monitor
 from whatisup.models.probe import Probe
 from whatisup.models.result import CheckResult, CheckStatus
 from whatisup.models.user import User
 from whatisup.services.heartbeat import check_heartbeats
-from whatisup.services.renotify import check_renotify
 from whatisup.services.retention import purge_old_results
 
 
@@ -56,8 +51,7 @@ class _FactoryStub:
 async def bg_session(service_db: AsyncSession, monkeypatch):
     """Force background-loop services to use the test session."""
     monkeypatch.setattr(db_mod, "_async_session_factory", _FactoryStub(service_db))
-    # Stub _fire_alerts at the source so heartbeat (top-level import) and
-    # renotify (lazy import) both see the no-op.
+    # Stub _fire_alerts at the source so heartbeat (top-level import) sees the no-op.
     from whatisup.services import heartbeat as hb_mod
     from whatisup.services import incident as inc_mod
 
@@ -195,8 +189,8 @@ async def test_heartbeat_one_failing_monitor_does_not_lose_the_others(
 
     With a single commit at the end of the loop it did: the session was closed
     without committing and every incident of that tick vanished, alert included
-    — the exact bug `renotify.py` and `metric_alerts.py` already fixed by
-    committing per item.
+    — the exact bug `metric_alerts.py` and the escalation loop already fixed
+    by committing per item.
     """
     for idx in range(3):
         bg_session.add(
@@ -370,196 +364,3 @@ async def test_heartbeat_caps_batch_and_defers_the_rest(
 
     await check_heartbeats()
     assert await _open_incident(monitors[2]) is not None
-
-
-# ── renotify ─────────────────────────────────────────────────────────────────
-
-
-@pytest.mark.asyncio
-async def test_renotify_skips_when_no_open_incidents(bg_session: AsyncSession) -> None:
-    """Empty-DB shortcut path — must not raise."""
-    await check_renotify()  # no monitors, no rules — just exit
-
-
-@pytest.mark.asyncio
-async def test_renotify_skips_monitor_without_renotify_rule(
-    bg_session: AsyncSession, test_user: User
-) -> None:
-    monitor = Monitor(name="m1", url="http://x", owner_id=test_user.id)
-    bg_session.add(monitor)
-    await bg_session.flush()
-
-    bg_session.add(
-        Incident(
-            monitor_id=monitor.id,
-            started_at=datetime.now(UTC) - timedelta(minutes=5),
-            scope=IncidentScope.global_,
-            affected_probe_ids=[],
-        )
-    )
-    # Rule exists but does NOT set renotify_after_minutes
-    bg_session.add(
-        AlertRule(
-            owner_id=test_user.id,
-            monitor_id=monitor.id,
-            condition=AlertCondition.any_down,
-        )
-    )
-    await bg_session.flush()
-
-    # Should be a noop — no exception, no call to _fire_alerts (we asserted via stub).
-    await check_renotify()
-
-
-@pytest.mark.asyncio
-async def test_renotify_fires_for_eligible_incident(
-    bg_session: AsyncSession, test_user: User, monkeypatch
-) -> None:
-    """Open incident + rule with renotify_after_minutes triggers a dispatch."""
-    monitor = Monitor(name="m2", url="http://x", owner_id=test_user.id)
-    bg_session.add(monitor)
-    await bg_session.flush()
-
-    bg_session.add(
-        Incident(
-            monitor_id=monitor.id,
-            started_at=datetime.now(UTC) - timedelta(minutes=15),
-            scope=IncidentScope.global_,
-            affected_probe_ids=[],
-        )
-    )
-    bg_session.add(
-        AlertRule(
-            owner_id=test_user.id,
-            monitor_id=monitor.id,
-            condition=AlertCondition.any_down,
-            renotify_after_minutes=5,
-        )
-    )
-    await bg_session.flush()
-
-    calls = []
-
-    from whatisup.services import incident as inc_mod
-
-    async def _spy(*args, **kwargs):
-        calls.append(kwargs.get("event_type"))
-
-    monkeypatch.setattr(inc_mod, "_fire_alerts", _spy)
-
-    await check_renotify()
-    assert calls == ["incident_renotify"]
-
-
-@pytest.mark.asyncio
-async def test_renotify_failure_does_not_discard_prior_incidents(
-    bg_session: AsyncSession, test_user: User, monkeypatch
-) -> None:
-    """R-4: per-incident commit — one incident failing must not roll back the
-    alert events already recorded for incidents processed before it."""
-    for name in ("r4-a", "r4-b"):
-        monitor = Monitor(name=name, url="http://x", owner_id=test_user.id)
-        bg_session.add(monitor)
-        await bg_session.flush()
-        bg_session.add(
-            Incident(
-                monitor_id=monitor.id,
-                started_at=datetime.now(UTC) - timedelta(minutes=15),
-                scope=IncidentScope.global_,
-                affected_probe_ids=[],
-            )
-        )
-        bg_session.add(
-            AlertRule(
-                owner_id=test_user.id,
-                monitor_id=monitor.id,
-                condition=AlertCondition.any_down,
-                renotify_after_minutes=5,
-            )
-        )
-    await bg_session.flush()
-
-    from whatisup.services import incident as inc_mod
-
-    calls = {"n": 0}
-    marker = datetime.now(UTC) + timedelta(hours=1)
-
-    async def _spy(db, incident, *args, **kwargs):
-        calls["n"] += 1
-        # Mutate DB state like the real dispatch does (AlertEvent writes),
-        # then blow up on the second incident.
-        incident.snooze_until = marker
-        if calls["n"] == 2:
-            raise RuntimeError("dispatch exploded")
-
-    monkeypatch.setattr(inc_mod, "_fire_alerts", _spy)
-
-    await check_renotify()  # must not raise
-
-    persisted = (
-        (await bg_session.execute(select(Incident).where(Incident.snooze_until.isnot(None))))
-        .scalars()
-        .all()
-    )
-    # First incident committed before the second one failed and rolled back.
-    assert calls["n"] == 2
-    assert len(persisted) == 1
-
-
-@pytest.mark.asyncio
-async def test_renotify_caps_batch_and_defers_the_rest(
-    bg_session: AsyncSession, test_user: User, monkeypatch
-) -> None:
-    """More open, renotify-eligible incidents than the per-tick cap: the
-    oldest (longest-open, most urgent) fire this tick, and the rest fire once
-    an older one leaves the open set (acked/resolved) — nothing is skipped."""
-    from whatisup.core.config import get_settings
-
-    monkeypatch.setattr(get_settings(), "renotify_max_incidents_per_run", 2)
-
-    now = datetime.now(UTC)
-    incidents = []
-    for idx, minutes_open in enumerate([30, 20, 10]):  # oldest first, by construction
-        monitor = Monitor(name=f"renotify-cap-{idx}", url="http://x", owner_id=test_user.id)
-        bg_session.add(monitor)
-        await bg_session.flush()
-        incident = Incident(
-            monitor_id=monitor.id,
-            started_at=now - timedelta(minutes=minutes_open),
-            scope=IncidentScope.global_,
-            affected_probe_ids=[],
-        )
-        bg_session.add(incident)
-        bg_session.add(
-            AlertRule(
-                owner_id=test_user.id,
-                monitor_id=monitor.id,
-                condition=AlertCondition.any_down,
-                renotify_after_minutes=5,
-            )
-        )
-        incidents.append(incident)
-    await bg_session.flush()
-
-    from whatisup.services import incident as inc_mod
-
-    fired_for: list = []
-
-    async def _spy(db, incident, *args, **kwargs):
-        fired_for.append(incident.id)
-
-    monkeypatch.setattr(inc_mod, "_fire_alerts", _spy)
-
-    await check_renotify()
-    assert fired_for == [incidents[0].id, incidents[1].id]
-
-    # The oldest incident acks — it leaves the open set, freeing a slot. Reset
-    # the spy log so the second tick's firings are read on their own: incident
-    # 1 is still open and eligible, so it renotifies again on every tick —
-    # that's unrelated to the cap and would otherwise muddy this assertion.
-    incidents[0].acked_at = datetime.now(UTC)
-    await bg_session.flush()
-    fired_for.clear()
-
-    await check_renotify()
-    assert incidents[2].id in fired_for, "the deferred incident must get its turn once a slot frees"

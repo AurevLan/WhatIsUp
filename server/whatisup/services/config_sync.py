@@ -181,8 +181,6 @@ async def export_config(user: User, db: AsyncSession) -> dict[str, Any]:
             rule_entry["threshold_value"] = r.threshold_value
         if r.min_duration_seconds:
             rule_entry["min_duration_seconds"] = r.min_duration_seconds
-        if r.renotify_after_minutes:
-            rule_entry["renotify_after_minutes"] = r.renotify_after_minutes
         if r.digest_minutes:
             rule_entry["digest_minutes"] = r.digest_minutes
         if not r.enabled:
@@ -471,7 +469,6 @@ async def import_config(
                     channels=list(channels),
                     min_duration_seconds=r_cfg.get("min_duration_seconds", 0),
                     threshold_value=r_cfg.get("threshold_value"),
-                    renotify_after_minutes=r_cfg.get("renotify_after_minutes"),
                     digest_minutes=r_cfg.get("digest_minutes", 0),
                     enabled=r_cfg.get("enabled", True),
                 )

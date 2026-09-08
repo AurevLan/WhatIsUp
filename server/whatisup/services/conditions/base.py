@@ -51,8 +51,8 @@ class DispatchContext:
     rule: AlertRule
     event_type: str
     #: ``None`` whenever the caller has no check in hand — the heartbeat
-    #: checker, the renotify loop and the pushed-metric evaluator all open or
-    #: resolve incidents without one. Handlers that set ``needs_check_result``
+    #: checker and the pushed-metric evaluator both open or resolve incidents
+    #: without one. Handlers that set ``needs_check_result``
     #: are never called in that case, so they may treat this as non-None.
     result: CheckResult | None
     #: Message context built by ``fire_alerts``; carries pre-computed values

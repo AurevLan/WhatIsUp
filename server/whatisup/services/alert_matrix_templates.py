@@ -17,17 +17,14 @@ _COMMON_ROWS: dict[str, dict[str, Any]] = {
     "any_down_quick": {
         "condition": "any_down",
         "min_duration_seconds": 60,
-        "renotify_after_minutes": 30,
     },
     "any_down_patient": {
         "condition": "any_down",
         "min_duration_seconds": 300,
-        "renotify_after_minutes": 360,
     },
     "all_down_immediate": {
         "condition": "all_down",
         "min_duration_seconds": 0,
-        "renotify_after_minutes": 15,
     },
     "ssl_expiry": {"condition": "ssl_expiry"},
     "response_time_above_2s": {
@@ -138,7 +135,7 @@ TEMPLATES: dict[str, list[dict[str, Any]]] = {
         {"id": "standard", "rows": [_row("any_down_quick", min_duration_seconds=0)]},
         {
             "id": "strict",
-            "rows": [_row("any_down_quick", min_duration_seconds=0, renotify_after_minutes=10)],
+            "rows": [_row("any_down_quick", min_duration_seconds=0)],
         },
         {"id": "silent", "rows": [_row("any_down_patient")]},
     ],

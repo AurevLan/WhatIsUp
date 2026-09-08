@@ -519,11 +519,12 @@ async def evaluate_metric_alerts(db: AsyncSession, *, now: datetime | None = Non
             continue
         try:
             n = await _evaluate_rule(db, rule, monitor, now)
-            # Commit per rule, for the same reason as the renotify loop: with a
-            # single commit at the end, one failing rule's rollback would also
-            # discard the incidents already opened for every rule processed
-            # before it — and this loop is the only thing that will ever fire
-            # these alerts, so what it drops is never retried.
+            # Commit per rule, for the same reason as the heartbeat and
+            # escalation loops: with a single commit at the end, one failing
+            # rule's rollback would also discard the incidents already opened
+            # for every rule processed before it — and this loop is the only
+            # thing that will ever fire these alerts, so what it drops is
+            # never retried.
             if n:
                 await db.commit()
             changed += n

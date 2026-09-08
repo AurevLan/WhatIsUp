@@ -59,7 +59,6 @@ async def test_export_with_alert_channels_and_rules(client: AsyncClient, user_to
             "condition": "any_down",
             "channel_ids": [chan_id],
             "min_duration_seconds": 60,
-            "renotify_after_minutes": 30,
             "threshold_value": 2000.0,
             "digest_minutes": 5,
         },
@@ -142,7 +141,6 @@ async def test_import_with_alert_rules_full(client: AsyncClient, user_token: str
                 "channels": ["FullChan"],
                 "min_duration_seconds": 60,
                 "threshold_value": 1500.0,
-                "renotify_after_minutes": 30,
                 "digest_minutes": 10,
                 "enabled": True,
             }

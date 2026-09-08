@@ -103,7 +103,6 @@ async def create_rule(
         tag_selector=payload.tag_selector,
         condition=payload.condition,
         min_duration_seconds=payload.min_duration_seconds,
-        renotify_after_minutes=payload.renotify_after_minutes,
         threshold_value=payload.threshold_value,
         digest_minutes=payload.digest_minutes,
         storm_window_seconds=payload.storm_window_seconds,
@@ -201,8 +200,6 @@ async def update_rule(
         rule.tag_selector = payload.tag_selector or None
     if payload.min_duration_seconds is not None:
         rule.min_duration_seconds = payload.min_duration_seconds
-    if payload.renotify_after_minutes is not None:
-        rule.renotify_after_minutes = payload.renotify_after_minutes
     if payload.threshold_value is not None:
         rule.threshold_value = payload.threshold_value
     if payload.digest_minutes is not None:

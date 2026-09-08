@@ -1,9 +1,16 @@
 """Alert rule evaluation + channel dispatch for incidents.
 
 ``fire_alerts`` is the single entry point: caller hands an incident, monitor,
-optional CheckResult and event type ("incident_opened" / "incident_resolved" /
-"incident_renotify"); the function picks matching ``AlertRule`` rows and
-dispatches via ``dispatch_alert`` / ``maybe_digest_or_dispatch``.
+optional CheckResult and event type ("incident_opened" / "incident_resolved");
+the function picks matching ``AlertRule`` rows and dispatches via
+``dispatch_alert`` / ``maybe_digest_or_dispatch``.
+
+Plan cap v2, 6e: there used to be a third event type, "incident_renotify",
+fired by a standalone background loop (``services/renotify.py``) that re-paged
+a rule's own channels on a timer. That loop and event type are gone — "keep
+paging until someone acks" is now expressed as a one-rung, repeating
+escalation ladder (see ``services/escalation.py``), armed from here exactly
+like any other ladder.
 
 Web-push fan-out for monitor owners is handled here too — independent of rule
 matching, so silenced rules don't suppress the owner's personal notification.
@@ -25,7 +32,7 @@ from whatisup.models.monitor import Monitor
 from whatisup.models.probe import Probe
 from whatisup.models.result import CheckResult
 from whatisup.models.team import TeamMembership
-from whatisup.services.alert import dispatch_alert, maybe_digest_or_dispatch
+from whatisup.services.alert import maybe_digest_or_dispatch
 from whatisup.services.conditions import DispatchContext, get_handler
 from whatisup.services.escalation import arm_escalation, cancel_escalation
 
@@ -45,7 +52,6 @@ async def fire_alerts(
     event_type values:
       - "incident_opened": new incident just opened
       - "incident_resolved": incident just resolved
-      - "incident_renotify": incident still open, check for periodic re-notification
     """
     # F1: tag names are a global shared pool (Tag.name is unique across tenants),
     # so a tag_selector rule must be scoped to owners who can actually access the
@@ -174,38 +180,6 @@ async def fire_alerts(
         ):
             continue
 
-        # H-11: renotify logic — only fire for renotify events if rule allows it
-        if event_type == "incident_renotify":
-            if not rule.renotify_after_minutes:
-                continue
-            if incident.acked_at is not None:
-                continue
-            # T1-04: skip renotify while a snooze window is still active.
-            if incident.snooze_until is not None and incident.snooze_until > now:
-                continue
-            channel_ids = [c.id for c in rule.channels]
-            if channel_ids:
-                last_event = (
-                    await db.execute(
-                        select(AlertEvent)
-                        .where(
-                            AlertEvent.incident_id == incident.id,
-                            AlertEvent.channel_id.in_(channel_ids),
-                            AlertEvent.status == AlertEventStatus.sent,
-                        )
-                        .order_by(AlertEvent.sent_at.desc())
-                        .limit(1)
-                    )
-                ).scalar_one_or_none()
-                if last_event:
-                    minutes_since = (now - last_event.sent_at).total_seconds() / 60
-                    if minutes_since < rule.renotify_after_minutes:
-                        continue
-            # Dispatch renotify directly (digest does not apply to renotify)
-            for channel in rule.channels:
-                await dispatch_alert(db, incident, channel, "incident_opened", ctx=ctx)
-            continue
-
         # Storm protection: skip if too many alerts sent recently for this rule
         if rule.storm_window_seconds and rule.storm_max_alerts and event_type == "incident_opened":
             storm_cutoff = now - timedelta(seconds=rule.storm_window_seconds)
@@ -237,11 +211,11 @@ async def fire_alerts(
             continue
         if event_type not in handler.fires_on:
             continue
-        # Callers legitimately pass no CheckResult — the heartbeat checker, the
-        # renotify loop and the C-4 metric evaluator all open or resolve
-        # incidents without one, and a value-based condition simply cannot be
-        # evaluated then. Before this guard existed, a single `ssl_expiry` rule
-        # on a heartbeat monitor raised AttributeError inside a background loop.
+        # Callers legitimately pass no CheckResult — the heartbeat checker and
+        # the C-4 metric evaluator both open or resolve incidents without one,
+        # and a value-based condition simply cannot be evaluated then. Before
+        # this guard existed, a single `ssl_expiry` rule on a heartbeat monitor
+        # raised AttributeError inside a background loop.
         if result is None and handler.needs_check_result:
             continue
 
@@ -263,8 +237,10 @@ async def fire_alerts(
         # B-1 — a rule carrying an escalation policy hands the incident to the
         # ladder instead of fanning out to its own channels. The ladder pages
         # different targets in order (L1, then L2 if nobody acked, then the
-        # rotation), which is what `renotify` cannot do: it re-pages the same
-        # channels. NULL policy keeps the historical behaviour untouched.
+        # rotation) — or, for a one-rung repeating ladder, keeps re-paging the
+        # same channels, which is all the old standalone renotify loop ever
+        # did (plan cap v2, 6e). NULL policy keeps the historical behaviour
+        # untouched (fan out once, no re-notification).
         #
         # Only on open: a resolution notice has nothing to escalate, and the
         # people already paged need to hear it on the channels they were paged

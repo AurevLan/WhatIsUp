@@ -121,7 +121,6 @@ describe('ConditionCard', () => {
       channel_ids: [],
       enabled: true,
       min_duration_seconds: 0,
-      renotify_after_minutes: null,
       threshold_value: null,
       digest_minutes: 0,
       schedule: null,

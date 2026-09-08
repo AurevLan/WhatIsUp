@@ -1,9 +1,9 @@
 """On-call rotations, escalation policies and per-user contact methods (plan V2, B-0).
 
 The alert stack before this module was **channel-centred**: an ``AlertRule`` fans
-out to a fixed set of ``AlertChannel`` rows, and ``renotify`` re-fires that very
-same set forever. Nothing modelled *a person*, so there was no way to express
-"page whoever is on call, then page their backup if nobody acknowledges".
+out to a fixed set of ``AlertChannel`` rows. Nothing modelled *a person*, so
+there was no way to express "page whoever is on call, then page their backup
+if nobody acknowledges".
 
 Three pieces close that gap:
 
@@ -250,7 +250,10 @@ class EscalationPolicy(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # How many extra times to replay the whole ladder once the last level fired
-    # without an ack. 0 = stop at the top rung and let renotify take over.
+    # without an ack. 0 = stop at the top rung for good. A single-rung ladder
+    # with a high repeat_count is how "keep paging me every N minutes forever"
+    # (the old standalone renotify loop, retired in plan cap v2 6e) is expressed
+    # now — see migration o9p0q1r2s3t4.
     repeat_count: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"
     )

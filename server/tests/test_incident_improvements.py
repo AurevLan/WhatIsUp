@@ -1,4 +1,4 @@
-"""Tests for incident improvements: ack, atomic creation, SLA, renotify, digest persistence.
+"""Tests for incident improvements: ack, atomic creation, SLA, digest persistence.
 
 Availability incidents are opened/resolved exclusively through the Health
 Engine since plan Cap v2 4b — the tests below run the full pipeline

@@ -247,16 +247,6 @@ async def lifespan(app: FastAPI):
         )
     )
 
-    # Autonomous renotify checker (every 60s)
-    async def _renotify_work():
-        from whatisup.services.renotify import check_renotify
-
-        await check_renotify()
-
-    renotify_task = asyncio.create_task(
-        run_leader_loop("renotify_checker", _renotify_work, interval=60)
-    )
-
     # Recover any digest windows lost during Redis downtime (leader-gated
     # one-shot — see _recover_digests_once).
     await _recover_digests_once()
@@ -356,12 +346,6 @@ async def lifespan(app: FastAPI):
     discovery_election_task.cancel()
     try:
         await discovery_election_task
-    except asyncio.CancelledError:
-        pass
-
-    renotify_task.cancel()
-    try:
-        await renotify_task
     except asyncio.CancelledError:
         pass
 

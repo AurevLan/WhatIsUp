@@ -41,13 +41,13 @@
           </button>
         </div>
         <div class="flex items-center gap-2">
-          <!-- Import JSON -->
+          <!-- Import: our own JSON export, or a playwright codegen script -->
           <button type="button" @click="$refs.importInput.click()"
             class="text-xs px-2 py-0.5 rounded border border-(--border) text-(--text-2) hover:border-(--accent-border) hover:text-(--accent) transition-colors"
             :title="t('scenario.import_title')">
             ⬇ {{ t('scenario.import') }}
           </button>
-          <input ref="importInput" type="file" accept=".json" class="hidden" @change="importJSON" />
+          <input ref="importInput" type="file" accept=".json,.js,.ts" class="hidden" @change="importScenario" />
           <!-- Export JSON -->
           <button type="button" @click="exportJSON"
             class="text-xs px-2 py-0.5 rounded border border-(--border) text-(--text-2) hover:border-(--accent-border) hover:text-(--accent) transition-colors"
@@ -368,9 +368,10 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useToast } from '../../composables/useToast'
+import { parsePlaywrightScript } from '../../lib/playwrightImport'
 
 const { t } = useI18n()
-const { error: toastError } = useToast()
+const { error: toastError, info: toastInfo } = useToast()
 
 const props = defineProps({
   modelValue: { type: Array, default: () => [] },
@@ -568,26 +569,50 @@ function exportJSON() {
   URL.revokeObjectURL(url)
 }
 
-function importJSON(event) {
+function importScenario(event) {
   const file = event.target.files?.[0]
   if (!file) return
+  const isJson = /\.json$/i.test(file.name)
   const reader = new FileReader()
   reader.onload = (e) => {
-    try {
-      const parsed = JSON.parse(e.target.result)
-      if (!Array.isArray(parsed)) {
-        toastError(t('scenario.import_error_array'))
-        return
+    const text = e.target.result
+    if (isJson) {
+      try {
+        const parsed = JSON.parse(text)
+        if (!Array.isArray(parsed)) {
+          toastError(t('scenario.import_error_array'))
+          return
+        }
+        localSteps.value = parsed.map(hydrateStep)
+        emitSteps()
+      } catch {
+        toastError(t('scenario.import_error_read'))
       }
-      localSteps.value = parsed.map(hydrateStep)
-      emitSteps()
-    } catch {
-      toastError(t('scenario.import_error_read'))
+      return
+    }
+
+    // Not JSON: treat as a `playwright codegen` script (P-4 replacement for
+    // the removed browser extension recorder — plan cap v2, 6b).
+    const { steps, warnings, statementCount } = parsePlaywrightScript(text)
+    if (statementCount === 0) {
+      toastError(t('scenario.import_error_script'))
+      return
+    }
+    if (steps.length === 0) {
+      toastError(t('scenario.import_error_script_empty'))
+      return
+    }
+    localSteps.value = steps.map((s) => hydrateStep({ ...s, label: autoLabel(s) }))
+    emitSteps()
+    if (warnings.length) {
+      toastInfo(t('scenario.import_script_warnings', { n: warnings.length }))
     }
   }
+  reader.onloadend = () => {
+    // Reset so the same file can be re-imported
+    event.target.value = ''
+  }
   reader.readAsText(file)
-  // Reset so the same file can be re-imported
-  event.target.value = ''
 }
 
 // --- Templates ---

@@ -294,7 +294,7 @@ class DiscoveredServiceAcceptIn(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     check_type: str | None = Field(
         default=None,
-        pattern=r"^(http|tcp|udp|dns|keyword|json_path|scenario|heartbeat|smtp|ping|domain_expiry|composite)$",
+        pattern=r"^(http|tcp|dns|keyword|json_path|scenario|heartbeat|smtp|ping|domain_expiry)$",
     )
     group_id: uuid.UUID | None = None
     team_id: uuid.UUID | None = None

@@ -1,9 +1,9 @@
 """Extended API tests for monitors.py — coverage boost.
 
 Targets endpoints that were previously uncovered: SLO rules CRUD,
-composite members CRUD, dependencies list/delete, dependency graph,
-import/export, results, uptime, history, annotations list/delete,
-correlated, percentiles, monitor_probe_status, SLA report, trigger-check.
+dependencies list/delete, dependency graph, import/export, results, uptime,
+history, annotations list/delete, correlated, percentiles,
+monitor_probe_status, SLA report, trigger-check.
 """
 
 from __future__ import annotations
@@ -216,136 +216,6 @@ async def test_remove_dependency_unknown_404(client: AsyncClient, user_token: st
         headers=_auth(user_token),
     )
     assert resp.status_code == 404
-
-
-# ---------------------------------------------------------------------------
-# Composite members
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_list_composite_members_requires_composite_type(
-    client: AsyncClient, user_token: str
-) -> None:
-    m = await _make_monitor(client, user_token, name="NotComp")
-    resp = await client.get(
-        f"/api/v1/monitors/{m['id']}/composite-members", headers=_auth(user_token)
-    )
-    assert resp.status_code == 400
-
-
-@pytest.mark.asyncio
-async def test_list_composite_members_empty(client: AsyncClient, user_token: str) -> None:
-    comp = await _make_monitor(client, user_token, name="CompEmpty", check_type="composite")
-    resp = await client.get(
-        f"/api/v1/monitors/{comp['id']}/composite-members", headers=_auth(user_token)
-    )
-    assert resp.status_code == 200
-    assert resp.json() == []
-
-
-@pytest.mark.asyncio
-async def test_add_composite_member_target_not_composite_400(
-    client: AsyncClient, user_token: str
-) -> None:
-    not_comp = await _make_monitor(client, user_token, name="NotComp2")
-    member = await _make_monitor(client, user_token, name="Member")
-    resp = await client.post(
-        f"/api/v1/monitors/{not_comp['id']}/composite-members",
-        json={"monitor_id": member["id"]},
-        headers=_auth(user_token),
-    )
-    assert resp.status_code == 400
-
-
-@pytest.mark.asyncio
-async def test_add_composite_member_self_400(client: AsyncClient, user_token: str) -> None:
-    comp = await _make_monitor(client, user_token, name="CompSelf", check_type="composite")
-    resp = await client.post(
-        f"/api/v1/monitors/{comp['id']}/composite-members",
-        json={"monitor_id": comp["id"]},
-        headers=_auth(user_token),
-    )
-    assert resp.status_code == 400
-
-
-@pytest.mark.asyncio
-async def test_add_composite_member_then_duplicate_409(
-    client: AsyncClient, user_token: str
-) -> None:
-    comp = await _make_monitor(client, user_token, name="CompDup", check_type="composite")
-    member = await _make_monitor(client, user_token, name="DupMember")
-    first = await client.post(
-        f"/api/v1/monitors/{comp['id']}/composite-members",
-        json={"monitor_id": member["id"], "weight": 2, "role": "primary"},
-        headers=_auth(user_token),
-    )
-    assert first.status_code == 201
-    body = first.json()
-    assert body["weight"] == 2
-    assert body["role"] == "primary"
-    second = await client.post(
-        f"/api/v1/monitors/{comp['id']}/composite-members",
-        json={"monitor_id": member["id"]},
-        headers=_auth(user_token),
-    )
-    assert second.status_code == 409
-
-
-@pytest.mark.asyncio
-async def test_update_composite_member(client: AsyncClient, user_token: str) -> None:
-    comp = await _make_monitor(client, user_token, name="CompUpd", check_type="composite")
-    member = await _make_monitor(client, user_token, name="UpdMember")
-    create = await client.post(
-        f"/api/v1/monitors/{comp['id']}/composite-members",
-        json={"monitor_id": member["id"], "weight": 1},
-        headers=_auth(user_token),
-    )
-    member_id = create.json()["id"]
-    upd = await client.patch(
-        f"/api/v1/monitors/{comp['id']}/composite-members/{member_id}",
-        json={"monitor_id": member["id"], "weight": 5, "role": "backup"},
-        headers=_auth(user_token),
-    )
-    assert upd.status_code == 200
-    assert upd.json()["weight"] == 5
-    assert upd.json()["role"] == "backup"
-
-
-@pytest.mark.asyncio
-async def test_update_composite_member_unknown_404(client: AsyncClient, user_token: str) -> None:
-    comp = await _make_monitor(client, user_token, name="CompU404", check_type="composite")
-    member = await _make_monitor(client, user_token, name="X")
-    resp = await client.patch(
-        f"/api/v1/monitors/{comp['id']}/composite-members/{uuid.uuid4()}",
-        json={"monitor_id": member["id"], "weight": 1},
-        headers=_auth(user_token),
-    )
-    assert resp.status_code == 404
-
-
-@pytest.mark.asyncio
-async def test_remove_composite_member(client: AsyncClient, user_token: str) -> None:
-    comp = await _make_monitor(client, user_token, name="CompRm", check_type="composite")
-    member = await _make_monitor(client, user_token, name="RmMember")
-    create = await client.post(
-        f"/api/v1/monitors/{comp['id']}/composite-members",
-        json={"monitor_id": member["id"]},
-        headers=_auth(user_token),
-    )
-    member_id = create.json()["id"]
-    resp = await client.delete(
-        f"/api/v1/monitors/{comp['id']}/composite-members/{member_id}",
-        headers=_auth(user_token),
-    )
-    assert resp.status_code == 204
-
-    # Second delete → 404
-    resp2 = await client.delete(
-        f"/api/v1/monitors/{comp['id']}/composite-members/{member_id}",
-        headers=_auth(user_token),
-    )
-    assert resp2.status_code == 404
 
 
 # ---------------------------------------------------------------------------

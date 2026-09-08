@@ -7,13 +7,13 @@ registry — in at least 7 server files (`schemas/monitor.py`,
 plus the probe-side `checkers/` registry. Adding a new member to the enum
 does not force touching any of them.
 
-Most of those sites are a single ``== "composite"`` (or ``== "heartbeat"``)
-special case: every *other* member is treated identically by omission from
-that branch, which is also the *correct* default for a brand-new type (a new
-physical check type should be distributed/dispatched like the existing ones
-unless it, too, needs the composite/heartbeat exemption). There is no
-"silently missing a branch" risk to gate on a single boolean check like that
-— deliberately out of scope here.
+Most of those sites are a single ``== "heartbeat"`` special case: every
+*other* member is treated identically by omission from that branch, which is
+also the *correct* default for a brand-new type (a new physical check type
+should be distributed/dispatched like the existing ones unless it, too,
+needs the heartbeat exemption). There is no "silently missing a branch" risk
+to gate on a single boolean check like that — deliberately out of scope
+here.
 
 Two places really are ``check_type``-keyed registries with a *silent*
 fallback for an unlisted key — the same drift class ``services/conditions``

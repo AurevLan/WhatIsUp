@@ -495,19 +495,3 @@ class BulkActionRequest(BaseModel):
 
 class BulkActionResponse(BaseModel):
     affected: int
-
-
-class CompositeMonitorMemberCreate(BaseModel):
-    monitor_id: uuid.UUID
-    weight: int = Field(default=1, ge=1, le=100)
-    role: str | None = Field(default=None, max_length=50)
-
-
-class CompositeMonitorMemberOut(BaseModel):
-    id: uuid.UUID
-    composite_id: uuid.UUID
-    monitor_id: uuid.UUID
-    weight: int
-    role: str | None
-
-    model_config = {"from_attributes": True}

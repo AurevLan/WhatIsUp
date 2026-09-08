@@ -158,8 +158,3 @@ async def reset_schema_baseline(
     monitor = await _get_monitor_or_404(monitor_id, current_user, db)
     monitor.schema_baseline = None
     monitor.schema_baseline_updated_at = None
-
-
-# ---------------------------------------------------------------------------
-# Composite monitor members
-# ---------------------------------------------------------------------------

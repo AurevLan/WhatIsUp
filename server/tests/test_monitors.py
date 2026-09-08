@@ -207,8 +207,8 @@ def test_list_monitors_latest_query_is_bounded_not_full_scan() -> None:
     to the old aggregate removes this marker and fails the test.
 
     The latest-row logic now lives in the shared ``fetch_latest_results``
-    helper (stats.py) consumed by monitors, public, status and composite —
-    the guard pins both the helper's LATERAL and the endpoint's use of it.
+    helper (stats.py) consumed by monitors, public and status — the guard
+    pins both the helper's LATERAL and the endpoint's use of it.
     """
     import inspect
 
@@ -634,50 +634,6 @@ async def test_add_dependency(client: AsyncClient, user_token: str) -> None:
     assert data["parent_id"] == monitor_a["id"]
     assert data["child_id"] == monitor_b["id"]
     assert data["suppress_on_parent_down"] is True
-
-
-@pytest.mark.asyncio
-async def test_cycle_detection_rejects(client: AsyncClient, user_token: str) -> None:
-    """Adding a composite member that would form a cycle is rejected (400/409)."""
-    # Create two composite monitors
-    comp_a = (
-        await client.post(
-            "/api/v1/monitors/",
-            json={
-                "name": "Composite A",
-                "url": "https://example.com",
-                "check_type": "composite",
-            },
-            headers={"Authorization": f"Bearer {user_token}"},
-        )
-    ).json()
-    comp_b = (
-        await client.post(
-            "/api/v1/monitors/",
-            json={
-                "name": "Composite B",
-                "url": "https://example.com",
-                "check_type": "composite",
-            },
-            headers={"Authorization": f"Bearer {user_token}"},
-        )
-    ).json()
-
-    # A includes B
-    r1 = await client.post(
-        f"/api/v1/monitors/{comp_a['id']}/composite-members",
-        json={"monitor_id": comp_b["id"]},
-        headers={"Authorization": f"Bearer {user_token}"},
-    )
-    assert r1.status_code == 201
-
-    # B tries to include A → would create a cycle
-    r2 = await client.post(
-        f"/api/v1/monitors/{comp_b['id']}/composite-members",
-        json={"monitor_id": comp_a["id"]},
-        headers={"Authorization": f"Bearer {user_token}"},
-    )
-    assert r2.status_code in (400, 409)
 
 
 # ---------------------------------------------------------------------------

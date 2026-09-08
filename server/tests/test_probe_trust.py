@@ -195,23 +195,6 @@ async def test_forge_result_reverse_direction_is_forbidden(
     assert "network scope" in resp.json()["detail"].lower()
 
 
-@pytest.mark.asyncio
-async def test_forge_result_for_composite_monitor_is_forbidden(
-    client: AsyncClient, external_probe: Probe, monitor_owner: User, db_session: AsyncSession
-) -> None:
-    """Composite monitors are never distributed to probes → any result is a forge → 403.
-
-    Even with the permissive scope 'all', a composite monitor has no physical
-    check and is filtered out of the heartbeat config, so no legitimate probe
-    result exists for it.
-    """
-    monitor = await _make_monitor(db_session, monitor_owner, scope="all", check_type="composite")
-    resp = await client.post(
-        "/api/v1/probes/results", json=_result_body(monitor.id), headers=_PROBE_HEADERS
-    )
-    assert resp.status_code == 403, resp.text
-
-
 # ── H1 — probe API key rotation ───────────────────────────────────────────────
 
 

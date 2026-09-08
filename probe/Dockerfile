@@ -27,7 +27,7 @@ COPY --from=builder /install /usr/local
 
 # Chromium is opt-in (plan cap v2, 6b): deploying a probe is the product's
 # central, repeated gesture, while `scenario` monitors are its least-used
-# feature. The default image ships WITHOUT a browser (≈250 Mo vs ≈1,97 Go
+# feature. The default image ships WITHOUT a browser (≈480 Mo measured vs ≈1,97 Go
 # with one). Build with `--build-arg WITH_BROWSER=true` — published as the
 # `whatisup-probe:X.Y.Z-browser` / `:latest-browser` tags — to get a probe
 # that can run `scenario` monitors. A browserless probe still runs every

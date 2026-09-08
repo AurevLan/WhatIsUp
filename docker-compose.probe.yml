@@ -12,7 +12,7 @@
 # and start sending check results automatically.
 #
 # Browser (Chromium) support — plan cap v2, 6b:
-#   The default image has NO Chromium (~250 Mo vs ~1,97 Go with one): every
+#   The default image has NO Chromium (~480 Mo measured vs ~1,97 Go with one): every
 #   check type works except `scenario`, which fails with a clear, actionable
 #   error instead of a raw Playwright trace. To run `scenario` monitors on
 #   this probe, either:

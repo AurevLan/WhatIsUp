@@ -432,8 +432,8 @@ probe at check time.
 
 | Probe mode | Image | CPU | RAM | Notes |
 |------------|-------|-----|-----|-------|
-| HTTP / TCP / DNS / Ping / SMTP / heartbeat only | `whatisup-probe:latest` (~250 Mo, no browser) | 1 vCPU | 256 MB | Runs on any VPS or a Raspberry Pi. A `scenario` monitor assigned here fails with a clear error naming the `-browser` image |
-| With Playwright scenarios | `whatisup-probe:latest-browser` (~1,97 Go, Chromium included) | 2 vCPU | 1 GB | Set `MAX_CONCURRENT_SCENARIOS=2` |
+| HTTP / TCP / DNS / Ping / SMTP / heartbeat only | `whatisup-probe:latest` (~480 MB, no browser — measured, `playwright` itself bundles a Node driver even browserless) | 1 vCPU | 256 MB | Runs on any VPS or a Raspberry Pi. A `scenario` monitor assigned here fails with a clear error naming the `-browser` image |
+| With Playwright scenarios | `whatisup-probe:latest-browser` (~1.97 GB, Chromium included — unchanged) | 2 vCPU | 1 GB | Set `MAX_CONCURRENT_SCENARIOS=2` |
 | High volume (100+ monitors) | either | 2 vCPU | 1–2 GB | Raise `MAX_CONCURRENT_CHECKS` |
 
 | Component | Ports | Protocol |

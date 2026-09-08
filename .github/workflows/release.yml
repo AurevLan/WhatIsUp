@@ -70,7 +70,7 @@ jobs:
 
   # ── Build & push Docker images ───────────────────────────────────────────────
   docker:
-    name: Build & push ${{ matrix.image_name }}
+    name: Build & push ${{ matrix.id }}
     runs-on: ubuntu-latest
     needs: [release-notes, ci-gate]
     permissions:
@@ -79,12 +79,29 @@ jobs:
     strategy:
       matrix:
         include:
-          - image_name: whatisup-server
+          - id: whatisup-server
+            image_name: whatisup-server
             dockerfile: server/Dockerfile
             context: server
-          - image_name: whatisup-probe
+            build_args: ""
+            tag_suffix: ""
+          - id: whatisup-probe
+            image_name: whatisup-probe
             dockerfile: probe/Dockerfile
             context: probe
+            build_args: ""
+            tag_suffix: ""
+          # Plan cap v2, 6b: Chromium is opt-in in probe/Dockerfile
+          # (WITH_BROWSER build arg) — same repository, `-browser` tag suffix,
+          # so `whatisup-probe:X.Y.Z` stays the small default and
+          # `whatisup-probe:X.Y.Z-browser` / `:latest-browser` carry Chromium
+          # for `scenario` monitors. Measured: ~480 MB vs ~1.97 GB.
+          - id: whatisup-probe-browser
+            image_name: whatisup-probe
+            dockerfile: probe/Dockerfile
+            context: probe
+            build_args: "WITH_BROWSER=true"
+            tag_suffix: "-browser"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -131,9 +148,9 @@ jobs:
         with:
           images: ghcr.io/${{ steps.ver.outputs.owner_lc }}/${{ matrix.image_name }}
           tags: |
-            type=raw,value=${{ steps.ver.outputs.version }}
-            type=raw,value=${{ steps.ver.outputs.major_minor }}
-            type=raw,value=latest,enable=${{ steps.ver.outputs.is_prerelease == 'false' }}
+            type=raw,value=${{ steps.ver.outputs.version }}${{ matrix.tag_suffix }}
+            type=raw,value=${{ steps.ver.outputs.major_minor }}${{ matrix.tag_suffix }}
+            type=raw,value=latest${{ matrix.tag_suffix }},enable=${{ steps.ver.outputs.is_prerelease == 'false' }}
 
       - name: Build and push
         id: build
@@ -141,11 +158,12 @@ jobs:
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
+          build-args: ${{ matrix.build_args }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ matrix.id }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.id }}
           sbom: true
           provenance: mode=max
 
@@ -179,8 +197,8 @@ jobs:
         with:
           image: ghcr.io/${{ steps.ver.outputs.owner_lc }}/${{ matrix.image_name }}@${{ steps.build.outputs.digest }}
           format: spdx-json
-          output-file: sbom-${{ matrix.image_name }}.spdx.json
-          artifact-name: sbom-${{ matrix.image_name }}.spdx.json
+          output-file: sbom-${{ matrix.id }}.spdx.json
+          artifact-name: sbom-${{ matrix.id }}.spdx.json
           upload-release-assets: false
 
       # Sign the same SBOM as a Cosign attestation, tied to the same OIDC
@@ -194,7 +212,7 @@ jobs:
           IMAGE_DIGEST: ghcr.io/${{ steps.ver.outputs.owner_lc }}/${{ matrix.image_name }}@${{ steps.build.outputs.digest }}
         run: |
           cosign attest --yes \
-            --predicate sbom-${{ matrix.image_name }}.spdx.json \
+            --predicate sbom-${{ matrix.id }}.spdx.json \
             --type spdxjson \
             "$IMAGE_DIGEST"
 

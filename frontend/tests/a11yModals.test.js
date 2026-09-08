@@ -18,7 +18,7 @@ const ALLOWED = new Set([
   'views/layouts/AppLayout.vue',
   // Backdrop invisible (z-10) fermant le dropdown de sélection de monitor,
   // à l'intérieur d'une BaseModal déjà en place
-  'views/MaintenanceView.vue',
+  'views/SuppressionsView.vue',
 ])
 
 function vueFiles(dir) {

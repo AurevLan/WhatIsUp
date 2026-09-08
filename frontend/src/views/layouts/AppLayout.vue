@@ -34,7 +34,6 @@
         <NavLink to="/discovery" :icon="Radar" :label="t('nav.discovery')" :badge="pendingDiscoveryCount" />
         <NavLink to="/alerts" :icon="Bell" :label="t('nav.alerts')" />
         <NavLink to="/maintenance" :icon="CalendarClock" :label="t('nav.maintenance')" />
-        <NavLink to="/silences" :icon="BellOff" :label="t('nav.silences')" />
         <NavLink to="/incidents" :icon="Clock" :label="t('nav.incidents')" :badge="openIncidentCount" />
 
         <div class="nav-section">{{ t('nav.account') }}</div>
@@ -146,7 +145,7 @@ import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
-  Activity, Bell, BellOff, CalendarClock, Clock,
+  Activity, Bell, CalendarClock, Clock,
   KeyRound, LayoutDashboard, Layers, LogOut, MapPin, Moon, Radar, Search, Settings,
   ShieldCheck, Sun, WifiOff,
 } from 'lucide-vue-next'

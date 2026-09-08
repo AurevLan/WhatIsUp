@@ -742,12 +742,6 @@ async def test_web_push_vapid_key(client: AsyncClient, user_token: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Silences endpoints
+# /api/v1/silences/ merged into /api/v1/maintenance/ (plan cap v2, 6d) — see
+# tests/test_suppression_windows.py.
 # ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_silences_list_empty(client: AsyncClient, user_token: str) -> None:
-    resp = await client.get("/api/v1/silences/", headers=_auth(user_token))
-    assert resp.status_code == 200
-    assert resp.json() == []

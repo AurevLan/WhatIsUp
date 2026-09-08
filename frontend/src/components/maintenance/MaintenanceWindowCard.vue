@@ -7,6 +7,13 @@
         <span class="text-xs px-2 py-0.5 rounded-full" :class="statusBadgeClass">
           {{ statusLabel }}
         </span>
+        <!-- plan cap v2, 6d — the one bit that used to be two tables -->
+        <span
+          class="text-xs px-2 py-0.5 rounded-full"
+          :class="w.is_maintenance ? 'bg-(--accent-glow) text-(--accent)' : 'bg-(--bg-surface-2) text-(--text-3)'"
+        >
+          {{ w.is_maintenance ? t('maintenance.kind_maintenance') : t('maintenance.kind_silence') }}
+        </span>
       </div>
       <p v-if="w.description" class="text-sm text-(--text-3) mt-1 truncate">{{ w.description }}</p>
       <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-(--text-3)">
@@ -15,7 +22,8 @@
           <span class="w-1.5 h-1.5 rounded-full bg-(--accent)" />
           <span class="text-(--accent)">{{ monitorObj.name }}</span>
         </span>
-        <span v-if="!w.suppress_alerts" class="text-(--warn)">⚠ {{ t('maintenance.alerts_not_suppressed') }}</span>
+        <span v-else-if="!w.monitor_id && !w.group_id" class="text-(--text-3)">{{ t('maintenance.monitor_none') }}</span>
+        <span v-if="w.is_maintenance && !w.suppress_alerts" class="text-(--warn)">⚠ {{ t('maintenance.alerts_not_suppressed') }}</span>
       </div>
     </div>
 

@@ -33,17 +33,11 @@
       </div>
     </div>
 
-    <!-- Edit / Maintenance links — Duplicate now lives in the page header
-         (MonitorDetailView), always visible regardless of check_type; this
-         tab is scenario-only, and Duplicate must not be. -->
+    <!-- Edit link — Duplicate and "schedule suppression" now live in the
+         page header (MonitorDetailView), always visible regardless of
+         check_type (plan cap v2, 6a + 6d); this tab is scenario-only, and
+         neither of those must be. -->
     <div class="flex items-center justify-end gap-2 mb-3">
-      <button
-        class="btn-secondary btn-sm flex items-center gap-1.5"
-        :title="t('maintenance.schedule_maintenance')"
-        @click="$emit('schedule-maintenance')"
-      >
-        <CalendarClock class="w-3.5 h-3.5" /> {{ t('maintenance.schedule_maintenance') }}
-      </button>
       <button
         class="btn-secondary btn-sm flex items-center gap-1.5"
         :title="t('monitor_detail.edit')"
@@ -285,7 +279,6 @@
 
 <script setup>
 import { useI18n } from 'vue-i18n'
-import { CalendarClock } from 'lucide-vue-next'
 import UptimeViewSplit from '../UptimeViewSplit.vue'
 
 const props = defineProps({
@@ -306,7 +299,6 @@ const props = defineProps({
 const emit = defineEmits([
   'update:selectedRunId',
   'trigger-check',
-  'schedule-maintenance',
   'edit-monitor',
   'open-screenshot',
 ])

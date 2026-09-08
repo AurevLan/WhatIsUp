@@ -48,7 +48,6 @@ from whatisup.models.probe import Probe
 from whatisup.models.probe_group import ProbeGroup, probe_group_members, user_probe_group_access
 from whatisup.models.result import CheckResult, CheckStatus
 from whatisup.models.rollup import CheckRollup1h
-from whatisup.models.silence import AlertSilence
 from whatisup.models.status_announcement import StatusAnnouncement, StatusAnnouncementUpdate
 from whatisup.models.status_subscription import StatusSubscription
 from whatisup.models.system_settings import SystemSettings
@@ -87,7 +86,6 @@ __all__ = [
     "AlertEventStatus",
     "AlertRule",
     "AlertMatrixTemplate",
-    "AlertSilence",
     "AuditLog",
     "MaintenanceWindow",
     "CorrelationPattern",

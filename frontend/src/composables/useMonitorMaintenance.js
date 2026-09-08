@@ -1,6 +1,11 @@
-// Quick-schedule maintenance modal for MonitorDetailView. Pre-fills a 2-hour
-// window starting now with the monitor name in the title, and POSTs through
-// maintenanceApi on save.
+// Quick-schedule suppression modal for MonitorDetailView (plan cap v2, 6d —
+// merges the old separate "schedule maintenance" and "silence" flows into
+// one). Pre-fills a 2-hour maintenance window starting now with the monitor
+// name in the title, offers duration presets, and POSTs through
+// maintenanceApi on save. `suppress_alerts` is omitted from the payload here
+// on purpose: it only affects group-scoped windows
+// (services.maintenance.is_group_maintenance_suppressed), and this modal is
+// always monitor-scoped — the API default (true) is a no-op either way.
 
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -15,13 +20,24 @@ function toLocalDateTime(d) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+// Duration presets offered on the quick-schedule modal — credible palliers
+// for "I'm touching this, be quiet for a while": half an hour for a quick
+// restart, an hour for a routine deploy, four hours for a longer migration,
+// and "until tomorrow" for anything open-ended overnight.
+export const DURATION_PRESETS = [
+  { key: '30m', minutes: 30 },
+  { key: '1h', minutes: 60 },
+  { key: '4h', minutes: 240 },
+  { key: 'tomorrow', minutes: 24 * 60 },
+]
+
 function blankForm() {
   return {
     name: '',
     description: '',
     starts_at: '',
     ends_at: '',
-    suppress_alerts: true,
+    is_maintenance: true,
   }
 }
 
@@ -41,9 +57,16 @@ export function useMonitorMaintenance(monitorRef) {
       description: '',
       starts_at: toLocalDateTime(now),
       ends_at: toLocalDateTime(end),
-      suppress_alerts: true,
+      is_maintenance: true,
     }
     showModal.value = true
+  }
+
+  function applyPreset(minutes) {
+    const start = new Date()
+    const end = new Date(start.getTime() + minutes * 60 * 1000)
+    form.value.starts_at = toLocalDateTime(start)
+    form.value.ends_at = toLocalDateTime(end)
   }
 
   async function createWindow() {
@@ -60,7 +83,7 @@ export function useMonitorMaintenance(monitorRef) {
         group_id: null,
         starts_at: new Date(form.value.starts_at).toISOString(),
         ends_at: new Date(form.value.ends_at).toISOString(),
-        suppress_alerts: form.value.suppress_alerts,
+        is_maintenance: form.value.is_maintenance,
       }, { skipErrorToast: true })
       showModal.value = false
       toastSuccess(t('common.success'))
@@ -77,6 +100,7 @@ export function useMonitorMaintenance(monitorRef) {
     saving,
     form,
     openSchedule,
+    applyPreset,
     createWindow,
   }
 }

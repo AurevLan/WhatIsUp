@@ -65,6 +65,7 @@ async def _create_window(
     group_id: str | None = None,
     starts_at: datetime,
     ends_at: datetime,
+    is_maintenance: bool = True,
 ) -> dict:
     resp = await client.post(
         "/api/v1/maintenance/",
@@ -76,6 +77,7 @@ async def _create_window(
             "group_id": group_id,
             "starts_at": starts_at.isoformat(),
             "ends_at": ends_at.isoformat(),
+            "is_maintenance": is_maintenance,
         },
         headers=_auth(token),
     )
@@ -306,3 +308,36 @@ async def test_public_status_never_leaks_maintenance_name_or_description(
     assert "SECRET" not in raw
     assert "internal runbook" not in raw
     assert "Public-facing sentence only." in raw
+
+
+@pytest.mark.asyncio
+async def test_plain_silence_is_not_published(client: AsyncClient, user_token: str) -> None:
+    """Plan cap v2, 6d — since the merge, `maintenance_windows` also holds
+    plain alert silences (`is_maintenance=False`, ex-`AlertSilence`). Those
+    are a private on-call convenience and must never reach the public page,
+    even though they otherwise look exactly like a publishable window
+    (active, in-scope, carrying a `public_message`)."""
+    _, monitor_id = await _make_group_and_monitor(
+        client, user_token, slug="pub-maint-silence", monitor_name="SilenceMon"
+    )
+    now = datetime.now(UTC)
+    await _create_window(
+        client,
+        user_token,
+        name="on-call self-mute",
+        description=None,
+        public_message="This must never be public.",
+        monitor_id=monitor_id,
+        starts_at=now - timedelta(minutes=1),
+        ends_at=now + timedelta(hours=1),
+        is_maintenance=False,
+    )
+
+    resp = await client.get("/api/v1/public/pages/pub-maint-silence/status")
+    assert resp.status_code == 200
+    assert resp.json()["maintenance_windows"] == []
+    assert "This must never be public." not in resp.text
+
+    feed_resp = await client.get("/api/v1/public/pages/pub-maint-silence/feed.atom")
+    assert feed_resp.status_code == 200
+    assert "This must never be public." not in feed_resp.text

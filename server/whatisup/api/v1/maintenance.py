@@ -1,4 +1,10 @@
-"""Maintenance window endpoints."""
+"""Maintenance / suppression window endpoints.
+
+Plan cap v2, 6d — also covers what used to be the separate ``AlertSilence``
+CRUD (``/api/v1/silences/``, dropped): a suppression window with
+``is_maintenance=False`` is a plain alert silence. See
+``models/maintenance.py`` for the full rationale.
+"""
 
 import uuid
 
@@ -86,6 +92,7 @@ async def create_window(
         starts_at=payload.starts_at,
         ends_at=payload.ends_at,
         suppress_alerts=payload.suppress_alerts,
+        is_maintenance=payload.is_maintenance,
     )
     db.add(window)
     await db.flush()

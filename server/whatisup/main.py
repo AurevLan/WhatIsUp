@@ -481,7 +481,6 @@ def create_app() -> FastAPI:
         probes,
         public,
         sessions,
-        silences,
         status,
         status_announcements,
         tags,
@@ -513,7 +512,6 @@ def create_app() -> FastAPI:
     app.include_router(audit.router, prefix="/api/v1")
     app.include_router(maintenance.router, prefix="/api/v1")
     app.include_router(status_announcements.router, prefix="/api/v1")
-    app.include_router(silences.router, prefix="/api/v1")
     app.include_router(discovery.sources_router, prefix="/api/v1")
     app.include_router(discovery.services_router, prefix="/api/v1")
     app.include_router(discovery.probe_groups_router, prefix="/api/v1")

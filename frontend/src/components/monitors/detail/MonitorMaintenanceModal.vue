@@ -1,5 +1,5 @@
 <template>
-  <!-- Quick schedule maintenance modal -->
+  <!-- Quick suppression modal (plan cap v2, 6d) -->
   <BaseModal v-model="state.showModal.value" :title="t('maintenance.schedule_maintenance')" size="lg">
     <div class="space-y-4">
       <div>
@@ -14,6 +14,16 @@
         <textarea v-model="state.form.value.description" class="input w-full mt-1 resize-none" rows="2"
           :placeholder="t('maintenance.description_placeholder')" />
       </div>
+
+      <!-- Duration presets — set starts_at=now, ends_at=now+duration -->
+      <div class="flex flex-wrap gap-1.5">
+        <button v-for="p in DURATION_PRESETS" :key="p.key" type="button"
+          class="btn-secondary btn-sm"
+          @click="state.applyPreset(p.minutes)">
+          {{ t(`maintenance.preset_${p.key}`) }}
+        </button>
+      </div>
+
       <div class="grid grid-cols-2 gap-4">
         <div>
           <label class="text-sm text-(--text-2)">{{ t('maintenance.starts') }} <span class="text-(--down)">*</span></label>
@@ -24,19 +34,27 @@
           <input v-model="state.form.value.ends_at" type="datetime-local" class="input w-full mt-1" />
         </div>
       </div>
+
+      <!-- is_maintenance toggle — the one bit that used to be two tables
+           (plan cap v2, 6d): checked = counts as planned downtime, excluded
+           from uptime and eligible for the public status page; unchecked =
+           a plain silence, the incident opens and counts normally. -->
       <div class="flex items-center gap-3 py-1">
-        <button type="button" @click="state.form.value.suppress_alerts = !state.form.value.suppress_alerts"
-          :aria-label="t('maintenance.suppress_alerts_label')"
+        <button type="button" @click="state.form.value.is_maintenance = !state.form.value.is_maintenance"
+          :aria-label="t('maintenance.is_maintenance_label')"
           class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200"
-          :class="state.form.value.suppress_alerts ? 'bg-(--accent)' : 'bg-(--bg-surface-2)'">
+          :class="state.form.value.is_maintenance ? 'bg-(--accent)' : 'bg-(--bg-surface-2)'">
           <span class="inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform duration-200"
-            :class="state.form.value.suppress_alerts ? 'translate-x-4' : 'translate-x-0'" />
+            :class="state.form.value.is_maintenance ? 'translate-x-4' : 'translate-x-0'" />
         </button>
         <span class="text-sm text-(--text-2) cursor-pointer select-none"
-          @click="state.form.value.suppress_alerts = !state.form.value.suppress_alerts">
-          {{ t('maintenance.suppress_alerts_label') }}
+          @click="state.form.value.is_maintenance = !state.form.value.is_maintenance">
+          {{ t('maintenance.is_maintenance_label') }}
         </span>
       </div>
+      <p class="text-xs text-(--text-3) -mt-2">
+        {{ state.form.value.is_maintenance ? t('maintenance.is_maintenance_hint_on') : t('maintenance.is_maintenance_hint_off') }}
+      </p>
     </div>
     <template #footer>
       <button @click="state.showModal.value = false" class="btn-secondary flex-1">{{ t('common.cancel') }}</button>
@@ -52,6 +70,7 @@ import { inject } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseModal from '../../BaseModal.vue'
 import { MaintenanceStateKey } from './injectionKeys'
+import { DURATION_PRESETS } from '../../../composables/useMonitorMaintenance'
 
 // Provided by MonitorDetailView via provide(MaintenanceStateKey, maintenanceState).
 // Injection sidesteps vue/no-mutating-props for the intentional

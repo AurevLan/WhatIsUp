@@ -231,49 +231,6 @@
         </div>
       </div>
 
-      <!-- Browser Extension -->
-      <div class="card">
-        <h2 class="text-lg font-semibold text-(--text-1) mb-1">{{ t('settings.extension_title') }}</h2>
-        <p class="text-sm text-(--text-3) mb-4">{{ t('settings.extension_desc') }}</p>
-
-        <div class="flex gap-2 flex-wrap mb-4">
-          <button @click="downloadExtension" :disabled="extensionLoading" class="btn-primary">
-            {{ extensionLoading ? t('settings.extension_downloading') : t('settings.extension_download') }}
-          </button>
-        </div>
-
-        <details class="text-sm text-(--text-2)">
-          <summary class="cursor-pointer text-(--text-2) hover:text-(--text-1) mb-2 select-none">
-            {{ t('settings.extension_install_title') }}
-          </summary>
-          <ol class="list-decimal list-inside space-y-1 ml-1 mb-3">
-            <li>{{ t('settings.extension_install_step1') }}</li>
-            <li>{{ t('settings.extension_install_step2') }}</li>
-            <li>
-              <i18n-t keypath="settings.extension_install_step3" tag="span">
-                <template #bold1><strong>{{ t('settings.extension_install_step3_bold1') }}</strong></template>
-                <template #bold2><strong>{{ t('settings.extension_install_step3_bold2') }}</strong></template>
-              </i18n-t>
-            </li>
-            <li>
-              <i18n-t keypath="settings.extension_install_step4" tag="span">
-                <template #bold><strong>{{ t('settings.extension_install_step4_bold') }}</strong></template>
-              </i18n-t>
-            </li>
-            <li>
-              <i18n-t keypath="settings.extension_install_step5" tag="span">
-                <template #bold><strong>{{ t('settings.extension_install_step5_bold') }}</strong></template>
-              </i18n-t>
-            </li>
-            <li>{{ t('settings.extension_install_step6') }}</li>
-          </ol>
-          <p class="text-xs text-(--text-3)">
-            <strong class="text-(--text-2)">{{ t('settings.extension_features_title') }}:</strong>
-            {{ t('settings.extension_features') }}
-          </p>
-        </details>
-      </div>
-
       <!-- Audit log — F8, plan cap v2 6c: moved here from the main nav (it's
            "what happened", answered from Réglages, not a permanent
            destination). Nothing about the log itself changes: same view,
@@ -421,7 +378,6 @@ const { confirm } = useConfirm()
 const { formatDate: fmtDate } = useDateFormat()
 const auth = useAuthStore()
 const push = useWebPushStore()
-const extensionLoading = ref(false)
 
 // ── Two-factor authentication ────────────────────────────────────────────────
 const totp = reactive({
@@ -686,21 +642,4 @@ onMounted(async () => {
   biometric.isAvailable = await isBiometricAvailable()
   loadSessions()
 })
-
-async function downloadExtension() {
-  extensionLoading.value = true
-  try {
-    const res = await api.get('/extension/download', { responseType: 'blob' })
-    const url = URL.createObjectURL(res.data)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'whatisup-recorder.zip'
-    a.click()
-    URL.revokeObjectURL(url)
-  } catch {
-    // silently fail — user sees no download
-  } finally {
-    extensionLoading.value = false
-  }
-}
 </script>

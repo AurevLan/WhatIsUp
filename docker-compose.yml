@@ -85,7 +85,6 @@ services:
       # le seul volume monté dans la sonde (audit F15).
       - shared:/shared
       - probe_secrets:/probe-secrets
-      - ./extension:/app/extension:ro
       # FCM service account (gitignored). The path is configured in env so the
       # server falls back gracefully when the file is missing.
       - ./mobile/.secrets/firebase-service-account.json:/run/secrets/fcm.json:ro

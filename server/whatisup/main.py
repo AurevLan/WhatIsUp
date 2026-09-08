@@ -469,7 +469,6 @@ def create_app() -> FastAPI:
         callbacks,
         config,
         discovery,
-        extension,
         groups,
         incident_updates,
         incidents_list,
@@ -535,7 +534,6 @@ def create_app() -> FastAPI:
     from whatisup.api.v1 import devices
 
     app.include_router(devices.router, prefix="/api/v1")
-    app.include_router(extension.router, prefix="/api/v1")
 
     # Prometheus metrics (optional dependency)
     try:

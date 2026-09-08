@@ -83,7 +83,7 @@
 | **A01 — Broken Access Control** | Probe forge résultat cross-monitor | `POST /probes/results` : la sonde ne peut pousser un résultat que pour un monitor de son `network_scope` (scope `all` = servi par toutes) — sinon 403 ; idem `serves_monitor` sur `/probes/diagnostics` | `api/v1/probes.py`, `test_probe_trust.py` |
 | **A02 — Cryptographic Failures** | Secrets en clair | Fernet AES-128 sur tous secrets channels + OIDC + scenario, bcrypt 12-rounds, refresh tokens hashés SHA-256 | `core/security.py`, `_validate_production_settings()` |
 | **A03 — Injection** | SQL / cmd / XSS | SQLAlchemy ORM exclusif, Pydantic v2 `extra="forbid"`, Vue 3 auto-escape, pas de `v-html` non-safe | CodeQL `security-extended`, code review |
-| **A03 — Injection** | Sorties générées (SMTP, HTML, code) | Destinataires validés + `EmailMessage` (refus CR/LF en en-tête), `html.escape()` sur toute valeur utilisateur dans un corps HTML, export Playwright : `_escJs` (littéraux) + `_num` (positions non quotées) | `core/validators.py`, `services/reports.py`, `services/channels/email.py`, `extension/background.js`, `test_content_injection.py` |
+| **A03 — Injection** | Sorties générées (SMTP, HTML) | Destinataires validés + `EmailMessage` (refus CR/LF en en-tête), `html.escape()` sur toute valeur utilisateur dans un corps HTML | `core/validators.py`, `services/reports.py`, `services/channels/email.py`, `test_content_injection.py` |
 | **A04 — Insecure Design** | Modèle d'accès | Threat model documenté (ce fichier), invite-only, escalade priv. silencieusement bloquée | Tests `test_me_update_*` |
 | **A05 — Security Misconfiguration** | Defaults faibles | `validate_production_settings` refuse SECRET_KEY défaut, FERNET_KEY requis, CORS `*` interdit, server bind 127.0.0.1 | Démarrage prod ✓ |
 | **A06 — Vulnerable Components** | CVE deps | Dependabot + pip-audit + npm audit hebdo + CodeQL | Workflows `security-audit.yml`, `codeql.yml` |
@@ -737,7 +737,6 @@ Toute modification de cette table doit être reportée dans `FEATURES.md` §11.
 | `/incidents/bulk-ack` | POST | **20/min** | Anti boucle |
 | `/incidents/{id}/snooze` | POST | **30/min** | UX bulk |
 | `/alerts/channels/{id}/test` | POST | **10/min** | Anti spam canal |
-| `/api/v1/extension/download` | GET | **10/min** | Anti scrape |
 | `/alerts/rules` | POST | **30/min** | Création de règle d'alerte — alignée sur PATCH/DELETE existantes |
 | `/teams` | GET / POST | **60 / 20/min** | Liste teams / création team |
 | `/teams/{id}` | GET / PATCH / DELETE | **60 / 30 / 30/min** | Lecture, renommage, suppression team |

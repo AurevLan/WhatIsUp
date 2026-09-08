@@ -677,7 +677,7 @@ docker run --rm -v $(pwd):/repo -w /repo/frontend node:22-alpine \
   sh -c "npm ci && npx vitest run"
 ```
 
-> Mount the **whole repository**, not just `frontend/` or `server/` — a few tests read files outside their own package (`nginx/whatisup.conf`, `extension/background.js`) and fail confusingly otherwise.
+> Mount the **whole repository**, not just `frontend/` or `server/` — a few tests read files outside their own package and fail confusingly otherwise.
 
 ### Database migrations
 

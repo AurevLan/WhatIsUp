@@ -10,8 +10,11 @@ document HTML) qui lui donne un sens qu'elle ne devrait pas avoir.
 - F17 : le nom d'un monitor est interpolé dans le corps HTML des alertes, lues
         par des tiers qui ne l'ont pas choisi.
 
-Le test du générateur Playwright de l'extension (F12) vit côté frontend, dans
-`frontend/tests/extensionPlaywrightExport.test.js`.
+F12 concernait le générateur Playwright de l'extension navigateur (`_escJs`/
+`_num`) et son test dédié côté frontend
+(`frontend/tests/extensionPlaywrightExport.test.js`) ; les deux ont disparu
+avec l'extension elle-même (plan cap v2, 6b) — plus aucun code du dépôt ne
+génère de JavaScript destiné à être exécuté.
 """
 
 from __future__ import annotations

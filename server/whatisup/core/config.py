@@ -12,6 +12,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 logger = logging.getLogger(__name__)
 
 _DEFAULT_SECRET = "CHANGE_ME_IN_PRODUCTION"
+_DEFAULT_PUBLIC_BASE_URL = "http://localhost:5173"
 
 
 def _default_app_version() -> str:
@@ -53,6 +54,22 @@ class Settings(BaseSettings):
     # CORS
     cors_allowed_origins: list[str] = Field(default=["http://localhost:5173"])
 
+    @field_validator("public_base_url", mode="before")
+    @classmethod
+    def _public_base_url_default_on_blank(cls, v: object) -> object:
+        """Une variable d'environnement **vide** vaut « non renseignée ».
+
+        `docker-compose.yml` transmet `PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}` :
+        sans ce garde-fou, une pile démarrée sans le réglage recevrait la chaîne
+        vide au lieu du défaut, et publierait des liens *relatifs* — un flux
+        Atom dont le `link rel="self"` vaut `/api/v1/...` est invalide, et un
+        e-mail de désinscription dont l'URL n'a pas d'hôte n'est pas cliquable.
+        Échouer vers le défaut redonne au moins un lien bien formé, et laisse la
+        valeur par défaut vivre à un seul endroit."""
+        if v is None or (isinstance(v, str) and not v.strip()):
+            return _DEFAULT_PUBLIC_BASE_URL
+        return v
+
     @field_validator("cors_allowed_origins", mode="before")
     @classmethod
     def parse_cors(cls, v: str | list[str]) -> list[str]:
@@ -84,11 +101,12 @@ class Settings(BaseSettings):
     smtp_from: str = "noreply@example.com"
     smtp_tls: bool = True
 
-    # Racine publique utilisée pour construire les liens des e-mails
-    # (confirmation et désinscription des pages de statut). Le serveur ne peut
+    # Racine publique utilisée pour construire les liens que le serveur
+    # fabrique lui-même : e-mails de confirmation/désinscription des pages de
+    # statut, et `link rel="self"`/`alternate` du flux Atom. Le serveur ne peut
     # pas la deviner : il est derrière un reverse proxy et ne voit ni le nom
     # d'hôte externe ni le schéma.
-    public_base_url: str = "http://localhost:5173"
+    public_base_url: str = _DEFAULT_PUBLIC_BASE_URL
 
     # Probe
     probe_result_rate_limit: str = "30/minute"

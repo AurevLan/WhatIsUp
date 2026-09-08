@@ -103,6 +103,12 @@ services:
       ENVIRONMENT: production
       DEBUG: "false"
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?CORS_ALLOWED_ORIGINS must be set}
+      # Racine publique des liens que le serveur fabrique lui-même : flux Atom
+      # de la page de statut (`link rel=self` / `alternate`) et e-mails de
+      # confirmation/désinscription des abonnés. Derrière un reverse proxy le
+      # serveur ne peut pas la deviner ; non renseignée, elle vaut
+      # `http://localhost:5173` et publie des liens inutilisables au dehors.
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USER: ${SMTP_USER:-}

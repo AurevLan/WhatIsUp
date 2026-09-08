@@ -12,7 +12,7 @@
     </div>
 
     <!-- Barre d'actions contextuelles (bulk) -->
-    <BulkActionBar :count="selectedIds.size" @clear="clearSelection">
+    <BulkActionBar v-if="viewMode !== 'certs'" :count="selectedIds.size" @clear="clearSelection">
       <button @click="bulkEnable" class="btn-primary btn-sm flex items-center gap-1.5">
         <Play class="w-3.5 h-3.5" /> {{ t('monitors.bulk_enable') }}
       </button>
@@ -57,7 +57,7 @@
     <div class="space-y-1.5 mb-4">
       <!-- Row 1: search + view toggle + add -->
       <div class="flex flex-wrap gap-2 items-center">
-        <div class="relative flex-1 min-w-[12rem]">
+        <div v-if="viewMode !== 'certs'" class="relative flex-1 min-w-[12rem]">
           <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-(--text-3) pointer-events-none" />
           <input ref="searchInput" :value="searchInput_" @input="onSearchInput($event.target.value)" class="input pl-9 h-8 text-xs" :placeholder="t('common.search') + '…'" />
         </div>
@@ -74,24 +74,34 @@
             :aria-label="t('monitors.view_board')">
             <LayoutGrid class="w-4 h-4" />
           </button>
+          <!-- F7, plan cap v2 6c: TLS Fleet folded in here as a saved view,
+               not a permanent nav destination — the endpoint stays. -->
+          <button @click="setViewMode('certs')"
+            :class="viewMode === 'certs' ? 'bg-(--bg-surface-2) text-(--text-1)' : 'text-(--text-3) hover:text-(--text-1)'"
+            class="px-2.5 py-1.5 rounded-md transition-colors" :title="t('monitors.view_certificates')"
+            :aria-label="t('monitors.view_certificates')">
+            <Lock class="w-4 h-4" />
+          </button>
         </div>
-        <button @click="exportMonitors" class="btn-secondary btn-sm flex items-center gap-1">
-          <Download class="w-4 h-4" />
-          {{ t('monitors.export_json') }}
-        </button>
-        <button @click="triggerImport" class="btn-secondary btn-sm flex items-center gap-1">
-          <Upload class="w-4 h-4" />
-          {{ t('monitors.import_json') }}
-        </button>
-        <input ref="importFileInput" type="file" accept=".json" class="hidden" :aria-label="t('monitors.import_json')" @change="handleImportFile" />
+        <template v-if="viewMode !== 'certs'">
+          <button @click="exportMonitors" class="btn-secondary btn-sm flex items-center gap-1">
+            <Download class="w-4 h-4" />
+            {{ t('monitors.export_json') }}
+          </button>
+          <button @click="triggerImport" class="btn-secondary btn-sm flex items-center gap-1">
+            <Upload class="w-4 h-4" />
+            {{ t('monitors.import_json') }}
+          </button>
+          <input ref="importFileInput" type="file" accept=".json" class="hidden" :aria-label="t('monitors.import_json')" @change="handleImportFile" />
+        </template>
         <button @click="showCreate = true" class="btn-primary btn-sm">
           <Plus class="w-4 h-4" />
           {{ t('monitors.add') }}
         </button>
       </div>
 
-      <!-- Row 2: filters -->
-      <div class="flex flex-wrap gap-2 items-center">
+      <!-- Row 2: filters (not applicable to the Certificates view, which has its own) -->
+      <div v-if="viewMode !== 'certs'" class="flex flex-wrap gap-2 items-center">
         <!-- Status chips -->
         <div class="flex gap-1">
           <button v-for="s in statusFilters" :key="s.val"
@@ -129,8 +139,11 @@
       </div>
     </div>
 
+    <!-- Certificates view (F7, plan cap v2 6c) -->
+    <CertificatesPanel v-if="viewMode === 'certs'" />
+
     <!-- Table (mode liste) -->
-    <div v-if="viewMode === 'list'" class="card p-0 overflow-hidden">
+    <div v-else-if="viewMode === 'list'" class="card p-0 overflow-hidden">
       <div v-if="loading" class="p-4 space-y-3">
         <SkeletonRow v-for="i in 6" :key="i" :trailing-width="'5rem'" />
       </div>
@@ -490,7 +503,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { Download, Eye, Ghost, LayoutGrid, List, Monitor, Pause, PencilLine, Play, Plus, Search, Trash2, Upload, X } from 'lucide-vue-next'
+import { Download, Eye, Ghost, LayoutGrid, List, Lock, Monitor, Pause, PencilLine, Play, Plus, Search, Trash2, Upload, X } from 'lucide-vue-next'
 import { useMonitorStore } from '../stores/monitors'
 import { useToast } from '../composables/useToast'
 import { useMonitorFilters } from '../composables/useMonitorFilters'
@@ -507,6 +520,7 @@ import SparklineCell from '../components/monitors/SparklineCell.vue'
 import SkeletonRow from '../components/shared/SkeletonRow.vue'
 import EmptyState from '../components/shared/EmptyState.vue'
 import BulkActionBar from '../components/shared/BulkActionBar.vue'
+import CertificatesPanel from '../components/monitors/CertificatesPanel.vue'
 
 const { t } = useI18n()
 const route = useRoute()

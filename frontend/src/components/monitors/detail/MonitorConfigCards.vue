@@ -90,7 +90,16 @@
       <ShieldAlert v-else class="w-5 h-5 text-(--down)" />
       <h2 class="text-sm font-semibold text-(--text-2)">{{ t('sweep.ssl_certificate') }}</h2>
     </div>
-    <div class="grid grid-cols-3 gap-4 text-center">
+    <div class="grid gap-4 text-center" :class="tlsGrade ? 'grid-cols-4' : 'grid-cols-3'">
+      <!-- TLS grade (A-F) — F7, plan cap v2 6c: the fleet-wide dashboard
+           became a MonitorsView "Certificates" view, but the grade must stay
+           visible here — it's a differentiator, not just an operator tool. -->
+      <div v-if="tlsGrade">
+        <p class="text-xs text-(--text-3) mb-1">{{ t('tls_fleet.col_grade') }}</p>
+        <span class="font-display text-sm font-bold px-2 py-0.5 rounded-full" :class="tlsGradeClass(tlsGrade)">
+          {{ tlsGrade }}
+        </span>
+      </div>
       <div>
         <p class="text-xs text-(--text-3) mb-1">{{ t('common.status') }}</p>
         <span class="text-sm font-semibold px-2 py-0.5 rounded-full"
@@ -158,6 +167,7 @@ import { Shield, ShieldAlert, ShieldCheck } from 'lucide-vue-next'
 import { PatchStateKey } from './injectionKeys'
 import { useDetectionAlertBridge } from '../../../composables/useDetectionAlertBridge'
 import DetectionAlertBridge from '../../shared/DetectionAlertBridge.vue'
+import { tlsGradeClass } from '../../../lib/tlsGrade'
 
 const props = defineProps({
   monitor: { type: Object, required: true },
@@ -188,6 +198,10 @@ const { t } = useI18n()
 const latestSsl = computed(() =>
   props.results.find(r => r.ssl_valid !== null && r.ssl_valid !== undefined) ?? null
 )
+
+// TLS grade (A+..F) — same source as GET /tls-fleet/ (CheckResult.tls_audit),
+// read directly off the latest SSL result rather than a second request.
+const tlsGrade = computed(() => latestSsl.value?.tls_audit?.grade ?? null)
 
 const latestDomainExpiry = computed(() =>
   props.results.find(r => r.ssl_expires_at !== null && r.ssl_expires_at !== undefined) ?? null

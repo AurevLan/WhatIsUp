@@ -1,7 +1,10 @@
 /**
  * C4 (bilan 2026-07) — EmptyState rollout on views that previously
  * hand-rolled their own "no data" markup (or a bare text line): Incidents,
- * ApiKeys, Audit, TlsFleet. (Templates was retired in plan cap v2, étape 6a.)
+ * ApiKeys, Audit, TlsFleet. (Templates was retired in plan cap v2, étape 6a.
+ * TlsFleetView itself was retired in plan cap v2, étape 6c — F7 folded it
+ * into MonitorsView as the "Certificates" saved view; CertificatesPanel.vue
+ * carries the same EmptyState this test originally pinned.)
  *
  * Mounts each view standalone (mock API returning empty lists, fresh
  * Pinia, memory router — same harness as tests/a11y.test.js) and asserts
@@ -27,7 +30,7 @@ vi.mock('../src/api/client', () => ({
 import IncidentsView from '../src/views/IncidentsView.vue'
 import ApiKeysView from '../src/views/ApiKeysView.vue'
 import AuditView from '../src/views/AuditView.vue'
-import TlsFleetView from '../src/views/TlsFleetView.vue'
+import CertificatesPanel from '../src/components/monitors/CertificatesPanel.vue'
 
 function makeRouter() {
   const stub = { template: '<div />' }
@@ -67,7 +70,7 @@ describe('EmptyState rollout — views render the real component when empty', ()
     ['IncidentsView', IncidentsView, en.incidents.no_incidents],
     ['ApiKeysView', ApiKeysView, en.apiKeys.empty_title],
     ['AuditView', AuditView, en.audit.empty],
-    ['TlsFleetView', TlsFleetView, en.tls_fleet.empty],
+    ['CertificatesPanel', CertificatesPanel, en.tls_fleet.empty],
   ])('%s shows the EmptyState component with the expected title', async (_name, component, expectedTitle) => {
     const wrapper = await mountView(component)
     const title = wrapper.find('.empty-state__title')

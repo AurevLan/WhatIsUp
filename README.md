@@ -118,9 +118,9 @@ Conditions were dispatched by three parallel `if/elif` chains — what pages, th
 |-----------------|-------------------|
 | ![Alert matrix](docs/screenshots/alert-matrix-cards.svg) | ![Templates](docs/screenshots/alert-templates.svg) |
 
-| Scenario builder | Browser extension recorder |
-|------------------|----------------------------|
-| ![Scenario](docs/screenshots/scenario-builder.svg) | ![Extension](docs/screenshots/extension-recorder.svg) |
+| Scenario builder |
+|------------------|
+| ![Scenario](docs/screenshots/scenario-builder.svg) |
 
 ---
 
@@ -395,17 +395,25 @@ probe's Docker socket mounted read-only — commented out by default in `docker-
 service): uncomment only if you intend to use it, it's a real privilege grant. See `FEATURES.md` § Découverte
 for the full design rationale.
 
-### Browser extension — scenario recorder
+### Recording a scenario with Playwright Codegen
 
-Records browser actions and turns them into a monitor:
+Scenarios are written by hand in the **Scenario builder** (drag-and-drop steps, templates), or recorded
+with Microsoft's own [`playwright codegen`](https://playwright.dev/docs/codegen) and imported:
 
-1. **Start recording** in the extension popup
-2. Navigate and interact — clicks, form fills (including passwords) and navigations are captured
-3. **Stop** → **Send to WhatIsUp** — the scenario becomes a monitor in one click
+```bash
+npx playwright codegen https://your-app.example.com
+```
 
-**Security**: password values become `{{password_N}}` placeholders in the step list; the real values live in a separate store, Fernet-encrypted at rest, masked in every API response, and decrypted only when handed to the probe at check time.
+Interact with the page in the window it opens; Playwright writes a script as you go. Click **Importer**
+in the Scenario builder and pass it the generated script — steps (navigate/click/fill/assert) come in
+pre-filled; adjust selectors and mark password fields **secret** (🔒) before saving. Secret variable
+values are Fernet-encrypted at rest, masked in every API response, and decrypted only when handed to the
+probe at check time.
 
-Load it from `extension/` via `chrome://extensions → Load unpacked`.
+> A previous version of WhatIsUp shipped a browser extension recorder (`extension/`). It was removed:
+> `playwright codegen` is officially maintained, produces the same kind of script, and the Scenario
+> builder's import covers the handoff. If you relied on the extension and this doesn't cover your case,
+> please open an issue.
 
 ---
 
@@ -422,11 +430,11 @@ Load it from `extension/` via `chrome://extensions → Load unpacked`.
 
 **Disk growth** — a raw check result is ~300 bytes. At 200 monitors × 60 s × 5 probes, expect ~2.5 GB/month of raw data, held for `DATA_RETENTION_DAYS`. The hourly rollups that outlive it cost roughly 140 k rows/year for the same fleet — negligible next to a single day of raw. Retention reclaims space by dropping whole partitions, so disk is released in monthly steps rather than gradually.
 
-| Probe mode | CPU | RAM | Notes |
-|------------|-----|-----|-------|
-| HTTP / TCP / DNS / Ping only | 1 vCPU | 256 MB | Runs on any VPS or a Raspberry Pi |
-| With Playwright scenarios | 2 vCPU | 1 GB | Chromium loaded on demand; set `MAX_CONCURRENT_SCENARIOS=2` |
-| High volume (100+ monitors) | 2 vCPU | 1–2 GB | Raise `MAX_CONCURRENT_CHECKS` |
+| Probe mode | Image | CPU | RAM | Notes |
+|------------|-------|-----|-----|-------|
+| HTTP / TCP / DNS / Ping / SMTP / heartbeat only | `whatisup-probe:latest` (~250 Mo, no browser) | 1 vCPU | 256 MB | Runs on any VPS or a Raspberry Pi. A `scenario` monitor assigned here fails with a clear error naming the `-browser` image |
+| With Playwright scenarios | `whatisup-probe:latest-browser` (~1,97 Go, Chromium included) | 2 vCPU | 1 GB | Set `MAX_CONCURRENT_SCENARIOS=2` |
+| High volume (100+ monitors) | either | 2 vCPU | 1–2 GB | Raise `MAX_CONCURRENT_CHECKS` |
 
 | Component | Ports | Protocol |
 |-----------|-------|----------|

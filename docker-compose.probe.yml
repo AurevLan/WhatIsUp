@@ -10,11 +10,23 @@
 #
 # The probe will connect to the central server, fetch the list of monitors
 # and start sending check results automatically.
+#
+# Browser (Chromium) support — plan cap v2, 6b:
+#   The default image has NO Chromium (~250 Mo vs ~1,97 Go with one): every
+#   check type works except `scenario`, which fails with a clear, actionable
+#   error instead of a raw Playwright trace. To run `scenario` monitors on
+#   this probe, either:
+#     - set PROBE_WITH_BROWSER=true below and rebuild, or
+#     - skip the local build and pull the prebuilt variant instead:
+#         image: ghcr.io/aurevlan/whatisup-probe:latest-browser
+#       (remove the `build:` block above it in that case)
 
 services:
   probe:
     build:
       context: ./probe
+      args:
+        WITH_BROWSER: ${PROBE_WITH_BROWSER:-false}
     image: whatisup-probe:latest
     restart: unless-stopped
     environment:

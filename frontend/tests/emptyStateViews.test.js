@@ -1,7 +1,7 @@
 /**
- * C4 (bilan 2026-07) — EmptyState rollout on 6 views that previously
+ * C4 (bilan 2026-07) — EmptyState rollout on views that previously
  * hand-rolled their own "no data" markup (or a bare text line): Incidents,
- * ApiKeys, Templates, Audit, TlsFleet.
+ * ApiKeys, Audit, TlsFleet. (Templates was retired in plan cap v2, étape 6a.)
  *
  * Mounts each view standalone (mock API returning empty lists, fresh
  * Pinia, memory router — same harness as tests/a11y.test.js) and asserts
@@ -26,7 +26,6 @@ vi.mock('../src/api/client', () => ({
 
 import IncidentsView from '../src/views/IncidentsView.vue'
 import ApiKeysView from '../src/views/ApiKeysView.vue'
-import TemplatesView from '../src/views/TemplatesView.vue'
 import AuditView from '../src/views/AuditView.vue'
 import TlsFleetView from '../src/views/TlsFleetView.vue'
 

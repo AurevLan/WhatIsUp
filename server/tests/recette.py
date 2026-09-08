@@ -704,41 +704,6 @@ def test_api_keys() -> None:
         check("DELETE /api-keys/{id}", r, 204)
 
 
-def test_templates() -> None:
-    section("Templates")
-
-    r = client.get("/api/v1/templates/", headers=auth_headers())
-    check("GET /templates/ (list)", r, 200)
-
-    r = client.post(
-        "/api/v1/templates/",
-        headers=auth_headers(),
-        json={
-            "name": "Recette Template",
-            "check_type": "http",
-            "monitor_config": {"interval_seconds": 30, "timeout_seconds": 5},
-        },
-    )
-    tpl = check("POST /templates/ (create)", r, 201)
-    if tpl:
-        IDS["template_id"] = tpl["id"]
-
-    if "template_id" in IDS:
-        tid = IDS["template_id"]
-        r = client.get(f"/api/v1/templates/{tid}", headers=auth_headers())
-        check("GET /templates/{id}", r, 200)
-
-        r = client.patch(
-            f"/api/v1/templates/{tid}",
-            headers=auth_headers(),
-            json={"name": "Recette TPL (updated)"},
-        )
-        check("PATCH /templates/{id}", r, 200)
-
-        r = client.delete(f"/api/v1/templates/{tid}", headers=auth_headers())
-        check("DELETE /templates/{id}", r, 204)
-
-
 def test_status() -> None:
     section("Status")
     r = client.get("/api/v1/status/monitors", headers=auth_headers())
@@ -1043,7 +1008,6 @@ def main() -> int:
     test_maintenance()
     test_audit()
     test_api_keys()
-    test_templates()
     test_status()
     test_ping()
     test_metrics()

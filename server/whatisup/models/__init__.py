@@ -33,7 +33,6 @@ from whatisup.models.monitor import (
     MonitorGroup,
 )
 from whatisup.models.monitor_health import MonitorHealthState, SLORule, SLORuleType
-from whatisup.models.monitor_template import MonitorTemplate
 from whatisup.models.oncall import (
     ContactMethod,
     EscalationLevel,
@@ -109,7 +108,6 @@ __all__ = [
     "MonitorHealthState",
     "SLORule",
     "SLORuleType",
-    "MonitorTemplate",
     "Team",
     "ContactMethod",
     "EscalationLevel",

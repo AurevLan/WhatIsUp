@@ -487,7 +487,6 @@ def create_app() -> FastAPI:
         status_announcements,
         tags,
         teams,
-        templates,
         tls_fleet,
         totp,
         web_push,
@@ -530,7 +529,6 @@ def create_app() -> FastAPI:
     app.include_router(onboarding.router, prefix="/api/v1")
     app.include_router(tags.router, prefix="/api/v1")
     app.include_router(teams.router, prefix="/api/v1")
-    app.include_router(templates.router, prefix="/api/v1")
     app.include_router(web_push.router, prefix="/api/v1")
     app.include_router(tls_fleet.router, prefix="/api/v1")
     app.include_router(bgp.router, prefix="/api/v1")

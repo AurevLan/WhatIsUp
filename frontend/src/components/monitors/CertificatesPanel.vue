@@ -1,9 +1,9 @@
 <template>
-  <div class="px-4 sm:px-6 lg:px-8 py-6 max-w-7xl mx-auto">
-    <header class="mb-6">
-      <h1 class="font-display text-2xl font-bold text-(--text-1)">{{ t('tls_fleet.title') }}</h1>
-      <p class="text-sm text-(--text-3) mt-1">{{ t('tls_fleet.subtitle') }}</p>
-    </header>
+  <div>
+    <div class="mb-4">
+      <h2 class="text-sm font-semibold text-(--text-2)">{{ t('tls_fleet.title') }}</h2>
+      <p class="text-xs text-(--text-3) mt-0.5">{{ t('tls_fleet.subtitle') }}</p>
+    </div>
 
     <!-- Filters -->
     <div class="card mb-4 flex flex-wrap items-end gap-3">
@@ -62,7 +62,7 @@
             <div class="text-xs text-(--text-3) font-mono truncate max-w-xs">{{ it.url }}</div>
           </td>
           <td class="px-3 py-2 text-center">
-            <span class="font-display px-2 py-0.5 rounded font-bold text-xs" :class="gradeClass(it.grade)">{{ it.grade || '—' }}</span>
+            <span class="font-display px-2 py-0.5 rounded font-bold text-xs" :class="tlsGradeClass(it.grade)">{{ it.grade || '—' }}</span>
           </td>
           <td class="px-3 py-2 text-(--text-2)">{{ it.tls_version || '—' }}</td>
           <td class="px-3 py-2 text-(--text-2) font-mono text-xs">{{ it.cipher_name || '—' }}</td>
@@ -70,7 +70,7 @@
             <span v-if="it.san_match" class="text-(--up)">✓</span>
             <span v-else class="text-(--down)">✗</span>
           </td>
-          <td class="px-3 py-2 text-right" :class="daysClass(it.days_remaining)">
+          <td class="px-3 py-2 text-right" :class="tlsDaysClass(it.days_remaining)">
             {{ it.days_remaining ?? '—' }}
           </td>
         </tr>
@@ -84,9 +84,10 @@
 import { ref, onMounted, reactive, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Lock } from 'lucide-vue-next'
-import { tlsFleetApi } from '../api/tlsFleet'
-import { useAsyncResource } from '../composables/useAsyncResource'
-import EmptyState from '../components/shared/EmptyState.vue'
+import { tlsFleetApi } from '../../api/tlsFleet'
+import { useAsyncResource } from '../../composables/useAsyncResource'
+import { tlsGradeClass, tlsDaysClass } from '../../lib/tlsGrade'
+import EmptyState from '../shared/EmptyState.vue'
 
 const { t } = useI18n()
 const { loading, run } = useAsyncResource()
@@ -100,23 +101,6 @@ function clearFilters() {
   filters.expires_within_days = null
   filters.san_mismatch = false
   reload()
-}
-
-const PALETTE = {
-  'A+': 'bg-[color-mix(in_srgb,var(--up)_15%,transparent)] text-(--up)',
-  A: 'bg-[color-mix(in_srgb,var(--up)_15%,transparent)] text-(--up)',
-  B: 'bg-[color-mix(in_srgb,var(--warn)_15%,transparent)] text-(--warn)',
-  C: 'bg-[color-mix(in_srgb,var(--warn)_15%,transparent)] text-(--warn)',
-  D: 'bg-[color-mix(in_srgb,var(--down)_15%,transparent)] text-(--down)',
-  E: 'bg-[color-mix(in_srgb,var(--down)_15%,transparent)] text-(--down)',
-  F: 'bg-[color-mix(in_srgb,var(--down)_15%,transparent)] text-(--down)',
-}
-function gradeClass(g) { return PALETTE[g] || 'bg-(--bg-surface-2) text-(--text-2)' }
-function daysClass(d) {
-  if (d == null) return 'text-(--text-3)'
-  if (d < 14) return 'text-(--down) font-bold'
-  if (d < 30) return 'text-(--warn)'
-  return 'text-(--text-2)'
 }
 
 function buildParams() {

@@ -105,12 +105,6 @@ const routes = [
         meta: { titleKey: 'nav.audit' },
       },
       {
-        path: 'tls-fleet',
-        name: 'TlsFleet',
-        component: () => import('../views/TlsFleetView.vue'),
-        meta: { titleKey: 'nav.tls_fleet' },
-      },
-      {
         path: 'incident-groups',
         redirect: '/incidents',
       },
@@ -125,12 +119,6 @@ const routes = [
         name: 'Incidents',
         component: () => import('../views/IncidentsView.vue'),
         meta: { titleKey: 'nav.incidents' },
-      },
-      {
-        path: 'graph',
-        name: 'DependencyGraph',
-        component: () => import('../views/DependencyGraphView.vue'),
-        meta: { titleKey: 'nav.graph' },
       },
       {
         path: 'admin',

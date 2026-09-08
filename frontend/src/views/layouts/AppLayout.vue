@@ -28,7 +28,6 @@
         <NavLink to="/" :icon="LayoutDashboard" :label="t('nav.dashboard')" :exact="true" />
         <NavLink to="/monitors" :icon="Activity" :label="t('nav.monitors')" :badge="downCount" />
         <NavLink to="/groups" :icon="Layers" :label="t('nav.groups')" />
-        <NavLink to="/graph" :icon="Network" :label="t('nav.graph')" />
 
         <div class="nav-section">{{ t('nav.infrastructure') }}</div>
         <NavLink to="/probes" :icon="MapPin" :label="t('nav.probes')" />
@@ -36,13 +35,10 @@
         <NavLink to="/alerts" :icon="Bell" :label="t('nav.alerts')" />
         <NavLink to="/maintenance" :icon="CalendarClock" :label="t('nav.maintenance')" />
         <NavLink to="/silences" :icon="BellOff" :label="t('nav.silences')" />
-        <NavLink to="/oncall" :icon="Users" :label="t('nav.oncall')" />
         <NavLink to="/incidents" :icon="Clock" :label="t('nav.incidents')" :badge="openIncidentCount" />
-        <NavLink to="/tls-fleet" :icon="ShieldCheck" :label="t('nav.tls_fleet')" />
 
         <div class="nav-section">{{ t('nav.account') }}</div>
         <NavLink to="/api-keys" :icon="KeyRound" :label="t('nav.apiKeys')" />
-        <NavLink to="/audit" :icon="ClipboardList" :label="t('nav.audit')" />
         <NavLink to="/settings" :icon="Settings" :label="t('nav.settings')" />
 
         <template v-if="auth.isSuperadmin">
@@ -150,9 +146,9 @@ import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
-  Activity, Bell, BellOff, CalendarClock, ClipboardList, Clock,
-  KeyRound, LayoutDashboard, Layers, LogOut, MapPin, Moon, Network, Radar, Search, Settings,
-  ShieldCheck, Sun, Users, WifiOff,
+  Activity, Bell, BellOff, CalendarClock, Clock,
+  KeyRound, LayoutDashboard, Layers, LogOut, MapPin, Moon, Radar, Search, Settings,
+  ShieldCheck, Sun, WifiOff,
 } from 'lucide-vue-next'
 import { useAuthStore } from '../../stores/auth'
 import { useWebSocketStore } from '../../stores/websocket'

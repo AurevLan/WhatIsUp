@@ -25,9 +25,7 @@ export default {
     infrastructure: 'Infrastructure',
     account: 'Account',
     incidents: 'Incidents',
-    tls_fleet: 'TLS Fleet',
     teams: 'Teams',
-    graph: 'Graph',
   },
 
   // Global API error toasts (shown by the axios interceptor in api/client.js)
@@ -270,6 +268,7 @@ export default {
     clear_filters: 'Clear filters',
     view_list: 'List view',
     view_board: 'Big board',
+    view_certificates: 'Certificates',
     select_all: 'Select all',
     bulk_enable: 'Enable',
     bulk_pause: 'Pause',
@@ -968,6 +967,8 @@ export default {
   // Alerts
   alerts: {
     title: 'Alert rules',
+    tab_rules: 'Rules',
+    tab_oncall: 'On-call',
     channels: 'Channels',
     add_rule: 'Add rule',
     add_channel: 'Add channel',
@@ -1272,6 +1273,7 @@ export default {
   // Settings / Admin
   settings: {
     title: 'Settings',
+    audit_cta: 'Open the audit log',
     language: 'Language',
     language_en: 'English',
     language_fr: 'Français',

@@ -242,6 +242,24 @@
         :monitor-id="String(monitor.id)"
         :all-monitors="allMonitors"
       />
+
+      <!-- F6, plan cap v2 6c: the graph is a reading you do from here or from
+           an incident, not a permanent destination — collapsed by default. -->
+      <div class="mt-4 pt-4 border-t border-(--border)">
+        <button
+          type="button"
+          class="btn-ghost btn-sm flex items-center gap-1.5"
+          @click="showDepGraph = !showDepGraph"
+          :aria-expanded="showDepGraph"
+        >
+          <Network class="w-3.5 h-3.5" />
+          {{ t('graph.title') }}
+          <ChevronDown class="w-3.5 h-3.5 transition-transform" :class="showDepGraph ? 'rotate-180' : ''" />
+        </button>
+        <div v-if="showDepGraph" class="mt-3" style="height: 420px;">
+          <DependencyGraph />
+        </div>
+      </div>
     </div>
 
     <!-- ── Onglet Carte ─────────────────────────────────────────────────────── -->
@@ -332,13 +350,14 @@
 import { ref, computed, onMounted, provide, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { Ghost, Copy } from 'lucide-vue-next'
+import { Ghost, Copy, Network, ChevronDown } from 'lucide-vue-next'
 import { monitorsApi } from '../api/monitors'
 import { useOrphanedMonitors } from '../composables/useOrphanedMonitors'
 import BaseModal from '../components/BaseModal.vue'
 import { getServerUrl } from '../lib/serverConfig.js'
 import { useProbesStore } from '../stores/probes'
 import MonitorDependencies from '../components/monitors/MonitorDependencies.vue'
+import DependencyGraph from '../components/monitors/DependencyGraph.vue'
 import EditMonitorModal from '../components/monitors/EditMonitorModal.vue'
 import CreateMonitorModal from '../components/monitors/CreateMonitorModal.vue'
 import UptimeHeatmap from '../components/monitors/UptimeHeatmap.vue'
@@ -416,6 +435,8 @@ const probeMap  = computed(() => probesStore.probeMap)
 const editingMonitor = ref(null)
 const showClone = ref(false)
 const clonePayload = ref(null)
+// F6, plan cap v2 6c — dependency graph collapsed by default under Dépendances.
+const showDepGraph = ref(false)
 
 // ── Maintenance quick-schedule ─────────────────────────────────────────────
 // Sub-component (MonitorMaintenanceModal) reads via inject(MaintenanceStateKey).

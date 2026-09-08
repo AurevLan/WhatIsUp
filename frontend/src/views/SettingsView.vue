@@ -274,6 +274,18 @@
         </details>
       </div>
 
+      <!-- Audit log — F8, plan cap v2 6c: moved here from the main nav (it's
+           "what happened", answered from Réglages, not a permanent
+           destination). Nothing about the log itself changes: same view,
+           same route, full history kept. -->
+      <div class="card">
+        <h2 class="text-lg font-semibold text-(--text-1) mb-1">{{ t('audit.title') }}</h2>
+        <p class="text-sm text-(--text-3) mb-4">{{ t('audit.subtitle') }}</p>
+        <router-link to="/audit" class="btn-secondary btn-sm inline-flex items-center gap-1.5">
+          <ClipboardList class="w-3.5 h-3.5" /> {{ t('settings.audit_cta') }}
+        </router-link>
+      </div>
+
       <!-- About -->
       <div class="card">
         <h2 class="text-lg font-semibold text-(--text-1) mb-4">{{ t('sweep.about') }}</h2>
@@ -379,7 +391,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import QRCode from 'qrcode'
-import { CheckCircle, Copy, Loader2, Monitor } from 'lucide-vue-next'
+import { CheckCircle, ClipboardList, Copy, Loader2, Monitor } from 'lucide-vue-next'
 import BaseModal from '../components/BaseModal.vue'
 import { useAuthStore } from '../stores/auth'
 import { useWebPushStore } from '../stores/webPush'

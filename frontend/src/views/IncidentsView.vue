@@ -173,6 +173,12 @@
                   :aria-label="t('correlation.button_title')"
                   @click.prevent="toggleCorrelation(item.id)"
                 ><TrendingUp :size="16" /></button>
+                <button
+                  class="btn-icon"
+                  :title="t('graph.title')"
+                  :aria-label="t('graph.title')"
+                  @click.prevent="toggleDependencies(item.id)"
+                ><Network :size="16" /></button>
                 <button v-if="!item.is_resolved && !item.acked_at" class="btn-icon" :title="t('incidents.acknowledge')" :aria-label="t('incidents.acknowledge')" @click.prevent="ack(item)"><CheckCircle :size="16" /></button>
                 <button v-else-if="!item.is_resolved && item.acked_at" class="btn-icon btn-icon--active" :title="t('incidents.unacknowledge')" :aria-label="t('incidents.unacknowledge')" @click.prevent="unack(item)"><CheckCircle :size="16" /></button>
               </span>
@@ -188,6 +194,11 @@
               v-if="expandedDiagnostics[item.id]"
               :incident-id="item.id"
             />
+            <!-- F6, plan cap v2 6c: "what depends on what" is a reading you do
+                 from an incident, not a permanent nav destination. -->
+            <div v-if="expandedDependencies[item.id]" class="px-3 py-3 bg-(--bg-surface-2)" style="height: 420px;">
+              <DependencyGraph />
+            </div>
             <IncidentMetricCorrelationPanel
               v-if="expandedCorrelation[item.id]"
               :incident-id="item.id"
@@ -204,7 +215,7 @@
 <script setup>
 import { computed, reactive, ref, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Activity, AlertCircle, CheckCircle, ChevronDown, Link2, MapPin, TrendingUp, X } from 'lucide-vue-next'
+import { Activity, AlertCircle, CheckCircle, ChevronDown, Link2, MapPin, Network, TrendingUp, X } from 'lucide-vue-next'
 import api from '../api/client'
 import { incidentUpdatesApi } from '../api/incidentUpdates'
 import { useToast } from '../composables/useToast'
@@ -216,6 +227,7 @@ import NetworkVerdictBadge from '../components/shared/NetworkVerdictBadge.vue'
 import IncidentPlaybackMap from '../components/dashboard/IncidentPlaybackMap.vue'
 import IncidentDiagnosticPanel from '../components/incidents/IncidentDiagnosticPanel.vue'
 import IncidentMetricCorrelationPanel from '../components/incidents/IncidentMetricCorrelationPanel.vue'
+import DependencyGraph from '../components/monitors/DependencyGraph.vue'
 import { useAsyncResource } from '../composables/useAsyncResource'
 import { useDateFormat } from '../composables/useDateFormat'
 
@@ -265,6 +277,11 @@ function toggleDiagnostic(id) {
 const expandedCorrelation = reactive({})
 function toggleCorrelation(id) {
   expandedCorrelation[id] = !expandedCorrelation[id]
+}
+// F6, plan cap v2 6c — and again for the dependency graph reading.
+const expandedDependencies = reactive({})
+function toggleDependencies(id) {
+  expandedDependencies[id] = !expandedDependencies[id]
 }
 
 function hasRunbook(inc) {

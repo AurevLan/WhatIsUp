@@ -11,6 +11,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createI18n } from 'vue-i18n'
+import { createRouter, createMemoryHistory } from 'vue-router'
 import en from '../src/i18n/en.js'
 
 vi.mock('../src/api/client', () => ({
@@ -54,6 +55,14 @@ const POLICIES = [
   { id: 'pol-2', name: 'Weekend escalation' },
 ]
 
+function makeRouter() {
+  const stub = { template: '<div />' }
+  return createRouter({
+    history: createMemoryHistory(),
+    routes: [{ path: '/:pathMatch(.*)*', component: stub }],
+  })
+}
+
 async function mountView() {
   api.get.mockImplementation((url) => {
     if (url === '/alerts/channels') return Promise.resolve({ data: [{ id: 'ch-1', name: 'Ops', type: 'slack' }] })
@@ -66,7 +75,10 @@ async function mountView() {
   metricsApi.series.mockResolvedValue({ data: [] })
   oncallApi.policies.list.mockResolvedValue({ data: POLICIES })
 
-  const wrapper = mount(AlertsView, { global: { plugins: [i18n], stubs: globalStubs } })
+  const router = makeRouter()
+  router.push('/alerts')
+  await router.isReady()
+  const wrapper = mount(AlertsView, { global: { plugins: [i18n, router], stubs: globalStubs } })
   await flushPromises()
   return wrapper
 }

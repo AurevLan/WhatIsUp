@@ -24,9 +24,7 @@ export default {
     infrastructure: 'Infrastructure',
     account: 'Compte',
     incidents: 'Incidents',
-    tls_fleet: 'Parc TLS',
     teams: 'Équipes',
-    graph: 'Graphe',
   },
   // Toast d'erreur global (intercepteur axios dans api/client.js)
   errors: {
@@ -260,6 +258,7 @@ export default {
     clear_filters: 'Effacer les filtres',
     view_list: 'Vue liste',
     view_board: 'Grand tableau',
+    view_certificates: 'Certificats',
     select_all: 'Tout sélectionner',
     bulk_enable: 'Activer',
     bulk_pause: 'Désactiver',
@@ -950,6 +949,8 @@ export default {
   },
   alerts: {
     title: "Règles d'alerte",
+    tab_rules: 'Règles',
+    tab_oncall: 'Astreinte',
     channels: 'Canaux',
     add_rule: 'Ajouter une règle',
     add_channel: 'Ajouter un canal',
@@ -1245,6 +1246,7 @@ export default {
   },
   settings: {
     title: 'Paramètres',
+    audit_cta: "Ouvrir le journal d'audit",
     language: 'Langue',
     language_en: 'English',
     language_fr: 'Français',

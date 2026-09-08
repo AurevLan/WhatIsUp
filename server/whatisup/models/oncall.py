@@ -235,6 +235,18 @@ class OnCallOverride(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
 
 
+#: Ceiling for ``EscalationPolicy.repeat_count`` shared by the write schemas
+#: (``schemas/oncall.py``) and migration ``o9p0q1r2s3t4``. It exists to catch a
+#: typo (an extra zero on a rung count), not to bound what a ladder is allowed
+#: to mean — a single-rung ladder repeated this many times is the "forever" a
+#: bare ``renotify_after_minutes`` used to have (plan cap v2, 6e). Keeping the
+#: cap below this value would have made a migrated policy impossible to
+#: re-save from the UI: any PATCH — even one that leaves repeat_count alone —
+#: is validated against the *same* upper bound the value was written with, so
+#: this constant is the single source of truth for both sides.
+RENOTIFY_FOREVER_REPEAT_COUNT = 100_000
+
+
 class EscalationPolicy(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """An ordered ladder of targets with a delay between rungs."""
 
@@ -251,9 +263,12 @@ class EscalationPolicy(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     # How many extra times to replay the whole ladder once the last level fired
     # without an ack. 0 = stop at the top rung for good. A single-rung ladder
-    # with a high repeat_count is how "keep paging me every N minutes forever"
-    # (the old standalone renotify loop, retired in plan cap v2 6e) is expressed
-    # now — see migration o9p0q1r2s3t4.
+    # with repeat_count = RENOTIFY_FOREVER_REPEAT_COUNT is how "keep paging me
+    # every N minutes forever" (the old standalone renotify loop, retired in
+    # plan cap v2 6e) is expressed now — see migration o9p0q1r2s3t4. No DB-level
+    # upper bound: the ceiling lives in the write schemas, which both read
+    # RENOTIFY_FOREVER_REPEAT_COUNT so a migrated policy is never locked out of
+    # its own PATCH endpoint.
     repeat_count: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"
     )

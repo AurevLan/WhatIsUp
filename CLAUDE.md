@@ -268,13 +268,16 @@ c'est ce lot qui l'allume.
 
 - **L'échelle a absorbé le renotify (plan cap v2, 6e)** : `AlertRule.renotify_after_minutes` et
   `services/renotify.py` ont disparu (migration `o9p0q1r2s3t4`). Une échelle à un seul barreau, cible =
-  un canal de la règle, `repeat_count` élevé (100000, posé directement en base par la migration — le
-  plafond `le=10` de l'API/UI ne s'applique qu'aux politiques créées à la main) reproduit exactement
-  « ré-alerter les mêmes canaux toutes les N minutes, indéfiniment ». Une règle qui portait
-  `renotify_after_minutes = N` sans ladder en a reçu une équivalente à la migration (un barreau par
-  canal, seul le premier porte le délai N — les suivants à 0 min pour paginer tous les canaux en un
-  tick) ; une règle qui avait déjà une échelle garde celle-ci et perd juste la valeur devenue
-  redondante. Une échelle multi-barreaux page toujours des cibles différentes (L1, puis L2 si personne
+  un canal de la règle, `repeat_count = RENOTIFY_FOREVER_REPEAT_COUNT` (`models/oncall.py`, 100000)
+  reproduit exactement « ré-alerter les mêmes canaux toutes les N minutes, indéfiniment ». ⚠️ Cette
+  constante est aussi le plafond `le=` des schémas d'écriture (`schemas/oncall.py`) — **pas** un plafond
+  UI de 10 : un plafond plus bas rendrait la politique migrée impossible à re-PATCHer (Pydantic valide
+  le modèle entier, même un PATCH qui ne touche pas `repeat_count`), la transformant en politique
+  lecture-seule de fait. Une règle qui portait `renotify_after_minutes = N` sans ladder en a reçu une
+  équivalente à la migration (un barreau par canal, seul le premier porte le délai N — les suivants à
+  0 min pour paginer tous les canaux en un tick) ; une règle qui avait déjà une échelle garde celle-ci
+  et perd juste la valeur devenue redondante. Une échelle multi-barreaux page toujours des cibles
+  différentes (L1, puis L2 si personne
   n'a acquitté, puis la rotation) — c'est le seul delta qui reste entre les deux formes.
 - **Armée depuis `fire_alerts`** — funnel unique — quand une règle porte un `escalation_policy_id`, et
   **uniquement à l'ouverture** : un avis de résolution n'a rien à escalader et doit repartir sur les

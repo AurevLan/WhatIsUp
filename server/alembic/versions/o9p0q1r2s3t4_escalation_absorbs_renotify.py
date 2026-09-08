@@ -30,13 +30,17 @@ end up sharing a policy — with:
   ~30s later), so all of the rule's channels are paged within one tick of
   each other — the closest a single-target-per-rung ladder can get to
   "notify every one of these channels at once".
-- ``repeat_count = 100000``. The engine's own ladder-replay field is the only
-  way to express "keep paging forever" (there is no separate sentinel for
-  it), and the API's own schema caps ``repeat_count`` at 10 for humans hand-
-  configuring a policy through the UI — a deliberate UI guard this migration
-  does not inherit, because it writes to the database directly and a bare
-  renotify never had any ceiling at all. 100000 replays is, for any
-  operationally meaningful incident lifetime, indistinguishable from
+- ``repeat_count = RENOTIFY_FOREVER_REPEAT_COUNT`` (``models/oncall.py``,
+  100000). The engine's own ladder-replay field is the only way to express
+  "keep paging forever" (there is no separate sentinel for it). This constant
+  is also the write schemas' upper bound (``schemas/oncall.py``) — not a
+  smaller UI-only cap — precisely so a policy built here can still be PATCHed
+  afterwards: an earlier draft of this migration used a bare ``100_000``
+  local to this file while ``EscalationPolicyUpdate.repeat_count`` stayed
+  capped at ``le=10``, which made the migrated policy pass every read but
+  fail *any* PATCH against it (even one that left ``repeat_count`` alone —
+  Pydantic validates the whole model) with an opaque 422. 100000 replays is,
+  for any operationally meaningful incident lifetime, indistinguishable from
   "forever" while remaining a plain bounded integer the existing engine
   already knows how to walk — never more silent than the loop it replaces.
 
@@ -68,14 +72,12 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
+from whatisup.models.oncall import RENOTIFY_FOREVER_REPEAT_COUNT
+
 revision: str = "o9p0q1r2s3t4"
 down_revision: str | None = "n8o9p0q1r2s3"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
-
-# See module docstring: not a magic number so much as "large enough that no
-# real incident lifetime exhausts it", while staying a plain integer.
-_EFFECTIVELY_FOREVER_REPEATS = 100_000
 
 _MIGRATION_MARKER = "[6e] "
 
@@ -141,7 +143,7 @@ def upgrade() -> None:
                         "reproduire l'ancien re-notify : mêmes canaux, toutes les "
                         f"{minutes} minutes, jusqu'à acquittement."
                     ),
-                    "repeat_count": _EFFECTIVELY_FOREVER_REPEATS,
+                    "repeat_count": RENOTIFY_FOREVER_REPEAT_COUNT,
                 },
             )
             for position, channel_id in enumerate(channel_ids):

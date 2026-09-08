@@ -9,7 +9,12 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field, model_validator
 
-from whatisup.models.oncall import ContactMethod, EscalationTargetType, RotationType
+from whatisup.models.oncall import (
+    RENOTIFY_FOREVER_REPEAT_COUNT,
+    ContactMethod,
+    EscalationTargetType,
+    RotationType,
+)
 
 _HHMM = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
 
@@ -225,7 +230,14 @@ class EscalationPolicyCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     description: str | None = Field(default=None, max_length=2000)
     team_id: uuid.UUID | None = None
-    repeat_count: int = Field(default=0, ge=0, le=10)
+    # The upper bound exists to catch a typo (an extra zero on a rung count),
+    # not to bound the semantics: RENOTIFY_FOREVER_REPEAT_COUNT is also the
+    # exact value migration o9p0q1r2s3t4 writes for a policy that replaces a
+    # bare renotify_after_minutes (plan cap v2, 6e) — a lower cap here would
+    # have made that policy impossible to re-save from the UI, since a PATCH
+    # is validated against this same bound even when it leaves repeat_count
+    # untouched.
+    repeat_count: int = Field(default=0, ge=0, le=RENOTIFY_FOREVER_REPEAT_COUNT)
     enabled: bool = True
     levels: list[EscalationLevelIn] = Field(default_factory=list)
 
@@ -239,7 +251,8 @@ class EscalationPolicyUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = Field(default=None, max_length=2000)
     team_id: uuid.UUID | None = None
-    repeat_count: int | None = Field(default=None, ge=0, le=10)
+    # See EscalationPolicyCreate.repeat_count — same bound, same reason.
+    repeat_count: int | None = Field(default=None, ge=0, le=RENOTIFY_FOREVER_REPEAT_COUNT)
     enabled: bool | None = None
     # None = leave untouched; [] = explicitly clear the ladder.
     levels: list[EscalationLevelIn] | None = None

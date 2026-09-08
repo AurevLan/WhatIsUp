@@ -20,16 +20,14 @@ const TYPES = [
   { value: 'dns', icon: '📡' },
   { value: 'scenario', icon: '🎭' },
   { value: 'heartbeat', icon: '⏰' },
-  { value: 'udp', icon: '📦' },
   { value: 'smtp', icon: '✉️' },
   { value: 'ping', icon: '🏓' },
   { value: 'domain_expiry', icon: '🔑' },
-  { value: 'composite', icon: '🔗' },
 ]
 
 // Types sans cible saisissable : le champ URL/hôte est masqué (heartbeat est
-// piloté par un slug de ping, composite agrège d'autres monitors).
-export const TYPES_WITHOUT_TARGET = ['scenario', 'heartbeat', 'composite']
+// piloté par un slug de ping).
+export const TYPES_WITHOUT_TARGET = ['scenario', 'heartbeat']
 
 /** Catalogue des types de check, traduit selon la locale courante. */
 export function useCheckTypes() {

@@ -236,7 +236,6 @@ async def heartbeat(
             await db.execute(
                 select(Monitor).where(
                     Monitor.enabled.is_(True),
-                    Monitor.check_type != "composite",  # composite monitors have no physical check
                     or_(
                         Monitor.network_scope == "all",
                         Monitor.network_scope == probe.network_type,
@@ -285,7 +284,6 @@ async def heartbeat(
             trigger_now=trigger_map.get(str(m.id), False),
             smtp_port=m.smtp_port,
             smtp_starttls=m.smtp_starttls,
-            udp_port=m.udp_port,
             domain_expiry_warn_days=m.domain_expiry_warn_days,
             custom_headers=decrypt_custom_headers(m.custom_headers),
             # Advanced HTTP assertions — without these the probe falls back to
@@ -642,17 +640,14 @@ async def push_result(
 
     # H2 — bind the authenticated probe to the monitor it reports on.
     # The heartbeat only hands a monitor's config to probes whose network_type
-    # matches the monitor's network_scope (or scope "all"), AND never distributes
-    # composite monitors (which have no physical check) at all — those two
-    # filters are the sole probe↔monitor "assignment" the system models. A result
-    # for a monitor outside that scope, or for a composite monitor, means a
-    # compromised/misused key is forging data for an arbitrary monitor → reject.
-    # Scope "all" stays served by every probe, so unassigned monitors keep their
-    # permissive default. This check is O(1) on already-loaded rows — no extra
-    # DB/Redis round-trip on the hot path.
-    if monitor.check_type == "composite" or (
-        monitor.network_scope != "all" and monitor.network_scope != probe.network_type
-    ):
+    # matches the monitor's network_scope (or scope "all") — that's the sole
+    # probe↔monitor "assignment" the system models. A result for a monitor
+    # outside that scope means a compromised/misused key is forging data for
+    # an arbitrary monitor → reject. Scope "all" stays served by every probe,
+    # so unassigned monitors keep their permissive default. This check is
+    # O(1) on already-loaded rows — no extra DB/Redis round-trip on the hot
+    # path.
+    if monitor.network_scope != "all" and monitor.network_scope != probe.network_type:
         logger.warning(
             "probe_result_scope_rejected",
             probe_id=str(probe.id),

@@ -193,11 +193,9 @@ const advancedTypes = computed(() => [
   { value: 'keyword',       icon: '🔍', label: 'Keyword',   description: t('create_monitor.type_keyword_desc') },
   { value: 'json_path',     icon: '{ }', label: 'JSON',     description: t('create_monitor.type_json_path_desc') },
   { value: 'ping',          icon: '🏓', label: 'Ping',      description: t('create_monitor.type_ping_desc') },
-  { value: 'udp',           icon: '📦', label: 'UDP',       description: t('create_monitor.type_udp_desc') },
   { value: 'smtp',          icon: '✉️', label: 'SMTP',      description: t('create_monitor.type_smtp_desc') },
   { value: 'domain_expiry', icon: '🔑', label: 'Domain',    description: t('create_monitor.type_domain_expiry_desc') },
   { value: 'scenario',      icon: '🎭', label: 'Scenario',  description: t('create_monitor.type_scenario_desc') },
-  { value: 'composite',     icon: '🔗', label: 'Composite', description: t('create_monitor.type_composite_desc') },
 ])
 
 const allTypes = computed(() => [

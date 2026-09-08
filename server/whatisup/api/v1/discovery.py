@@ -72,7 +72,7 @@ from whatisup.services.discovery_election import ELECTABLE_SOURCE_TYPES, elect_f
 #: `Monitor` fields that carry a port for some check_type — cleared and
 #: recomputed (see `_create_monitor_from_proposal`) whenever the caller
 #: overrides `check_type` away from the prefill's own deduction.
-_PORT_OVERRIDE_FIELDS = ("tcp_port", "udp_port", "smtp_port")
+_PORT_OVERRIDE_FIELDS = ("tcp_port", "smtp_port")
 
 sources_router = APIRouter(prefix="/discovery/sources", tags=["discovery"])
 services_router = APIRouter(prefix="/discovery/services", tags=["discovery"])

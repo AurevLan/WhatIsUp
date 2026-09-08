@@ -69,7 +69,7 @@ function stripScheme(url) {
 }
 
 const m = props.monitor
-const bareHostTypes = ['tcp', 'udp', 'dns', 'smtp', 'ping', 'domain_expiry']
+const bareHostTypes = ['tcp', 'dns', 'smtp', 'ping', 'domain_expiry']
 
 // Convert expected_headers object back to list for editing
 const headersFromMonitor = m.expected_headers
@@ -93,7 +93,6 @@ const form = ref({
   ssl_min_chain_days: m.ssl_min_chain_days ?? null,
   expected_status_codes: m.expected_status_codes || [200],
   tcp_port: m.tcp_port ?? null,
-  udp_port: m.udp_port ?? null,
   smtp_port: m.smtp_port ?? null,
   smtp_starttls: m.smtp_starttls ?? false,
   domain_expiry_warn_days: m.domain_expiry_warn_days ?? 30,
@@ -118,7 +117,6 @@ const form = ref({
   dns_drift_alert: m.dns_drift_alert ?? false,
   dns_split_enabled: m.dns_split_enabled ?? false,
   network_scope: m.network_scope || 'all',
-  composite_aggregation: m.composite_aggregation || 'majority_up',
   runbook_enabled: m.runbook_enabled ?? false,
   runbook_markdown: m.runbook_markdown || '',
 })
@@ -141,7 +139,7 @@ function buildPayload() {
     expected_status_codes: form.value.expected_status_codes,
   }
 
-  const bareHostTypes = ['tcp', 'udp', 'dns', 'smtp', 'ping', 'domain_expiry']
+  const bareHostTypes = ['tcp', 'dns', 'smtp', 'ping', 'domain_expiry']
   let url = form.value.url.trim()
   if (bareHostTypes.includes(form.value.check_type)) {
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
@@ -159,10 +157,6 @@ function buildPayload() {
 
   if (form.value.check_type === 'tcp') {
     p.tcp_port = form.value.tcp_port
-  }
-
-  if (form.value.check_type === 'udp') {
-    p.udp_port = form.value.udp_port
   }
 
   if (form.value.check_type === 'smtp') {
@@ -184,13 +178,8 @@ function buildPayload() {
     p.dns_split_enabled = form.value.dns_split_enabled
   }
 
-  if (form.value.check_type !== 'heartbeat' && form.value.check_type !== 'composite') {
+  if (form.value.check_type !== 'heartbeat') {
     p.network_scope = form.value.network_scope
-  }
-
-  if (form.value.check_type === 'composite') {
-    p.url = 'http://composite'
-    p.composite_aggregation = form.value.composite_aggregation
   }
 
   if (form.value.check_type === 'keyword') {

@@ -31,9 +31,9 @@ def register(checker: BaseChecker) -> BaseChecker:
 
 def _load_builtins() -> None:
     """Import all built-in checker modules and call their setup(register)."""
-    from . import dns, domain_expiry, http, ping, scenario, smtp, tcp, udp
+    from . import dns, domain_expiry, http, ping, scenario, smtp, tcp
 
-    for module in (http, tcp, udp, dns, smtp, ping, domain_expiry, scenario):
+    for module in (http, tcp, dns, smtp, ping, domain_expiry, scenario):
         module.setup(register)
 
 
@@ -54,7 +54,6 @@ async def perform_check(
     ssl_min_chain_days: int | None = None,
     check_type: str = "http",
     tcp_port: int | None = None,
-    udp_port: int | None = None,
     dns_record_type: str | None = None,
     dns_expected_value: str | None = None,
     dns_nameservers: list[str] | None = None,
@@ -90,7 +89,6 @@ async def perform_check(
         "ssl_min_chain_days": ssl_min_chain_days,
         "check_type": check_type,
         "tcp_port": tcp_port,
-        "udp_port": udp_port,
         "dns_record_type": dns_record_type,
         "dns_expected_value": dns_expected_value,
         "dns_nameservers": dns_nameservers,

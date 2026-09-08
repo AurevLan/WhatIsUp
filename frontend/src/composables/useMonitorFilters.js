@@ -9,7 +9,7 @@ const STATUS_PRIORITY = { down: 0, error: 1, timeout: 2, up: 3 }
 // Persist view mode
 const STORAGE_KEY = 'whatisup_monitors_view'
 
-const checkTypes = ['http', 'tcp', 'udp', 'dns', 'smtp', 'ping', 'keyword', 'json_path', 'scenario', 'heartbeat', 'domain_expiry']
+const checkTypes = ['http', 'tcp', 'dns', 'smtp', 'ping', 'keyword', 'json_path', 'scenario', 'heartbeat', 'domain_expiry']
 
 /**
  * Search / filters / sorting / pagination / view-mode state for MonitorsView.

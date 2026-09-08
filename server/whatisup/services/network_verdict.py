@@ -217,8 +217,8 @@ async def recompute_open_incidents_verdicts(db: AsyncSession) -> int:
     """
     Background task — refresh the verdict for every still-open incident.
 
-    Runs every 5 minutes (see lifespan loop). Skips composite monitors (no
-    multi-probe semantics there). Returns the number of incidents updated.
+    Runs every 5 minutes (see lifespan loop). Returns the number of incidents
+    updated.
     """
     rows = (
         (

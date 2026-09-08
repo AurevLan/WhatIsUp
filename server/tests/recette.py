@@ -313,10 +313,6 @@ def test_monitors() -> None:
     r = client.post(f"/api/v1/monitors/{mid}/schema-baseline/accept", headers=auth_headers())
     check("POST /monitors/{id}/schema-baseline/accept (HTTP monitor → 400)", r, [200, 400, 404])
 
-    # Composite members (HTTP monitor → 400)
-    r = client.get(f"/api/v1/monitors/{mid}/composite-members", headers=auth_headers())
-    check("GET /monitors/{id}/composite-members (HTTP → 400)", r, [200, 400])
-
     # Bulk action (pause then re-enable the current monitor)
     r = client.post(
         "/api/v1/monitors/bulk",

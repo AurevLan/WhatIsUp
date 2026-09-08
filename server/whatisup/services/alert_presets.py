@@ -64,14 +64,6 @@ ALERT_PRESETS: dict[str, list[dict]] = {
             "default": True,
         },
     ],
-    "udp": [
-        {
-            "condition": AlertCondition.any_down,
-            "label": "Alert when unreachable",
-            "min_duration_seconds": 0,
-            "default": True,
-        },
-    ],
     "dns": [
         {
             "condition": AlertCondition.any_down,
@@ -123,14 +115,6 @@ ALERT_PRESETS: dict[str, list[dict]] = {
         {
             "condition": AlertCondition.any_down,
             "label": "Domain expiration warning",
-            "min_duration_seconds": 0,
-            "default": True,
-        },
-    ],
-    "composite": [
-        {
-            "condition": AlertCondition.any_down,
-            "label": "Alert when composite status is down",
             "min_duration_seconds": 0,
             "default": True,
         },

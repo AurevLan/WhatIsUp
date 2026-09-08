@@ -58,8 +58,8 @@ const emit = defineEmits(['close', 'accepted'])
 // A curated subset of Monitor.check_type — every value the accept endpoint's
 // schema accepts, minus the ones that don't make sense as an override for a
 // bare network target discovery reports (keyword/json_path/scenario/
-// heartbeat/composite need config discovery has no way to prefill).
-const CHECK_TYPE_OPTIONS = ['http', 'tcp', 'udp', 'dns', 'smtp', 'ping', 'domain_expiry']
+// heartbeat need config discovery has no way to prefill).
+const CHECK_TYPE_OPTIONS = ['http', 'tcp', 'dns', 'smtp', 'ping', 'domain_expiry']
 
 const form = ref({
   name: '',

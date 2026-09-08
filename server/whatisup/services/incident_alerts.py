@@ -111,7 +111,7 @@ async def fire_alerts(
 
         # Abonnés de la page de statut publique. Branché ici et non sur chaque
         # site d'ouverture/résolution : `fire_alerts` est le point de passage
-        # commun à tous les chemins (composite, ponctuel, promu, standard).
+        # commun à tous les chemins (ponctuel, promu, standard).
         # Indépendant des règles d'alerte — un abonné public n'en a aucune.
         from whatisup.services.status_subscription import notify_subscribers
 

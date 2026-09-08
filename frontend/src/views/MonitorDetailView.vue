@@ -120,12 +120,11 @@
       :probe-name="probeName"
     />
 
-    <!-- Network scope / schema drift / composite / headers / SSL / domain expiry -->
+    <!-- Network scope / schema drift / headers / SSL / domain expiry -->
     <MonitorConfigCards
       :monitor="monitor"
       :results="results"
       :is-http-like="isHttpLike"
-      :is-composite="isComposite"
       :is-domain-expiry="isDomainExpiry"
       :has-network-scope="hasNetworkScope"
       :fmt-date-time="fmtDateTime"
@@ -377,7 +376,6 @@ import {
   CustomMetricsStateKey,
   AlertSetupStateKey,
   PatchStateKey,
-  DependenciesStateKey,
   MaintenanceStateKey,
 } from '../components/monitors/detail/injectionKeys'
 import MonitorRecentChecksTable from '../components/monitors/detail/MonitorRecentChecksTable.vue'
@@ -687,14 +685,13 @@ const {
 
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-const noHttpTypes = ['tcp', 'udp', 'smtp', 'ping', 'domain_expiry', 'heartbeat', 'composite']
+const noHttpTypes = ['tcp', 'smtp', 'ping', 'domain_expiry', 'heartbeat']
 
 // ── Check type groups (controls section visibility) ─────────────────────────
 const ct = computed(() => monitor.value?.check_type)
 const isHttpLike = computed(() => ['http', 'keyword', 'json_path'].includes(ct.value))
-const isNetwork = computed(() => ['tcp', 'udp', 'smtp', 'ping'].includes(ct.value))
+const isNetwork = computed(() => ['tcp', 'smtp', 'ping'].includes(ct.value))
 const isDns = computed(() => ct.value === 'dns')
-const isComposite = computed(() => ct.value === 'composite')
 const isDomainExpiry = computed(() => ct.value === 'domain_expiry')
 // Has response time data (chart + percentiles + stats cards)
 const hasResponseTime = computed(() => isHttpLike.value || isNetwork.value)
@@ -708,13 +705,11 @@ const hasSlo = computed(() => isHttpLike.value || isNetwork.value || isDns.value
 function formatTarget(m) {
   const raw = m.url?.replace(/^https?:\/\//, '') || ''
   if (m.check_type === 'tcp') return m.tcp_port ? `${raw}:${m.tcp_port}` : raw
-  if (m.check_type === 'udp') return m.udp_port ? `${raw}:${m.udp_port}` : raw
   if (m.check_type === 'smtp') return m.smtp_port ? `${raw}:${m.smtp_port}` : raw
   if (m.check_type === 'scenario') {
     const firstNav = m.scenario_steps?.find(s => s.type === 'navigate')
     return firstNav?.params?.url?.replace(/^https?:\/\//, '') || 'scenario'
   }
-  if (m.check_type === 'composite') return 'composite'
   if (m.check_type === 'heartbeat') return m.heartbeat_slug || 'heartbeat'
   return raw
 }
@@ -744,12 +739,9 @@ const {
   save: saveRunbook,
 } = useMonitorRunbook(monitor)
 
-// ── Dependencies & composite members ─────────────────────────────────────────
-// Sub-component (MonitorConfigCards) reads via inject(DependenciesStateKey);
-// the view only needs allMonitors (dependency picker) + the mount loaders.
-const dependenciesState = useMonitorDependencies(monitor)
-provide(DependenciesStateKey, dependenciesState)
-const { allMonitors, loadAllMonitors, loadCompositeMembers } = dependenciesState
+// ── Dependencies ──────────────────────────────────────────────────────────────
+// allMonitors feeds <MonitorDependencies> (dependency edge picker) via props.
+const { allMonitors, loadAllMonitors } = useMonitorDependencies()
 
 // ── Orphaned monitor badge (plan D, D-3) ─────────────────────────────────────
 const { isOrphaned, loadOrphanedMonitors } = useOrphanedMonitors()
@@ -785,12 +777,11 @@ onMounted(async () => {
   sloEditTarget.value = monitor.value.slo_target ?? null
   sloEditDays.value   = monitor.value.slo_window_days ?? 30
 
-  // Load annotations, incidents, SLO, custom metrics, composite members & alert rules non-blocking
+  // Load annotations, incidents, SLO, custom metrics & alert rules non-blocking
   loadAnnotations()
   loadIncidents()
   loadSlo()
   loadCustomMetrics()
-  loadCompositeMembers()
   loadAlertRules()
 
   // Load all monitors for dependency picker

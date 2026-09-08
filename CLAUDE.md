@@ -66,7 +66,7 @@ server/whatisup/
   services/     ← incident, alert, stats, audit, maintenance,
                    heartbeat, retention
 probe/whatisup_probe/
-  checkers/     ← HTTP / TCP / UDP / DNS / SMTP / Ping / DomainExpiry / Scenario (Playwright)
+  checkers/     ← HTTP / TCP / DNS / SMTP / Ping / DomainExpiry / Scenario (Playwright)
   scheduler.py  ← APScheduler + trigger-now loop Redis
   reporter.py   ← push résultats vers central API
 frontend/src/
@@ -434,7 +434,7 @@ get_current_probe   # X-Probe-Api-Key (bcrypt + cache Redis SHA-256[:32], TTL 60
 
 ## CheckType (monitor.check_type)
 
-`http` · `tcp` · `udp` · `dns` · `smtp` · `ping` · `domain_expiry` · `keyword` · `json_path` · `scenario` · `heartbeat`
+`http` · `tcp` · `dns` · `smtp` · `ping` · `domain_expiry` · `keyword` · `json_path` · `scenario` · `heartbeat`
 
 ## Sécurité — règles absolues
 
@@ -562,7 +562,7 @@ cd frontend && npm run dev -- --host
 
 - `services/stats.py` : `compute_uptime()`, `compute_daily_history()`, `latest_results_subq()` — lit
   `check_rollups_1h` + brut depuis A-3 (cf. § `stats.py` lit rollups + brut)
-- `services/incident.py` : maintenance suppression, cycle de vie composite, effets de bord post-décision (`_post_decider_side_effects` : cascade composite, dérive de schéma, anomalie, auto-pause). Les incidents de disponibilité sont ouverts/résolus par `services/health.evaluate_slos` (Health Engine), seul moteur de détection depuis le plan Cap v2 4b
+- `services/incident.py` : maintenance suppression, effets de bord post-décision (`_post_decider_side_effects` : dérive de schéma, anomalie, auto-pause). Les incidents de disponibilité sont ouverts/résolus par `services/health.evaluate_slos` (Health Engine), seul moteur de détection depuis le plan Cap v2 4b
 - `services/alert.py` : dispatch email/webhook/Telegram/Slack/Discord/Mattermost/Teams/PagerDuty/Opsgenie/Signal + SSRF guard + digest Redis + `suppress_on_network_partition`
 - `services/health.py` + `services/slo.py` : **Health Engine V2** — agrégation 5 min p50/p95/p99, quorum_down/quorum_slow, divergence_score probe (seuil 0.5)
 - `services/network_verdict.py` : classification incident `service_down` / `network_partition_asn|geo` / `inconclusive` (recompute toutes les 5 min)

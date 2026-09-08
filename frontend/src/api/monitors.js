@@ -27,11 +27,6 @@ export const monitorsApi = {
   // Schema baseline
   acceptSchemaBaseline: (id, config = {}) => api.post(`/monitors/${id}/schema-baseline/accept`, undefined, config),
   resetSchemaBaseline: (id) => api.delete(`/monitors/${id}/schema-baseline`),
-  // Composite members
-  listCompositeMembers: (id) => api.get(`/monitors/${id}/composite-members`),
-  addCompositeMember: (id, data, config = {}) => api.post(`/monitors/${id}/composite-members`, data, config),
-  updateCompositeMember: (id, memberId, data) => api.patch(`/monitors/${id}/composite-members/${memberId}`, data),
-  removeCompositeMember: (id, memberId, config = {}) => api.delete(`/monitors/${id}/composite-members/${memberId}`, config),
 }
 
 export async function triggerCheck(monitorId) {

@@ -18,7 +18,6 @@ def test_registry_contains_all_builtin_types() -> None:
         "keyword",
         "json_path",
         "tcp",
-        "udp",
         "dns",
         "smtp",
         "ping",
@@ -43,8 +42,8 @@ def test_each_checker_has_name() -> None:
     for name, checker in REGISTRY.items():
         assert checker.name, f"Checker registered as {name!r} has no name"
         seen_names.add(checker.name)
-    # At least 8 unique checkers (http shares with keyword/json_path)
-    assert len(seen_names) >= 8
+    # At least 7 unique checkers (http shares with keyword/json_path)
+    assert len(seen_names) >= 7
 
 
 # ── Fallback on unknown type ─────────────────────────────────────────────────

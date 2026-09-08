@@ -527,7 +527,7 @@ async def test_dismissed_pre_d4_never_reopened(
         (5432, "tcp", "tcp"),
         (6379, "tcp", "tcp"),
         (22, "tcp", "tcp"),
-        (161, "udp", "udp"),
+        (161, "udp", "tcp"),
         (None, "tcp", "tcp"),
     ],
 )

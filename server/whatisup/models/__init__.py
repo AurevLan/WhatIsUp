@@ -27,7 +27,6 @@ from whatisup.models.incident_diagnostic import DIAGNOSTIC_KINDS, IncidentDiagno
 from whatisup.models.incident_update import IncidentUpdate, IncidentUpdateStatus
 from whatisup.models.maintenance import MaintenanceWindow
 from whatisup.models.monitor import (
-    CompositeMonitorMember,
     Monitor,
     MonitorDependency,
     MonitorGroup,
@@ -64,7 +63,6 @@ __all__ = [
     "UUIDPrimaryKeyMixin",
     "User",
     "Tag",
-    "CompositeMonitorMember",
     "Monitor",
     "MonitorDependency",
     "MonitorGroup",

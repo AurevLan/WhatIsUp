@@ -159,7 +159,6 @@ class ProbeScheduler:
                             ssl_min_chain_days=monitor.get("ssl_min_chain_days"),
                             check_type=monitor.get("check_type", "http"),
                             tcp_port=monitor.get("tcp_port"),
-                            udp_port=monitor.get("udp_port"),
                             dns_record_type=monitor.get("dns_record_type"),
                             dns_expected_value=monitor.get("dns_expected_value"),
                             dns_nameservers=monitor.get("dns_nameservers"),

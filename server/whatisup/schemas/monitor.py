@@ -116,10 +116,9 @@ class MonitorCreate(BaseModel):
     tag_ids: list[uuid.UUID] = Field(default=[])
     check_type: str = Field(
         default="http",
-        pattern=r"^(http|tcp|udp|dns|keyword|json_path|scenario|heartbeat|smtp|ping|domain_expiry|composite)$",
+        pattern=r"^(http|tcp|dns|keyword|json_path|scenario|heartbeat|smtp|ping|domain_expiry)$",
     )
     tcp_port: int | None = Field(default=None, ge=1, le=65535)
-    udp_port: int | None = Field(default=None, ge=1, le=65535)
     smtp_port: int | None = Field(default=None, ge=1, le=65535)
     smtp_starttls: bool = False
     domain_expiry_warn_days: int = Field(default=30, ge=1, le=365)
@@ -131,11 +130,6 @@ class MonitorCreate(BaseModel):
     dns_split_enabled: bool = False
     dns_baseline_ips_internal: list[str] | None = None
     dns_baseline_ips_external: list[str] | None = None
-    # Composite monitor
-    composite_aggregation: str | None = Field(
-        default=None,
-        pattern=r"^(majority_up|all_up|any_up|weighted_up)$",
-    )
     keyword: str | None = Field(default=None, max_length=512)
     keyword_negate: bool = False
     expected_json_path: str | None = Field(default=None, max_length=512)
@@ -227,10 +221,9 @@ class MonitorUpdate(BaseModel):
     tag_ids: list[uuid.UUID] | None = None
     check_type: str | None = Field(
         default=None,
-        pattern=r"^(http|tcp|udp|dns|keyword|json_path|scenario|heartbeat|smtp|ping|domain_expiry|composite)$",
+        pattern=r"^(http|tcp|dns|keyword|json_path|scenario|heartbeat|smtp|ping|domain_expiry)$",
     )
     tcp_port: int | None = Field(default=None, ge=1, le=65535)
-    udp_port: int | None = Field(default=None, ge=1, le=65535)
     smtp_port: int | None = Field(default=None, ge=1, le=65535)
     smtp_starttls: bool | None = None
     domain_expiry_warn_days: int | None = Field(default=None, ge=1, le=365)
@@ -241,10 +234,6 @@ class MonitorUpdate(BaseModel):
     dns_split_enabled: bool | None = None
     dns_baseline_ips_internal: list[str] | None = None
     dns_baseline_ips_external: list[str] | None = None
-    composite_aggregation: str | None = Field(
-        default=None,
-        pattern=r"^(majority_up|all_up|any_up|weighted_up)$",
-    )
     keyword: str | None = Field(default=None, max_length=512)
     keyword_negate: bool | None = None
     expected_json_path: str | None = Field(default=None, max_length=512)
@@ -309,7 +298,6 @@ class MonitorOut(BaseModel):
     tags: list[TagOut]
     check_type: str
     tcp_port: int | None
-    udp_port: int | None = None
     smtp_port: int | None = None
     smtp_starttls: bool = False
     domain_expiry_warn_days: int = 30
@@ -321,7 +309,6 @@ class MonitorOut(BaseModel):
     dns_split_enabled: bool = False
     dns_baseline_ips_internal: list[str] | None = None
     dns_baseline_ips_external: list[str] | None = None
-    composite_aggregation: str | None = None
     keyword: str | None
     keyword_negate: bool
     expected_json_path: str | None
@@ -508,19 +495,3 @@ class BulkActionRequest(BaseModel):
 
 class BulkActionResponse(BaseModel):
     affected: int
-
-
-class CompositeMonitorMemberCreate(BaseModel):
-    monitor_id: uuid.UUID
-    weight: int = Field(default=1, ge=1, le=100)
-    role: str | None = Field(default=None, max_length=50)
-
-
-class CompositeMonitorMemberOut(BaseModel):
-    id: uuid.UUID
-    composite_id: uuid.UUID
-    monitor_id: uuid.UUID
-    weight: int
-    role: str | None
-
-    model_config = {"from_attributes": True}

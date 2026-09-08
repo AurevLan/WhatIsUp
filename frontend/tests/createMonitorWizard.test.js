@@ -45,9 +45,9 @@ describe('CreateMonitorWizard — type cards', () => {
     vi.clearAllMocks()
   })
 
-  it('renders all 12 check types', () => {
+  it('renders all 10 check types', () => {
     const w = mount(CreateMonitorWizard, { global: globalConfig })
-    expect(w.findAll('.wizard__type-card')).toHaveLength(12)
+    expect(w.findAll('.wizard__type-card')).toHaveLength(10)
   })
 
   it('selects a native type locally without emitting switch-advanced', async () => {
@@ -73,10 +73,8 @@ describe('CreateMonitorWizard — type cards', () => {
       ['Keyword', 'keyword'],
       ['JSON', 'json_path'],
       ['Ping', 'ping'],
-      ['UDP', 'udp'],
       ['SMTP', 'smtp'],
       ['Domain', 'domain_expiry'],
-      ['Composite', 'composite'],
     ]
     for (const [label, value] of expectations) {
       await cardByLabel(w, label).trigger('click')

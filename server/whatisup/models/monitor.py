@@ -34,7 +34,6 @@ _JSON = JSON().with_variant(JSONB(), "postgresql")
 class CheckType(enum.StrEnum):
     http = "http"
     tcp = "tcp"
-    udp = "udp"
     dns = "dns"
     keyword = "keyword"
     json_path = "json_path"
@@ -43,7 +42,6 @@ class CheckType(enum.StrEnum):
     smtp = "smtp"
     ping = "ping"
     domain_expiry = "domain_expiry"
-    composite = "composite"
 
 
 class NetworkScope(enum.StrEnum):
@@ -89,39 +87,6 @@ class MonitorDependency(Base):
         UniqueConstraint("parent_id", "child_id", name="uq_monitor_dependency"),
         Index("ix_dep_parent", "parent_id"),
         Index("ix_dep_child", "child_id"),
-    )
-
-
-class CompositeMonitorMember(Base):
-    """Links a composite monitor to one of its source monitors."""
-
-    __tablename__ = "composite_monitor_members"
-
-    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    composite_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True),
-        ForeignKey("monitors.id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    monitor_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True),
-        ForeignKey("monitors.id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    weight: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
-    role: Mapped[str | None] = mapped_column(String(50), nullable=True)
-
-    composite: Mapped[Monitor] = relationship(
-        "Monitor", foreign_keys=[composite_id], back_populates="composite_members"
-    )
-    member: Mapped[Monitor] = relationship(
-        "Monitor", foreign_keys=[monitor_id], back_populates="composite_memberships"
-    )
-
-    __table_args__ = (
-        UniqueConstraint("composite_id", "monitor_id", name="uq_composite_member"),
-        Index("ix_cmm_composite_id", "composite_id"),
-        Index("ix_cmm_monitor_id", "monitor_id"),
     )
 
 
@@ -241,9 +206,6 @@ class Monitor(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # TCP checks
     tcp_port: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
-    # UDP checks
-    udp_port: Mapped[int | None] = mapped_column(Integer, nullable=True)
-
     # SMTP checks
     smtp_port: Mapped[int | None] = mapped_column(Integer, nullable=True)
     smtp_starttls: Mapped[bool] = mapped_column(
@@ -272,11 +234,6 @@ class Monitor(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     dns_baseline_ips_internal: Mapped[list[str] | None] = mapped_column(_JSON, nullable=True)
     dns_baseline_ips_external: Mapped[list[str] | None] = mapped_column(_JSON, nullable=True)
-
-    # Composite monitor aggregation rule
-    composite_aggregation: Mapped[str | None] = mapped_column(
-        String(20), nullable=True
-    )  # majority_up | all_up | any_up | weighted_up
 
     # Keyword / body checks
     keyword: Mapped[str | None] = mapped_column(String(512), nullable=True)
@@ -384,21 +341,6 @@ class Monitor(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         "MonitorDependency",
         foreign_keys="MonitorDependency.parent_id",
         back_populates="parent",
-        cascade="all, delete-orphan",
-    )
-
-    # Composite monitor: members this monitor aggregates
-    composite_members: Mapped[list[CompositeMonitorMember]] = relationship(
-        "CompositeMonitorMember",
-        foreign_keys="CompositeMonitorMember.composite_id",
-        back_populates="composite",
-        cascade="all, delete-orphan",
-    )
-    # Composite monitor: composites this monitor belongs to (as a member)
-    composite_memberships: Mapped[list[CompositeMonitorMember]] = relationship(
-        "CompositeMonitorMember",
-        foreign_keys="CompositeMonitorMember.monitor_id",
-        back_populates="member",
         cascade="all, delete-orphan",
     )
 

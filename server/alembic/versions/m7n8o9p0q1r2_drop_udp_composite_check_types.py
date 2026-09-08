@@ -42,7 +42,7 @@ table (same shape as it was created in ``d2e3f4a5b6c7``) but obviously
 cannot restore rows this migration refused to run past.
 
 Revision ID: m7n8o9p0q1r2
-Revises: k5l6m7n8o9p0
+Revises: af00103e3c8a
 Create Date: 2026-09-08
 """
 
@@ -54,7 +54,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "m7n8o9p0q1r2"
-down_revision: str | None = "k5l6m7n8o9p0"
+down_revision: str | None = "af00103e3c8a"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

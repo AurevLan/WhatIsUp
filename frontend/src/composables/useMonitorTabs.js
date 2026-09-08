@@ -35,7 +35,7 @@ export function useMonitorTabs(monitorRef, customMetricsRef, { onMapActivated } 
     const tabs = [TAB_AVAILABILITY]
     if (monitorRef.value?.check_type === 'scenario') tabs.push(TAB_SCENARIO)
     // Map only for types that use probes
-    if (!['heartbeat', 'composite', 'domain_expiry'].includes(monitorRef.value?.check_type)) {
+    if (!['heartbeat', 'domain_expiry'].includes(monitorRef.value?.check_type)) {
       tabs.push(TAB_MAP)
     }
     tabs.push(TAB_ALERTS)

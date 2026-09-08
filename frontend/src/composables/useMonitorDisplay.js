@@ -19,7 +19,6 @@ export function useMonitorDisplay() {
   function formatTarget(monitor) {
     const raw = monitor.url?.replace(/^https?:\/\//, '') || ''
     if (monitor.check_type === 'tcp')  return monitor.tcp_port  ? `${raw}:${monitor.tcp_port}`  : raw
-    if (monitor.check_type === 'udp')  return monitor.udp_port  ? `${raw}:${monitor.udp_port}`  : raw
     if (monitor.check_type === 'smtp') return monitor.smtp_port ? `${raw}:${monitor.smtp_port}` : raw
     return raw
   }

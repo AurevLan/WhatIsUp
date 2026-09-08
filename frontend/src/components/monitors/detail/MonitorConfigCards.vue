@@ -1,5 +1,5 @@
 <template>
-  <!-- Network scope card (not for heartbeat / composite) -->
+  <!-- Network scope card (not for heartbeat) -->
   <div v-if="hasNetworkScope" class="card mb-6">
     <h2 class="text-sm font-semibold text-(--text-2) mb-3">{{ t('monitors.network_scope.label') }}</h2>
     <div class="grid grid-cols-3 gap-2">
@@ -70,42 +70,6 @@
     <template v-else>
       <p class="text-xs text-(--text-3)">{{ t('sweep.schema_drift_hint') }}</p>
     </template>
-  </div>
-
-  <!-- Composite members card -->
-  <div v-if="isComposite" class="card mb-6">
-    <div class="flex items-center justify-between mb-4">
-      <h2 class="text-sm font-semibold text-(--text-2)">{{ t('monitors.composite.members') }}</h2>
-    </div>
-    <div v-if="deps.compositeMembers.value.length" class="space-y-2 mb-4">
-      <div v-for="m in deps.compositeMembers.value" :key="m.id"
-        class="flex items-center gap-3 px-3 py-2 rounded-lg bg-(--bg-surface-2)">
-        <span class="flex-1 text-sm text-(--text-2) font-mono">{{ deps.memberName(m.monitor_id) }}</span>
-        <span v-if="m.role" class="text-xs text-(--accent) bg-(--accent-glow) px-2 py-0.5 rounded">{{ m.role }}</span>
-        <span class="text-xs text-(--text-3)">×{{ m.weight }}</span>
-        <button @click="deps.removeCompositeMember(m.id)"
-          class="text-(--down) text-xs ml-2" :aria-label="t('a11y.remove')">✕</button>
-      </div>
-    </div>
-    <p v-else class="text-(--text-3) text-sm mb-4">{{ t('monitors.composite.no_members') }}</p>
-    <div class="flex gap-2 items-end flex-wrap">
-      <div class="flex-1 min-w-40">
-        <label class="text-xs text-(--text-3) block mb-1">{{ t('monitors.composite.add_member') }}</label>
-        <select v-model="deps.newMember.value.monitor_id" class="input w-full text-sm">
-          <option value="">{{ t('sweep.select_monitor') }}</option>
-          <option v-for="m in deps.availableMonitors.value" :key="m.id" :value="m.id">{{ m.name }}</option>
-        </select>
-      </div>
-      <div class="w-32">
-        <label class="text-xs text-(--text-3) block mb-1">{{ t('monitors.composite.role_placeholder') }}</label>
-        <input v-model="deps.newMember.value.role" class="input w-full text-sm" placeholder="internal" />
-      </div>
-      <div class="w-20">
-        <label class="text-xs text-(--text-3) block mb-1">{{ t('monitors.composite.weight') }}</label>
-        <input v-model.number="deps.newMember.value.weight" type="number" min="1" max="100" class="input w-full text-sm" />
-      </div>
-      <button @click="deps.addCompositeMember" :disabled="!deps.newMember.value.monitor_id" class="btn-primary disabled:opacity-50" :aria-label="t('common.add')">+</button>
-    </div>
   </div>
 
   <!-- Custom request headers (HTTP-like checks) -->
@@ -191,7 +155,7 @@
 import { computed, inject, toRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Shield, ShieldAlert, ShieldCheck } from 'lucide-vue-next'
-import { PatchStateKey, DependenciesStateKey } from './injectionKeys'
+import { PatchStateKey } from './injectionKeys'
 import { useDetectionAlertBridge } from '../../../composables/useDetectionAlertBridge'
 import DetectionAlertBridge from '../../shared/DetectionAlertBridge.vue'
 
@@ -199,7 +163,6 @@ const props = defineProps({
   monitor: { type: Object, required: true },
   results: { type: Array, required: true },
   isHttpLike: { type: Boolean, default: false },
-  isComposite: { type: Boolean, default: false },
   isDomainExpiry: { type: Boolean, default: false },
   hasNetworkScope: { type: Boolean, default: false },
   fmtDateTime: { type: Function, required: true },
@@ -208,7 +171,6 @@ const props = defineProps({
 
 // Provided by MonitorDetailView (see injectionKeys.js for rationale).
 const patch = inject(PatchStateKey)
-const deps = inject(DependenciesStateKey)
 
 // Schema drift → notification bridge (same flow as DNS drift), so schema drift
 // isn't a detection that silently sends nothing.

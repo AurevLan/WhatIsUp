@@ -94,7 +94,6 @@ const form = ref({
   ssl_min_chain_days: null,
   expected_status_codes: [200],
   tcp_port: null,
-  udp_port: null,
   smtp_port: null,
   smtp_starttls: false,
   domain_expiry_warn_days: 30,
@@ -121,8 +120,6 @@ const form = ref({
   dns_split_enabled: false,
   // Network scope
   network_scope: 'all',
-  // Composite
-  composite_aggregation: 'majority_up',
 })
 
 // Les champs partagés (MonitorFormFields) mutent ce formulaire via v-model.
@@ -186,7 +183,7 @@ function buildPayload() {
   }
 
   // Normalize URL: non-HTTP types may receive bare hostnames — wrap in http:// for server schema
-  const bareHostTypes = ['tcp', 'udp', 'dns', 'smtp', 'ping', 'domain_expiry']
+  const bareHostTypes = ['tcp', 'dns', 'smtp', 'ping', 'domain_expiry']
   let url = form.value.url.trim()
   if (bareHostTypes.includes(form.value.check_type)) {
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
@@ -204,10 +201,6 @@ function buildPayload() {
 
   if (form.value.check_type === 'tcp') {
     p.tcp_port = form.value.tcp_port
-  }
-
-  if (form.value.check_type === 'udp') {
-    p.udp_port = form.value.udp_port
   }
 
   if (form.value.check_type === 'smtp') {
@@ -228,14 +221,9 @@ function buildPayload() {
     p.dns_split_enabled = form.value.dns_split_enabled
   }
 
-  // Network scope (applies to all non-heartbeat, non-composite)
-  if (form.value.check_type !== 'heartbeat' && form.value.check_type !== 'composite') {
+  // Network scope (applies to all non-heartbeat types)
+  if (form.value.check_type !== 'heartbeat') {
     p.network_scope = form.value.network_scope
-  }
-
-  if (form.value.check_type === 'composite') {
-    p.url = 'http://composite'
-    p.composite_aggregation = form.value.composite_aggregation
   }
 
   if (form.value.check_type === 'keyword') {

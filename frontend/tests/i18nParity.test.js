@@ -41,7 +41,7 @@ describe('i18n en/fr parity', () => {
 
   it('has no empty translation', () => {
     // Les libellés d'URL des types sans cible sont vides à dessein.
-    const allowedEmpty = /^create_monitor\.types\.(heartbeat|composite)\.url_(label|placeholder)$/
+    const allowedEmpty = /^create_monitor\.types\.heartbeat\.url_(label|placeholder)$/
     const empty = Object.entries(flatFr)
       .filter(([k, v]) => typeof v === 'string' && v.trim() === '' && !allowedEmpty.test(k))
       .map(([k]) => k)

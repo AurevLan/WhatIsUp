@@ -305,7 +305,6 @@ export default {
     check_type: {
       http: 'HTTP',
       tcp: 'TCP',
-      udp: 'UDP',
       dns: 'DNS',
       keyword: 'Keyword',
       json_path: 'JSON Path',
@@ -314,7 +313,6 @@ export default {
       smtp: 'SMTP',
       ping: 'Ping',
       domain_expiry: 'Domain',
-      composite: 'Composite',
     },
     dns_nameservers: {
       label: 'Custom nameservers',
@@ -339,20 +337,6 @@ export default {
       internal_desc: 'Only probes tagged as internal will run this monitor.',
       external: 'External only',
       external_desc: 'Only probes tagged as external will run this monitor.',
-    },
-    composite: {
-      label: 'Composite monitor',
-      desc: 'Aggregates the state of multiple monitors into a single status.',
-      aggregation: 'Aggregation rule',
-      aggregation_majority_up: 'Majority up (> 50% up)',
-      aggregation_all_up: 'All up',
-      aggregation_any_up: 'Any up',
-      aggregation_weighted_up: 'Weighted majority',
-      members: 'Member monitors',
-      add_member: 'Add monitor',
-      role_placeholder: 'Role (e.g. internal, external)',
-      weight: 'Weight',
-      no_members: 'No members yet.',
     },
     advanced_detection_settings: 'Advanced detection',
     auto_pause_after: 'Auto-pause after consecutive failures',
@@ -1871,11 +1855,9 @@ export default {
     type_keyword_desc: 'Keyword in response body',
     type_json_path_desc: 'JSON path assertion',
     type_ping_desc: 'ICMP ping reachability',
-    type_udp_desc: 'UDP port reachability',
     type_smtp_desc: 'SMTP banner + EHLO',
     type_domain_expiry_desc: 'Domain expiry (WHOIS)',
     type_scenario_desc: 'Full browser scenario',
-    type_composite_desc: 'Aggregate other monitors',
     // Long-form catalog used by the create / edit monitor forms (short
     // type_*_desc above stays for the wizard cards).
     types: {
@@ -1886,11 +1868,9 @@ export default {
       dns:           { description: 'Check DNS resolution and optionally assert the returned value.', url_label: 'Domain', url_placeholder: 'example.com', name_placeholder: 'DNS example.com' },
       scenario:      { description: 'Run a full browser scenario (authentication, clicks, assertions…).', url_label: 'Start URL', url_placeholder: 'https://app.example.com', name_placeholder: 'Login + Dashboard' },
       heartbeat:     { description: "Dead man's switch for cron jobs: opens an incident if the ping doesn't come back within the interval + grace period.", url_label: '', url_placeholder: '', name_placeholder: 'Daily Backup' },
-      udp:           { description: 'Check that a UDP port is reachable (DNS, NTP, SNMP, game servers…).', url_label: 'Host', url_placeholder: 'dns.example.com', name_placeholder: 'DNS UDP 53' },
       smtp:          { description: 'Connect to an SMTP server, verify the banner and EHLO response.', url_label: 'Mail server', url_placeholder: 'mail.example.com', name_placeholder: 'SMTP Mail Server' },
       ping:          { description: 'ICMP ping check — measures round-trip time and reachability.', url_label: 'Host', url_placeholder: 'router.internal', name_placeholder: 'Gateway Ping' },
       domain_expiry: { description: 'Monitor domain expiry via WHOIS — alerts before your domain expires.', url_label: 'Domain', url_placeholder: 'example.com', name_placeholder: 'example.com expiry' },
-      composite:     { description: 'Aggregate the state of multiple monitors into a single status (e.g. internal probe + external probe).', url_label: '', url_placeholder: '', name_placeholder: 'My Service (aggregated)' },
     },
     heartbeat_slug: 'Identifier (slug)',
     heartbeat_slug_hint: 'A unique ping URL with a secret token will be generated after creation.',
@@ -1906,7 +1886,6 @@ export default {
     json_schema_hint: 'JSON Schema (draft-07) to validate the response body.',
     // Per-type fields — were hard-coded (in English in the create modal, in
     // French in the edit one) before the MonitorFormFields extraction.
-    udp_hint: 'Sends an empty datagram — no ICMP unreachable = port open/filtered → up.',
     domain_expiry_threshold: 'Alert threshold (days)',
     domain_expiry_hint: 'Alert when domain expires in ≤ N days.',
     dns_record_type: 'Record type',
@@ -1916,7 +1895,6 @@ export default {
     keyword_negate_strong: 'IS found',
     json_path_label: 'JSON path',
     json_expected_value: 'Expected value',
-    composite_members_hint: 'Member monitors can be added after creation from the monitor detail page.',
     heartbeat_ping_url: 'Ping URL:',
     follow_redirects: 'Follow redirects',
     ssl_check: 'Monitor SSL certificate',

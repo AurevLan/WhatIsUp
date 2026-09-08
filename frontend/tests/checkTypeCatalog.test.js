@@ -17,16 +17,14 @@ const TYPES = [
   'dns',
   'scenario',
   'heartbeat',
-  'udp',
   'smtp',
   'ping',
   'domain_expiry',
-  'composite',
 ]
 
-// heartbeat et composite n'ont pas de cible réseau : leurs libellés d'URL
-// sont vides à dessein (le champ est masqué).
-const TYPES_WITHOUT_TARGET = ['heartbeat', 'composite']
+// heartbeat n'a pas de cible réseau : ses libellés d'URL sont vides à dessein
+// (le champ est masqué).
+const TYPES_WITHOUT_TARGET = ['heartbeat']
 
 describe.each([
   ['en', en],
@@ -63,7 +61,6 @@ describe('locale parity', () => {
     // Ces clés remplacent des chaînes qui étaient codées en dur en anglais
     // dans la modale de création et en français dans celle d'édition.
     const keys = [
-      'udp_hint',
       'domain_expiry_threshold',
       'domain_expiry_hint',
       'dns_record_type',
@@ -73,7 +70,6 @@ describe('locale parity', () => {
       'keyword_negate_strong',
       'json_path_label',
       'json_expected_value',
-      'composite_members_hint',
       'heartbeat_ping_url',
       'follow_redirects',
       'ssl_check',

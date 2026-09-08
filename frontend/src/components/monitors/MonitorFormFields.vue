@@ -79,13 +79,6 @@
     <input v-model.number="form.tcp_port" class="input w-full" type="number" min="1" max="65535" placeholder="443" required />
   </div>
 
-  <!-- UDP port -->
-  <div v-if="form.check_type === 'udp'">
-    <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('create_monitor.port') }} *</label>
-    <input v-model.number="form.udp_port" class="input w-full" type="number" min="1" max="65535" placeholder="53" required />
-    <p class="text-xs text-(--text-3) mt-1">{{ t('create_monitor.udp_hint') }}</p>
-  </div>
-
   <!-- SMTP options -->
   <div v-if="form.check_type === 'smtp'" class="space-y-3">
     <div class="grid grid-cols-2 gap-4">
@@ -151,25 +144,6 @@
     </div>
   </div>
 
-  <!-- Composite options -->
-  <div v-if="form.check_type === 'composite'" class="space-y-3">
-    <div>
-      <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('monitors.composite.aggregation') }}</label>
-      <select v-model="form.composite_aggregation" class="input w-full">
-        <option value="majority_up">{{ t('monitors.composite.aggregation_majority_up') }}</option>
-        <option value="all_up">{{ t('monitors.composite.aggregation_all_up') }}</option>
-        <option value="any_up">{{ t('monitors.composite.aggregation_any_up') }}</option>
-        <option value="weighted_up">{{ t('monitors.composite.aggregation_weighted_up') }}</option>
-      </select>
-      <p class="text-xs text-(--text-3) mt-1">{{ t('monitors.composite.desc') }}</p>
-    </div>
-    <!-- À la création seulement : en édition, les membres se gèrent depuis la
-         page de détail, l'astuce n'a plus lieu d'être. -->
-    <p v-if="mode === 'create'" class="text-xs text-(--text-3) bg-(--bg-surface-2) rounded p-2">
-      {{ t('create_monitor.composite_members_hint') }}
-    </p>
-  </div>
-
   <!-- Keyword options -->
   <div v-if="form.check_type === 'keyword'">
     <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('create_monitor.keyword_label') }} *</label>
@@ -208,7 +182,7 @@
     />
   </div>
 
-  <!-- Network scope (hidden for heartbeat and composite) -->
+  <!-- Network scope (hidden for heartbeat) -->
   <div v-if="hasProbeSettings">
     <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('monitors.network_scope.label') }}</label>
     <div class="grid grid-cols-3 gap-2">
@@ -227,7 +201,7 @@
     <p class="text-xs text-(--text-3) mt-1">{{ networkScopes.find(s => s.value === form.network_scope)?.desc }}</p>
   </div>
 
-  <!-- Interval / Timeout (hidden for heartbeat and composite — no physical probe) -->
+  <!-- Interval / Timeout (hidden for heartbeat — no physical probe) -->
   <div v-if="hasProbeSettings" class="grid grid-cols-2 gap-4">
     <div>
       <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('create_monitor.interval') }}</label>
@@ -419,11 +393,9 @@ const DNS_RECORD_TYPES = ['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS']
 
 const currentType = computed(() => findType(form.value.check_type))
 
-// Heartbeat et composite n'interrogent aucune cible réseau : ni portée de
-// sonde, ni intervalle/timeout à régler.
-const hasProbeSettings = computed(
-  () => form.value.check_type !== 'heartbeat' && form.value.check_type !== 'composite',
-)
+// Heartbeat n'interroge aucune cible réseau : ni portée de sonde, ni
+// intervalle/timeout à régler.
+const hasProbeSettings = computed(() => form.value.check_type !== 'heartbeat')
 
 const networkScopes = computed(() => [
   { value: 'all', icon: '🌍', label: t('monitors.network_scope.all'), desc: t('monitors.network_scope.all_desc') },

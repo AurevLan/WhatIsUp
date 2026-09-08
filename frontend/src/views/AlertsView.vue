@@ -1,7 +1,31 @@
 <template>
   <div class="p-8">
-    <h1 class="font-display text-2xl font-bold text-(--text-1) mb-8">{{ t('alerts.title') }}</h1>
+    <h1 class="font-display text-2xl font-bold text-(--text-1) mb-6">{{ t('alerts.title') }}</h1>
 
+    <!-- §1.2, plan cap v2 6c: Astreinte declassed here from a top-level nav
+         entry — it's alert configuration, not a first-level destination. -->
+    <div class="flex gap-1 mb-8 border-b border-(--border)">
+      <button
+        @click="setTab('rules')"
+        class="px-4 py-2 text-sm font-medium transition-colors"
+        :class="activeTab === 'rules'
+          ? 'text-(--accent) border-b-2 border-(--accent-border) -mb-px'
+          : 'text-(--text-3) hover:text-(--text-1)'"
+      >{{ t('alerts.tab_rules') }}</button>
+      <button
+        @click="setTab('oncall')"
+        class="px-4 py-2 text-sm font-medium transition-colors"
+        :class="activeTab === 'oncall'
+          ? 'text-(--accent) border-b-2 border-(--accent-border) -mb-px'
+          : 'text-(--text-3) hover:text-(--text-1)'"
+      >{{ t('alerts.tab_oncall') }}</button>
+    </div>
+
+    <div v-if="activeTab === 'oncall'" class="oncall-tab-panel">
+      <OnCallView />
+    </div>
+
+    <template v-else>
     <!-- Skeleton loading -->
     <div v-if="loading" class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
       <div>
@@ -545,12 +569,14 @@
         </button>
       </template>
     </BaseModal>
+    </template>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute, useRouter } from 'vue-router'
 import api from '../api/client'
 import { monitorsApi, groupsApi } from '../api/monitors'
 import { metricsApi } from '../api/metrics'
@@ -563,6 +589,7 @@ import AlertTemplatesSection from '../components/alerts/AlertTemplatesSection.vu
 import EmptyState from '../components/shared/EmptyState.vue'
 import { Bell, ClipboardList } from 'lucide-vue-next'
 import { useAuthStore } from '../stores/auth'
+import OnCallView from './OnCallView.vue'
 
 const authStore = useAuthStore()
 const isSuperadmin = computed(() => authStore.isSuperadmin)
@@ -570,6 +597,22 @@ const isSuperadmin = computed(() => authStore.isSuperadmin)
 const { t } = useI18n()
 const { success, error: toastError } = useToast()
 const { formatDate, formatRelative } = useDateFormat()
+
+// §1.2, plan cap v2 6c — Astreinte (on-call) declassed from a top-level nav
+// entry to a tab here: it's alert configuration, not a first-level
+// destination. Nothing is removed — /oncall still resolves to the same
+// OnCallView, just embedded here too, and its persisted query keeps the tab
+// bookmarkable/shareable like the rest of the filter presets in this app.
+const route = useRoute()
+const router = useRouter()
+const activeTab = ref(route.query.tab === 'oncall' ? 'oncall' : 'rules')
+function setTab(tab) {
+  activeTab.value = tab
+  router.replace({ path: route.path, query: { ...route.query, tab: tab === 'rules' ? undefined : tab } })
+}
+watch(() => route.query.tab, (v) => {
+  activeTab.value = v === 'oncall' ? 'oncall' : 'rules'
+})
 
 const loading = ref(true)
 const channels = ref([])
@@ -1019,3 +1062,11 @@ onMounted(async () => {
   loadSuggestions()
 })
 </script>
+
+<style scoped>
+/* OnCallView owns its own .page-body padding for when it's reached directly
+   at /oncall — nested under the Alertes tab that would double up. */
+.oncall-tab-panel :deep(.page-body) {
+  padding: 0;
+}
+</style>

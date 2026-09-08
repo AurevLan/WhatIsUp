@@ -708,7 +708,7 @@
 
 ## 14. Extensions & Intégrations
 
-- ✅ **Browser extension** Chromium — recorder de scénarios (navigate/click/fill/screenshot), placeholders `{{password_N}}` chiffrés Fernet ; download `/api/v1/extension/download` (ZIP avec URL serveur pré-configurée)
+- ✅ **Import de scénario** (`ScenarioBuilder`) — script `playwright codegen` officiel importé en un clic, converti en étapes ; remplace l'ancienne extension navigateur Chromium (retirée, plan cap v2 6b : ~2 060 LOC pour un besoin trimestriel, cf. `frontend/src/lib/playwrightImport.js`)
 - ✅ **Web Push** VAPID — `/api/v1/push/{subscribe,unsubscribe,test}` ; opt-in serveur (`VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`)
 - ✅ **Monitor templates** (`MonitorTemplate`) — JSON config réutilisable, `/api/v1/templates/`
 - ✅ **Config import/export (IaC)** — `GET/PUT /api/v1/config/` JSON, dry-run + prune, match par nom (idempotent), secrets redacted
@@ -832,7 +832,7 @@
 | Sécurité | 21 axes (+SC-07 distributed RL +WS tenant scoping v1.15 +SSRF anti-rebinding +lockout +rotation FERNET_KEY +WS correlated_ids scopé +incident-groups scopé +cache probe/API-key fingerprinté +ping SSRF +19 rate-limits v1.16 +SSRF probe pinning +fail-open Redis auth v1.16.2 +portées de clé API +rate-limit GET v1.17.0 +tag_selector scopé v1.17.1 **+audit 2026-07-24 soldé v1.17.2** : chaîne de confiance IP, fuites de secrets, injections de contenu, épinglage sonde + bornes CPU, métriques fail-closed, SSO lié au navigateur) | `security.py`, `middleware.py`, `validators.py`, `_helpers.py`, `core/limiter.py`, `lockout.py`, `tools/rotate_fernet.py`, `checkers/_shared.py`, `checkers/_regex_guard.py` |
 | CI/CD | 6 workflows + release-please | `.github/workflows/*.yml` |
 | Mobile | 7 axes (+quick wins Android v1.15 : back button, WS background, POST_NOTIFICATIONS) | Capacitor 8, FCM, biometrics, mobile-release.yml |
-| Extensions | 5 axes | extension/, config IaC, web_push, templates, prometheus |
+| Extensions | 4 axes | config IaC, web_push, templates, prometheus |
 | i18n | 2 langues | i18n/{en,fr}.js (~1330 / 1298 clés) |
 | **Health Engine V2** | M0-M5 livrés (M6+ à venir) | `services/health.py`, `services/slo.py`, `monitor_health.py`, `core/percentile.py` |
 | **Réseau & Intelligence (V2-02)** | 8 axes (ASN, partition, TLS, BGP, DNS consistency, playback, NAT/VPN, fleet dashboard) | `services/network_verdict.py`, `services/probe_enrichment.py`, `api/v1/bgp.py`, `api/v1/tls_fleet.py` |

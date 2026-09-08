@@ -559,7 +559,16 @@ class PlaywrightPool:
         except ImportError:
             logger.warning("playwright_not_installed_scenarios_will_fail")
         except Exception as exc:
-            logger.warning("playwright_pool_start_failed", error=str(exc))
+            # Most common cause on the default (browserless) probe image: no
+            # Chromium binary. Not fatal — this probe just can't run `scenario`
+            # monitors; ScenarioChecker.check() reports that cleanly per-monitor.
+            if "Executable doesn't exist" in str(exc):
+                logger.warning(
+                    "playwright_no_browser_scenarios_will_fail",
+                    hint="build/pull the whatisup-probe:<version>-browser image",
+                )
+            else:
+                logger.warning("playwright_pool_start_failed", error=str(exc))
 
     async def _ensure_connected(self) -> None:
         """Relaunch browser if it crashed; protected by lock against concurrent restarts."""

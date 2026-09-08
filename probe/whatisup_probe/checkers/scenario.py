@@ -14,6 +14,22 @@ from .base import BaseChecker, CheckResult
 
 logger = structlog.get_logger(__name__)
 
+# Playwright's own message when the browser binary hasn't been downloaded
+# (`playwright install`) — stable across versions, used to detect the
+# "browserless probe" case and turn it into an actionable error instead of
+# a raw Playwright stack trace (plan cap v2, 6b: the default probe image no
+# longer ships Chromium).
+_MISSING_BROWSER_MARKER = "Executable doesn't exist"
+
+_MISSING_BROWSER_MESSAGE = (
+    "Scenario error: this probe has no browser (image built without Chromium). "
+    "Use the whatisup-probe:<version>-browser image to run Playwright scenarios."
+)
+
+
+def _is_missing_browser_error(exc: Exception) -> bool:
+    return _MISSING_BROWSER_MARKER in str(exc)
+
 
 async def _capture_web_vitals(page) -> dict:
     """Capture LCP, CLS, INP via PerformanceObserver."""
@@ -441,9 +457,13 @@ class ScenarioChecker(BaseChecker):
                         await browser.close()
         except Exception as exc:
             elapsed_ms = (time.perf_counter() - t0) * 1000
-            err_msg = _redact_secrets(
-                f"Scenario error: {type(exc).__name__}: {str(exc)}", variables
-            )[:300]
+            if _is_missing_browser_error(exc):
+                err_msg = _MISSING_BROWSER_MESSAGE
+                logger.warning("scenario_missing_browser", monitor_id=monitor_id)
+            else:
+                err_msg = _redact_secrets(
+                    f"Scenario error: {type(exc).__name__}: {str(exc)}", variables
+                )[:300]
             return CheckResult(
                 monitor_id=monitor_id,
                 checked_at=checked_at,

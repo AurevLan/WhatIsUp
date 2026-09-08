@@ -25,10 +25,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=builder /install /usr/local
 
-# Install Playwright browsers in a shared path accessible to any user
+# Chromium is opt-in (plan cap v2, 6b): deploying a probe is the product's
+# central, repeated gesture, while `scenario` monitors are its least-used
+# feature. The default image ships WITHOUT a browser (≈480 Mo measured vs ≈1,97 Go
+# with one). Build with `--build-arg WITH_BROWSER=true` — published as the
+# `whatisup-probe:X.Y.Z-browser` / `:latest-browser` tags — to get a probe
+# that can run `scenario` monitors. A browserless probe still runs every
+# other check type; assigning it a `scenario` monitor fails with a clear,
+# actionable CheckResult (see checkers/scenario.py), never a raw Playwright
+# stack trace.
+ARG WITH_BROWSER=false
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-RUN playwright install --with-deps chromium \
-    && chmod -R 755 /ms-playwright
+RUN if [ "$WITH_BROWSER" = "true" ]; then \
+        playwright install --with-deps chromium && chmod -R 755 /ms-playwright; \
+    fi
 
 # Non-root user
 RUN useradd -m -u 1000 probe

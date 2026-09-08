@@ -85,7 +85,6 @@ services:
       # le seul volume monté dans la sonde (audit F15).
       - shared:/shared
       - probe_secrets:/probe-secrets
-      - ./extension:/app/extension:ro
       # FCM service account (gitignored). The path is configured in env so the
       # server falls back gracefully when the file is missing.
       - ./mobile/.secrets/firebase-service-account.json:/run/secrets/fcm.json:ro
@@ -190,6 +189,11 @@ services:
   probe-local:
     build:
       context: ./probe
+      args:
+        # Chromium is opt-in (plan cap v2, 6b): the default build has no
+        # browser (`scenario` monitors fail cleanly, every other check type
+        # works). Set PROBE_WITH_BROWSER=true and rebuild to run scenarios.
+        WITH_BROWSER: ${PROBE_WITH_BROWSER:-false}
     volumes:
       # Uniquement la clé d'API : la sonde exécute des checks sortants contre
       # des cibles hostiles, elle ne doit pas pouvoir lire /shared (audit F15).
@@ -222,6 +226,8 @@ services:
   probe:
     build:
       context: ./probe
+      args:
+        WITH_BROWSER: ${PROBE_WITH_BROWSER:-false}
     environment:
       CENTRAL_API_URL: http://server:8000
       PROBE_API_KEY: ${PROBE_API_KEY:-}

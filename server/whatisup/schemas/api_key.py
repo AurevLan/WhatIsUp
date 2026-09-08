@@ -13,7 +13,7 @@ VALID_SCOPES = ("read", "write")
 
 
 class ApiKeyCreate(BaseModel):
-    name: str = Field(min_length=1, max_length=100, examples=["WhatIsUp Recorder extension"])
+    name: str = Field(min_length=1, max_length=100, examples=["CI pipeline"])
     expires_at: datetime | None = Field(
         default=None, description="Optional expiry date (ISO 8601). Omit for no expiry."
     )

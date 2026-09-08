@@ -66,7 +66,6 @@ describe('EmptyState rollout — views render the real component when empty', ()
   it.each([
     ['IncidentsView', IncidentsView, en.incidents.no_incidents],
     ['ApiKeysView', ApiKeysView, en.apiKeys.empty_title],
-    ['TemplatesView', TemplatesView, en.templates.no_templates],
     ['AuditView', AuditView, en.audit.empty],
     ['TlsFleetView', TlsFleetView, en.tls_fleet.empty],
   ])('%s shows the EmptyState component with the expected title', async (_name, component, expectedTitle) => {

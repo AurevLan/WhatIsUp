@@ -71,6 +71,4 @@ def downgrade() -> None:
     op.create_index(
         "ix_monitor_templates_owner_id", "monitor_templates", ["owner_id"], unique=False
     )
-    op.create_index(
-        "ix_monitor_templates_team_id", "monitor_templates", ["team_id"], unique=False
-    )
+    op.create_index("ix_monitor_templates_team_id", "monitor_templates", ["team_id"], unique=False)

@@ -22,9 +22,8 @@ logger = structlog.get_logger(__name__)
 _MISSING_BROWSER_MARKER = "Executable doesn't exist"
 
 _MISSING_BROWSER_MESSAGE = (
-    "Cette sonde n'embarque pas de navigateur (image sans Chromium). "
-    "Utilisez l'image whatisup-probe:<version>-browser pour exécuter des "
-    "scénarios Playwright."
+    "Scenario error: this probe has no browser (image built without Chromium). "
+    "Use the whatisup-probe:<version>-browser image to run Playwright scenarios."
 )
 
 

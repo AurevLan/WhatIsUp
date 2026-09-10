@@ -20,6 +20,12 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.core.security import hash_password
+from whatisup.models.oncall import (
+    RENOTIFY_FOREVER_REPEAT_COUNT,
+    EscalationLevel,
+    EscalationPolicy,
+    EscalationTargetType,
+)
 from whatisup.models.user import User
 from whatisup.schemas.oncall import (
     EscalationLevelIn,
@@ -323,6 +329,54 @@ async def test_override_window_and_cross_schedule_scoping(
 
 
 # ── Escalation policies ───────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_a_migrated_renotify_policy_survives_a_patch(
+    client: AsyncClient, user_token: str, regular_user: User, db_session: AsyncSession
+) -> None:
+    """Plan cap v2, 6e: migration ``o9p0q1r2s3t4`` writes ``repeat_count =
+    RENOTIFY_FOREVER_REPEAT_COUNT`` directly in the database, bypassing this
+    schema entirely — inserted here the same way, via the ORM, not the API.
+    ``EscalationPolicyModal.vue`` resends the *whole* form on every save,
+    ``repeat_count`` included, so a write-schema cap lower than that constant
+    would 422 on any edit to a migrated policy — even one that leaves
+    ``repeat_count`` alone — turning it into a read-only trap. Prove the value
+    the migration writes can be read back *and* resubmitted as-is."""
+    channel_id = await _make_channel(client, user_token, "Renotify channel")
+
+    policy = EscalationPolicy(
+        owner_id=regular_user.id,
+        name="[6e] Renotify 15 min",
+        repeat_count=RENOTIFY_FOREVER_REPEAT_COUNT,
+    )
+    db_session.add(policy)
+    await db_session.flush()
+    db_session.add(
+        EscalationLevel(
+            policy_id=policy.id,
+            position=0,
+            delay_minutes=15,
+            target_type=EscalationTargetType.channel,
+            target_channel_id=uuid.UUID(channel_id),
+        )
+    )
+    await db_session.flush()
+
+    read = await client.get(f"/api/v1/escalation-policies/{policy.id}", headers=_auth(user_token))
+    assert read.status_code == 200, read.text
+    assert read.json()["repeat_count"] == RENOTIFY_FOREVER_REPEAT_COUNT
+
+    # Re-submit the exact value just read, as the UI does on every save —
+    # renaming the policy, not touching the ladder or its repeat count.
+    patched = await client.patch(
+        f"/api/v1/escalation-policies/{policy.id}",
+        json={"name": "Renamed but still forever", "repeat_count": RENOTIFY_FOREVER_REPEAT_COUNT},
+        headers=_auth(user_token),
+    )
+    assert patched.status_code == 200, patched.text
+    assert patched.json()["repeat_count"] == RENOTIFY_FOREVER_REPEAT_COUNT
+    assert patched.json()["name"] == "Renamed but still forever"
 
 
 @pytest.mark.asyncio

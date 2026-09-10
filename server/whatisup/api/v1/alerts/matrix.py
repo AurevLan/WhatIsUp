@@ -29,7 +29,6 @@ router = APIRouter(prefix="/alerts", tags=["alerts"])
 _MATRIX_RULE_FIELDS = (
     "enabled",
     "min_duration_seconds",
-    "renotify_after_minutes",
     "threshold_value",
     "digest_minutes",
     "storm_window_seconds",

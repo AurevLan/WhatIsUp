@@ -266,8 +266,19 @@ Migration `e4f5a6b7c8d9`. `POST /metrics/{monitor_id}` accepte un objet **ou** u
 Migration `f5a6b7c8d9e0` (`escalation_states`). B-0 avait posé le modèle et l'avait laissé **inerte** ;
 c'est ce lot qui l'allume.
 
-- **`renotify` relance les mêmes canaux, une échelle en page de différents** : L1, puis L2 si personne
-  n'a acquitté, puis la rotation. C'est tout le delta.
+- **L'échelle a absorbé le renotify (plan cap v2, 6e)** : `AlertRule.renotify_after_minutes` et
+  `services/renotify.py` ont disparu (migration `o9p0q1r2s3t4`). Une échelle à un seul barreau, cible =
+  un canal de la règle, `repeat_count = RENOTIFY_FOREVER_REPEAT_COUNT` (`models/oncall.py`, 100000)
+  reproduit exactement « ré-alerter les mêmes canaux toutes les N minutes, indéfiniment ». ⚠️ Cette
+  constante est aussi le plafond `le=` des schémas d'écriture (`schemas/oncall.py`) — **pas** un plafond
+  UI de 10 : un plafond plus bas rendrait la politique migrée impossible à re-PATCHer (Pydantic valide
+  le modèle entier, même un PATCH qui ne touche pas `repeat_count`), la transformant en politique
+  lecture-seule de fait. Une règle qui portait `renotify_after_minutes = N` sans ladder en a reçu une
+  équivalente à la migration (un barreau par canal, seul le premier porte le délai N — les suivants à
+  0 min pour paginer tous les canaux en un tick) ; une règle qui avait déjà une échelle garde celle-ci
+  et perd juste la valeur devenue redondante. Une échelle multi-barreaux page toujours des cibles
+  différentes (L1, puis L2 si personne
+  n'a acquitté, puis la rotation) — c'est le seul delta qui reste entre les deux formes.
 - **Armée depuis `fire_alerts`** — funnel unique — quand une règle porte un `escalation_policy_id`, et
   **uniquement à l'ouverture** : un avis de résolution n'a rien à escalader et doit repartir sur les
   canaux où les gens ont été paginés. `escalation_policy_id` NULL = comportement historique inchangé.
@@ -353,7 +364,7 @@ post-mortem.
 
 - **Deux familles d'incidents, discriminées par `Incident.alert_rule_id`** (NULL = disponibilité,
   non-NULL = métrique, possédé par cette règle). Le pipeline d'alerte est ancré sur `Incident`
-  (`alert_events.incident_id` NOT NULL ; ack/snooze/renotify/escalade/silences/digest en dépendent),
+  (`alert_events.incident_id` NOT NULL ; ack/snooze/escalade/silences/digest en dépendent),
   donc une alerte métrique **doit** ouvrir un incident. Sans discriminant, `uq_incidents_monitor_open`
   (un seul incident ouvert par moniteur) faisait qu'un incident métrique ouvert était retrouvé par
   `process_check_result` comme *l'*incident du moniteur : **la vraie panne n'ouvrait plus rien et
@@ -364,8 +375,8 @@ post-mortem.
   le downtime SLA et le budget d'erreur gonflent, la page de statut vire au rouge. Déjà appliqué à
   `incident.py`, `incident_decider.py`, `incident_correlation.py`, `heartbeat.py`, `network_verdict.py`,
   `alert_matrix_preview.py`, `status.py`, `public.py`, `monitors/health.py`, `monitors/stats.py`.
-  **Volontairement absent** des listes d'incidents, de l'ack/snooze et de la boucle renotify : là, les
-  incidents métrique doivent apparaître et être actionnables.
+  **Volontairement absent** des listes d'incidents et de l'ack/snooze : là, les incidents métrique
+  doivent apparaître et être actionnables.
 - **Rien de public** : incidents métrique exclus de la page de statut et des mails aux abonnés
   (`notify_subscribers`), et pas de web push — ce sont des signaux applicatifs internes.
 - **Le silence ne résout jamais** un incident `metric_above`/`metric_below` : sans échantillon frais tous
@@ -419,8 +430,8 @@ dérive. R-1 avait factorisé les **prédicats** ; le registre factorise la **st
 - **Gate CI** : `tests/test_condition_registry.py` échoue si un membre de l'enum n'a pas de handler, ou
   l'inverse. `tests/test_alert_conditions.py::test_every_condition_has_preview_support` reste en second
   filet côté sémantique.
-- `fires_on` déclare les types d'événement. `incident_renotify` est traité en amont dans `fire_alerts`,
-  aucun handler ne doit le revendiquer.
+- `fires_on` déclare les types d'événement (`incident_opened` / `incident_resolved` — l'ancien
+  `incident_renotify` a disparu avec `services/renotify.py`, plan cap v2 6e).
 - **Divergence assumée et documentée** : l'aperçu des conditions métrique ignore `min_duration_seconds`
   (l'opérateur demande « et là, maintenant ? » en tapant un seuil) — le délai est dit dans le `reason`.
 

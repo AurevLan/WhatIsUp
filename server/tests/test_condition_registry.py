@@ -15,7 +15,7 @@ import pytest
 from whatisup.models.alert import METRIC_CONDITIONS, AlertCondition
 from whatisup.services.conditions import CONDITION_REGISTRY, get_handler
 
-_EVENT_TYPES = {"incident_opened", "incident_resolved", "incident_renotify"}
+_EVENT_TYPES = {"incident_opened", "incident_resolved"}
 
 
 def test_every_condition_has_a_handler():
@@ -45,10 +45,6 @@ def test_handler_contract_is_honoured(condition: AlertCondition):
     assert handler.condition is condition, "handler registered under the wrong key"
     assert handler.fires_on, "a condition that fires on no event type can never alert"
     assert handler.fires_on <= _EVENT_TYPES, f"unknown event type in {handler.fires_on}"
-
-    # "incident_renotify" is handled centrally in fire_alerts, before conditions
-    # are consulted; a handler claiming it would never be called for it.
-    assert "incident_renotify" not in handler.fires_on
 
     for name in ("decide", "preview"):
         method = getattr(type(handler), name)

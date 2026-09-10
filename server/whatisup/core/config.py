@@ -212,14 +212,12 @@ class Settings(BaseSettings):
     # draining an oversized backlog differs by loop, per its own docstring:
     # escalation (due-timestamp order), heartbeat (staleness order) and
     # discovery_election (unelected-first order) all make real progress every
-    # tick; renotify frees a slot as incidents ack/resolve (normal operation,
-    # not a special case). `metric_alerts` is the one exception — no column
-    # there naturally advances while a rule stays enabled, so a *sustained*
-    # excess keeps the same low-id rules capped until one is
-    # disabled/removed — see `evaluate_metric_alerts`'s docstring.
+    # tick. `metric_alerts` is the one exception — no column there naturally
+    # advances while a rule stays enabled, so a *sustained* excess keeps the
+    # same low-id rules capped until one is disabled/removed — see
+    # `evaluate_metric_alerts`'s docstring.
     escalation_max_states_per_run: int = 500
     metric_alerts_max_rules_per_run: int = 1000
-    renotify_max_incidents_per_run: int = 1000
     heartbeat_max_monitors_per_run: int = 2000
     discovery_election_max_sources_per_run: int = 500
 

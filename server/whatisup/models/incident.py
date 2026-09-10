@@ -81,7 +81,7 @@ class Incident(Base):
         Boolean, default=False, nullable=False, server_default="false"
     )
 
-    # Acknowledgment — stops renotify; cleared on state change
+    # Acknowledgment — stops re-notification (escalation ladder included); cleared on state change
     acked_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True, index=True
     )
@@ -90,8 +90,9 @@ class Incident(Base):
     )
 
     # Snooze (T1-04) — temporary alert suppression, unlike ack which is open-ended.
-    # While snooze_until > now, renotify dispatches are skipped; once it expires the
-    # incident re-arms. Any state change (resolve/unack) also clears it.
+    # While snooze_until > now, escalation rungs are skipped (see
+    # services/escalation._should_stop); once it expires the incident re-arms.
+    # Any state change (resolve/unack) also clears it.
     snooze_until: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True, index=True
     )
@@ -228,7 +229,6 @@ class Incident(Base):
 #: raises ``MultipleResultsFound`` or hands the check pipeline the wrong row and
 #: a real outage opens no incident at all.
 #:
-#: Deliberately *absent* from the user-facing incident lists, the ack/snooze
-#: endpoints and the renotify loop — metric incidents are meant to show up and be
-#: actionable there.
+#: Deliberately *absent* from the user-facing incident lists and the ack/snooze
+#: endpoints — metric incidents are meant to show up and be actionable there.
 IS_AVAILABILITY_INCIDENT = Incident.alert_rule_id.is_(None)

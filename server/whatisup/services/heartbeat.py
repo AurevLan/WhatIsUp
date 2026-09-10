@@ -59,8 +59,8 @@ async def check_heartbeats() -> None:
             )
 
         for monitor in monitors:
-            # Commit per monitor, like `renotify.py` and `metric_alerts.py`:
-            # with a single commit at the end of the loop, one monitor failing
+            # Commit per monitor, like `metric_alerts.py` and the escalation
+            # loop: with a single commit at the end of the loop, one monitor failing
             # inside `_fire_alerts` (a channel dispatch, a network call) would
             # roll back the incidents already flushed for every monitor
             # processed before it in this tick.

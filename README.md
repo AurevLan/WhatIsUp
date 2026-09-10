@@ -89,7 +89,7 @@ Conditions were dispatched by three parallel `if/elif` chains — what pages, th
 
 ### Ops & platform
 
-- **Leader election** — singleton background loops (heartbeat, retention, rollups, renotify, digest flush, metric alerts…) elect a leader via Redis `SET NX` with fencing tokens, so running several API replicas is safe.
+- **Leader election** — singleton background loops (heartbeat, retention, rollups, escalation, digest flush, metric alerts…) elect a leader via Redis `SET NX` with fencing tokens, so running several API replicas is safe.
 - **Structured JSON logs** with `X-Request-ID` correlation end-to-end, plus Prometheus metrics.
 - **Global Health Engine V2** — probes are sensors, the server is the sole judge: a 5-minute rolling p50/p95/p99 aggregator with `quorum_down` / `quorum_slow` SLO rules, per-probe divergence scoring, and a global rollback flag.
 - **Network intelligence** — probes are auto-enriched with ASN via Team Cymru; every incident gets a verdict (`service_down` / `network_partition_asn` / `network_partition_geo` / `inconclusive`), and rules can opt out of paging on upstream operator failures.
@@ -454,8 +454,7 @@ Every singleton loop is leader-elected through Redis, so N API replicas run each
 | **Metric alert evaluator** | 60 s | Pushed-metric rules never fire — nothing else evaluates them |
 | Rollup builder | 5 min | Stats fall back to the raw table; retention loses its interlock |
 | Heartbeat checker | 30 s | Late cron jobs go unnoticed |
-| **Escalation engine** | 30 s | **On-call ladders stop advancing** — the operator believes they are covered |
-| Renotify | 60 s | No periodic re-alerting on open incidents |
+| **Escalation engine** | 30 s | **On-call ladders stop advancing** — this is also what re-pages an unacknowledged incident's own channels on a timer (a single-rung, repeating ladder), so this loop stopping means no periodic re-alerting either |
 | Digest flusher | 30 s | Grouped alerts stay queued |
 | Retention purge | nightly | Disk grows |
 | Network verdict | 5 min | Incidents keep their last verdict |

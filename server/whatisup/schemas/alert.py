@@ -260,7 +260,6 @@ class AlertRuleCreate(BaseModel):
     condition: AlertCondition
     min_duration_seconds: int = Field(default=0, ge=0)
     channel_ids: list[uuid.UUID] = Field(min_length=1)
-    renotify_after_minutes: int | None = Field(default=None, ge=1, le=10080)
     threshold_value: float | None = Field(default=None, ge=0)
     digest_minutes: int = Field(default=0, ge=0, le=1440)
     # Storm protection
@@ -282,7 +281,9 @@ class AlertRuleCreate(BaseModel):
     schedule: dict | None = None
     # V2-02-02 — opt-in: skip dispatch when incident.network_verdict is a partition
     suppress_on_network_partition: bool = False
-    # B-0 — opt-in escalation ladder. None keeps the channel fan-out + renotify.
+    # B-0 — opt-in escalation ladder. None keeps the channel fan-out (single shot).
+    # Plan cap v2 6e: this is also how "renotify me every N minutes" is expressed
+    # now — a one-rung, repeating ladder — see services/escalation.py.
     escalation_policy_id: uuid.UUID | None = None
 
     @model_validator(mode="after")
@@ -301,7 +302,6 @@ class AlertRuleUpdate(BaseModel):
     tag_selector: list[str] | None = Field(default=None, max_length=32)
     min_duration_seconds: int | None = Field(default=None, ge=0)
     channel_ids: list[uuid.UUID] | None = Field(default=None, min_length=1)
-    renotify_after_minutes: int | None = Field(default=None, ge=1, le=10080)
     threshold_value: float | None = Field(default=None, ge=0)
     digest_minutes: int | None = Field(default=None, ge=0, le=1440)
     storm_window_seconds: int | None = Field(default=None, ge=10, le=3600)
@@ -324,7 +324,6 @@ class AlertRuleOut(BaseModel):
     condition: AlertCondition
     min_duration_seconds: int
     channels: list[AlertChannelOut]
-    renotify_after_minutes: int | None
     threshold_value: float | None
     digest_minutes: int = 0
     storm_window_seconds: int | None = None

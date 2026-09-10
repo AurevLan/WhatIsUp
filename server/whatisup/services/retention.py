@@ -314,9 +314,9 @@ async def purge_old_alert_events(retention_days: int) -> int:
 
     A plain DELETE, same shape as the rollup and series purges above: the
     table is not partitioned, and every reader of it — the 60-second dispatch
-    dedup, the storm-window counter, digest recovery, renotify, one incident's
-    own alert history in the UI — only ever looks at a short recent window or
-    at the events of one specific incident, never at "every event ever sent".
+    dedup, the storm-window counter, digest recovery, one incident's own
+    alert history in the UI — only ever looks at a short recent window or at
+    the events of one specific incident, never at "every event ever sent".
     No interlock like ``_raw_purge_floor`` is needed because nothing
     aggregates this table the way rollups fold raw results.
 

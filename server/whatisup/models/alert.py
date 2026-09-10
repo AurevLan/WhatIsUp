@@ -149,7 +149,6 @@ class AlertRule(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Enum(AlertCondition, name="alert_condition"), nullable=False
     )
     min_duration_seconds: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    renotify_after_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     threshold_value: Mapped[float | None] = mapped_column(sqlalchemy.Float, nullable=True)
     digest_minutes: Mapped[int] = mapped_column(
         Integer, default=0, nullable=False, server_default="0"
@@ -187,8 +186,10 @@ class AlertRule(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Boolean, default=False, nullable=False, server_default="false"
     )
     # B-0 — optional escalation ladder. NULL keeps the historical behaviour
-    # (fan out to `channels`, then rely on renotify). Set, it hands the incident
-    # to the escalation engine, which pages `levels` in order until an ack.
+    # (fan out to `channels` once). Set, it hands the incident to the escalation
+    # engine, which pages `levels` in order until an ack — plan cap v2 6e folded
+    # the old standalone `renotify_after_minutes` into a one-rung, repeating
+    # ladder, so "keep paging me until someone acks" is expressed here too.
     # ON DELETE SET NULL: deleting a policy must degrade the rule to the legacy
     # path, never cascade-delete the alert rule itself.
     escalation_policy_id: Mapped[uuid.UUID | None] = mapped_column(

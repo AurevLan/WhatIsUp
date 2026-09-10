@@ -86,11 +86,6 @@
                 <span class="text-(--text-3)">s</span>
               </label>
               <label class="flex items-center gap-1.5">
-                <span>{{ t('alert_matrix.renotify') }}</span>
-                <input v-model.number="row.renotify_after_minutes" type="number" min="1" class="input w-20 py-1" />
-                <span class="text-(--text-3)">min</span>
-              </label>
-              <label class="flex items-center gap-1.5">
                 <span>{{ t('alerts.digest_minutes') }}</span>
                 <input v-model.number="row.digest_minutes" type="number" min="0" max="1440" class="input w-20 py-1" />
                 <span class="text-(--text-3)">min</span>
@@ -127,7 +122,6 @@ const hasAdvancedValues = computed(() => {
   return (
     (r.threshold_value != null) ||
     (r.min_duration_seconds > 0) ||
-    (r.renotify_after_minutes != null) ||
     (r.digest_minutes > 0) ||
     !!r.schedule
   )

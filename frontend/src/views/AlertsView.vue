@@ -210,7 +210,6 @@
                   <span v-if="rule.threshold_value != null">{{ conditionUnit(rule.condition, rule.threshold_value) }}</span>
                 </span>
                 <span v-if="rule.min_duration_seconds" class="text-xs text-(--text-3)">{{ t('alerts.rule_after_seconds', { n: rule.min_duration_seconds }) }}</span>
-                <span v-if="rule.renotify_after_minutes" class="text-xs text-(--text-3)">{{ t('alerts.rule_renotify_minutes', { n: rule.renotify_after_minutes }) }}</span>
                 <span v-if="rule.digest_minutes" class="text-xs text-(--accent)">{{ t('alerts.rule_digest_minutes', { n: rule.digest_minutes }) }}</span>
                 <span v-if="rule.anomaly_zscore_threshold" class="text-xs text-(--accent)">· z={{ rule.anomaly_zscore_threshold }}</span>
                 <span v-if="rule.metric_name" class="text-xs text-(--accent) font-mono">· {{ rule.metric_name }}{{ labelKey(rule.metric_labels) }}</span>
@@ -427,15 +426,6 @@
               <span class="text-(--text-3) font-normal">{{ t('alerts.min_duration_hint') }}</span>
             </label>
             <input v-model.number="ruleForm.min_duration_seconds" class="input w-full" type="number" min="0" max="3600" />
-          </div>
-
-          <!-- Renotify -->
-          <div>
-            <label class="block text-sm font-medium text-(--text-2) mb-1">
-              {{ t('alerts.renotify_label') }}
-              <span class="text-(--text-3) font-normal">{{ t('alerts.renotify_hint') }}</span>
-            </label>
-            <input v-model.number="ruleForm.renotify_after_minutes" class="input w-full" type="number" min="1" max="10080" :placeholder="t('alerts.renotify_placeholder')" />
           </div>
 
           <!-- Digest -->
@@ -703,7 +693,6 @@ function defaultRuleForm() {
     condition: 'any_down',
     threshold_value: null,
     min_duration_seconds: 0,
-    renotify_after_minutes: null,
     digest_minutes: 0,
     channel_ids: [],
     anomaly_zscore_threshold: null,
@@ -964,7 +953,6 @@ function openEditRule(rule) {
     condition: rule.condition,
     threshold_value: rule.threshold_value,
     min_duration_seconds: rule.min_duration_seconds,
-    renotify_after_minutes: rule.renotify_after_minutes,
     digest_minutes: rule.digest_minutes,
     channel_ids: rule.channels.map(c => c.id),
     anomaly_zscore_threshold: rule.anomaly_zscore_threshold ?? null,
@@ -1001,7 +989,6 @@ async function saveRule() {
         min_duration_seconds: ruleForm.value.min_duration_seconds || 0,
         channel_ids: ruleForm.value.channel_ids,
         threshold_value: ruleForm.value.threshold_value || undefined,
-        renotify_after_minutes: ruleForm.value.renotify_after_minutes || undefined,
         digest_minutes: ruleForm.value.digest_minutes || 0,
         anomaly_zscore_threshold: ruleForm.value.anomaly_zscore_threshold || undefined,
         baseline_factor: ruleForm.value.baseline_factor || undefined,
@@ -1027,7 +1014,6 @@ async function saveRule() {
         payload.group_id = ruleForm.value.target_id
       }
       if (ruleForm.value.threshold_value != null) payload.threshold_value = ruleForm.value.threshold_value
-      if (ruleForm.value.renotify_after_minutes) payload.renotify_after_minutes = ruleForm.value.renotify_after_minutes
       if (ruleForm.value.digest_minutes) payload.digest_minutes = ruleForm.value.digest_minutes
       if (ruleForm.value.anomaly_zscore_threshold) payload.anomaly_zscore_threshold = ruleForm.value.anomaly_zscore_threshold
       if (ruleForm.value.baseline_factor) payload.baseline_factor = ruleForm.value.baseline_factor

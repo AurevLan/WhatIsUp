@@ -221,7 +221,8 @@ async def test_rungs_fire_in_order_with_their_delays(
     assert await run_due_escalations(service_db, now=NOW + timedelta(minutes=10)) == 1
     assert [c["channel"] for c in sent] == ["l1", "l2"]
 
-    # Ladder exhausted: the state is gone and renotify takes over.
+    # Ladder exhausted (repeat_count default 0): the state is gone and nothing
+    # pages this incident again until it changes state.
     assert await _states(service_db) == 0
 
 
@@ -342,6 +343,40 @@ async def test_repeat_count_replays_the_whole_ladder(
     assert await _states(service_db) == 1
     await run_due_escalations(service_db, now=NOW + timedelta(minutes=1))
     assert len(sent) == 2
+    assert await _states(service_db) == 0
+
+
+async def test_a_single_rung_high_repeat_ladder_keeps_paging_like_the_old_renotify(
+    service_db: AsyncSession, test_user: User, test_monitor: Monitor, sent: list
+):
+    """Plan cap v2, 6e: this exact shape — one rung, same channel, a high
+    ``repeat_count`` — is what migration ``o9p0q1r2s3t4`` builds in place of a
+    bare ``renotify_after_minutes``. Prove it actually keeps paging the same
+    channel every ``delay_minutes`` across several cycles, not just one extra
+    replay — never more silent than the loop it replaces."""
+    policy = await _policy(service_db, test_user, repeat=100_000)
+    channel = await _channel(service_db, test_user, "ops")
+    await _level(
+        service_db,
+        policy,
+        0,
+        5,
+        target_type=EscalationTargetType.channel,
+        target_channel_id=channel.id,
+    )
+    rule = await _rule(service_db, test_user, test_monitor, policy)
+    incident = await _incident(service_db, test_monitor)
+    await arm_escalation(service_db, incident, rule, now=NOW)
+
+    for cycle in range(1, 6):
+        assert await run_due_escalations(service_db, now=NOW + timedelta(minutes=5 * cycle)) == 1
+        assert await _states(service_db) == 1, "still armed — nowhere near repeat_count"
+    assert [c["channel"] for c in sent] == ["ops"] * 5
+
+    # Acknowledging is still the only thing that stops it.
+    incident.acked_at = NOW
+    await service_db.flush()
+    assert await run_due_escalations(service_db, now=NOW + timedelta(minutes=30)) == 0
     assert await _states(service_db) == 0
 
 

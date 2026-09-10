@@ -186,7 +186,7 @@ async def test_dispatch_routes_resolved_event(monkeypatch) -> None:
 async def test_dispatch_ignores_unrelated_event(monkeypatch) -> None:
     spy = AsyncMock()
     monkeypatch.setattr("whatisup.services.web_push.send_push_to_user", spy)
-    await dispatch_web_push_for_incident(None, None, SimpleNamespace(), "incident_renotify")
+    await dispatch_web_push_for_incident(None, None, SimpleNamespace(), "some_other_event")
     spy.assert_not_called()
 
 

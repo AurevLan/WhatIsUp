@@ -131,23 +131,6 @@ class Incident(Base):
         String(30), nullable=False, default="legacy", server_default="legacy"
     )
 
-    # Plan V2, C-4 — the discriminator between the two incident families.
-    #   NULL     → availability incident (a probe, the heartbeat or the health
-    #              engine says the monitor is in trouble)
-    #   NOT NULL → metric incident, owned by that alert rule
-    # It exists because the alert pipeline is incident-anchored while a pushed
-    # metric has no CheckResult: a metric alert must open an incident, and an
-    # undiscriminated one would be picked up by ``process_check_result`` as *the*
-    # open incident and mask a real outage. Every query that means "is this
-    # monitor currently down?" must therefore filter on ``alert_rule_id IS NULL``
-    # — the partial unique indexes below encode the same split.
-    alert_rule_id: Mapped[uuid.UUID | None] = mapped_column(
-        Uuid(as_uuid=True),
-        ForeignKey("alert_rules.id", ondelete="CASCADE"),
-        nullable=True,
-        index=True,
-    )
-
     # Relationships
     monitor: Mapped[Monitor] = relationship("Monitor", back_populates="incidents")
     alert_events: Mapped[list[AlertEvent]] = relationship(
@@ -165,29 +148,26 @@ class Incident(Base):
     __table_args__ = (
         Index("ix_incidents_monitor_started", "monitor_id", "started_at"),
         Index("ix_incidents_resolved", "resolved_at"),
-        # The two indexes below are PostgreSQL-only and were previously created
-        # by migration alone. Undeclared, they were invisible to
-        # ``autogenerate``, which proposed dropping them on every run — the
-        # partial unique one being the only thing preventing duplicate open
-        # incidents for a monitor. ``ddl_if`` keeps them out of the SQLite
-        # ``create_all`` used by the tests while leaving them in the metadata
-        # that Alembic compares against.
+        # PostgreSQL-only, previously created by migration alone. Undeclared,
+        # it was invisible to ``autogenerate``, which proposed dropping it on
+        # every run — it is the only thing preventing duplicate open incidents
+        # for a monitor. ``ddl_if`` keeps it out of the SQLite ``create_all``
+        # used by the tests while leaving it in the metadata that Alembic
+        # compares against.
+        #
+        # Plan cap v2, 6f (C1) — back to a single, unqualified index. C-4 had
+        # split this in two (`uq_incidents_monitor_open` restricted to
+        # `alert_rule_id IS NULL`, plus `uq_incidents_monitor_rule_open` for
+        # the metric half) because a metric incident and an availability
+        # incident had to coexist open on the same monitor. Cutting pushed-
+        # metric alerting removed the second population entirely — there is
+        # only ever one kind of incident again, so the invariant is plain "one
+        # open incident per monitor", exactly as it read before C-4.
         Index(
             "uq_incidents_monitor_open",
             "monitor_id",
             unique=True,
-            postgresql_where=text("resolved_at IS NULL AND alert_rule_id IS NULL"),
-        ).ddl_if(dialect="postgresql"),
-        # C-4 — the metric half of the same invariant. One open incident per
-        # (monitor, rule) instead of per monitor: two rules watching two
-        # different metrics on the same monitor must be able to fire at once,
-        # which is exactly what the index above forbids for availability.
-        Index(
-            "uq_incidents_monitor_rule_open",
-            "monitor_id",
-            "alert_rule_id",
-            unique=True,
-            postgresql_where=text("resolved_at IS NULL AND alert_rule_id IS NOT NULL"),
+            postgresql_where=text("resolved_at IS NULL"),
         ).ddl_if(dialect="postgresql"),
         # The operator class goes in ``postgresql_ops``, not inline in the
         # expression: Alembic gives up on comparing an expression that carries
@@ -213,22 +193,3 @@ class Incident(Base):
     @property
     def is_resolved(self) -> bool:
         return self.resolved_at is not None
-
-    @property
-    def is_metric_incident(self) -> bool:
-        """True when this incident is a pushed-metric breach, not an outage."""
-        return self.alert_rule_id is not None
-
-
-#: Filter clause selecting **availability** incidents only (C-4).
-#:
-#: Carry it in every query that answers "is this monitor down?", "how much
-#: downtime did it have?" or "which incident is currently open for it?". Without
-#: it a metric incident is indistinguishable from an outage: at best it inflates
-#: downtime and lights the status page red, at worst a ``scalar_one_or_none()``
-#: raises ``MultipleResultsFound`` or hands the check pipeline the wrong row and
-#: a real outage opens no incident at all.
-#:
-#: Deliberately *absent* from the user-facing incident lists and the ack/snooze
-#: endpoints — metric incidents are meant to show up and be actionable there.
-IS_AVAILABILITY_INCIDENT = Incident.alert_rule_id.is_(None)

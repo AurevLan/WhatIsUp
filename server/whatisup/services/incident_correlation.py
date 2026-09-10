@@ -18,7 +18,7 @@ from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.core.database import dialect_name
-from whatisup.models.incident import IS_AVAILABILITY_INCIDENT, Incident, IncidentGroup
+from whatisup.models.incident import Incident, IncidentGroup
 from whatisup.models.monitor import Monitor, MonitorDependency
 
 logger = structlog.get_logger(__name__)
@@ -45,7 +45,6 @@ async def correlate_common_cause(
         Incident.monitor_id != monitor_id,
         # Correlation reasons about a shared root cause between outages. A
         # pushed-metric breach has no probes and no common cause to share.
-        IS_AVAILABILITY_INCIDENT,
     )
 
     if dialect_name(db) == "postgresql":
@@ -157,7 +156,6 @@ async def correlate_by_group(
                     Incident.monitor_id != monitor.id,
                     Incident.resolved_at.is_(None),
                     Incident.started_at >= window_start,
-                    IS_AVAILABILITY_INCIDENT,
                 )
             )
         )
@@ -264,7 +262,6 @@ async def correlate_by_dependency(
                     Incident.monitor_id.in_(related_ids),
                     Incident.resolved_at.is_(None),
                     Incident.started_at >= window_start,
-                    IS_AVAILABILITY_INCIDENT,
                 )
             )
         )

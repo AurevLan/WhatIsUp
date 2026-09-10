@@ -16,6 +16,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from whatisup.services.metric_alerts import evaluate_metric_alerts
 
 from whatisup.models.alert import AlertCondition, AlertRule
 from whatisup.models.incident import Incident
@@ -29,7 +30,6 @@ from whatisup.services.alert_conditions import (
     metric_absent_matches,
     metric_below_matches,
 )
-from whatisup.services.metric_alerts import evaluate_metric_alerts
 from whatisup.services.metric_ingest import IngestPoint, ingest_points
 
 pytestmark = pytest.mark.asyncio

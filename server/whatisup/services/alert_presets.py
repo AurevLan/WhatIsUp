@@ -9,7 +9,7 @@ from whatisup.models.alert import AlertCondition
 ALERT_PRESETS: dict[str, list[dict]] = {
     "http": [
         {
-            "condition": AlertCondition.any_down,
+            "condition": AlertCondition.availability,
             "label": "Alert when down",
             "min_duration_seconds": 0,
             "default": True,
@@ -21,7 +21,7 @@ ALERT_PRESETS: dict[str, list[dict]] = {
             "default": True,
         },
         {
-            "condition": AlertCondition.response_time_above,
+            "condition": AlertCondition.latency_anomaly,
             "label": "Slow response time",
             "threshold_value": 5000,
             "min_duration_seconds": 0,
@@ -30,7 +30,7 @@ ALERT_PRESETS: dict[str, list[dict]] = {
     ],
     "keyword": [
         {
-            "condition": AlertCondition.any_down,
+            "condition": AlertCondition.availability,
             "label": "Alert when down / keyword mismatch",
             "min_duration_seconds": 0,
             "default": True,
@@ -44,7 +44,7 @@ ALERT_PRESETS: dict[str, list[dict]] = {
     ],
     "json_path": [
         {
-            "condition": AlertCondition.any_down,
+            "condition": AlertCondition.availability,
             "label": "Alert when down / value mismatch",
             "min_duration_seconds": 0,
             "default": True,
@@ -58,7 +58,7 @@ ALERT_PRESETS: dict[str, list[dict]] = {
     ],
     "tcp": [
         {
-            "condition": AlertCondition.any_down,
+            "condition": AlertCondition.availability,
             "label": "Alert when unreachable",
             "min_duration_seconds": 0,
             "default": True,
@@ -66,7 +66,7 @@ ALERT_PRESETS: dict[str, list[dict]] = {
     ],
     "dns": [
         {
-            "condition": AlertCondition.any_down,
+            "condition": AlertCondition.availability,
             "label": "Alert when resolution fails",
             "min_duration_seconds": 0,
             "default": True,
@@ -74,7 +74,7 @@ ALERT_PRESETS: dict[str, list[dict]] = {
     ],
     "smtp": [
         {
-            "condition": AlertCondition.any_down,
+            "condition": AlertCondition.availability,
             "label": "Alert when unreachable",
             "min_duration_seconds": 0,
             "default": True,
@@ -82,7 +82,7 @@ ALERT_PRESETS: dict[str, list[dict]] = {
     ],
     "ping": [
         {
-            "condition": AlertCondition.any_down,
+            "condition": AlertCondition.availability,
             "label": "Alert when unreachable",
             "min_duration_seconds": 0,
             "default": True,
@@ -90,13 +90,13 @@ ALERT_PRESETS: dict[str, list[dict]] = {
     ],
     "scenario": [
         {
-            "condition": AlertCondition.any_down,
+            "condition": AlertCondition.availability,
             "label": "Alert when scenario fails",
             "min_duration_seconds": 0,
             "default": True,
         },
         {
-            "condition": AlertCondition.response_time_above,
+            "condition": AlertCondition.latency_anomaly,
             "label": "Slow scenario execution",
             "threshold_value": 30000,
             "min_duration_seconds": 0,
@@ -105,7 +105,7 @@ ALERT_PRESETS: dict[str, list[dict]] = {
     ],
     "heartbeat": [
         {
-            "condition": AlertCondition.any_down,
+            "condition": AlertCondition.availability,
             "label": "Heartbeat missed",
             "min_duration_seconds": 0,
             "default": True,
@@ -113,7 +113,7 @@ ALERT_PRESETS: dict[str, list[dict]] = {
     ],
     "domain_expiry": [
         {
-            "condition": AlertCondition.any_down,
+            "condition": AlertCondition.availability,
             "label": "Domain expiration warning",
             "min_duration_seconds": 0,
             "default": True,

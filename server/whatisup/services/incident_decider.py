@@ -18,7 +18,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from whatisup.models.incident import IS_AVAILABILITY_INCIDENT, Incident
+from whatisup.models.incident import Incident
 from whatisup.models.monitor import MonitorDependency
 
 # Maximum hops walked when traversing the dependency chain. Keeps suppression
@@ -69,7 +69,6 @@ async def has_ancestor_incident(
                 .where(
                     Incident.monitor_id == dep.parent_id,
                     Incident.resolved_at.is_(None),
-                    IS_AVAILABILITY_INCIDENT,
                 )
                 .limit(1)
             )

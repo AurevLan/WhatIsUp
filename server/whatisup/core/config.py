@@ -169,15 +169,6 @@ class Settings(BaseSettings):
     # never falls off the edge mid-month.
     rollup_retention_months: int = 13  # 0 = keep forever
 
-    # Pushed-metric alerting (plan V2, C-4). Evaluated by a background loop
-    # rather than inside POST /metrics on purpose: dispatching an alert means an
-    # outbound HTTP call, and putting one on the ingestion path would let a slow
-    # webhook throttle the agent that is pushing. The interval is therefore the
-    # worst-case alerting delay — lower it if you need to page faster than a
-    # minute, at the cost of one extra query per metric rule per run.
-    metric_alerts_enabled: bool = True
-    metric_alerts_interval_seconds: int = 60
-
     # Pushed-metric ingestion quotas (plan V2, C-1). Both refuse with 429 rather
     # than dropping quietly: a silently discarded metric is the worst failure a
     # monitoring product can have.
@@ -212,12 +203,8 @@ class Settings(BaseSettings):
     # draining an oversized backlog differs by loop, per its own docstring:
     # escalation (due-timestamp order), heartbeat (staleness order) and
     # discovery_election (unelected-first order) all make real progress every
-    # tick. `metric_alerts` is the one exception — no column there naturally
-    # advances while a rule stays enabled, so a *sustained* excess keeps the
-    # same low-id rules capped until one is disabled/removed — see
-    # `evaluate_metric_alerts`'s docstring.
+    # tick.
     escalation_max_states_per_run: int = 500
-    metric_alerts_max_rules_per_run: int = 1000
     heartbeat_max_monitors_per_run: int = 2000
     discovery_election_max_sources_per_run: int = 500
 

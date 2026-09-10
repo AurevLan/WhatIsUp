@@ -27,7 +27,7 @@ from whatisup.schemas.alert import (
     AlertRuleOut,
     AlertRuleSimulateOut,
     AlertRuleUpdate,
-    assert_metric_rule_is_fireable,
+    assert_latency_rule_is_fireable,
 )
 from whatisup.services.alert import simulate_rule
 from whatisup.services.alert_presets import get_presets
@@ -107,14 +107,12 @@ async def create_rule(
         digest_minutes=payload.digest_minutes,
         storm_window_seconds=payload.storm_window_seconds,
         storm_max_alerts=payload.storm_max_alerts,
+        quorum_ratio=payload.quorum_ratio,
         baseline_factor=payload.baseline_factor,
         # anomaly_zscore_threshold and schedule were declared on AlertRuleCreate
         # but never assigned here: the single-rule endpoints silently dropped
         # them and only the matrix endpoint honoured them.
         anomaly_zscore_threshold=payload.anomaly_zscore_threshold,
-        metric_name=payload.metric_name,
-        metric_labels=payload.metric_labels,
-        metric_window_seconds=payload.metric_window_seconds,
         schedule=payload.schedule,
         suppress_on_network_partition=payload.suppress_on_network_partition,
         escalation_policy_id=payload.escalation_policy_id,
@@ -208,16 +206,12 @@ async def update_rule(
         rule.storm_window_seconds = payload.storm_window_seconds
     if payload.storm_max_alerts is not None:
         rule.storm_max_alerts = payload.storm_max_alerts
+    if payload.quorum_ratio is not None:
+        rule.quorum_ratio = payload.quorum_ratio
     if payload.baseline_factor is not None:
         rule.baseline_factor = payload.baseline_factor
     if payload.anomaly_zscore_threshold is not None:
         rule.anomaly_zscore_threshold = payload.anomaly_zscore_threshold
-    if payload.metric_name is not None:
-        rule.metric_name = payload.metric_name
-    if payload.metric_labels is not None:
-        rule.metric_labels = payload.metric_labels or None
-    if payload.metric_window_seconds is not None:
-        rule.metric_window_seconds = payload.metric_window_seconds
     if payload.schedule is not None:
         rule.schedule = payload.schedule
     if payload.suppress_on_network_partition is not None:
@@ -232,11 +226,15 @@ async def update_rule(
         rule.channels = await _fetch_channels_by_ids(db, current_user, payload.channel_ids)
 
     # Validated on the *merged* state, not on the payload: switching an existing
-    # rule to a metric condition without also sending metric_name would sail
+    # rule to `latency_anomaly` without also sending exactly one of
+    # threshold_value / baseline_factor / anomaly_zscore_threshold would sail
     # through a payload-only check and store a rule that can never fire.
     try:
-        assert_metric_rule_is_fireable(
-            rule.condition, rule.metric_name, rule.threshold_value, rule.monitor_id
+        assert_latency_rule_is_fireable(
+            rule.condition,
+            rule.threshold_value,
+            rule.baseline_factor,
+            rule.anomaly_zscore_threshold,
         )
     except ValueError as exc:
         raise HTTPException(

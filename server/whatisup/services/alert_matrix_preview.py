@@ -20,7 +20,7 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from whatisup.models.incident import IS_AVAILABILITY_INCIDENT, Incident, IncidentScope
+from whatisup.models.incident import Incident, IncidentScope
 from whatisup.models.result import CheckResult, CheckStatus
 
 PREVIEW_WINDOW_DAYS = 30
@@ -43,8 +43,6 @@ async def compute_preview(
         Incident.monitor_id == monitor_id,
         Incident.started_at >= since,
         Incident.dependency_suppressed.is_(False),
-        # Only any_down / all_down read this list, and both mean "was it down?".
-        IS_AVAILABILITY_INCIDENT,
     )
     incidents = list((await db.execute(incidents_q)).scalars().all())
 
@@ -83,12 +81,17 @@ async def compute_preview(
         min_duration = int(row.get("min_duration_seconds") or 0)
         count = 0
 
-        if condition == "any_down":
-            count = _by_min_duration(incidents, min_duration)
-
-        elif condition == "all_down":
-            globals_ = [i for i in incidents if i.scope == IncidentScope.global_]
-            count = _by_min_duration(globals_, min_duration)
+        if condition == "availability":
+            # Plan cap v2, F1-conditions — quorum_ratio >= 1.0 is the old
+            # all_down (every probe down at once); anything below (including
+            # unset) is the old any_down. See AlertRule.quorum_ratio's
+            # docstring for why only these two boundary values are meaningful.
+            quorum_ratio = float(row.get("quorum_ratio") or 0)
+            if quorum_ratio >= 1.0:
+                relevant = [i for i in incidents if i.scope == IncidentScope.global_]
+            else:
+                relevant = incidents
+            count = _by_min_duration(relevant, min_duration)
 
         elif condition == "ssl_expiry":
             # Successful HTTPS checks whose cert was within warn window in the period.
@@ -113,11 +116,59 @@ async def compute_preview(
             ).scalar_one()
             count = int(ssl_bad or 0)
 
-        elif condition == "response_time_above":
+        elif condition == "latency_anomaly":
+            # F4 — the merged condition's sensitivity mode is inferred from
+            # which of the three fields the row carries, exactly like
+            # AlertRule at rest (services/conditions/latency.py). A row with
+            # none of the three previews as "would not fire", same as an
+            # unset response_time_above threshold did before the merge.
+            baseline_factor = row.get("baseline_factor")
+            zscore = row.get("anomaly_zscore_threshold")
             threshold = row.get("threshold_value")
-            if threshold is None:
-                count = 0
-            else:
+
+            if baseline_factor is not None:
+                factor = float(baseline_factor or 0)
+                if factor <= 0:
+                    count = 0
+                else:
+                    avg_row = (
+                        await db.execute(
+                            select(func.avg(CheckResult.response_time_ms)).where(
+                                CheckResult.monitor_id == monitor_id,
+                                CheckResult.checked_at >= since,
+                                CheckResult.response_time_ms.isnot(None),
+                                CheckResult.status == CheckStatus.up,
+                            )
+                        )
+                    ).scalar_one_or_none()
+                    if avg_row and avg_row > 0:
+                        baseline_cut = float(avg_row) * factor
+                        count = int(
+                            (
+                                await db.execute(
+                                    select(func.count(CheckResult.id)).where(
+                                        CheckResult.monitor_id == monitor_id,
+                                        CheckResult.checked_at >= since,
+                                        CheckResult.response_time_ms.isnot(None),
+                                        CheckResult.response_time_ms > baseline_cut,
+                                        CheckResult.status == CheckStatus.up,
+                                    )
+                                )
+                            ).scalar_one()
+                            or 0
+                        )
+                    else:
+                        count = 0
+
+            elif zscore is not None:
+                # Statistical tail estimate on a normal distribution: fraction
+                # of samples above the z-score threshold is
+                # ~ 0.5 * erfc(z / sqrt(2)).
+                z = float(zscore or 3.0)
+                tail_fraction = 0.5 * math.erfc(z / math.sqrt(2))
+                count = int(round((await up_rt_samples()) * tail_fraction))
+
+            elif threshold is not None:
                 rt_above = (
                     await db.execute(
                         select(func.count(CheckResult.id)).where(
@@ -131,46 +182,8 @@ async def compute_preview(
                 ).scalar_one()
                 count = int(rt_above or 0)
 
-        elif condition == "response_time_above_baseline":
-            factor = float(row.get("baseline_factor") or 0)
-            if factor <= 0:
-                count = 0
             else:
-                avg_row = (
-                    await db.execute(
-                        select(func.avg(CheckResult.response_time_ms)).where(
-                            CheckResult.monitor_id == monitor_id,
-                            CheckResult.checked_at >= since,
-                            CheckResult.response_time_ms.isnot(None),
-                            CheckResult.status == CheckStatus.up,
-                        )
-                    )
-                ).scalar_one_or_none()
-                if avg_row and avg_row > 0:
-                    baseline_cut = float(avg_row) * factor
-                    count = int(
-                        (
-                            await db.execute(
-                                select(func.count(CheckResult.id)).where(
-                                    CheckResult.monitor_id == monitor_id,
-                                    CheckResult.checked_at >= since,
-                                    CheckResult.response_time_ms.isnot(None),
-                                    CheckResult.response_time_ms > baseline_cut,
-                                    CheckResult.status == CheckStatus.up,
-                                )
-                            )
-                        ).scalar_one()
-                        or 0
-                    )
-                else:
-                    count = 0
-
-        elif condition == "anomaly_detection":
-            # Statistical tail estimate on a normal distribution: fraction of
-            # samples above the z-score threshold is ~ 0.5 * erfc(z / sqrt(2)).
-            z = float(row.get("anomaly_zscore_threshold") or 3.0)
-            tail_fraction = 0.5 * math.erfc(z / math.sqrt(2))
-            count = int(round((await up_rt_samples()) * tail_fraction))
+                count = 0
 
         elif condition == "schema_drift":
             # No historical fingerprint diff tracked — return 0 as a safe estimate.

@@ -29,7 +29,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.models.alert import AlertCondition, AlertRule
 from whatisup.models.incident import (
-    IS_AVAILABILITY_INCIDENT,
     Incident,
     IncidentScope,
 )
@@ -121,7 +120,6 @@ async def process_check_result(
                     select(Incident).where(
                         Incident.monitor_id == monitor_id,
                         Incident.resolved_at.is_(None),
-                        IS_AVAILABILITY_INCIDENT,
                     )
                 )
             ).scalar_one_or_none()
@@ -241,7 +239,11 @@ async def _post_decider_side_effects(
                 select(AlertRule.id)
                 .where(
                     or_(*anomaly_conditions),
-                    AlertRule.condition == AlertCondition.anomaly_detection,
+                    AlertRule.condition == AlertCondition.latency_anomaly,
+                    # F4 — the merged condition's statistical (z-score) mode
+                    # is the one that reads this field; a rule in absolute or
+                    # relative mode leaves it unset.
+                    AlertRule.anomaly_zscore_threshold.isnot(None),
                     AlertRule.enabled.is_(True),
                 )
                 .limit(1)

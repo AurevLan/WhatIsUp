@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from whatisup.api.deps import build_access_filter, get_current_user, get_user_team_ids
 from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
-from whatisup.models.incident import IS_AVAILABILITY_INCIDENT, Incident
+from whatisup.models.incident import Incident
 from whatisup.models.monitor import Monitor
 from whatisup.models.result import CheckResult, CheckStatus
 from whatisup.models.user import User
@@ -51,7 +51,6 @@ async def status_all_monitors(
                 select(Incident).where(
                     Incident.monitor_id.in_(monitor_ids),
                     Incident.resolved_at.is_(None),
-                    IS_AVAILABILITY_INCIDENT,
                 )
             )
         )
@@ -109,7 +108,6 @@ async def status_monitor(
             select(Incident).where(
                 Incident.monitor_id == monitor_id,
                 Incident.resolved_at.is_(None),
-                IS_AVAILABILITY_INCIDENT,
             )
         )
     ).scalar_one_or_none()
@@ -191,7 +189,6 @@ async def status_summary(
                 select(Incident.monitor_id).where(
                     Incident.monitor_id.in_(monitor_ids),
                     Incident.resolved_at.is_(None),
-                    IS_AVAILABILITY_INCIDENT,
                 )
             )
         )

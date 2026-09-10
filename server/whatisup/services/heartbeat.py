@@ -10,7 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from whatisup.core.config import get_settings
-from whatisup.models.incident import IS_AVAILABILITY_INCIDENT, Incident, IncidentScope
+from whatisup.models.incident import Incident, IncidentScope
 from whatisup.models.monitor import Monitor
 from whatisup.services.incident import _fire_alerts
 
@@ -59,8 +59,8 @@ async def check_heartbeats() -> None:
             )
 
         for monitor in monitors:
-            # Commit per monitor, like `metric_alerts.py` and the escalation
-            # loop: with a single commit at the end of the loop, one monitor failing
+            # Commit per monitor, like the escalation loop: with a single
+            # commit at the end of the loop, one monitor failing
             # inside `_fire_alerts` (a channel dispatch, a network call) would
             # roll back the incidents already flushed for every monitor
             # processed before it in this tick.
@@ -91,7 +91,6 @@ async def _check_one(db: AsyncSession, monitor: Monitor, now: datetime) -> None:
             select(Incident).where(
                 Incident.monitor_id == monitor.id,
                 Incident.resolved_at.is_(None),
-                IS_AVAILABILITY_INCIDENT,
             )
         )
     ).scalar_one_or_none()

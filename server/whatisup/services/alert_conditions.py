@@ -8,19 +8,13 @@ handles. Every value-based decision now goes through one pure predicate
 defined here; callers keep their own data acquisition (DB queries, event-type
 gating) and pass plain values in.
 
-``any_down`` / ``all_down`` are incident-scope decisions, not value
-comparisons — they stay with their callers.
+``availability`` is an incident-scope decision, not a value comparison — it
+stays with its caller.
 """
 
 from __future__ import annotations
 
 DEFAULT_ANOMALY_ZSCORE = 3.0
-
-#: Freshness window applied to pushed-metric conditions when the rule leaves it
-#: unset. Five minutes matches the default scrape/push cadence of every agent
-#: this is likely to face; a rule pushing less often must widen it explicitly,
-#: which is why the UI surfaces the field rather than hiding this default.
-DEFAULT_METRIC_WINDOW_SECONDS = 300
 
 
 def ssl_expiry_matches(

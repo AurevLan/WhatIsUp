@@ -11,12 +11,12 @@ from whatisup.api.deps import check_resource_access, get_current_user, require_s
 from whatisup.api.v1.alerts._common import _fetch_channels_by_ids
 from whatisup.core.database import get_db
 from whatisup.core.limiter import limiter
-from whatisup.models.alert import METRIC_CONDITIONS, AlertChannel, AlertCondition, AlertRule
+from whatisup.models.alert import AlertChannel, AlertCondition, AlertRule
 from whatisup.models.alert_matrix_template import AlertMatrixTemplate
 from whatisup.models.monitor import Monitor
 from whatisup.models.team import TeamRole
 from whatisup.models.user import User
-from whatisup.schemas.alert import AlertMatrixIn, AlertMatrixOut
+from whatisup.schemas.alert import AlertMatrixIn, AlertMatrixOut, assert_latency_rule_is_fireable
 from whatisup.schemas.alert_matrix_template import (
     AlertMatrixTemplateIn,
     AlertMatrixTemplateOut,
@@ -33,6 +33,7 @@ _MATRIX_RULE_FIELDS = (
     "digest_minutes",
     "storm_window_seconds",
     "storm_max_alerts",
+    "quorum_ratio",
     "baseline_factor",
     "anomaly_zscore_threshold",
     "schedule",
@@ -180,25 +181,11 @@ async def put_alert_matrix(
     """Upsert a monitor's alert rules from a matrix payload.
 
     One row per condition; rows absent from the payload are deleted.
-
-    Pushed-metric conditions (C-4) are deliberately out of the matrix: its whole
-    data model is one rule per condition, while a monitor legitimately has
-    several ``metric_above`` rules watching different metrics. They are rejected
-    on input *and* held out of the delete sweep below — a matrix save must not
-    wipe rules it was never able to display.
     """
     monitor = await _load_monitor_with_rules(monitor_id, current_user, db, min_role=TeamRole.editor)
 
     seen_conditions: set[AlertCondition] = set()
     for row in payload.rows:
-        if row.condition in METRIC_CONDITIONS:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=(
-                    f"Condition {row.condition} is managed per metric, not by the matrix — "
-                    "use POST /alerts/rules"
-                ),
-            )
         if row.condition in seen_conditions:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -210,13 +197,29 @@ async def put_alert_matrix(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Row {row.condition} has no channel",
             )
+        # Unlike POST /alerts/rules, a matrix row sets fields via a plain
+        # setattr loop below — nothing routes it through
+        # AlertRuleCreate.check_latency_fields, so the same guard has to run
+        # here explicitly or a `latency_anomaly` row naming zero or several
+        # sensitivity modes would be stored silently unfireable.
+        try:
+            assert_latency_rule_is_fireable(
+                row.condition,
+                row.threshold_value,
+                row.baseline_factor,
+                row.anomaly_zscore_threshold,
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+            ) from exc
 
     all_channel_ids = {cid for row in payload.rows for cid in row.channel_ids}
     fetched = await _fetch_channels_by_ids(db, current_user, all_channel_ids)
     channels_by_id: dict[uuid.UUID, AlertChannel] = {c.id: c for c in fetched}
 
     existing_by_condition: dict[AlertCondition, AlertRule] = {
-        r.condition: r for r in monitor.alert_rules if r.condition not in METRIC_CONDITIONS
+        r.condition: r for r in monitor.alert_rules
     }
 
     deleted_conditions = [c for c in existing_by_condition if c not in seen_conditions]

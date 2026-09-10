@@ -25,7 +25,7 @@ from whatisup.core.security import (
     encrypt_scenario_variables,
     generate_heartbeat_token,
 )
-from whatisup.models.incident import IS_AVAILABILITY_INCIDENT, Incident
+from whatisup.models.incident import Incident
 from whatisup.models.monitor import Monitor, MonitorGroup, monitor_tags
 from whatisup.models.result import CheckResult
 from whatisup.models.tag import Tag
@@ -181,15 +181,12 @@ async def list_monitors(
         rt = row[1]
         sparkline_map.setdefault(str(mid_val), []).append(round(rt, 1) if rt else 0)
 
-    # plan_cap_v2 §3a — open availability incident + its network verdict, one
-    # bulk query. IS_AVAILABILITY_INCIDENT excludes metric incidents (C-4):
-    # those don't mean "the monitor is down" and carry no verdict anyway.
+    # plan_cap_v2 §3a — open incident + its network verdict, one bulk query.
     open_incident_rows = (
         await db.execute(
             select(Incident.monitor_id, Incident.network_verdict).where(
                 Incident.monitor_id.in_(monitor_ids),
                 Incident.resolved_at.is_(None),
-                IS_AVAILABILITY_INCIDENT,
             )
         )
     ).all()

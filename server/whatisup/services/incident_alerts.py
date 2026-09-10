@@ -26,7 +26,7 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from whatisup.models.alert import METRIC_CONDITIONS, AlertEvent, AlertEventStatus, AlertRule
+from whatisup.models.alert import AlertEvent, AlertEventStatus, AlertRule
 from whatisup.models.incident import Incident
 from whatisup.models.monitor import Monitor
 from whatisup.models.probe import Probe
@@ -105,12 +105,8 @@ async def fire_alerts(
         )
     ]
 
-    # Web push + public status subscribers: outage-shaped notifications, so they
-    # are for availability incidents only. Both say "this service went down" in
-    # so many words, which a queue-depth threshold does not — and the public
-    # subscribers are people outside the tenant, who have no business receiving
-    # an internal application signal at all (C-4).
-    if incident.alert_rule_id is None and event_type in ("incident_opened", "incident_resolved"):
+    # Web push + public status subscribers.
+    if event_type in ("incident_opened", "incident_resolved"):
         from whatisup.services.web_push import dispatch_web_push_for_incident
 
         await dispatch_web_push_for_incident(db, incident, monitor, event_type)
@@ -155,21 +151,9 @@ async def fire_alerts(
     }
 
     now = datetime.now(UTC)
-    # C-4 — the two incident families never cross. A metric incident belongs to
-    # exactly one rule and may only dispatch that rule (otherwise an `any_down`
-    # rule on the same monitor would page "service down" for a queue-depth
-    # threshold); conversely a metric rule is driven solely by
-    # ``services/metric_alerts.py`` and must ignore every outage incident.
-    metric_rule_id = incident.alert_rule_id
 
     for rule in rules:
         if not rule.enabled:
-            continue
-
-        if metric_rule_id is not None:
-            if rule.id != metric_rule_id:
-                continue
-        elif rule.condition in METRIC_CONDITIONS:
             continue
 
         # H-10: min_duration_seconds — skip if incident too short for "opened" events
@@ -211,11 +195,11 @@ async def fire_alerts(
             continue
         if event_type not in handler.fires_on:
             continue
-        # Callers legitimately pass no CheckResult — the heartbeat checker and
-        # the C-4 metric evaluator both open or resolve incidents without one,
-        # and a value-based condition simply cannot be evaluated then. Before
-        # this guard existed, a single `ssl_expiry` rule on a heartbeat monitor
-        # raised AttributeError inside a background loop.
+        # Callers legitimately pass no CheckResult — the heartbeat checker
+        # opens or resolves incidents without one, and a value-based
+        # condition simply cannot be evaluated then. Before this guard
+        # existed, a single `ssl_expiry` rule on a heartbeat monitor raised
+        # AttributeError inside a background loop.
         if result is None and handler.needs_check_result:
             continue
 

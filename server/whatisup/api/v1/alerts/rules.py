@@ -198,19 +198,29 @@ async def update_rule(
         rule.tag_selector = payload.tag_selector or None
     if payload.min_duration_seconds is not None:
         rule.min_duration_seconds = payload.min_duration_seconds
-    if payload.threshold_value is not None:
-        rule.threshold_value = payload.threshold_value
     if payload.digest_minutes is not None:
         rule.digest_minutes = payload.digest_minutes
     if payload.storm_window_seconds is not None:
         rule.storm_window_seconds = payload.storm_window_seconds
     if payload.storm_max_alerts is not None:
         rule.storm_max_alerts = payload.storm_max_alerts
-    if payload.quorum_ratio is not None:
+    # `model_fields_set`, not a None test, for quorum_ratio and the three
+    # `latency_anomaly` sensitivity fields: since F1-conditions/F4 the mode is
+    # inferred from *which* field is set (quorum_ratio's boundary; whichever
+    # of threshold_value/baseline_factor/anomaly_zscore_threshold is non-null).
+    # A None test could never clear one back to "unset" — switching a rule
+    # from "all probes down" back to "any probe down", or from the baseline
+    # sensitivity mode to the absolute one, would be permanently PATCH-proof
+    # once the field had ever been set (the leftover value would keep winning
+    # against the new one, or trip assert_latency_rule_is_fireable's "exactly
+    # one" guard below forever). Same precedent as `escalation_policy_id`.
+    if "quorum_ratio" in payload.model_fields_set:
         rule.quorum_ratio = payload.quorum_ratio
-    if payload.baseline_factor is not None:
+    if "threshold_value" in payload.model_fields_set:
+        rule.threshold_value = payload.threshold_value
+    if "baseline_factor" in payload.model_fields_set:
         rule.baseline_factor = payload.baseline_factor
-    if payload.anomaly_zscore_threshold is not None:
+    if "anomaly_zscore_threshold" in payload.model_fields_set:
         rule.anomaly_zscore_threshold = payload.anomaly_zscore_threshold
     if payload.schedule is not None:
         rule.schedule = payload.schedule

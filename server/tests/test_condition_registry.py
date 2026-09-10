@@ -12,7 +12,7 @@ import inspect
 
 import pytest
 
-from whatisup.models.alert import METRIC_CONDITIONS, AlertCondition
+from whatisup.models.alert import AlertCondition
 from whatisup.services.conditions import CONDITION_REGISTRY, get_handler
 
 _EVENT_TYPES = {"incident_opened", "incident_resolved"}
@@ -55,9 +55,10 @@ def test_handler_contract_is_honoured(condition: AlertCondition):
 def test_a_condition_that_cannot_dispatch_cannot_preview_blindly(condition: AlertCondition):
     """``preview_reads_checks`` must be a deliberate choice, never an accident.
 
-    ``any_down`` is the case that makes this worth pinning: it dispatches off
-    the incident alone but previews off each monitor's latest check. Deriving
-    one flag from the other made the preview claim a down monitor was fine.
+    ``availability`` is the case that makes this worth pinning: it dispatches
+    off the incident alone but previews off each monitor's latest check.
+    Deriving one flag from the other made the preview claim a down monitor
+    was fine.
     """
     handler = CONDITION_REGISTRY[condition]
     if handler.needs_check_result:
@@ -66,14 +67,34 @@ def test_a_condition_that_cannot_dispatch_cannot_preview_blindly(condition: Aler
         )
 
 
-def test_metric_conditions_are_the_only_ones_off_the_check_pipeline():
-    """Keeps the C-4 boundary explicit rather than implied by three flags."""
-    off_pipeline = {c for c, h in CONDITION_REGISTRY.items() if not h.preview_reads_checks}
-    assert off_pipeline == set(METRIC_CONDITIONS)
+def test_availability_is_the_only_condition_with_dispatch_and_preview_diverging():
+    """Plan cap v2, 6f — the C-4 pushed-metric conditions used to be the other
+    three whose ``preview_reads_checks`` diverged from ``needs_check_result``;
+    cutting them (C1) leaves ``availability`` as the sole deliberate
+    divergence: it dispatches off the incident alone (``needs_check_result``
+    False) but previews off each monitor's current status
+    (``preview_reads_checks`` True). Confusing the two made the preview
+    answer "would not fire" for a monitor that was down
+    (``test_simulate_rule_any_down_fires``, pre-6f).
+    """
+    diverging = {
+        c for c, h in CONDITION_REGISTRY.items() if h.needs_check_result != h.preview_reads_checks
+    }
+    assert diverging == {AlertCondition.availability}
 
 
 def test_get_handler_accepts_the_raw_string():
     """Rules reach this both as ORM enums and as matrix payload strings."""
-    assert get_handler("any_down") is CONDITION_REGISTRY[AlertCondition.any_down]
-    assert get_handler(AlertCondition.any_down) is CONDITION_REGISTRY[AlertCondition.any_down]
+    assert get_handler("availability") is CONDITION_REGISTRY[AlertCondition.availability]
+    assert (
+        get_handler(AlertCondition.availability) is CONDITION_REGISTRY[AlertCondition.availability]
+    )
     assert get_handler("not_a_condition") is None
+    # Retired members (plan cap v2, 6f) must not resolve to a handler by
+    # accident — they are plain strings now (AlertCondition.condition is a
+    # VARCHAR, not a native enum), so a stale row or payload must 404/skip
+    # rather than silently dispatching under the wrong logic.
+    assert get_handler("any_down") is None
+    assert get_handler("all_down") is None
+    assert get_handler("response_time_above") is None
+    assert get_handler("metric_above") is None

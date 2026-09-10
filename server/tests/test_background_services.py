@@ -189,8 +189,7 @@ async def test_heartbeat_one_failing_monitor_does_not_lose_the_others(
 
     With a single commit at the end of the loop it did: the session was closed
     without committing and every incident of that tick vanished, alert included
-    — the exact bug `metric_alerts.py` and the escalation loop already fixed
-    by committing per item.
+    — the exact bug the escalation loop already fixed by committing per item.
     """
     for idx in range(3):
         bg_session.add(

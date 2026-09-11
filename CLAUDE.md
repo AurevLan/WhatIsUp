@@ -238,10 +238,12 @@ Migration `e4f5a6b7c8d9`. `POST /metrics/{monitor_id}` accepte un objet **ou** u
   coupée en deux, chacune avec sa courbe et son alerte. Le hash est dénormalisé sur le point pour que la
   lecture d'une série soit une égalité sur colonne indexée, pas une containment JSON sur toutes les
   partitions.
-- **`metric_series` est un registre**, une ligne par série. Il sert trois choses : plafond de cardinalité
-  par un `COUNT(*)` sur petite table (au lieu d'un `COUNT(DISTINCT)` sur toutes les partitions), liste des
-  séries pour l'UI (**y compris celles devenues muettes** — indispensable pour configurer un
-  `metric_absent`), et résolution du sélecteur de C-4.
+- **`metric_series` est un registre**, une ligne par série. Il sert : plafond de cardinalité par un
+  `COUNT(*)` sur petite table (au lieu d'un `COUNT(DISTINCT)` sur toutes les partitions), et liste des
+  séries pour l'UI (**y compris celles devenues muettes** — utile pour repérer un agent mort même si plus
+  rien ne peut alerter dessus directement, cf. § Alertes sur métrique poussée — coupées). Le sélecteur de
+  labels (`services/metric_series.py::resolve_series`) servait aussi C-4 ; ses fonctions restent en place
+  (l'ingestion et la corrélation ne dépendent pas de l'alerting) mais n'ont plus d'appelant depuis la coupe.
 - **Deux quotas, tous deux en refus 429** : débit (`METRICS_MAX_POINTS_PER_MINUTE`, compteur Redis fenêtre
   fixe) et cardinalité (`METRICS_MAX_SERIES_PER_MONITOR`). **Un lot est tout-ou-rien** : accepter la moitié
   laisserait l'appelant incapable de dire quoi renvoyer. Le refus de cardinalité **nomme la série fautive**.
@@ -357,61 +359,67 @@ post-mortem.
 - **Portée = un moniteur.** Pas un raccourci : les métriques sont poussées par moniteur, donc ça ne peut
   pas traverser les tenants.
 
-### Alertes sur métrique poussée (plan V2, C-4)
+### Alertes sur métrique poussée — coupées (plan cap v2, 6f/C1)
 
-`metric_above` / `metric_below` / `metric_absent`, évaluées par `services/metric_alerts.py`
-(boucle leader, 60 s). Migration `d3e4f5a6b7c8`.
+`metric_above` / `metric_below` / `metric_absent` ont existé (plan V2, C-4) puis ont été **retirées** :
+0 règle, 0 point, 0 série ne les utilisaient sur l'instance réelle (2026-09). Ce qu'elles faisaient —
+paginer quand un nombre poussé par l'application franchit un seuil, ou cesse d'arriver — a un meilleur
+remplaçant déjà dans le produit : un endpoint applicatif qui répond 500 passé son propre seuil (le seuil
+vit alors dans le code qui le connaît, pas dans un second système d'alerte), surveillé par un check
+`http` ordinaire ; ou un `heartbeat` poussé pour « l'agent est mort ». Migration `r2s3t4u5v6w7`
+(chaînée après `p0q1r2s3t4u5`/F1-conditions et `q1r2s3t4u5v6`/F4 — voir § suivante) : refuse de tourner
+s'il reste une règle ou un incident métrique vivant, plutôt que d'inventer une conversion sans perte.
 
-- **Deux familles d'incidents, discriminées par `Incident.alert_rule_id`** (NULL = disponibilité,
-  non-NULL = métrique, possédé par cette règle). Le pipeline d'alerte est ancré sur `Incident`
-  (`alert_events.incident_id` NOT NULL ; ack/snooze/escalade/silences/digest en dépendent),
-  donc une alerte métrique **doit** ouvrir un incident. Sans discriminant, `uq_incidents_monitor_open`
-  (un seul incident ouvert par moniteur) faisait qu'un incident métrique ouvert était retrouvé par
-  `process_check_result` comme *l'*incident du moniteur : **la vraie panne n'ouvrait plus rien et
-  n'envoyait plus d'alerte**. L'index unique est donc scindé — disponibilité `WHERE alert_rule_id IS NULL`,
-  métrique `(monitor_id, alert_rule_id)`.
-- **Toute requête qui veut dire « ce moniteur est-il down ? » doit porter `IS_AVAILABILITY_INCIDENT`**
-  (constante dans `models/incident.py`). Sinon : `scalar_one_or_none()` lève `MultipleResultsFound`,
-  le downtime SLA et le budget d'erreur gonflent, la page de statut vire au rouge. Déjà appliqué à
-  `incident.py`, `incident_decider.py`, `incident_correlation.py`, `heartbeat.py`, `network_verdict.py`,
-  `alert_matrix_preview.py`, `status.py`, `public.py`, `monitors/health.py`, `monitors/stats.py`.
-  **Volontairement absent** des listes d'incidents et de l'ack/snooze : là, les incidents métrique
-  doivent apparaître et être actionnables.
-- **Rien de public** : incidents métrique exclus de la page de statut et des mails aux abonnés
-  (`notify_subscribers`), et pas de web push — ce sont des signaux applicatifs internes.
-- **Le silence ne résout jamais** un incident `metric_above`/`metric_below` : sans échantillon frais tous
-  les prédicats répondent False, donc une résolution sur `not matched` seul annoncerait le rétablissement
-  au moment précis où l'on a cessé d'observer. La résolution exige `sample is not None`.
-- **`metric_absent` ne se déclenche pas pour une série jamais poussée** (`EVER_PUSHED_HORIZON`, 30 j) —
-  sinon une faute de frappe dans `metric_name` alerte indéfiniment.
-- **`min_duration_seconds` sans état stocké** : le dépassement commence juste après le dernier échantillon
-  qui *contredit* la condition, et l'incident est antidaté à ce point. Le test naïf (« tous les échantillons
-  de la dernière minute dépassent ») est faux — il passe dès qu'un seul mauvais échantillon tombe dans une
-  plage par ailleurs vide. L'antidatage est aussi ce qui fait passer la garde `min_duration_seconds` de
-  `fire_alerts`, qui sinon avalerait l'alerte qu'on lui demandait de retarder.
-- **Hors matrice d'alertes** : la matrice indexe une règle *par condition* et supprime ce qu'elle ne voit
-  pas ; un moniteur a légitimement plusieurs `metric_above`. Rejetées en entrée et exclues du balayage
-  de suppression.
-- **Sélection de série depuis C-1** : `AlertRule.metric_labels` (sous-ensemble). Une règle **sans**
-  sélecteur surveille **toutes** les séries du nom et se déclenche si l'une correspond. L'alternative —
-  ne surveiller que la série sans labels — rendrait une alerte existante définitivement silencieuse le jour
-  où l'application se met à labelliser : le bruit se voit et se corrige, le silence non. Cf.
-  `services/metric_series.py`.
-- **L'évaluateur dépend du registre `metric_series`** : un point inséré sans passer par l'ingestion est
-  invisible pour l'alerting. Les fixtures de test doivent appeler `ingest_points`, pas construire un
-  `CustomMetric` à la main (piège vécu : les tests C-4 passaient contre un évaluateur devenu aveugle).
-- **Cible = un moniteur** (`monitor_id` obligatoire) : les métriques sont poussées sur
-  `POST /metrics/{monitor_id}`. Validé par `assert_metric_rule_is_fireable`, appelé à la création **et**
-  sur l'état fusionné du PATCH — un PATCH qui bascule la condition sans `metric_name` passerait sinon.
-- Knobs : `METRIC_ALERTS_ENABLED`, `METRIC_ALERTS_INTERVAL_SECONDS` (60 = latence d'alerte pire cas ;
-  évaluation hors du chemin d'ingestion pour qu'un webhook lent ne freine pas l'agent qui pousse).
-- **Pas d'événement WebSocket** pour l'instant : le dashboard temps réel les lirait comme des pannes.
-  Ils apparaissent dans la liste d'incidents au rafraîchissement.
+- **L'ingestion (C-1/C-2) et la corrélation incident↔métrique (C-3) restent intactes** —
+  `services/metric_ingest.py`, `services/metric_series.py`, `services/metric_correlation.py`, les tables
+  `custom_metrics`/`metric_series` : elles servent la thèse du produit indépendamment de l'alerting.
+  Seul le *déclenchement d'alerte* sur une métrique a disparu. `GET /metrics/{id}/series` reste utile pour
+  repérer un agent mort même si plus rien ne peut alerter dessus directement.
+- **Le vrai gain : `Incident.alert_rule_id` a disparu**, avec lui la scission de
+  `uq_incidents_monitor_open` (disponibilité `WHERE alert_rule_id IS NULL` / métrique
+  `(monitor_id, alert_rule_id)`) — l'invariant redevient « un seul incident ouvert par moniteur », point.
+  `IS_AVAILABILITY_INCIDENT` (la constante qui distinguait les deux familles dans **10 fichiers**) a
+  disparu avec sa raison d'être ; ne subsistent que 3 mentions en commentaire (`models/alert.py`,
+  `models/status_announcement.py`, `api/v1/status_announcements.py`) expliquant pourquoi les annonces de
+  statut (lot 5b) ne sont volontairement **pas** un `Incident`.
+- **Colonnes `alert_rules.metric_name` / `metric_window_seconds` / `metric_labels` droppées.**
+  Toute requête ou payload qui les référence encore est un résidu à traiter comme un bug.
 
-## Conditions d'alerte — registre (`services/conditions/`)
+## Conditions d'alerte — registre (`services/conditions/`), 10 → 4 (plan cap v2, 6f)
 
 > Troisième point d'extension à registre du dépôt, après `services/channels/` (canaux) et
 > `probe/whatisup_probe/checkers/` (types de check). **Ajouter une condition = une classe, un fichier.**
+
+`AlertCondition` comptait 10 membres ; trois gestes du lot 6f l'ont ramené à **4** :
+`availability` · `ssl_expiry` · `latency_anomaly` · `schema_drift`.
+
+- **F1-conditions** — `any_down`/`all_down` fusionnent en `availability`, un quorum
+  (`AlertRule.quorum_ratio`) : `NULL`/`< 1.0` se comporte comme l'ancien `any_down`, `1.0` comme
+  l'ancien `all_down`. Seules ces deux valeurs limites sont évaluées précisément aujourd'hui —
+  l'incident ne porte qu'un `scope` binaire (global/géographique), pas un ratio de sondes en direct ;
+  un quorum intermédiaire réel est un chantier futur. Voir `services/conditions/availability.py`.
+- **F4** — `response_time_above` / `response_time_above_baseline` / `anomaly_detection` fusionnent en
+  `latency_anomaly` : le mode de sensibilité (absolu / relatif / statistique) se déduit de **lequel**
+  des trois champs `threshold_value` / `baseline_factor` / `anomaly_zscore_threshold` est renseigné —
+  exactement comme l'ancien membre d'enum les distinguait. `schemas.alert.assert_latency_rule_is_fireable`
+  impose qu'un seul soit posé, à la création **et** sur l'état fusionné du PATCH. `threshold_advisor` en
+  devient le compagnon naturel du mode absolu. Voir `services/conditions/latency.py`.
+- **C1** — `metric_above`/`metric_below`/`metric_absent` coupées entièrement (voir § précédente).
+- **`AlertRule.condition` est un `VARCHAR(30)` simple, plus un enum PostgreSQL natif** (depuis
+  `p0q1r2s3t4u5`) : Postgres ne permet ni de retirer un label d'un enum existant, ni d'utiliser un label
+  fraîchement ajouté par `ALTER TYPE ... ADD VALUE` dans la même transaction — et 6f devait retirer six
+  labels et en ajouter deux dans le même `alembic upgrade`. Voir le docstring de `AlertCondition`
+  (`models/alert.py`) pour le détail. Toute nouvelle condition future rencontrera la même contrainte.
+- **Migrations chaînées et chacune réversible** : `p0q1r2s3t4u5` (F1) → `q1r2s3t4u5v6` (F4) →
+  `r2s3t4u5v6w7` (C1). Les deux premières réécrivent sans perte les règles vivantes **et** les lignes
+  JSON déjà gelées de `alert_matrix_templates` (seedées une fois à `v7w8x9y0z1a2` — éditer
+  `services/alert_matrix_templates.py` ne touche pas les données déjà écrites, piège déjà vécu au lot 6e
+  avec le renotify). Un template « strict » qui pairait deux anciennes conditions maintenant identiques
+  (ex. `all_down` immédiat + `any_down` retardé) ne garde que la ligne la plus réactive.
+- ⚠️ **Un consommateur de `alert_matrix_templates.rows` doit tolérer une condition disparue** : une ligne
+  gelée avant 6f qui nommait encore `metric_above` (ou l'un des six autres retirés) échoue la validation
+  `AlertMatrixRow` (`extra="forbid"`) — `discovery.py::_apply_alert_matrix_template` la saute plutôt que
+  de faire échouer tout l'accept, exactement comme `PUT /monitors/{id}/matrix` la rejetterait à l'entrée.
 
 `AlertCondition` était dispatché par trois chaînes `if/elif` parallèles — `fire_alerts` (ce qui alerte
 vraiment), `simulate_rule` (l'aperçu UI), `compute_preview` (le badge « ≈ N / 30 j »). Toute divergence
@@ -424,16 +432,24 @@ dérive. R-1 avait factorisé les **prédicats** ; le registre factorise la **st
 - Les prédicats purs restent dans `services/alert_conditions.py` — les handlers les appellent. Ne pas
   réimplémenter une comparaison dans un handler.
 - **`needs_check_result` ≠ `preview_reads_checks`.** Le premier gouverne le dispatch (un `ssl_expiry` sans
-  `CheckResult` est inévaluable), le second l'aperçu. `any_down` les a différents : il alerte à partir de
-  l'incident seul, mais prévisualise en lisant le statut courant de chaque moniteur. Les confondre a fait
-  répondre « tout va bien » sur un moniteur down (attrapé par `test_simulate_rule_any_down_fires`).
+  `CheckResult` est inévaluable), le second l'aperçu. `availability` (ex-`any_down`) les a différents : il
+  alerte à partir de l'incident seul, mais prévisualise en lisant le statut courant de chaque moniteur.
+  Les confondre a fait répondre « tout va bien » sur un moniteur down (attrapé par
+  `test_simulate_rule_availability_fires`). Depuis 6f (C1), `availability` est la **seule** condition où
+  les deux divergent (`test_availability_is_the_only_condition_with_dispatch_and_preview_diverging`) —
+  les trois conditions métrique qui divergeaient aussi ont disparu avec elles.
 - **Gate CI** : `tests/test_condition_registry.py` échoue si un membre de l'enum n'a pas de handler, ou
   l'inverse. `tests/test_alert_conditions.py::test_every_condition_has_preview_support` reste en second
   filet côté sémantique.
 - `fires_on` déclare les types d'événement (`incident_opened` / `incident_resolved` — l'ancien
   `incident_renotify` a disparu avec `services/renotify.py`, plan cap v2 6e).
-- **Divergence assumée et documentée** : l'aperçu des conditions métrique ignore `min_duration_seconds`
-  (l'opérateur demande « et là, maintenant ? » en tapant un seuil) — le délai est dit dans le `reason`.
+- **Frontend** : `frontend/src/constants/alertMatrix.js` (`CONDITIONS_BY_TYPE`, `latencyModeOf`) est la
+  seule source de vérité des conditions valides par `check_type` côté UI — `ConditionCard.vue` (matrice
+  par moniteur), `TemplateEditor.vue` (éditeur de templates superadmin) et `AlertsView.vue` (formulaire de
+  règle autonome) y lisent tous les trois. Un changement de condition (`availability` ↔ quorum,
+  `latency_anomaly` ↔ mode de sensibilité) doit remettre à `null` les champs des modes non sélectionnés —
+  un PATCH qui les laisse à `undefined` ne les efface jamais côté serveur, qui clef sur
+  `model_fields_set` et non un test `None` (`api/v1/alerts/rules.py::update_rule`).
 
 ## Dépendances API (deps.py)
 
@@ -579,8 +595,6 @@ cd frontend && npm run dev -- --host
 - `services/probe_enrichment.py` : ASN lookup Team Cymru DNS (refresh opportuniste sur heartbeat, TTL 24 h)
 - `services/diagnostics.py` : V2-01-01 enqueue/drain Redis pour traceroute/dig/openssl/ping/curl à l'ouverture d'incident
 - `services/heartbeat.py` : tâche de fond — ouvre incidents si ping absent > `interval + grace`
-- `services/metric_alerts.py` : **plan V2, C-4** — `evaluate_metric_alerts` (boucle fond, 60 s), seule
-  chose qui déclenche `metric_above` / `metric_below` / `metric_absent` (cf. § Alertes sur métrique poussée)
 - `services/metric_ingest.py` : **plan V2, C-1** — `ingest_points`, batch + quotas débit/cardinalité
 - `services/metric_series.py` : **plan V2, C-1** — résolution d'un sélecteur de labels vers ses séries
 - `services/oncall.py` : **plan V2, B-2** — rotation, overrides, résolution vers des contacts livrables

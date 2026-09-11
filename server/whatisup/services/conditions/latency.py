@@ -1,9 +1,22 @@
-"""Latency conditions — fixed threshold, rolling baseline, statistical anomaly.
+"""Latency anomaly — fixed threshold, rolling baseline, or statistical z-score.
 
-Three answers to "is this slow?", in increasing order of how much history they
-need: a number you chose, a multiple of the last 7 days, and a z-score against
-the same time-of-day window. All three read the response time off the check that
-opened the incident, so all three are unevaluable without one.
+Plan cap v2, F4 — one condition, three sensitivity modes, merged from what
+used to be three separate ``AlertCondition`` members (``response_time_above``,
+``response_time_above_baseline``, ``anomaly_detection``): they answered the
+same question — "is this slow?" — and the old picker presented them flat, with
+no way for an operator to tell which one to reach for.
+
+The mode is inferred from **which one** of ``AlertRule.threshold_value`` /
+``baseline_factor`` / ``anomaly_zscore_threshold`` is set — exactly like the
+three old conditions used to be told apart by which enum member the rule
+carried. ``schemas.alert.assert_latency_rule_is_fireable`` enforces that
+exactly one of the three is set, both at creation and on the merged state
+after a PATCH, so the priority order below (baseline, then z-score, then
+absolute) only matters as a tie-break against malformed data that predates
+that guard.
+
+All three read the response time off the check that opened the incident, so
+all three are unevaluable without one.
 """
 
 from __future__ import annotations
@@ -49,17 +62,42 @@ async def _rolling_average_ms(db, monitor_id, now: datetime) -> float | None:
     ).scalar_one_or_none()
 
 
-class ResponseTimeAboveHandler(AlertConditionHandler):
-    condition = AlertCondition.response_time_above
+class LatencyAnomalyHandler(AlertConditionHandler):
+    condition = AlertCondition.latency_anomaly
 
     async def decide(self, dispatch: DispatchContext) -> DispatchDecision:
-        fire = response_time_above_matches(
-            dispatch.result.response_time_ms, dispatch.rule.threshold_value
-        )
+        rule, result = dispatch.rule, dispatch.result
+        if result.response_time_ms is None:
+            return DispatchDecision.no()
+
+        if rule.baseline_factor is not None:
+            baseline = await _rolling_average_ms(
+                dispatch.db, dispatch.monitor.id, datetime.now(UTC)
+            )
+            fire = above_baseline_matches(result.response_time_ms, baseline, rule.baseline_factor)
+            return DispatchDecision(fire=fire)
+
+        if rule.anomaly_zscore_threshold is not None:
+            # The z-score is computed once by ``process_check_result`` and
+            # injected into ctx; recomputing it here would double the query
+            # and could differ.
+            if not anomaly_matches(dispatch.ctx.get("zscore"), rule.anomaly_zscore_threshold):
+                return DispatchDecision.no()
+            return DispatchDecision.yes(response_time_ms=result.response_time_ms)
+
+        fire = response_time_above_matches(result.response_time_ms, rule.threshold_value)
         return DispatchDecision(fire=fire)
 
     async def preview(self, preview: PreviewContext) -> PreviewResult:
-        threshold = preview.rule.threshold_value
+        rule = preview.rule
+
+        if rule.baseline_factor is not None:
+            return await self._preview_baseline(preview, rule.baseline_factor)
+        if rule.anomaly_zscore_threshold is not None:
+            return await self._preview_anomaly(preview, rule.anomaly_zscore_threshold)
+        return self._preview_absolute(preview, rule.threshold_value)
+
+    def _preview_absolute(self, preview: PreviewContext, threshold: float | None) -> PreviewResult:
         slow = []
         for mid in preview.monitor_ids:
             result = preview.latest.get(mid)
@@ -76,26 +114,7 @@ class ResponseTimeAboveHandler(AlertConditionHandler):
             reason = f"Tous les monitors sont sous le seuil de {threshold}ms"
         return PreviewResult(would_fire=bool(slow), reason=reason, affected=slow)
 
-
-class ResponseTimeAboveBaselineHandler(AlertConditionHandler):
-    condition = AlertCondition.response_time_above_baseline
-
-    async def decide(self, dispatch: DispatchContext) -> DispatchDecision:
-        rule, result = dispatch.rule, dispatch.result
-        if rule.baseline_factor is None or result.response_time_ms is None:
-            return DispatchDecision.no()
-        baseline = await _rolling_average_ms(dispatch.db, dispatch.monitor.id, datetime.now(UTC))
-        fire = above_baseline_matches(result.response_time_ms, baseline, rule.baseline_factor)
-        return DispatchDecision(fire=fire)
-
-    async def preview(self, preview: PreviewContext) -> PreviewResult:
-        factor = preview.rule.baseline_factor
-        if factor is None:
-            return PreviewResult(
-                would_fire=False,
-                reason="Facteur de baseline non défini — la règle ne peut pas se déclencher",
-            )
-
+    async def _preview_baseline(self, preview: PreviewContext, factor: float) -> PreviewResult:
         now = datetime.now(UTC)
         above = []
         for mid in preview.monitor_ids:
@@ -116,21 +135,9 @@ class ResponseTimeAboveBaselineHandler(AlertConditionHandler):
         )
         return PreviewResult(would_fire=bool(above), reason=reason, affected=above)
 
-
-class AnomalyDetectionHandler(AlertConditionHandler):
-    condition = AlertCondition.anomaly_detection
-
-    async def decide(self, dispatch: DispatchContext) -> DispatchDecision:
-        result = dispatch.result
-        if result.response_time_ms is None:
-            return DispatchDecision.no()
-        # The z-score is computed once by ``process_check_result`` and injected
-        # into ctx; recomputing it here would double the query and could differ.
-        if not anomaly_matches(dispatch.ctx.get("zscore"), dispatch.rule.anomaly_zscore_threshold):
-            return DispatchDecision.no()
-        return DispatchDecision.yes(response_time_ms=result.response_time_ms)
-
-    async def preview(self, preview: PreviewContext) -> PreviewResult:
+    async def _preview_anomaly(
+        self, preview: PreviewContext, zscore_threshold: float
+    ) -> PreviewResult:
         # Same computation as process_check_result; returns None below 10 samples.
         from whatisup.services.anomaly import compute_zscore
 
@@ -144,7 +151,7 @@ class AnomalyDetectionHandler(AlertConditionHandler):
             if zscore is None:
                 insufficient += 1
                 continue
-            if anomaly_matches(zscore, preview.rule.anomaly_zscore_threshold):
+            if anomaly_matches(zscore, zscore_threshold):
                 anomalous.append(f"{preview.monitors_by_id[mid].name} (z-score {zscore:.1f})")
 
         if anomalous:

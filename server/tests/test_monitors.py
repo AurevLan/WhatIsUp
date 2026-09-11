@@ -129,10 +129,8 @@ async def test_list_monitors_exposes_open_incident_and_network_verdict(
     reached the wire: the enrichment dict set them, but the declared
     ``MonitorOut`` schema didn't list them, so FastAPI's response_model
     validation silently dropped the keys (pydantic's default
-    ``extra="ignore"``). Also pins that a metric incident (``alert_rule_id``
-    set, C-4) is excluded — it doesn't mean "the monitor is down".
+    ``extra="ignore"``).
     """
-    from whatisup.models.alert import AlertCondition, AlertRule
     from whatisup.models.incident import Incident, IncidentScope
     from whatisup.models.monitor import Monitor
 
@@ -142,10 +140,7 @@ async def test_list_monitors_exposes_open_incident_and_network_verdict(
         name="verdict-down", url="https://down.example.com", owner_id=regular_user.id
     )
     mon_up = Monitor(name="verdict-up", url="https://up.example.com", owner_id=regular_user.id)
-    mon_metric = Monitor(
-        name="verdict-metric", url="https://metric.example.com", owner_id=regular_user.id
-    )
-    db_session.add_all([mon_down, mon_up, mon_metric])
+    db_session.add_all([mon_down, mon_up])
     await db_session.flush()
 
     db_session.add(
@@ -154,23 +149,6 @@ async def test_list_monitors_exposes_open_incident_and_network_verdict(
             started_at=now,
             scope=IncidentScope.global_,
             network_verdict="network_partition_asn",
-        )
-    )
-    rule = AlertRule(
-        owner_id=regular_user.id,
-        monitor_id=mon_metric.id,
-        condition=AlertCondition.metric_above,
-        metric_name="queue_depth",
-        threshold_value=10,
-    )
-    db_session.add(rule)
-    await db_session.flush()
-    db_session.add(
-        Incident(
-            monitor_id=mon_metric.id,
-            started_at=now,
-            scope=IncidentScope.global_,
-            alert_rule_id=rule.id,
         )
     )
     await db_session.flush()
@@ -189,10 +167,6 @@ async def test_list_monitors_exposes_open_incident_and_network_verdict(
     up = by_id[str(mon_up.id)]
     assert up["has_open_incident"] is False
     assert up["network_verdict"] is None
-
-    metric = by_id[str(mon_metric.id)]
-    assert metric["has_open_incident"] is False, "a metric incident isn't an availability outage"
-    assert metric["network_verdict"] is None
 
 
 def test_list_monitors_latest_query_is_bounded_not_full_scan() -> None:

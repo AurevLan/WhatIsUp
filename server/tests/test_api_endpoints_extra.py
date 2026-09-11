@@ -621,7 +621,7 @@ async def test_simulate_rule_endpoint(client: AsyncClient, user_token: str) -> N
             "/api/v1/alerts/rules",
             json={
                 "monitor_id": mon["id"],
-                "condition": "any_down",
+                "condition": "availability",
                 "channel_ids": [chan["id"]],
             },
             headers=_auth(user_token),
@@ -657,7 +657,7 @@ async def test_matrix_template_admin_crud(client: AsyncClient, admin_token: str)
             "check_type": "http",
             "rows": [
                 {
-                    "condition": "any_down",
+                    "condition": "availability",
                     "channel_ids": [],
                     "enabled": True,
                     "min_duration_seconds": 0,

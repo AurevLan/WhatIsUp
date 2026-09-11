@@ -817,17 +817,16 @@ async def _apply_alert_matrix_template(
     A row that names its own ``channel_ids`` uses those; otherwise it falls
     back to ``default_channel_ids``. A row that resolves to no channel at all
     is skipped rather than failing the whole accept — applying a template is
-    a bonus on top of monitor creation, not a condition of it. Metric
-    conditions (`metric_above`/`below`/`absent`) never appear in a matrix
-    template — skipped the same way ``PUT /monitors/{id}/matrix`` rejects
-    them, since they need a `metric_name` a template can't supply.
+    a bonus on top of monitor creation, not a condition of it. A row whose
+    ``condition`` no longer exists (a template frozen before plan cap v2, 6f)
+    fails ``AlertMatrixRow`` validation below and is skipped the same way.
     """
     from pydantic import ValidationError
 
     from whatisup.api.v1.alerts import _MATRIX_RULE_FIELDS, _fetch_channels_by_ids
     from whatisup.models.alert import AlertRule
     from whatisup.models.alert_matrix_template import AlertMatrixTemplate
-    from whatisup.schemas.alert import METRIC_CONDITIONS, AlertMatrixRow
+    from whatisup.schemas.alert import AlertMatrixRow
 
     tpl = (
         await db.execute(select(AlertMatrixTemplate).where(AlertMatrixTemplate.id == template_id))
@@ -845,8 +844,6 @@ async def _apply_alert_matrix_template(
     }
 
     for raw_row in tpl.rows:
-        if raw_row.get("condition") in METRIC_CONDITIONS:
-            continue
         row_channel_ids = raw_row.get("channel_ids") or [str(cid) for cid in default_channel_ids]
         try:
             # Template rows are admin-authored free-form dicts (no schema

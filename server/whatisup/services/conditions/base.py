@@ -128,11 +128,12 @@ class AlertConditionHandler(ABC):
     needs_check_result: bool = True
 
     #: True when the **preview** reads the monitors' latest checks. Separate
-    #: from the above on purpose, and they genuinely differ: ``any_down``
+    #: from the above on purpose, and they genuinely differ: ``availability``
     #: dispatches off the incident alone (no check needed) but previews by
     #: looking at each monitor's current status (checks very much needed).
     #: Conflating the two silently made the preview answer "would not fire" for
-    #: a monitor that was down — caught by ``test_simulate_rule_any_down_fires``.
+    #: a monitor that was down — caught by
+    #: ``test_availability_dispatches_off_incident_but_previews_off_checks``.
     #: Defaults to ``needs_check_result`` via ``__init_subclass__``.
     preview_reads_checks: bool = True
 

@@ -777,7 +777,7 @@ async def test_accept_applies_alert_matrix_template(
     template = AlertMatrixTemplate(
         name="standard",
         check_type="http",
-        rows=[{"condition": "any_down", "min_duration_seconds": 30}],
+        rows=[{"condition": "availability", "min_duration_seconds": 30}],
         is_system=True,
     )
     db_session.add(template)
@@ -812,9 +812,64 @@ async def test_accept_applies_alert_matrix_template(
         .all()
     )
     assert len(rules) == 1
-    assert rules[0].condition == "any_down"
+    assert rules[0].condition == "availability"
     assert rules[0].min_duration_seconds == 30
     assert [c.id for c in rules[0].channels] == [channel.id]
+
+
+@pytest.mark.asyncio
+async def test_accept_skips_a_stale_condition_row_in_a_frozen_template(
+    client: AsyncClient,
+    user_token: str,
+    db_session: AsyncSession,
+    regular_user: User,
+    owned_source: DiscoverySource,
+) -> None:
+    """A template frozen before plan cap v2, 6f (e.g. a row still naming
+    ``metric_above``, or one of the six other retired conditions) has no
+    ``AlertMatrixRow`` to validate against any more — it must be skipped
+    rather than 500 the whole accept, the same way ``PUT
+    /monitors/{id}/matrix`` rejects it at the door.
+    """
+    channel = AlertChannel(
+        owner_id=regular_user.id,
+        name="ops-email",
+        type=AlertChannelType.email,
+        config={"to": "ops@example.com"},
+    )
+    db_session.add(channel)
+    template = AlertMatrixTemplate(
+        name="stale",
+        check_type="http",
+        rows=[{"condition": "metric_above", "min_duration_seconds": 30}],
+        is_system=True,
+    )
+    db_session.add(template)
+    await db_session.flush()
+
+    service = _make_service(owned_source, host="10.0.0.62", port=80)
+    db_session.add(service)
+    await db_session.flush()
+    await db_session.commit()
+
+    resp = await client.post(
+        f"/api/v1/discovery/services/{service.id}/accept",
+        json={
+            "alert_matrix_template_id": str(template.id),
+            "alert_channel_ids": [str(channel.id)],
+        },
+        headers=_auth(user_token),
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    monitor_id = uuid.UUID(body["monitor_id"])
+
+    rules = (
+        (await db_session.execute(select(AlertRule).where(AlertRule.monitor_id == monitor_id)))
+        .scalars()
+        .all()
+    )
+    assert rules == []
 
 
 # ── default_monitor_fields ────────────────────────────────────────────────────

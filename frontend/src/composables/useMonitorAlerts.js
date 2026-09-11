@@ -6,7 +6,7 @@
 // flash before the request settles.
 //
 // The auto-alert flow opens a modal pre-checked with all channels and POSTs
-// to /alerts/auto-rules/{monitor_id}, which creates one any_down rule per
+// to /alerts/auto-rules/{monitor_id}, which creates one availability rule per
 // channel. The modal lazy-loads channels the first time it opens.
 
 import { ref, watch } from 'vue'

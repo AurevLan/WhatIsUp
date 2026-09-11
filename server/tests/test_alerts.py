@@ -190,14 +190,14 @@ async def test_create_alert_rule(client: AsyncClient, user_token: str) -> None:
         "/api/v1/alerts/rules",
         json={
             "monitor_id": monitor_id,
-            "condition": "any_down",
+            "condition": "availability",
             "channel_ids": [channel_id],
         },
         headers=_auth(user_token),
     )
     assert resp.status_code == 201
     data = resp.json()
-    assert data["condition"] == "any_down"
+    assert data["condition"] == "availability"
     assert any(ch["id"] == channel_id for ch in data["channels"])
 
 
@@ -207,7 +207,7 @@ async def test_create_rule_requires_monitor_or_group(client: AsyncClient, user_t
 
     resp = await client.post(
         "/api/v1/alerts/rules",
-        json={"condition": "any_down", "channel_ids": [channel_id]},
+        json={"condition": "availability", "channel_ids": [channel_id]},
         headers=_auth(user_token),
     )
     assert resp.status_code == 400
@@ -218,7 +218,7 @@ async def test_list_alert_rules(client: AsyncClient, user_token: str) -> None:
     monitor_id, channel_id = await _create_monitor_and_channel(client, user_token)
     await client.post(
         "/api/v1/alerts/rules",
-        json={"monitor_id": monitor_id, "condition": "any_down", "channel_ids": [channel_id]},
+        json={"monitor_id": monitor_id, "condition": "availability", "channel_ids": [channel_id]},
         headers=_auth(user_token),
     )
     resp = await client.get("/api/v1/alerts/rules", headers=_auth(user_token))
@@ -231,7 +231,7 @@ async def test_update_alert_rule(client: AsyncClient, user_token: str) -> None:
     monitor_id, channel_id = await _create_monitor_and_channel(client, user_token)
     create = await client.post(
         "/api/v1/alerts/rules",
-        json={"monitor_id": monitor_id, "condition": "any_down", "channel_ids": [channel_id]},
+        json={"monitor_id": monitor_id, "condition": "availability", "channel_ids": [channel_id]},
         headers=_auth(user_token),
     )
     rule_id = create.json()["id"]
@@ -250,7 +250,7 @@ async def test_delete_alert_rule(client: AsyncClient, user_token: str) -> None:
     monitor_id, channel_id = await _create_monitor_and_channel(client, user_token)
     create = await client.post(
         "/api/v1/alerts/rules",
-        json={"monitor_id": monitor_id, "condition": "any_down", "channel_ids": [channel_id]},
+        json={"monitor_id": monitor_id, "condition": "availability", "channel_ids": [channel_id]},
         headers=_auth(user_token),
     )
     rule_id = create.json()["id"]
@@ -309,9 +309,9 @@ async def test_put_matrix_creates_rules(client: AsyncClient, user_token: str) ->
         f"/api/v1/alerts/monitors/{monitor_id}/matrix",
         json={
             "rows": [
-                {"condition": "any_down", "channel_ids": [ch1, ch2]},
+                {"condition": "availability", "channel_ids": [ch1, ch2]},
                 {
-                    "condition": "response_time_above",
+                    "condition": "latency_anomaly",
                     "channel_ids": [ch1],
                     "threshold_value": 2000,
                 },
@@ -323,34 +323,36 @@ async def test_put_matrix_creates_rules(client: AsyncClient, user_token: str) ->
     data = resp.json()
     assert len(data["rows"]) == 2
     conditions = {r["condition"] for r in data["rows"]}
-    assert conditions == {"any_down", "response_time_above"}
-    any_down = next(r for r in data["rows"] if r["condition"] == "any_down")
-    assert {c["id"] for c in any_down["channels"]} == {ch1, ch2}
+    assert conditions == {"availability", "latency_anomaly"}
+    availability = next(r for r in data["rows"] if r["condition"] == "availability")
+    assert {c["id"] for c in availability["channels"]} == {ch1, ch2}
 
 
 @pytest.mark.asyncio
 async def test_put_matrix_upserts_and_removes(client: AsyncClient, user_token: str) -> None:
     monitor_id, ch1 = await _create_monitor_and_channel(client, user_token)
 
-    # First PUT: two rows
+    # First PUT: two rows (one condition each — a matrix row is one-per-condition,
+    # so the old any_down/all_down pair, now both `availability`, is expressed
+    # here as availability + a second, unrelated condition).
     await client.put(
         f"/api/v1/alerts/monitors/{monitor_id}/matrix",
         json={
             "rows": [
-                {"condition": "any_down", "channel_ids": [ch1]},
-                {"condition": "all_down", "channel_ids": [ch1]},
+                {"condition": "availability", "channel_ids": [ch1]},
+                {"condition": "ssl_expiry", "channel_ids": [ch1]},
             ]
         },
         headers=_auth(user_token),
     )
 
-    # Second PUT: only any_down with updated params → all_down must be removed
+    # Second PUT: only availability with updated params → ssl_expiry must be removed
     resp = await client.put(
         f"/api/v1/alerts/monitors/{monitor_id}/matrix",
         json={
             "rows": [
                 {
-                    "condition": "any_down",
+                    "condition": "availability",
                     "channel_ids": [ch1],
                     "min_duration_seconds": 120,
                     "enabled": False,
@@ -363,7 +365,7 @@ async def test_put_matrix_upserts_and_removes(client: AsyncClient, user_token: s
     data = resp.json()
     assert len(data["rows"]) == 1
     row = data["rows"][0]
-    assert row["condition"] == "any_down"
+    assert row["condition"] == "availability"
     assert row["min_duration_seconds"] == 120
     assert row["enabled"] is False
 
@@ -375,8 +377,8 @@ async def test_put_matrix_rejects_duplicate_condition(client: AsyncClient, user_
         f"/api/v1/alerts/monitors/{monitor_id}/matrix",
         json={
             "rows": [
-                {"condition": "any_down", "channel_ids": [ch1]},
-                {"condition": "any_down", "channel_ids": [ch1]},
+                {"condition": "availability", "channel_ids": [ch1]},
+                {"condition": "availability", "channel_ids": [ch1]},
             ]
         },
         headers=_auth(user_token),
@@ -389,7 +391,7 @@ async def test_put_matrix_rejects_empty_channels(client: AsyncClient, user_token
     monitor_id, _ = await _create_monitor_and_channel(client, user_token)
     resp = await client.put(
         f"/api/v1/alerts/monitors/{monitor_id}/matrix",
-        json={"rows": [{"condition": "any_down", "channel_ids": []}]},
+        json={"rows": [{"condition": "availability", "channel_ids": []}]},
         headers=_auth(user_token),
     )
     assert resp.status_code == 400
@@ -410,7 +412,7 @@ async def test_put_matrix_persists_schedule(client: AsyncClient, user_token: str
         json={
             "rows": [
                 {
-                    "condition": "any_down",
+                    "condition": "availability",
                     "channel_ids": [ch1],
                     "schedule": schedule,
                 }
@@ -435,7 +437,7 @@ async def test_create_rule_with_tag_selector(client: AsyncClient, user_token: st
     resp = await client.post(
         "/api/v1/alerts/rules",
         json={
-            "condition": "any_down",
+            "condition": "availability",
             "channel_ids": [channel_id],
             "tag_selector": ["env:prod", "team:backend"],
         },
@@ -453,7 +455,7 @@ async def test_create_rule_without_target_rejected(client: AsyncClient, user_tok
     _, channel_id = await _create_monitor_and_channel(client, user_token)
     resp = await client.post(
         "/api/v1/alerts/rules",
-        json={"condition": "any_down", "channel_ids": [channel_id]},
+        json={"condition": "availability", "channel_ids": [channel_id]},
         headers=_auth(user_token),
     )
     assert resp.status_code == 400
@@ -465,7 +467,7 @@ async def test_delete_tag_selector_rule(client: AsyncClient, user_token: str) ->
     create = await client.post(
         "/api/v1/alerts/rules",
         json={
-            "condition": "any_down",
+            "condition": "availability",
             "channel_ids": [channel_id],
             "tag_selector": ["env:prod"],
         },

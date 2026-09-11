@@ -2,7 +2,7 @@
 
 TLS certificate validity/expiry and JSON response-shape drift. Neither is an
 outage: the check is ``up`` in both cases, which is exactly why they need their
-own conditions rather than riding on ``any_down``.
+own conditions rather than riding on ``availability``.
 """
 
 from __future__ import annotations

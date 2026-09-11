@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from whatisup.models.alert import AlertCondition
 
-from .availability import AllDownHandler, AnyDownHandler
+from .availability import AvailabilityHandler
 from .base import (
     AlertConditionHandler,
     DispatchContext,
@@ -24,12 +24,7 @@ from .base import (
     PreviewResult,
 )
 from .integrity import SchemaDriftHandler, SslExpiryHandler
-from .latency import (
-    AnomalyDetectionHandler,
-    ResponseTimeAboveBaselineHandler,
-    ResponseTimeAboveHandler,
-)
-from .metrics import MetricAboveHandler, MetricAbsentHandler, MetricBelowHandler
+from .latency import LatencyAnomalyHandler
 
 __all__ = [
     "CONDITION_REGISTRY",
@@ -43,16 +38,10 @@ __all__ = [
 ]
 
 _HANDLERS: tuple[AlertConditionHandler, ...] = (
-    AnyDownHandler(),
-    AllDownHandler(),
+    AvailabilityHandler(),
     SslExpiryHandler(),
-    ResponseTimeAboveHandler(),
-    ResponseTimeAboveBaselineHandler(),
-    AnomalyDetectionHandler(),
+    LatencyAnomalyHandler(),
     SchemaDriftHandler(),
-    MetricAboveHandler(),
-    MetricBelowHandler(),
-    MetricAbsentHandler(),
 )
 
 CONDITION_REGISTRY: dict[AlertCondition, AlertConditionHandler] = {

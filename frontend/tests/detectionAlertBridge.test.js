@@ -56,11 +56,11 @@ describe('useDetectionAlertBridge', () => {
   it('createAlertRule posts the pending condition for the monitor + channel', async () => {
     mockApi({ channels: [{ id: 'c1', name: 'Email', type: 'email' }], rules: [] })
     const b = useDetectionAlertBridge(ref({ id: 'm1' }))
-    await b.offerAlert('any_down')
+    await b.offerAlert('availability')
     await b.createAlertRule()
     expect(apiPost).toHaveBeenCalledWith('/alerts/rules', {
       monitor_id: 'm1',
-      condition: 'any_down',
+      condition: 'availability',
       min_duration_seconds: 0,
       channel_ids: ['c1'],
     }, { skipErrorToast: true })

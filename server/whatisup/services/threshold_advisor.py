@@ -25,8 +25,8 @@ async def compute_threshold_suggestions(
     owner_id: uuid.UUID | None = None,
 ) -> list[dict]:
     """
-    For each monitor with >7 days of data and no response_time_above rule,
-    compute p95 and suggest a threshold.
+    For each monitor with >7 days of data and no absolute-threshold
+    ``latency_anomaly`` rule, compute p95 and suggest a threshold.
 
     Returns a list of suggestions:
       [{monitor_id, monitor_name, p95_ms, suggested_threshold_ms}]
@@ -47,13 +47,17 @@ async def compute_threshold_suggestions(
 
     monitor_ids = [m.id for m in monitors]
 
-    # Find which monitors already have a response_time_above rule
+    # Find which monitors already have an absolute-threshold latency_anomaly
+    # rule (plan cap v2, F4 — the merged condition's other two sensitivity
+    # modes, relative and statistical, don't read threshold_value, so they
+    # don't compete with the suggestion this function makes).
     existing_rules = (
         (
             await db.execute(
                 select(AlertRule.monitor_id).where(
                     AlertRule.monitor_id.in_(monitor_ids),
-                    AlertRule.condition == AlertCondition.response_time_above,
+                    AlertRule.condition == AlertCondition.latency_anomaly,
+                    AlertRule.threshold_value.isnot(None),
                 )
             )
         )

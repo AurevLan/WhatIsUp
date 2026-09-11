@@ -212,8 +212,8 @@
                 <span v-if="rule.min_duration_seconds" class="text-xs text-(--text-3)">{{ t('alerts.rule_after_seconds', { n: rule.min_duration_seconds }) }}</span>
                 <span v-if="rule.digest_minutes" class="text-xs text-(--accent)">{{ t('alerts.rule_digest_minutes', { n: rule.digest_minutes }) }}</span>
                 <span v-if="rule.anomaly_zscore_threshold" class="text-xs text-(--accent)">· z={{ rule.anomaly_zscore_threshold }}</span>
-                <span v-if="rule.metric_name" class="text-xs text-(--accent) font-mono">· {{ rule.metric_name }}{{ labelKey(rule.metric_labels) }}</span>
-                <span v-if="rule.metric_name && rule.metric_window_seconds" class="text-xs text-(--text-3)">{{ t('alerts.rule_metric_window', { n: rule.metric_window_seconds }) }}</span>
+                <span v-if="rule.baseline_factor" class="text-xs text-(--accent)">· {{ rule.baseline_factor }}×</span>
+                <span v-if="rule.condition === 'availability' && rule.quorum_ratio >= 1.0" class="text-xs text-(--accent)">{{ t('alerts.quorum_all') }}</span>
                 <span v-if="rule.schedule?.offhours_suppress" class="text-xs text-(--warn)">{{ t('alerts.rule_business_hours') }}</span>
               </div>
               <div class="mt-2 flex items-center gap-1.5 flex-wrap">
@@ -318,86 +318,88 @@
           <div>
             <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('alerts.condition_label') }} *</label>
             <select v-model="ruleForm.condition" class="input w-full" required>
-              <option value="any_down">{{ t('alerts.cond_any_down') }}</option>
-              <option value="all_down">{{ t('alerts.cond_all_down') }}</option>
+              <option value="availability">{{ t('alerts.cond_availability') }}</option>
               <option value="ssl_expiry">{{ t('alerts.cond_ssl_expiry') }}</option>
-              <option value="response_time_above">{{ t('alerts.cond_response_time_above') }}</option>
-              <option value="response_time_above_baseline">{{ t('alerts.cond_response_time_above_baseline') }}</option>
-              <option value="anomaly_detection">{{ t('alerts.cond_anomaly_detection') }}</option>
+              <option value="latency_anomaly">{{ t('alerts.cond_latency_anomaly') }}</option>
               <option value="schema_drift">{{ t('alerts.cond_schema_drift') }}</option>
-              <!-- Pushed metrics (C-4). Only offered on a monitor target:
-                   metrics are pushed to POST /metrics/{monitor_id}, so a
-                   group-scoped rule has no series to read and the API rejects it. -->
-              <optgroup v-if="isMonitorTarget" :label="t('alerts.cond_group_metrics')">
-                <option value="metric_above">{{ t('alerts.cond_metric_above') }}</option>
-                <option value="metric_below">{{ t('alerts.cond_metric_below') }}</option>
-                <option value="metric_absent">{{ t('alerts.cond_metric_absent') }}</option>
-              </optgroup>
             </select>
           </div>
 
-          <!-- Pushed metric: which series, threshold, freshness window -->
-          <div v-if="isMetricCondition" class="bg-(--accent-glow) border border-(--accent-border) rounded-lg p-3 space-y-3">
-            <div>
-              <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('alerts.metric_name_label') }} *</label>
-              <input v-model.trim="ruleForm.metric_name" class="input w-full" type="text" maxlength="100"
-                pattern="[a-zA-Z0-9_.\-]+" list="metric-name-options"
-                :placeholder="t('alerts.metric_name_placeholder')" required />
-              <datalist id="metric-name-options">
-                <option v-for="name in knownMetricNames" :key="name" :value="name" />
-              </datalist>
-              <p class="text-xs text-(--text-3) mt-1">{{ t('alerts.metric_name_help') }}</p>
+          <!-- Availability quorum (F1-conditions): any probe down (old
+               any_down) vs every probe down at once (old all_down). -->
+          <div v-if="ruleForm.condition === 'availability'" class="bg-(--accent-glow) border border-(--accent-border) rounded-lg p-3 space-y-2">
+            <label class="block text-sm font-medium text-(--text-2)">{{ t('alerts.quorum_label') }}</label>
+            <div class="grid grid-cols-2 gap-2">
+              <button type="button" @click="ruleForm.quorum_ratio = null"
+                class="py-2 px-3 rounded-lg border text-sm font-medium transition-colors"
+                :class="!(ruleForm.quorum_ratio >= 1.0)
+                  ? 'bg-(--bg-surface) border-(--accent-border) text-(--accent)'
+                  : 'border-(--border) text-(--text-2) hover:border-(--border-hover)'">
+                {{ t('alerts.quorum_any') }}
+              </button>
+              <button type="button" @click="ruleForm.quorum_ratio = 1.0"
+                class="py-2 px-3 rounded-lg border text-sm font-medium transition-colors"
+                :class="ruleForm.quorum_ratio >= 1.0
+                  ? 'bg-(--bg-surface) border-(--accent-border) text-(--accent)'
+                  : 'border-(--border) text-(--text-2) hover:border-(--border-hover)'">
+                {{ t('alerts.quorum_all') }}
+              </button>
             </div>
-            <!-- Label selector (C-1). A name can now cover several series; without
-                 a selector the rule watches all of them and fires on any. -->
-            <div v-if="matchingSeries.length">
-              <label class="block text-sm font-medium text-(--text-2) mb-1">
-                {{ t('alerts.metric_labels_label') }}
-                <span class="text-(--text-3) font-normal">{{ t('alerts.metric_labels_hint') }}</span>
-              </label>
-              <select v-model="selectedSeriesKey" class="input w-full">
-                <option value="">{{ t('alerts.metric_labels_all', { n: matchingSeries.length }) }}</option>
-                <option v-for="s in matchingSeries" :key="s.key" :value="s.key">{{ s.key }}</option>
-              </select>
-              <p class="text-xs text-(--text-3) mt-1">
-                {{ selectedSeriesKey ? t('alerts.metric_labels_help_one') : t('alerts.metric_labels_help_any') }}
-              </p>
-            </div>
-            <div v-if="ruleForm.condition !== 'metric_absent'">
-              <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('alerts.metric_threshold_label') }} *</label>
-              <input v-model.number="ruleForm.threshold_value" class="input w-full" type="number" step="any" required />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-(--text-2) mb-1">
-                {{ t('alerts.metric_window_label') }}
-                <span class="text-(--text-3) font-normal">{{ t('alerts.metric_window_hint') }}</span>
-              </label>
-              <input v-model.number="ruleForm.metric_window_seconds" class="input w-full" type="number" min="30" max="86400" placeholder="300" />
-              <p class="text-xs text-(--text-3) mt-1">
-                {{ ruleForm.condition === 'metric_absent' ? t('alerts.metric_window_help_absent') : t('alerts.metric_window_help') }}
-              </p>
-            </div>
-            <p class="text-xs text-(--text-3)">{{ t('alerts.metric_delay_help', { seconds: 60 }) }}</p>
+            <p class="text-xs text-(--text-3)">{{ t('alerts.quorum_help') }}</p>
           </div>
 
-          <!-- Baseline factor -->
-          <div v-if="ruleForm.condition === 'response_time_above_baseline'" class="bg-(--accent-glow) border border-(--accent-border) rounded-lg p-3 space-y-2">
-            <label class="block text-sm font-medium text-(--text-2)">
-              {{ t('alerts.baseline_factor_label') }}
-              <span class="text-(--text-3) font-normal ml-1">{{ t('alerts.baseline_factor_hint') }}</span>
-            </label>
-            <input v-model.number="ruleForm.baseline_factor" class="input w-full" type="number" min="1.1" max="20" step="0.1" :placeholder="t('alerts.baseline_placeholder')" />
-            <p class="text-xs text-(--text-3)">{{ t('alerts.baseline_factor_help') }}</p>
-          </div>
+          <!-- Latency anomaly sensitivity mode (F4): exactly one of
+               threshold_value/baseline_factor/anomaly_zscore_threshold. -->
+          <div v-if="ruleForm.condition === 'latency_anomaly'" class="bg-(--accent-glow) border border-(--accent-border) rounded-lg p-3 space-y-3">
+            <div>
+              <label class="block text-sm font-medium text-(--text-2) mb-2">{{ t('alerts.latency_mode_label') }}</label>
+              <div class="grid grid-cols-3 gap-2">
+                <button type="button" @click="setLatencyMode('absolute')"
+                  class="py-2 px-2 rounded-lg border text-xs font-medium transition-colors"
+                  :class="latencyMode === 'absolute'
+                    ? 'bg-(--bg-surface) border-(--accent-border) text-(--accent)'
+                    : 'border-(--border) text-(--text-2) hover:border-(--border-hover)'">
+                  {{ t('alerts.latency_mode_absolute') }}
+                </button>
+                <button type="button" @click="setLatencyMode('relative')"
+                  class="py-2 px-2 rounded-lg border text-xs font-medium transition-colors"
+                  :class="latencyMode === 'relative'
+                    ? 'bg-(--bg-surface) border-(--accent-border) text-(--accent)'
+                    : 'border-(--border) text-(--text-2) hover:border-(--border-hover)'">
+                  {{ t('alerts.latency_mode_relative') }}
+                </button>
+                <button type="button" @click="setLatencyMode('statistical')"
+                  class="py-2 px-2 rounded-lg border text-xs font-medium transition-colors"
+                  :class="latencyMode === 'statistical'
+                    ? 'bg-(--bg-surface) border-(--accent-border) text-(--accent)'
+                    : 'border-(--border) text-(--text-2) hover:border-(--border-hover)'">
+                  {{ t('alerts.latency_mode_statistical') }}
+                </button>
+              </div>
+            </div>
 
-          <!-- Anomaly z-score threshold -->
-          <div v-if="ruleForm.condition === 'anomaly_detection'" class="bg-(--accent-glow) border border-(--accent-border) rounded-lg p-3 space-y-2">
-            <label class="block text-sm font-medium text-(--text-2)">
-              {{ t('alerts.zscore_label') }}
-              <span class="text-(--text-3) font-normal ml-1">{{ t('alerts.zscore_hint') }}</span>
-            </label>
-            <input v-model.number="ruleForm.anomaly_zscore_threshold" class="input w-full" type="number" min="1.0" max="10.0" step="0.1" placeholder="3.5" />
-            <p class="text-xs text-(--text-3)">{{ t('alerts.zscore_help') }}</p>
+            <div v-if="latencyMode === 'absolute'">
+              <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('alerts.threshold_ms_label') }} *</label>
+              <input v-model.number="ruleForm.threshold_value" class="input w-full" type="number" min="1" max="60000" :placeholder="t('alerts.threshold_placeholder')" required />
+            </div>
+
+            <div v-if="latencyMode === 'relative'">
+              <label class="block text-sm font-medium text-(--text-2)">
+                {{ t('alerts.baseline_factor_label') }}
+                <span class="text-(--text-3) font-normal ml-1">{{ t('alerts.baseline_factor_hint') }}</span>
+              </label>
+              <input v-model.number="ruleForm.baseline_factor" class="input w-full" type="number" min="1.1" max="20" step="0.1" :placeholder="t('alerts.baseline_placeholder')" />
+              <p class="text-xs text-(--text-3) mt-1">{{ t('alerts.baseline_factor_help') }}</p>
+            </div>
+
+            <div v-if="latencyMode === 'statistical'">
+              <label class="block text-sm font-medium text-(--text-2)">
+                {{ t('alerts.zscore_label') }}
+                <span class="text-(--text-3) font-normal ml-1">{{ t('alerts.zscore_hint') }}</span>
+              </label>
+              <input v-model.number="ruleForm.anomaly_zscore_threshold" class="input w-full" type="number" min="1.0" max="10.0" step="0.1" placeholder="3.5" />
+              <p class="text-xs text-(--text-3) mt-1">{{ t('alerts.zscore_help') }}</p>
+            </div>
           </div>
 
           <!-- Schema drift info + inverse bridge: a schema_drift rule does nothing
@@ -411,12 +413,6 @@
                 {{ enablingDrift ? t('common.loading') : t('alerts.schema_drift_enable_cta') }}
               </button>
             </template>
-          </div>
-
-          <!-- Threshold -->
-          <div v-if="ruleForm.condition === 'response_time_above'">
-            <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('alerts.threshold_ms_label') }} *</label>
-            <input v-model.number="ruleForm.threshold_value" class="input w-full" type="number" min="1" max="60000" :placeholder="t('alerts.threshold_placeholder')" required />
           </div>
 
           <!-- Min duration -->
@@ -569,7 +565,6 @@ import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import api from '../api/client'
 import { monitorsApi, groupsApi } from '../api/monitors'
-import { metricsApi } from '../api/metrics'
 import { oncallApi } from '../api/oncall'
 import { useToast } from '../composables/useToast'
 import { useDateFormat } from '../composables/useDateFormat'
@@ -641,7 +636,7 @@ async function applySuggestion(s) {
   try {
     await api.post('/alerts/rules', {
       monitor_id: s.monitor_id,
-      condition: 'response_time_above',
+      condition: 'latency_anomaly',
       threshold_value: s.suggested_threshold_ms,
       min_duration_seconds: 0,
       channel_ids: channels.value.map(c => c.id),
@@ -690,82 +685,37 @@ function defaultRuleForm() {
   return {
     target_type: 'monitor',
     target_id: '',
-    condition: 'any_down',
+    condition: 'availability',
     threshold_value: null,
     min_duration_seconds: 0,
     digest_minutes: 0,
     channel_ids: [],
+    quorum_ratio: null,
     anomaly_zscore_threshold: null,
     baseline_factor: null,
-    metric_name: '',
-    metric_labels: null,
-    metric_window_seconds: null,
     escalation_policy_id: null,
     showSchedule: false,
     schedule: { ...DEFAULT_SCHEDULE },
   }
 }
 
-const METRIC_CONDITIONS = ['metric_above', 'metric_below', 'metric_absent']
-const isMetricCondition = computed(() => METRIC_CONDITIONS.includes(ruleForm.value.condition))
-const isMonitorTarget = computed(() => ruleForm.value.target_type === 'monitor')
-
-// Names already pushed for the selected monitor, offered as a datalist. Typing a
-// name that was never pushed is the one way a metric rule ends up permanently
-// silent, so the UI shows what actually exists rather than asking the operator
-// to remember it.
-const knownMetricNames = ref([])
-// Every series the monitor has ever reported, from the registry — quiet ones
-// included, which is precisely what a `metric_absent` rule needs to pick from.
-const knownSeries = ref([])
-
-function labelKey(labels) {
-  const entries = Object.entries(labels || {}).sort(([a], [b]) => a.localeCompare(b))
-  return entries.length ? `{${entries.map(([k, v]) => `${k}="${v}"`).join(',')}}` : ''
-}
-
-const matchingSeries = computed(() =>
-  knownSeries.value
-    .filter((s) => s.metric_name === ruleForm.value.metric_name && labelKey(s.labels))
-    .map((s) => ({ key: labelKey(s.labels), labels: s.labels })),
-)
-
-const selectedSeriesKey = computed({
-  get: () => labelKey(ruleForm.value.metric_labels),
-  set: (key) => {
-    ruleForm.value.metric_labels =
-      matchingSeries.value.find((s) => s.key === key)?.labels ?? null
-  },
+// F4 — the merged `latency_anomaly` condition's sensitivity mode is inferred
+// from which of threshold_value/baseline_factor/anomaly_zscore_threshold is
+// set (services/conditions/latency.py, schemas.alert.
+// assert_latency_rule_is_fireable). The picker keeps the two unused fields
+// null so a mode switch can never leave more than one set.
+const latencyMode = computed(() => {
+  if (ruleForm.value.baseline_factor != null) return 'relative'
+  if (ruleForm.value.anomaly_zscore_threshold != null) return 'statistical'
+  return 'absolute'
 })
 
-watch(
-  () => [ruleForm.value.target_id, isMetricCondition.value],
-  async ([monitorId, wanted]) => {
-    if (!wanted || !monitorId || !isMonitorTarget.value) {
-      knownSeries.value = []
-      knownMetricNames.value = []
-      return
-    }
-    try {
-      const { data } = await metricsApi.series(monitorId)
-      knownSeries.value = data
-      knownMetricNames.value = [...new Set(data.map((m) => m.metric_name))]
-    } catch {
-      knownSeries.value = []
-      knownMetricNames.value = []
-    }
-  },
-  { immediate: true },
-)
-
-// Switching to a group target invalidates a metric condition (the API rejects
-// it), so fall back rather than let the form submit into a 422.
-watch(
-  () => ruleForm.value.target_type,
-  (type) => {
-    if (type !== 'monitor' && isMetricCondition.value) ruleForm.value.condition = 'any_down'
-  },
-)
+function setLatencyMode(mode) {
+  ruleForm.value.threshold_value = mode === 'absolute' ? ruleForm.value.threshold_value : null
+  ruleForm.value.baseline_factor = mode === 'relative' ? (ruleForm.value.baseline_factor ?? 2.0) : null
+  ruleForm.value.anomaly_zscore_threshold =
+    mode === 'statistical' ? (ruleForm.value.anomaly_zscore_threshold ?? 3.0) : null
+}
 
 const commonTimezones = [
   'Europe/Paris', 'Europe/London', 'Europe/Berlin', 'Europe/Madrid', 'Europe/Rome',
@@ -809,16 +759,25 @@ const messagePreview = computed(() => {
   const cond = ruleForm.value.condition
   const threshold = ruleForm.value.threshold_value
   const lines = ['[WhatIsUp] 🔴 ALERTE : <Monitor Name>']
-  if (cond === 'any_down') lines.push('Panne détectée sur au moins une sonde')
-  else if (cond === 'all_down') lines.push('Panne globale — toutes les sondes détectent une panne')
-  else if (cond === 'ssl_expiry') lines.push('Expiration du certificat SSL imminente')
-  else if (cond === 'response_time_above') lines.push(`Temps de réponse > ${threshold || '…'}ms`)
-  else if (cond === 'response_time_above_baseline') lines.push(`Temps de réponse > ${ruleForm.value.baseline_factor || '…'}× la moyenne habituelle (7j)`)
-  else if (cond === 'anomaly_detection') lines.push(`Temps de réponse anormal détecté (z-score > ${ruleForm.value.anomaly_zscore_threshold || 3.5})`)
-  else if (cond === 'schema_drift') lines.push('La structure de la réponse API a changé')
-  else if (cond === 'metric_above') lines.push(`Métrique applicative ${ruleForm.value.metric_name || '…'} = <valeur> (> ${threshold ?? '…'})`)
-  else if (cond === 'metric_below') lines.push(`Métrique applicative ${ruleForm.value.metric_name || '…'} = <valeur> (< ${threshold ?? '…'})`)
-  else if (cond === 'metric_absent') lines.push(`Métrique ${ruleForm.value.metric_name || '…'} muette depuis plus de ${ruleForm.value.metric_window_seconds || 300}s`)
+  if (cond === 'availability') {
+    lines.push(
+      ruleForm.value.quorum_ratio >= 1.0
+        ? 'Panne globale — toutes les sondes détectent une panne'
+        : 'Panne détectée sur au moins une sonde',
+    )
+  } else if (cond === 'ssl_expiry') {
+    lines.push('Expiration du certificat SSL imminente')
+  } else if (cond === 'latency_anomaly') {
+    if (latencyMode.value === 'relative') {
+      lines.push(`Temps de réponse > ${ruleForm.value.baseline_factor || '…'}× la moyenne habituelle (7j)`)
+    } else if (latencyMode.value === 'statistical') {
+      lines.push(`Temps de réponse anormal détecté (z-score > ${ruleForm.value.anomaly_zscore_threshold || 3.5})`)
+    } else {
+      lines.push(`Temps de réponse > ${threshold || '…'}ms`)
+    }
+  } else if (cond === 'schema_drift') {
+    lines.push('La structure de la réponse API a changé')
+  }
   lines.push('Début : 2026-01-01 12:00 UTC')
   return lines.join('\n')
 })
@@ -846,18 +805,17 @@ function targetName(rule) {
   return allGroups.value.find(g => g.id === rule.group_id)?.name || rule.group_id?.slice(0, 8) + '…'
 }
 
-const CONDITION_KEYS = [
-  'any_down', 'all_down', 'ssl_expiry', 'response_time_above',
-  'response_time_above_baseline', 'anomaly_detection', 'schema_drift',
-  'metric_above', 'metric_below', 'metric_absent',
-]
+const CONDITION_KEYS = ['availability', 'ssl_expiry', 'latency_anomaly', 'schema_drift']
 
 function conditionLabel(cond) {
   return CONDITION_KEYS.includes(cond) ? t(`alerts.cond_short_${cond}`) : cond
 }
 
 function conditionUnit(cond, val) {
-  if (cond === 'response_time_above') return ` ${val}ms`
+  // Only latency_anomaly's absolute mode carries a plain ms threshold —
+  // relative/statistical modes use baseline_factor/anomaly_zscore_threshold
+  // instead, surfaced by their own badges in the rule list.
+  if (cond === 'latency_anomaly') return ` ${val}ms`
   return ''
 }
 
@@ -955,11 +913,9 @@ function openEditRule(rule) {
     min_duration_seconds: rule.min_duration_seconds,
     digest_minutes: rule.digest_minutes,
     channel_ids: rule.channels.map(c => c.id),
+    quorum_ratio: rule.quorum_ratio ?? null,
     anomaly_zscore_threshold: rule.anomaly_zscore_threshold ?? null,
     baseline_factor: rule.baseline_factor ?? null,
-    metric_name: rule.metric_name ?? '',
-    metric_labels: rule.metric_labels ?? null,
-    metric_window_seconds: rule.metric_window_seconds ?? null,
     escalation_policy_id: rule.escalation_policy_id ?? null,
     showSchedule: hasSchedule,
     schedule: rule.schedule ? { ...rule.schedule } : { ...DEFAULT_SCHEDULE },
@@ -988,13 +944,18 @@ async function saveRule() {
         condition: ruleForm.value.condition,
         min_duration_seconds: ruleForm.value.min_duration_seconds || 0,
         channel_ids: ruleForm.value.channel_ids,
-        threshold_value: ruleForm.value.threshold_value || undefined,
         digest_minutes: ruleForm.value.digest_minutes || 0,
-        anomaly_zscore_threshold: ruleForm.value.anomaly_zscore_threshold || undefined,
-        baseline_factor: ruleForm.value.baseline_factor || undefined,
-        metric_name: ruleForm.value.metric_name || undefined,
-        metric_labels: ruleForm.value.metric_labels || undefined,
-        metric_window_seconds: ruleForm.value.metric_window_seconds || undefined,
+        // Sent as-is, null included: the API keys off `model_fields_set` (not
+        // a None test) for these four, because None is itself the meaningful
+        // "unset this mode" value — switching availability back to "any
+        // probe" or latency_anomaly back to absolute mode has to actually
+        // clear the field that used to carry the other mode, not just omit
+        // it (api/v1/alerts/rules.py::update_rule).
+        quorum_ratio: ruleForm.value.condition === 'availability' ? ruleForm.value.quorum_ratio : null,
+        threshold_value: ruleForm.value.condition === 'latency_anomaly' ? ruleForm.value.threshold_value : null,
+        baseline_factor: ruleForm.value.condition === 'latency_anomaly' ? ruleForm.value.baseline_factor : null,
+        anomaly_zscore_threshold:
+          ruleForm.value.condition === 'latency_anomaly' ? ruleForm.value.anomaly_zscore_threshold : null,
         // Always sent, null included: a PATCH is the only way to detach a
         // policy from a rule, so "None" has to actually reach the server.
         escalation_policy_id: ruleForm.value.escalation_policy_id,
@@ -1013,13 +974,17 @@ async function saveRule() {
       } else {
         payload.group_id = ruleForm.value.target_id
       }
-      if (ruleForm.value.threshold_value != null) payload.threshold_value = ruleForm.value.threshold_value
       if (ruleForm.value.digest_minutes) payload.digest_minutes = ruleForm.value.digest_minutes
-      if (ruleForm.value.anomaly_zscore_threshold) payload.anomaly_zscore_threshold = ruleForm.value.anomaly_zscore_threshold
-      if (ruleForm.value.baseline_factor) payload.baseline_factor = ruleForm.value.baseline_factor
-      if (ruleForm.value.metric_name) payload.metric_name = ruleForm.value.metric_name
-      if (ruleForm.value.metric_labels) payload.metric_labels = ruleForm.value.metric_labels
-      if (ruleForm.value.metric_window_seconds) payload.metric_window_seconds = ruleForm.value.metric_window_seconds
+      if (ruleForm.value.condition === 'availability' && ruleForm.value.quorum_ratio != null) {
+        payload.quorum_ratio = ruleForm.value.quorum_ratio
+      }
+      if (ruleForm.value.condition === 'latency_anomaly') {
+        if (ruleForm.value.threshold_value != null) payload.threshold_value = ruleForm.value.threshold_value
+        if (ruleForm.value.baseline_factor != null) payload.baseline_factor = ruleForm.value.baseline_factor
+        if (ruleForm.value.anomaly_zscore_threshold != null) {
+          payload.anomaly_zscore_threshold = ruleForm.value.anomaly_zscore_threshold
+        }
+      }
       if (ruleForm.value.escalation_policy_id) payload.escalation_policy_id = ruleForm.value.escalation_policy_id
       await api.post('/alerts/rules', payload, { skipErrorToast: true })
     }

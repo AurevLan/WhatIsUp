@@ -43,8 +43,15 @@ export function useMonitorCharts({
   const { t } = useI18n()
 
   const rtThresholdMs = computed(() => {
+    // Plan cap v2, F4 — response_time_above became latency_anomaly's absolute
+    // mode: threshold_value only means "fixed ms threshold" when neither of
+    // the other two sensitivity fields is set (services/conditions/latency.py).
     const rule = alertRules.value.find(
-      (r) => r.condition === 'response_time_above' && r.threshold_value != null,
+      (r) =>
+        r.condition === 'latency_anomaly' &&
+        r.threshold_value != null &&
+        r.baseline_factor == null &&
+        r.anomaly_zscore_threshold == null,
     )
     return rule?.threshold_value ?? null
   })

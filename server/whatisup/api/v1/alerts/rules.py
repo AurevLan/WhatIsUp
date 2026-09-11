@@ -27,7 +27,7 @@ from whatisup.schemas.alert import (
     AlertRuleOut,
     AlertRuleSimulateOut,
     AlertRuleUpdate,
-    assert_metric_rule_is_fireable,
+    assert_latency_rule_is_fireable,
 )
 from whatisup.services.alert import simulate_rule
 from whatisup.services.alert_presets import get_presets
@@ -107,14 +107,12 @@ async def create_rule(
         digest_minutes=payload.digest_minutes,
         storm_window_seconds=payload.storm_window_seconds,
         storm_max_alerts=payload.storm_max_alerts,
+        quorum_ratio=payload.quorum_ratio,
         baseline_factor=payload.baseline_factor,
         # anomaly_zscore_threshold and schedule were declared on AlertRuleCreate
         # but never assigned here: the single-rule endpoints silently dropped
         # them and only the matrix endpoint honoured them.
         anomaly_zscore_threshold=payload.anomaly_zscore_threshold,
-        metric_name=payload.metric_name,
-        metric_labels=payload.metric_labels,
-        metric_window_seconds=payload.metric_window_seconds,
         schedule=payload.schedule,
         suppress_on_network_partition=payload.suppress_on_network_partition,
         escalation_policy_id=payload.escalation_policy_id,
@@ -200,24 +198,30 @@ async def update_rule(
         rule.tag_selector = payload.tag_selector or None
     if payload.min_duration_seconds is not None:
         rule.min_duration_seconds = payload.min_duration_seconds
-    if payload.threshold_value is not None:
-        rule.threshold_value = payload.threshold_value
     if payload.digest_minutes is not None:
         rule.digest_minutes = payload.digest_minutes
     if payload.storm_window_seconds is not None:
         rule.storm_window_seconds = payload.storm_window_seconds
     if payload.storm_max_alerts is not None:
         rule.storm_max_alerts = payload.storm_max_alerts
-    if payload.baseline_factor is not None:
+    # `model_fields_set`, not a None test, for quorum_ratio and the three
+    # `latency_anomaly` sensitivity fields: since F1-conditions/F4 the mode is
+    # inferred from *which* field is set (quorum_ratio's boundary; whichever
+    # of threshold_value/baseline_factor/anomaly_zscore_threshold is non-null).
+    # A None test could never clear one back to "unset" — switching a rule
+    # from "all probes down" back to "any probe down", or from the baseline
+    # sensitivity mode to the absolute one, would be permanently PATCH-proof
+    # once the field had ever been set (the leftover value would keep winning
+    # against the new one, or trip assert_latency_rule_is_fireable's "exactly
+    # one" guard below forever). Same precedent as `escalation_policy_id`.
+    if "quorum_ratio" in payload.model_fields_set:
+        rule.quorum_ratio = payload.quorum_ratio
+    if "threshold_value" in payload.model_fields_set:
+        rule.threshold_value = payload.threshold_value
+    if "baseline_factor" in payload.model_fields_set:
         rule.baseline_factor = payload.baseline_factor
-    if payload.anomaly_zscore_threshold is not None:
+    if "anomaly_zscore_threshold" in payload.model_fields_set:
         rule.anomaly_zscore_threshold = payload.anomaly_zscore_threshold
-    if payload.metric_name is not None:
-        rule.metric_name = payload.metric_name
-    if payload.metric_labels is not None:
-        rule.metric_labels = payload.metric_labels or None
-    if payload.metric_window_seconds is not None:
-        rule.metric_window_seconds = payload.metric_window_seconds
     if payload.schedule is not None:
         rule.schedule = payload.schedule
     if payload.suppress_on_network_partition is not None:
@@ -232,11 +236,15 @@ async def update_rule(
         rule.channels = await _fetch_channels_by_ids(db, current_user, payload.channel_ids)
 
     # Validated on the *merged* state, not on the payload: switching an existing
-    # rule to a metric condition without also sending metric_name would sail
+    # rule to `latency_anomaly` without also sending exactly one of
+    # threshold_value / baseline_factor / anomaly_zscore_threshold would sail
     # through a payload-only check and store a rule that can never fire.
     try:
-        assert_metric_rule_is_fireable(
-            rule.condition, rule.metric_name, rule.threshold_value, rule.monitor_id
+        assert_latency_rule_is_fireable(
+            rule.condition,
+            rule.threshold_value,
+            rule.baseline_factor,
+            rule.anomaly_zscore_threshold,
         )
     except ValueError as exc:
         raise HTTPException(

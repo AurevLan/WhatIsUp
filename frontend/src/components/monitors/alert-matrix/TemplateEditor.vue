@@ -53,18 +53,39 @@
               >✕</button>
             </div>
             <div class="grid grid-cols-2 gap-2 text-[11px] text-(--text-2)">
-              <label v-if="needsThreshold(row.condition)" class="flex items-center gap-1.5">
-                <span class="shrink-0">{{ t('alert_matrix.threshold') }}</span>
-                <input v-model.number="row.threshold_value" type="number" min="0" class="input text-xs w-full py-1" />
+              <label v-if="row.condition === 'availability'" class="flex items-center gap-1.5">
+                <span class="shrink-0">{{ t('alert_matrix.quorum_label') }}</span>
+                <select
+                  :value="row.quorum_ratio >= 1.0 ? 'all' : 'any'"
+                  @change="row.quorum_ratio = $event.target.value === 'all' ? 1.0 : null"
+                  class="input text-xs w-full py-1"
+                >
+                  <option value="any">{{ t('alert_matrix.quorum_any') }}</option>
+                  <option value="all">{{ t('alert_matrix.quorum_all') }}</option>
+                </select>
               </label>
-              <label v-if="row.condition === 'anomaly_detection'" class="flex items-center gap-1.5">
-                <span class="shrink-0">{{ t('alert_matrix.zscore_threshold') }}</span>
-                <input v-model.number="row.anomaly_zscore_threshold" type="number" min="1" step="0.1" class="input text-xs w-full py-1" />
-              </label>
-              <label v-if="row.condition === 'response_time_above_baseline'" class="flex items-center gap-1.5">
-                <span class="shrink-0">baseline_factor</span>
-                <input v-model.number="row.baseline_factor" type="number" min="1.1" step="0.1" class="input text-xs w-full py-1" />
-              </label>
+              <template v-if="row.condition === 'latency_anomaly'">
+                <label class="flex items-center gap-1.5">
+                  <span class="shrink-0">{{ t('alert_matrix.latency_mode_label') }}</span>
+                  <select :value="latencyModeOf(row)" @change="setLatencyMode(row, $event.target.value)" class="input text-xs w-full py-1">
+                    <option value="absolute">{{ t('alert_matrix.latency_mode_absolute') }}</option>
+                    <option value="relative">{{ t('alert_matrix.latency_mode_relative') }}</option>
+                    <option value="statistical">{{ t('alert_matrix.latency_mode_statistical') }}</option>
+                  </select>
+                </label>
+                <label v-if="latencyModeOf(row) === 'absolute'" class="flex items-center gap-1.5">
+                  <span class="shrink-0">{{ t('alert_matrix.threshold') }}</span>
+                  <input v-model.number="row.threshold_value" type="number" min="0" class="input text-xs w-full py-1" />
+                </label>
+                <label v-if="latencyModeOf(row) === 'relative'" class="flex items-center gap-1.5">
+                  <span class="shrink-0">{{ t('alert_matrix.baseline_factor') }}</span>
+                  <input v-model.number="row.baseline_factor" type="number" min="1.1" step="0.1" class="input text-xs w-full py-1" />
+                </label>
+                <label v-if="latencyModeOf(row) === 'statistical'" class="flex items-center gap-1.5">
+                  <span class="shrink-0">{{ t('alert_matrix.zscore_threshold') }}</span>
+                  <input v-model.number="row.anomaly_zscore_threshold" type="number" min="1" step="0.1" class="input text-xs w-full py-1" />
+                </label>
+              </template>
               <label class="flex items-center gap-1.5">
                 <span class="shrink-0">{{ t('alert_matrix.min_duration') }}</span>
                 <input v-model.number="row.min_duration_seconds" type="number" min="0" class="input text-xs w-full py-1" />
@@ -101,7 +122,7 @@ import BaseModal from '../../BaseModal.vue'
 import {
   CHECK_TYPES as checkTypes,
   CONDITIONS_BY_TYPE,
-  needsThreshold as isThresholdCondition,
+  latencyModeOf,
 } from '../../../constants/alertMatrix'
 
 const props = defineProps({
@@ -154,8 +175,10 @@ function conditionOptions(current) {
   return availableConditions.value.filter(c => c === current || !used.has(c))
 }
 
-function needsThreshold(cond) {
-  return isThresholdCondition(cond)
+function setLatencyMode(row, mode) {
+  row.threshold_value = mode === 'absolute' ? (row.threshold_value ?? null) : null
+  row.baseline_factor = mode === 'relative' ? (row.baseline_factor ?? 2.0) : null
+  row.anomaly_zscore_threshold = mode === 'statistical' ? (row.anomaly_zscore_threshold ?? 3.0) : null
 }
 
 function addRow() {

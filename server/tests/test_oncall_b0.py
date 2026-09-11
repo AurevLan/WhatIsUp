@@ -480,7 +480,7 @@ async def test_alert_rule_accepts_and_returns_escalation_policy(
         "/api/v1/alerts/rules",
         json={
             "monitor_id": monitor["id"],
-            "condition": "all_down",
+            "condition": "availability",
             "channel_ids": [channel_id],
             "escalation_policy_id": policy["id"],
         },
@@ -534,7 +534,7 @@ async def test_alert_rule_cannot_borrow_another_tenants_policy(
         "/api/v1/alerts/rules",
         json={
             "monitor_id": monitor["id"],
-            "condition": "all_down",
+            "condition": "availability",
             "channel_ids": [my_channel],
             "escalation_policy_id": victim_policy["id"],
         },
@@ -572,7 +572,7 @@ async def test_alert_rule_persists_schedule_and_anomaly_threshold(
         "/api/v1/alerts/rules",
         json={
             "monitor_id": monitor["id"],
-            "condition": "all_down",
+            "condition": "availability",
             "channel_ids": [channel_id],
             "schedule": business_hours,
             "anomaly_zscore_threshold": 2.5,

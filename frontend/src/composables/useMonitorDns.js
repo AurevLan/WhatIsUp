@@ -1,6 +1,6 @@
 // DNS-specific state for MonitorDetailView: changelog, current values,
 // baseline accept/reset, drift settings toggles, and the alert-suggestion
-// modal that nudges users to add an any_down rule when enabling drift.
+// modal that nudges users to add an availability rule when enabling drift.
 //
 // Mutates monitor.value directly for the various flag toggles + baselines —
 // this matches the existing optimistic UX where the toggle flips immediately
@@ -111,7 +111,7 @@ export function useMonitorDns(monitorRef, resultsRef) {
 
   // ── Alert-suggestion bridge (offered when enabling drift without a rule).
   // Shared with other detections via useDetectionAlertBridge — DNS drift wires
-  // an `any_down` rule (a drift surfaces as the monitor going down).
+  // an `availability` rule (a drift surfaces as the monitor going down).
   const bridge = useDetectionAlertBridge(monitorRef)
   const { alertModal, alertChannels, alertChannelId, alertCreating, createAlertRule, wired, refreshWired } = bridge
 
@@ -131,7 +131,7 @@ export function useMonitorDns(monitorRef, resultsRef) {
       newVal &&
       monitorRef.value.dns_drift_alert
     ) {
-      await bridge.offerAlert('any_down')
+      await bridge.offerAlert('availability')
     }
   }
 

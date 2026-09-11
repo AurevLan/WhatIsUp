@@ -51,30 +51,43 @@ class AlertChannelType(enum.StrEnum):
 
 
 class AlertCondition(enum.StrEnum):
-    all_down = "all_down"  # All probes report down (global outage)
-    any_down = "any_down"  # Any probe reports down
+    """Plan cap v2, 6f — down from 10 to 4 members.
+
+    ``condition`` is stored as a plain ``String`` (see ``AlertRule.condition``
+    below), not a native PostgreSQL enum: the migration that shrank this enum
+    (``p0q1r2s3t4u5``) needed to both retire six members and use two brand-new
+    ones inside the same ``alembic upgrade`` run, and Postgres allows neither
+    on a real enum type (labels can never be dropped, and a label added by
+    ``ALTER TYPE ... ADD VALUE`` cannot be used until that transaction has
+    committed — ``env.py`` runs every pending revision in one transaction).
+    A plain string column sidesteps both restrictions for good.
+
+    - ``availability`` — merges the old ``all_down``/``any_down`` (plan cap v2,
+      F1-conditions): they were degenerate cases of the same question, "what
+      fraction of probes must be down to page". See ``AlertRule.quorum_ratio``
+      and ``services/conditions/availability.py``.
+    - ``latency_anomaly`` — merges ``response_time_above`` (absolute),
+      ``response_time_above_baseline`` (× 7-day rolling average) and
+      ``anomaly_detection`` (z-score) (plan cap v2, F4): three answers to "is
+      the latency abnormal", presented flat in the old picker with no way to
+      tell which to pick. The sensitivity mode is inferred from which of
+      ``threshold_value`` / ``baseline_factor`` / ``anomaly_zscore_threshold``
+      is set — see ``services/conditions/latency.py``.
+    - ``ssl_expiry`` / ``schema_drift`` — unchanged.
+
+    Cut entirely (plan cap v2, C1): ``metric_above`` / ``metric_below`` /
+    ``metric_absent`` — pushed-metric alerting. 0 rules, 0 points, 0 series on
+    the real instance; replaced by an application endpoint that returns 500
+    past its own threshold (monitored by a plain ``http`` check) or a pushed
+    ``heartbeat`` for "agent is dead". Their removal is also what let
+    ``Incident.alert_rule_id`` and ``IS_AVAILABILITY_INCIDENT`` disappear —
+    see ``models/incident.py``.
+    """
+
+    availability = "availability"  # Quorum of probes down — see quorum_ratio
     ssl_expiry = "ssl_expiry"  # SSL cert expires within warn window
-    response_time_above = "response_time_above"
-    response_time_above_baseline = "response_time_above_baseline"  # > N× rolling 7-day avg
-    anomaly_detection = "anomaly_detection"  # Z-score based anomaly on response time
+    latency_anomaly = "latency_anomaly"  # Abnormal response time — see sensitivity fields
     schema_drift = "schema_drift"  # JSON API structure changed vs baseline
-    # Plan V2, C-4 — pushed application metrics (custom_metrics). Unlike every
-    # condition above, these are not derived from a CheckResult: they are
-    # evaluated by services/metric_alerts.py, not by the check pipeline.
-    metric_above = "metric_above"  # Latest pushed value > threshold_value
-    metric_below = "metric_below"  # Latest pushed value < threshold_value
-    metric_absent = "metric_absent"  # Nothing pushed for metric_window_seconds
-
-
-#: Conditions evaluated from ``custom_metrics`` rather than from a CheckResult.
-#: Used to keep the two incident families apart in ``fire_alerts``.
-METRIC_CONDITIONS = frozenset(
-    {
-        AlertCondition.metric_above,
-        AlertCondition.metric_below,
-        AlertCondition.metric_absent,
-    }
-)
 
 
 class AlertEventStatus(enum.StrEnum):
@@ -145,10 +158,13 @@ class AlertRule(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         nullable=True,
         index=True,
     )
-    condition: Mapped[AlertCondition] = mapped_column(
-        Enum(AlertCondition, name="alert_condition"), nullable=False
-    )
+    # Plain string, not a native PostgreSQL enum — see AlertCondition's
+    # docstring for why (plan cap v2, 6f / F1-conditions).
+    condition: Mapped[str] = mapped_column(String(30), nullable=False)
     min_duration_seconds: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    # Latency (`latency_anomaly`), absolute mode: alert when response_time_ms
+    # exceeds this fixed threshold. Also the sole numeric field for the
+    # conditions that predate F4 (`ssl_expiry`'s warn-days override).
     threshold_value: Mapped[float | None] = mapped_column(sqlalchemy.Float, nullable=True)
     digest_minutes: Mapped[int] = mapped_column(
         Integer, default=0, nullable=False, server_default="0"
@@ -156,21 +172,26 @@ class AlertRule(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # Storm protection: throttle if > storm_max_alerts sent in storm_window_seconds
     storm_window_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     storm_max_alerts: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    # Baseline: alert when response_time > baseline_factor × 7-day rolling average
+    # Plan cap v2, F1-conditions — `availability`'s quorum setting: the
+    # fraction (0, 1] of the monitor's probes that must be down at once for
+    # the rule to fire. NULL (or any value < 1.0) behaves like the old
+    # `any_down` — "at least one" — and 1.0 behaves like the old `all_down` —
+    # "every probe". Only these two boundary values are meaningful today: the
+    # incident only carries a binary `scope` (global vs. geographic), not a
+    # live down-ratio, so an intermediate quorum cannot yet be evaluated
+    # precisely — see AvailabilityHandler.decide(). Genuine intermediate
+    # quorums are future work, gated on Incident tracking a real ratio.
+    quorum_ratio: Mapped[float | None] = mapped_column(sqlalchemy.Float, nullable=True)
+    # Latency (`latency_anomaly`), relative mode: alert when response_time >
+    # baseline_factor × the 7-day rolling average.
     baseline_factor: Mapped[float | None] = mapped_column(sqlalchemy.Float, nullable=True)
-    # Anomaly detection: z-score threshold (default 3.0)
+    # Latency (`latency_anomaly`), statistical mode: z-score threshold (default 3.0).
+    # F4 — the merged `latency_anomaly` condition infers its sensitivity mode
+    # (absolute / relative / statistical) from which one of threshold_value /
+    # baseline_factor / anomaly_zscore_threshold is set — see
+    # schemas.alert.assert_latency_rule_is_fireable and
+    # services/conditions/latency.py.
     anomaly_zscore_threshold: Mapped[float | None] = mapped_column(sqlalchemy.Float, nullable=True)
-    # C-4 — pushed-metric conditions. `metric_name` selects the series inside
-    # custom_metrics; `metric_window_seconds` is the freshness bound: above/below
-    # only consider a sample newer than that (a stale value must not keep paging),
-    # and `metric_absent` fires precisely when no sample is that fresh.
-    metric_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    metric_window_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    # C-1 — which series inside the family named by `metric_name`. Subset match:
-    # `{"route": "/api"}` selects every series carrying that label, whatever else
-    # it carries. NULL means "no selector", which is only unambiguous while the
-    # name has a single series — see services/conditions/metrics.py.
-    metric_labels: Mapped[dict | None] = mapped_column(_JSON, nullable=True)
     # Business hours schedule: {timezone, days: [0-6], start/end: "HH:MM", offhours_suppress: bool}
     schedule: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     # Tag selector: list of tag names; rule fires for monitors carrying any matching tag.

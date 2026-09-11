@@ -123,8 +123,10 @@ async def _monitor_with_rule(
 async def test_simulate_baseline_breach_fires(
     service_db: AsyncSession, test_user: User, test_probe: Probe
 ) -> None:
+    """Plan cap v2, F4 — ``latency_anomaly`` in its relative (baseline) mode,
+    selected by ``baseline_factor`` being the field that is set."""
     monitor, rule = await _monitor_with_rule(
-        service_db, test_user, AlertCondition.response_time_above_baseline, baseline_factor=2.0
+        service_db, test_user, AlertCondition.latency_anomaly, baseline_factor=2.0
     )
     now = datetime.now(UTC)
     # History averaging ~100ms, then a latest sample at 500ms (> 2× avg).
@@ -155,15 +157,19 @@ async def test_simulate_baseline_breach_fires(
 
 
 @pytest.mark.asyncio
-async def test_simulate_baseline_without_factor_cannot_fire(
+async def test_simulate_latency_anomaly_with_no_mode_set_cannot_fire(
     service_db: AsyncSession, test_user: User
 ) -> None:
-    _, rule = await _monitor_with_rule(
-        service_db, test_user, AlertCondition.response_time_above_baseline
-    )
+    """Plan cap v2, F4 — with none of threshold_value/baseline_factor/
+    anomaly_zscore_threshold set, the merged condition falls back to its
+    absolute mode with an unset threshold, same as before the merge for a
+    plain ``response_time_above`` rule with no threshold. (The API rejects
+    creating such a rule at all — ``assert_latency_rule_is_fireable`` — this
+    only exercises a rule built by hand, e.g. a data anomaly.)"""
+    _, rule = await _monitor_with_rule(service_db, test_user, AlertCondition.latency_anomaly)
     result = await simulate_rule(service_db, rule)
     assert result["would_fire"] is False
-    assert "Facteur" in result["reason"]
+    assert "Seuil non défini" in result["reason"]
 
 
 @pytest.mark.asyncio
@@ -213,8 +219,10 @@ async def test_simulate_schema_drift_without_baseline_cannot_fire(
 async def test_simulate_anomaly_fires_on_outlier(
     service_db: AsyncSession, test_user: User, test_probe: Probe
 ) -> None:
+    """Plan cap v2, F4 — ``latency_anomaly`` in its statistical mode, selected
+    by ``anomaly_zscore_threshold`` being the field that is set."""
     monitor, rule = await _monitor_with_rule(
-        service_db, test_user, AlertCondition.anomaly_detection, anomaly_zscore_threshold=3.0
+        service_db, test_user, AlertCondition.latency_anomaly, anomaly_zscore_threshold=3.0
     )
     now = datetime.now(UTC)
     # 12 samples in the same hour bucket, tight around 100ms, then a 900ms outlier.
@@ -248,8 +256,11 @@ async def test_simulate_anomaly_fires_on_outlier(
 async def test_simulate_anomaly_insufficient_history(
     service_db: AsyncSession, test_user: User, test_probe: Probe
 ) -> None:
+    """``anomaly_zscore_threshold`` must be set to select the statistical mode
+    at all — unlike before the merge, an unset threshold no longer implies
+    "anomaly mode with the 3.0 default" (see the "no mode set" test above)."""
     monitor, rule = await _monitor_with_rule(
-        service_db, test_user, AlertCondition.anomaly_detection
+        service_db, test_user, AlertCondition.latency_anomaly, anomaly_zscore_threshold=3.0
     )
     service_db.add(
         CheckResult(
@@ -272,10 +283,10 @@ async def test_simulate_response_time_without_threshold_cannot_fire(
     service_db: AsyncSession, test_user: User, test_probe: Probe
 ) -> None:
     """Parity with fire_alerts: unset threshold never fires (the preview used
-    to treat it as 0 and fire on any recorded latency)."""
-    monitor, rule = await _monitor_with_rule(
-        service_db, test_user, AlertCondition.response_time_above
-    )
+    to treat it as 0 and fire on any recorded latency) — even with an actual
+    slow check result on hand, unlike the "no mode set" test above which has
+    none at all."""
+    monitor, rule = await _monitor_with_rule(service_db, test_user, AlertCondition.latency_anomaly)
     service_db.add(
         CheckResult(
             monitor_id=monitor.id,

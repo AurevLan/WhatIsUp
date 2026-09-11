@@ -168,7 +168,11 @@ async def export_config(user: User, db: AsyncSession) -> dict[str, Any]:
     rules_export = []
     for r in rules:
         rule_entry: dict[str, Any] = {
-            "condition": r.condition.value,
+            # Plan cap v2, 6f — `AlertRule.condition` is a plain VARCHAR, not a
+            # native enum, since that migration (see AlertCondition's
+            # docstring in models/alert.py): a value read back from the DB is
+            # already a bare str, with no `.value` to unwrap.
+            "condition": r.condition,
             "channels": [
                 channel_names_by_id[c.id] for c in r.channels if c.id in channel_names_by_id
             ],

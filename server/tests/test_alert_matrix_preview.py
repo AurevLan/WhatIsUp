@@ -39,20 +39,26 @@ async def _seed_incidents(
 
 
 @pytest.mark.asyncio
-async def test_any_down_counts_incidents(service_db: AsyncSession, test_user: User) -> None:
+async def test_availability_any_down_counts_incidents(
+    service_db: AsyncSession, test_user: User
+) -> None:
+    """Plan cap v2, F1-conditions — unset quorum_ratio behaves like the old
+    ``any_down``: every incident counts, regardless of scope."""
     m = _new_monitor(test_user, "any-down")
     service_db.add(m)
     await service_db.flush()
     await _seed_incidents(service_db, m, 3, scope=IncidentScope.global_)
 
-    res = await compute_preview(service_db, m.id, [{"condition": "any_down"}])
-    assert res["counts"] == [{"condition": "any_down", "count": 3}]
+    res = await compute_preview(service_db, m.id, [{"condition": "availability"}])
+    assert res["counts"] == [{"condition": "availability", "count": 3}]
     assert res["total"] == 3
     assert res["window_days"] == 30
 
 
 @pytest.mark.asyncio
-async def test_any_down_filters_by_min_duration(service_db: AsyncSession, test_user: User) -> None:
+async def test_availability_any_down_filters_by_min_duration(
+    service_db: AsyncSession, test_user: User
+) -> None:
     m = _new_monitor(test_user, "min-dur")
     service_db.add(m)
     await service_db.flush()
@@ -72,27 +78,31 @@ async def test_any_down_filters_by_min_duration(service_db: AsyncSession, test_u
     await service_db.flush()
 
     res = await compute_preview(
-        service_db, m.id, [{"condition": "any_down", "min_duration_seconds": 120}]
+        service_db, m.id, [{"condition": "availability", "min_duration_seconds": 120}]
     )
     assert res["counts"][0]["count"] == 2
 
 
 @pytest.mark.asyncio
-async def test_all_down_counts_only_global_incidents(
+async def test_availability_all_down_counts_only_global_incidents(
     service_db: AsyncSession, test_user: User
 ) -> None:
+    """``quorum_ratio >= 1.0`` behaves like the old ``all_down``: only global
+    (every-probe-down) incidents count."""
     m = _new_monitor(test_user, "all-down")
     service_db.add(m)
     await service_db.flush()
     await _seed_incidents(service_db, m, 2, scope=IncidentScope.global_)
     await _seed_incidents(service_db, m, 5, scope=IncidentScope.geographic)
 
-    res = await compute_preview(service_db, m.id, [{"condition": "all_down"}])
+    res = await compute_preview(
+        service_db, m.id, [{"condition": "availability", "quorum_ratio": 1.0}]
+    )
     assert res["counts"][0]["count"] == 2
 
 
 @pytest.mark.asyncio
-async def test_response_time_above_threshold(
+async def test_latency_anomaly_absolute_threshold(
     service_db: AsyncSession, test_user: User, test_probe: Probe
 ) -> None:
     m = _new_monitor(test_user, "rt")
@@ -114,26 +124,26 @@ async def test_response_time_above_threshold(
     res = await compute_preview(
         service_db,
         m.id,
-        [{"condition": "response_time_above", "threshold_value": 1000}],
+        [{"condition": "latency_anomaly", "threshold_value": 1000}],
     )
     assert res["counts"][0]["count"] == 3
 
 
 @pytest.mark.asyncio
-async def test_response_time_above_zero_threshold_returns_zero(
+async def test_latency_anomaly_with_no_mode_set_returns_zero(
     service_db: AsyncSession, test_user: User
 ) -> None:
+    """None of threshold_value/baseline_factor/anomaly_zscore_threshold set —
+    same as an unset absolute threshold before the F4 merge."""
     m = _new_monitor(test_user, "rt-zero")
     service_db.add(m)
     await service_db.flush()
-    res = await compute_preview(
-        service_db, m.id, [{"condition": "response_time_above", "threshold_value": None}]
-    )
+    res = await compute_preview(service_db, m.id, [{"condition": "latency_anomaly"}])
     assert res["counts"][0]["count"] == 0
 
 
 @pytest.mark.asyncio
-async def test_baseline_factor_uses_average(
+async def test_latency_anomaly_baseline_factor_uses_average(
     service_db: AsyncSession, test_user: User, test_probe: Probe
 ) -> None:
     m = _new_monitor(test_user, "baseline")
@@ -157,26 +167,28 @@ async def test_baseline_factor_uses_average(
     res = await compute_preview(
         service_db,
         m.id,
-        [{"condition": "response_time_above_baseline", "baseline_factor": 2.0}],
+        [{"condition": "latency_anomaly", "baseline_factor": 2.0}],
     )
     assert res["counts"][0]["count"] == 1
 
 
 @pytest.mark.asyncio
-async def test_baseline_factor_zero_returns_zero(service_db: AsyncSession, test_user: User) -> None:
+async def test_latency_anomaly_baseline_factor_zero_returns_zero(
+    service_db: AsyncSession, test_user: User
+) -> None:
     m = _new_monitor(test_user, "baseline-zero")
     service_db.add(m)
     await service_db.flush()
     res = await compute_preview(
         service_db,
         m.id,
-        [{"condition": "response_time_above_baseline", "baseline_factor": 0}],
+        [{"condition": "latency_anomaly", "baseline_factor": 0}],
     )
     assert res["counts"][0]["count"] == 0
 
 
 @pytest.mark.asyncio
-async def test_anomaly_detection_scales_with_sample_count(
+async def test_latency_anomaly_zscore_scales_with_sample_count(
     service_db: AsyncSession, test_user: User, test_probe: Probe
 ) -> None:
     """At z=3 the tail fraction ≈ 0.27% → 1000 samples → ~3 hits."""
@@ -199,7 +211,7 @@ async def test_anomaly_detection_scales_with_sample_count(
     res = await compute_preview(
         service_db,
         m.id,
-        [{"condition": "anomaly_detection", "anomaly_zscore_threshold": 3.0}],
+        [{"condition": "latency_anomaly", "anomaly_zscore_threshold": 3.0}],
     )
     # 0.5 * erfc(3/sqrt(2)) ≈ 0.00135 → ~1 hit out of 1000.
     assert res["counts"][0]["count"] in {1, 2}
@@ -275,8 +287,8 @@ async def test_total_aggregates_all_rows(service_db: AsyncSession, test_user: Us
         service_db,
         m.id,
         [
-            {"condition": "any_down"},
-            {"condition": "all_down"},
+            {"condition": "availability"},
+            {"condition": "availability", "quorum_ratio": 1.0},
             {"condition": "schema_drift"},
         ],
     )

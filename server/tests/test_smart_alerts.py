@@ -64,17 +64,17 @@ async def _add_result(
 # ══════════════════════════════════════════════════════════════════════════════
 
 
-def test_presets_http_has_any_down() -> None:
+def test_presets_http_has_availability() -> None:
     presets = get_presets("http")
     conditions = [p["condition"] for p in presets]
-    assert AlertCondition.any_down in conditions
+    assert AlertCondition.availability in conditions
     assert AlertCondition.ssl_expiry in conditions
 
 
-def test_presets_heartbeat_has_any_down() -> None:
+def test_presets_heartbeat_has_availability() -> None:
     presets = get_presets("heartbeat")
     assert len(presets) == 1
-    assert presets[0]["condition"] == AlertCondition.any_down
+    assert presets[0]["condition"] == AlertCondition.availability
     assert presets[0]["default"] is True
 
 
@@ -83,10 +83,10 @@ def test_presets_unknown_type_falls_back_to_http() -> None:
     assert presets == get_presets("http")
 
 
-def test_presets_scenario_has_response_time() -> None:
+def test_presets_scenario_has_latency_anomaly() -> None:
     presets = get_presets("scenario")
     conditions = [p["condition"] for p in presets]
-    assert AlertCondition.response_time_above in conditions
+    assert AlertCondition.latency_anomaly in conditions
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -135,7 +135,7 @@ async def test_auto_rules_creates_defaults(client: AsyncClient, user_token: str)
     assert resp.status_code == 200
     rules = resp.json()
     assert len(rules) >= 1
-    assert any(r["condition"] == "any_down" for r in rules)
+    assert any(r["condition"] == "availability" for r in rules)
 
 
 @pytest.mark.asyncio
@@ -205,7 +205,7 @@ async def test_monitor_create_with_alert_channel_ids(client: AsyncClient, user_t
     all_rules = rules_resp.json()
     monitor_rules = [r for r in all_rules if r.get("monitor_id") == monitor_id]
     assert len(monitor_rules) >= 1
-    assert any(r["condition"] == "any_down" for r in monitor_rules)
+    assert any(r["condition"] == "availability" for r in monitor_rules)
 
 
 @pytest.mark.asyncio

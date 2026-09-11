@@ -28,12 +28,6 @@ from whatisup.services.stats import fetch_latest_results
 
 logger = structlog.get_logger(__name__)
 
-#: String values of the pushed-metric conditions. Compared as strings rather
-#: than enum members: ``simulate_rule`` receives ORM rules whose ``condition``
-#: is an ``AlertCondition``, and the surrounding branches already compare it to
-#: plain strings.
-_METRIC_CONDITION_VALUES = frozenset({"metric_above", "metric_below", "metric_absent"})
-
 # ── Channel test ───────────────────────────────────────────────────────────────
 
 

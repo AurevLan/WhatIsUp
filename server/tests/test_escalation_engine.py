@@ -91,7 +91,7 @@ async def _rule(db: AsyncSession, owner: User, monitor: Monitor, policy, channel
     rule = AlertRule(
         owner_id=owner.id,
         monitor_id=monitor.id,
-        condition=AlertCondition.any_down,
+        condition=AlertCondition.availability,
         escalation_policy_id=policy.id if policy else None,
         channels=list(channels),
     )

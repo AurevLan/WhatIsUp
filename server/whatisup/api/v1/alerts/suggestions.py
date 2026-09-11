@@ -19,6 +19,7 @@ async def get_threshold_suggestions(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[dict]:
-    """Return monitors that could benefit from a response_time_above alert rule,
-    with a suggested threshold based on their p95 over the last 7 days."""
+    """Return monitors that could benefit from a ``latency_anomaly`` alert rule
+    (absolute threshold mode), with a suggested threshold based on their p95
+    over the last 7 days."""
     return await compute_threshold_suggestions(db, owner_id=current_user.id)

@@ -105,7 +105,7 @@ describe('AlertsView — escalation policy selector', () => {
     Object.assign(w.vm.ruleForm, {
       target_type: 'monitor',
       target_id: 'mon-1',
-      condition: 'any_down',
+      condition: 'availability',
       channel_ids: ['ch-1'],
       escalation_policy_id: 'pol-1',
     })
@@ -122,7 +122,7 @@ describe('AlertsView — escalation policy selector', () => {
     Object.assign(w.vm.ruleForm, {
       target_type: 'monitor',
       target_id: 'mon-1',
-      condition: 'any_down',
+      condition: 'availability',
       channel_ids: ['ch-1'],
     })
     await w.vm.saveRule()
@@ -137,7 +137,7 @@ describe('AlertsView — escalation policy selector', () => {
     const rule = {
       id: 'rule-1',
       monitor_id: 'mon-1',
-      condition: 'any_down',
+      condition: 'availability',
       channels: [{ id: 'ch-1' }],
       escalation_policy_id: 'pol-2',
     }

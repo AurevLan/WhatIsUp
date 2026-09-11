@@ -11,7 +11,6 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from whatisup.core.validators import validate_email_list
 from whatisup.models.alert import (
-    METRIC_CONDITIONS,
     AlertChannelType,
     AlertCondition,
     AlertEventStatus,
@@ -221,34 +220,39 @@ class TelegramResolveOut(BaseModel):
     chat_name: str
 
 
-def assert_metric_rule_is_fireable(
+def assert_latency_rule_is_fireable(
     condition: AlertCondition,
-    metric_name: str | None,
     threshold_value: float | None,
-    monitor_id: uuid.UUID | None,
+    baseline_factor: float | None,
+    anomaly_zscore_threshold: float | None,
 ) -> None:
-    """Reject a pushed-metric rule that could never match.
+    """Reject a ``latency_anomaly`` rule that names zero or several modes.
 
-    Called on creation *and* on the merged state after a PATCH — a rule flipped
-    to ``metric_above`` without a ``metric_name`` would otherwise be stored
-    happily and simply never fire, which is the failure mode C-4 exists to
-    remove. Raises ``ValueError``; both callers turn it into a 4xx.
-
-    ``monitor_id`` is required because metrics are pushed per monitor
-    (``POST /metrics/{monitor_id}``): a group- or tag-scoped metric rule has no
-    series to read.
+    Plan cap v2, F4 — the merged condition infers its sensitivity mode
+    (absolute / relative / statistical) from which one of the three fields is
+    set (``services/conditions/latency.py``). Called on creation *and* on the
+    merged state after a PATCH — a rule flipped to ``latency_anomaly`` without
+    any of the three, or a PATCH that sets a second one without clearing the
+    first, would otherwise be stored happily and either never fire or fire
+    off whichever field the handler happens to check first. Raises
+    ``ValueError``; both callers turn it into a 4xx.
     """
-    if condition not in METRIC_CONDITIONS:
+    if condition is not AlertCondition.latency_anomaly:
         return
-    if monitor_id is None:
+    modes_set = sum(
+        1 for v in (threshold_value, baseline_factor, anomaly_zscore_threshold) if v is not None
+    )
+    if modes_set == 0:
         raise ValueError(
-            f"condition {condition.value!r} targets a single monitor — set monitor_id "
-            "(metrics are pushed per monitor)"
+            "condition 'latency_anomaly' requires exactly one of threshold_value "
+            "(absolute), baseline_factor (relative) or anomaly_zscore_threshold "
+            "(statistical) — none is set"
         )
-    if not metric_name:
-        raise ValueError(f"metric_name is required for condition {condition.value!r}")
-    if condition is not AlertCondition.metric_absent and threshold_value is None:
-        raise ValueError(f"threshold_value is required for condition {condition.value!r}")
+    if modes_set > 1:
+        raise ValueError(
+            "condition 'latency_anomaly' accepts exactly one sensitivity mode — "
+            "set only one of threshold_value, baseline_factor, anomaly_zscore_threshold"
+        )
 
 
 class AlertRuleCreate(BaseModel):
@@ -265,18 +269,13 @@ class AlertRuleCreate(BaseModel):
     # Storm protection
     storm_window_seconds: int | None = Field(default=None, ge=10, le=3600)
     storm_max_alerts: int | None = Field(default=None, ge=1, le=1000)
+    # Plan cap v2, F1-conditions — `availability`'s quorum. See
+    # AlertRule.quorum_ratio's docstring for the boundary semantics.
+    quorum_ratio: float | None = Field(default=None, gt=0, le=1.0)
     # Baseline
     baseline_factor: float | None = Field(default=None, ge=1.1, le=100.0)
     # Anomaly detection
     anomaly_zscore_threshold: float | None = Field(default=None, ge=1.0, le=10.0)
-    # C-4 — pushed metrics. Same charset as MetricPush.metric_name in
-    # api/v1/metrics.py: a rule that cannot name an acceptable metric is a rule
-    # that can never match.
-    metric_name: str | None = Field(default=None, max_length=100, pattern=r"^[a-zA-Z0-9_.\-]+$")
-    # C-1 — which series inside the family named above. Subset match; absent
-    # means "every series of that name", firing on any of them.
-    metric_labels: dict[str, str] | None = Field(default=None, max_length=10)
-    metric_window_seconds: int | None = Field(default=None, ge=30, le=86400)
     # Business hours schedule
     schedule: dict | None = None
     # V2-02-02 — opt-in: skip dispatch when incident.network_verdict is a partition
@@ -287,9 +286,12 @@ class AlertRuleCreate(BaseModel):
     escalation_policy_id: uuid.UUID | None = None
 
     @model_validator(mode="after")
-    def check_metric_fields(self) -> AlertRuleCreate:
-        assert_metric_rule_is_fireable(
-            self.condition, self.metric_name, self.threshold_value, self.monitor_id
+    def check_latency_fields(self) -> AlertRuleCreate:
+        assert_latency_rule_is_fireable(
+            self.condition,
+            self.threshold_value,
+            self.baseline_factor,
+            self.anomaly_zscore_threshold,
         )
         return self
 
@@ -306,11 +308,9 @@ class AlertRuleUpdate(BaseModel):
     digest_minutes: int | None = Field(default=None, ge=0, le=1440)
     storm_window_seconds: int | None = Field(default=None, ge=10, le=3600)
     storm_max_alerts: int | None = Field(default=None, ge=1, le=1000)
+    quorum_ratio: float | None = Field(default=None, gt=0, le=1.0)
     baseline_factor: float | None = Field(default=None, ge=1.1, le=100.0)
     anomaly_zscore_threshold: float | None = Field(default=None, ge=1.0, le=10.0)
-    metric_name: str | None = Field(default=None, max_length=100, pattern=r"^[a-zA-Z0-9_.\-]+$")
-    metric_labels: dict[str, str] | None = Field(default=None, max_length=10)
-    metric_window_seconds: int | None = Field(default=None, ge=30, le=86400)
     schedule: dict | None = None
     suppress_on_network_partition: bool | None = None
     escalation_policy_id: uuid.UUID | None = None
@@ -328,11 +328,9 @@ class AlertRuleOut(BaseModel):
     digest_minutes: int = 0
     storm_window_seconds: int | None = None
     storm_max_alerts: int | None = None
+    quorum_ratio: float | None = None
     baseline_factor: float | None = None
     anomaly_zscore_threshold: float | None = None
-    metric_name: str | None = None
-    metric_labels: dict[str, str] | None = None
-    metric_window_seconds: int | None = None
     schedule: dict | None = None
     enabled: bool = True
     suppress_on_network_partition: bool = False

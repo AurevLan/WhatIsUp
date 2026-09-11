@@ -61,7 +61,7 @@ async def test_partition_suppression_matrix(
         id=uuid.uuid4(),
         owner_id=user.id,
         monitor_id=monitor.id,
-        condition=AlertCondition.any_down,
+        condition=AlertCondition.availability,
         min_duration_seconds=0,
         digest_minutes=0,
         suppress_on_network_partition=suppress,

@@ -381,9 +381,11 @@ async def list_metric_series(
     """Every series this monitor has ever reported, from the registry (C-1).
 
     Read from ``metric_series`` rather than derived from the points: the answer
-    then covers series that have gone quiet, which is exactly what someone
-    configuring a ``metric_absent`` rule needs to see. Cheap for the same
-    reason — the table is bounded by the cardinality cap, not by time.
+    then covers series that have gone quiet, which matters for spotting a
+    dead pusher (e.g. an agent that stopped writing) even though nothing can
+    alert on it directly anymore (plan cap v2, 6f/C1 cut pushed-metric
+    alerting). Cheap for the same reason — the table is bounded by the
+    cardinality cap, not by time.
     """
     await _get_accessible_monitor_or_404(monitor_id, current_user, db)
     stmt = select(MetricSeries).where(MetricSeries.monitor_id == monitor_id)

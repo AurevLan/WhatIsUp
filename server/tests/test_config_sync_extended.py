@@ -56,7 +56,7 @@ async def test_export_with_alert_channels_and_rules(client: AsyncClient, user_to
         "/api/v1/alerts/rules",
         json={
             "monitor_id": mon.json()["id"],
-            "condition": "any_down",
+            "condition": "availability",
             "channel_ids": [chan_id],
             "min_duration_seconds": 60,
             "threshold_value": 2000.0,
@@ -74,7 +74,7 @@ async def test_export_with_alert_channels_and_rules(client: AsyncClient, user_to
     # Secret should be redacted
     assert wh_ch["config"]["secret"] == "***"
     assert len(data["alert_rules"]) == 1
-    assert data["alert_rules"][0]["condition"] == "any_down"
+    assert data["alert_rules"][0]["condition"] == "availability"
     # rule with monitor reference
     assert data["alert_rules"][0]["monitor"] == "ExpMon"
     # discriminate threshold etc.
@@ -136,7 +136,7 @@ async def test_import_with_alert_rules_full(client: AsyncClient, user_token: str
         ],
         "alert_rules": [
             {
-                "condition": "any_down",
+                "condition": "availability",
                 "monitor": "FullMon",
                 "channels": ["FullChan"],
                 "min_duration_seconds": 60,

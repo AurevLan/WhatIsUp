@@ -195,29 +195,8 @@ async def lifespan(app: FastAPI):
         run_leader_loop("heartbeat_checker", _heartbeat_work, interval=30)
     )
 
-    # Pushed-metric alert evaluator (plan V2, C-4). Unlike the loops above this
-    # one is not housekeeping: it is the *only* thing that ever fires a
-    # metric_above / metric_below / metric_absent rule. A run that never happens
-    # is an alert that never pages.
-    async def _metric_alerts_work():
-        from whatisup.services.metric_alerts import check_metric_alerts
-
-        await check_metric_alerts()
-
-    metric_alerts_task = (
-        asyncio.create_task(
-            run_leader_loop(
-                "metric_alerts",
-                _metric_alerts_work,
-                interval=settings.metric_alerts_interval_seconds,
-            )
-        )
-        if settings.metric_alerts_enabled
-        else None
-    )
-
     # On-call escalation engine (plan V2, B-1). Walks each escalating incident
-    # to its next rung. Like the metric evaluator, this is not housekeeping: a
+    # to its next rung. Like the heartbeat checker above, this is not housekeeping: a
     # tick that never runs is a rung that never pages, and the operator believes
     # they are covered.
     async def _escalation_work():
@@ -329,13 +308,6 @@ async def lifespan(app: FastAPI):
         await heartbeat_task
     except asyncio.CancelledError:
         pass
-
-    if metric_alerts_task is not None:
-        metric_alerts_task.cancel()
-        try:
-            await metric_alerts_task
-        except asyncio.CancelledError:
-            pass
 
     escalation_task.cancel()
     try:

@@ -445,7 +445,15 @@ get_current_probe   # X-Probe-Api-Key (bcrypt + cache Redis SHA-256[:32], TTL 60
 
 ## CheckType (monitor.check_type)
 
-`http` · `tcp` · `dns` · `smtp` · `ping` · `domain_expiry` · `keyword` · `json_path` · `scenario` · `heartbeat`
+`http` · `tcp` · `dns` · `smtp` · `ping` · `domain_expiry` · `scenario` · `heartbeat`
+
+`keyword` et `json_path` ont disparu (plan cap v2, 6f-2, migration `a6f2b3c4d5e6`) : ce n'étaient pas des
+façons différentes de surveiller un service mais des assertions sur une réponse HTTP, déjà implémentées
+*dans* `HTTPChecker` (`probe/whatisup_probe/checkers/http.py`, `aliases = ["keyword", "json_path"]`).
+`Monitor.keyword`/`keyword_negate`/`expected_json_path`/`expected_json_value` restent inchangés en base —
+ce sont maintenant des champs optionnels d'un moniteur `http` (bloc « Assertions » repliable dans le
+formulaire), plus un `check_type` à part. Le seul moniteur `keyword` vivant a été reconverti en `http` par
+la migration, assertion intacte.
 
 ## Sécurité — règles absolues
 

@@ -96,26 +96,6 @@ TEMPLATES: dict[str, list[dict[str, Any]]] = {
         },
         {"id": "silent", "rows": [_row("any_down_patient")]},
     ],
-    "keyword": [
-        {"id": "standard", "rows": [_row("any_down_quick")]},
-        {
-            "id": "strict",
-            "rows": [_row("all_down_immediate"), _row("any_down_quick", min_duration_seconds=30)],
-        },
-        {"id": "silent", "rows": [_row("any_down_patient")]},
-    ],
-    "json_path": [
-        {"id": "standard", "rows": [_row("any_down_quick"), _row("schema_drift")]},
-        {
-            "id": "strict",
-            "rows": [
-                _row("all_down_immediate"),
-                _row("any_down_quick", min_duration_seconds=30),
-                _row("schema_drift"),
-            ],
-        },
-        {"id": "silent", "rows": [_row("any_down_patient")]},
-    ],
     "scenario": [
         {
             "id": "standard",

@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.0.0](https://github.com/AurevLan/WhatIsUp/compare/v1.28.0...v2.0.0) (2026-09-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* **alertes:** registre des conditions d'alerte, 10 → 4 (plan cap v2, 6f-1) ([#433](https://github.com/AurevLan/WhatIsUp/issues/433))
+* **monitors:** check_type "keyword" et "json_path" ne sont plus acceptés par l'API (POST/PATCH /monitors, /discovery/services/{id}/accept) — utiliser check_type=http avec les champs keyword/expected_json_path.
+* **alertes:** `renotify_after_minutes` disparaît des schémas AlertRuleCreate/Update/Out et de la matrice d'alertes — un appelant externe (export/import de config, script direct sur l'API) qui envoie encore ce champ reçoit désormais un 422. Le comportement utilisateur final est préservé par la migration automatique décrite ci-dessus.
+* **probe:** l'endpoint `GET /api/v1/extension/download` et le panneau de téléchargement dans les paramètres ont disparu. Quiconque utilisait l'extension navigateur pour enregistrer des scénarios doit utiliser `playwright codegen` puis importer le script généré dans le Scenario Builder (bouton « Importer »).
+
+### Fixed
+
+* **config:** transmettre PUBLIC_BASE_URL au conteneur serveur ([#424](https://github.com/AurevLan/WhatIsUp/issues/424)) ([454ecb7](https://github.com/AurevLan/WhatIsUp/commit/454ecb75ab1255833e4544ac81333116832f5253))
+
+
+### Changed
+
+* **alertes:** fusionner l'escalade et le renotify (plan cap v2, 6e) ([#431](https://github.com/AurevLan/WhatIsUp/issues/431)) ([6e98aca](https://github.com/AurevLan/WhatIsUp/commit/6e98acac1df32556602766351f4b5596b002feab))
+* **alertes:** fusionner maintenance et silences (plan cap v2, 6d) ([#430](https://github.com/AurevLan/WhatIsUp/issues/430)) ([53fa2b0](https://github.com/AurevLan/WhatIsUp/commit/53fa2b063f09efbf1444558bd492dd7d9213dfb0))
+* **alertes:** registre des conditions d'alerte, 10 → 4 (plan cap v2, 6f-1) ([#433](https://github.com/AurevLan/WhatIsUp/issues/433)) ([830dc56](https://github.com/AurevLan/WhatIsUp/commit/830dc56269b521a1040c12fc4ef90299d04640cc))
+* **monitors:** couper MonitorTemplate, remplacer par Dupliquer (plan cap v2, étape 6a) ([#426](https://github.com/AurevLan/WhatIsUp/issues/426)) ([cc4d8b1](https://github.com/AurevLan/WhatIsUp/commit/cc4d8b15fdc23b153bb48fa243bf9662e7feb80b))
+* **monitors:** keyword et json_path deviennent des assertions http (plan cap v2, 6f-2) ([#432](https://github.com/AurevLan/WhatIsUp/issues/432)) ([1316fae](https://github.com/AurevLan/WhatIsUp/commit/1316fae11ceb2a5a8446efe83eb78ed3eaee5254))
+* **monitors:** retirer les types de check udp et composite (plan cap v2, 6a) ([#427](https://github.com/AurevLan/WhatIsUp/issues/427)) ([07468cd](https://github.com/AurevLan/WhatIsUp/commit/07468cd0b19c933443113bb6c9eb7bccdc4e7c97))
+* **nav:** consolider la navigation principale (plan cap v2, 6c) ([#428](https://github.com/AurevLan/WhatIsUp/issues/428)) ([be46bdf](https://github.com/AurevLan/WhatIsUp/commit/be46bdfe17526775fe0cb270074fe3df3c21e19e))
+* **probe:** image sonde sans navigateur par défaut + coupe de l'extension (plan cap v2, 6b) ([#429](https://github.com/AurevLan/WhatIsUp/issues/429)) ([d09771d](https://github.com/AurevLan/WhatIsUp/commit/d09771d255c8292382898bfdedf95a1779ca6455))
+
+
+### Docs
+
+* remettre le discours à la vérité (FEATURES.md + README, plan cap v2, lots 7a/7b) ([#434](https://github.com/AurevLan/WhatIsUp/issues/434)) ([258e70e](https://github.com/AurevLan/WhatIsUp/commit/258e70e1cbcaba0051d708ccc296de7d66d1b92c))
+* **upgrade:** note de montée en v2.0.0 (plan cap v2, lot 7c) ([#435](https://github.com/AurevLan/WhatIsUp/issues/435)) ([21892cd](https://github.com/AurevLan/WhatIsUp/commit/21892cd430643ee80bc79726009de8a22ce61d64))
+
 ## [1.28.0](https://github.com/AurevLan/WhatIsUp/compare/v1.27.0...v1.28.0) (2026-09-07)
 
 

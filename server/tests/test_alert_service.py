@@ -56,7 +56,7 @@ def test_validate_webhook_blocks_private_192() -> None:
 
 @pytest.mark.asyncio
 async def test_simulate_rule_no_target(service_db: AsyncSession, test_user: User) -> None:
-    rule = AlertRule(condition=AlertCondition.any_down, owner_id=test_user.id)
+    rule = AlertRule(condition=AlertCondition.availability, owner_id=test_user.id)
     service_db.add(rule)
     await service_db.flush()
 
@@ -67,7 +67,7 @@ async def test_simulate_rule_no_target(service_db: AsyncSession, test_user: User
 
 
 @pytest.mark.asyncio
-async def test_simulate_rule_any_down_fires(
+async def test_simulate_rule_availability_fires(
     service_db: AsyncSession,
     test_monitor: Monitor,
     test_probe: Probe,
@@ -81,7 +81,7 @@ async def test_simulate_rule_any_down_fires(
         )
     )
     rule = AlertRule(
-        condition=AlertCondition.any_down,
+        condition=AlertCondition.availability,
         monitor_id=test_monitor.id,
         owner_id=test_monitor.owner_id,
     )
@@ -95,7 +95,7 @@ async def test_simulate_rule_any_down_fires(
 
 
 @pytest.mark.asyncio
-async def test_simulate_rule_any_down_no_fire_when_up(
+async def test_simulate_rule_availability_no_fire_when_up(
     service_db: AsyncSession,
     test_monitor: Monitor,
     test_probe: Probe,
@@ -109,7 +109,7 @@ async def test_simulate_rule_any_down_no_fire_when_up(
         )
     )
     rule = AlertRule(
-        condition=AlertCondition.any_down,
+        condition=AlertCondition.availability,
         monitor_id=test_monitor.id,
         owner_id=test_monitor.owner_id,
     )
@@ -126,7 +126,7 @@ async def test_simulate_rule_no_monitors_found(service_db: AsyncSession, test_us
     import uuid
 
     rule = AlertRule(
-        condition=AlertCondition.any_down,
+        condition=AlertCondition.availability,
         monitor_id=uuid.uuid4(),
         owner_id=test_user.id,
     )

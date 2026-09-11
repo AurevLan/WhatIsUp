@@ -487,7 +487,7 @@ def test_alerts() -> None:
             headers=auth_headers(),
             json={
                 "monitor_id": IDS["monitor_id"],
-                "condition": "any_down",
+                "condition": "availability",
                 "min_duration_seconds": 0,
                 "channel_ids": [cid],
             },
@@ -798,12 +798,12 @@ def test_smart_alerts() -> None:
     r = client.get("/api/v1/alerts/presets/http", headers=auth_headers())
     presets = check("GET /alerts/presets/http", r, 200)
     if presets and isinstance(presets, list):
-        has_any_down = any(p["condition"] == "any_down" for p in presets)
+        has_availability = any(p["condition"] == "availability" for p in presets)
         has_ssl = any(p["condition"] == "ssl_expiry" for p in presets)
-        if has_any_down and has_ssl:
-            ok("HTTP presets include any_down + ssl_expiry")
+        if has_availability and has_ssl:
+            ok("HTTP presets include availability + ssl_expiry")
         else:
-            fail("HTTP presets content", f"any_down={has_any_down}, ssl={has_ssl}")
+            fail("HTTP presets content", f"availability={has_availability}, ssl={has_ssl}")
 
     r = client.get("/api/v1/alerts/presets/heartbeat", headers=auth_headers())
     check("GET /alerts/presets/heartbeat", r, 200)
@@ -847,10 +847,10 @@ def test_smart_alerts() -> None:
         if rules and isinstance(rules, list) and len(rules) >= 1:
             ok(f"Auto-rules created: {len(rules)} rule(s)")
             conditions = [r["condition"] for r in rules]
-            if "any_down" in conditions:
-                ok("Auto-rules include any_down")
+            if "availability" in conditions:
+                ok("Auto-rules include availability")
             else:
-                fail("Auto-rules include any_down", f"got {conditions}")
+                fail("Auto-rules include availability", f"got {conditions}")
         elif rules is not None:
             fail(
                 "Auto-rules count",

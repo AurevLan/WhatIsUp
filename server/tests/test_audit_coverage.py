@@ -102,7 +102,7 @@ async def test_audit_alert_rule_create(
 
     resp = await client.post(
         "/api/v1/alerts/rules",
-        json={"monitor_id": monitor_id, "condition": "any_down", "channel_ids": [channel_id]},
+        json={"monitor_id": monitor_id, "condition": "availability", "channel_ids": [channel_id]},
         headers=_auth(user_token),
     )
     assert resp.status_code == 201
@@ -110,7 +110,7 @@ async def test_audit_alert_rule_create(
     assert len(entries) >= 1
     entry = entries[-1]
     assert entry.object_type == "alert_rule"
-    assert entry.object_name == "any_down"
+    assert entry.object_name == "availability"
     assert entry.user_id is not None
     # monitor_id in the diff disambiguates identical conditions across monitors.
     assert entry.diff["monitor_id"] == monitor_id
@@ -138,7 +138,7 @@ async def test_audit_alert_rule_update(
     channel_id = ch.json()["id"]
     rule = await client.post(
         "/api/v1/alerts/rules",
-        json={"monitor_id": monitor_id, "condition": "any_down", "channel_ids": [channel_id]},
+        json={"monitor_id": monitor_id, "condition": "availability", "channel_ids": [channel_id]},
         headers=_auth(user_token),
     )
     rule_id = rule.json()["id"]
@@ -178,7 +178,7 @@ async def test_audit_alert_rule_delete(
     channel_id = ch.json()["id"]
     rule = await client.post(
         "/api/v1/alerts/rules",
-        json={"monitor_id": monitor_id, "condition": "any_down", "channel_ids": [channel_id]},
+        json={"monitor_id": monitor_id, "condition": "availability", "channel_ids": [channel_id]},
         headers=_auth(user_token),
     )
     rule_id = rule.json()["id"]
@@ -189,7 +189,7 @@ async def test_audit_alert_rule_delete(
     assert len(entries) >= 1
     entry = entries[-1]
     assert entry.object_type == "alert_rule"
-    assert entry.object_name == "any_down"
+    assert entry.object_name == "availability"
     assert entry.diff["monitor_id"] == monitor_id
 
 
@@ -226,8 +226,8 @@ async def test_audit_alert_matrix_update(
         f"/api/v1/alerts/monitors/{monitor_id}/matrix",
         json={
             "rows": [
-                {"condition": "any_down", "channel_ids": [channel_id]},
-                {"condition": "all_down", "channel_ids": [channel_id]},
+                {"condition": "availability", "channel_ids": [channel_id]},
+                {"condition": "ssl_expiry", "channel_ids": [channel_id]},
             ]
         },
         headers=_auth(user_token),
@@ -243,13 +243,15 @@ async def test_audit_alert_matrix_update(
     assert entry.diff["created"] == 2
     assert entry.diff["updated"] == 0
     assert entry.diff["deleted"] == 0
-    assert set(entry.diff["created_conditions"]) == {"any_down", "all_down"}
+    assert set(entry.diff["created_conditions"]) == {"availability", "ssl_expiry"}
 
-    # Second PUT: keep any_down (updated), drop all_down (deleted) — one trace per request,
-    # not one per underlying AlertRule mutation.
+    # Second PUT: keep availability (updated), drop ssl_expiry (deleted) — one
+    # trace per request, not one per underlying AlertRule mutation.
     resp = await client.put(
         f"/api/v1/alerts/monitors/{monitor_id}/matrix",
-        json={"rows": [{"condition": "any_down", "channel_ids": [channel_id], "enabled": False}]},
+        json={
+            "rows": [{"condition": "availability", "channel_ids": [channel_id], "enabled": False}]
+        },
         headers=_auth(user_token),
     )
     assert resp.status_code == 200
@@ -259,8 +261,8 @@ async def test_audit_alert_matrix_update(
     assert entry.diff["created"] == 0
     assert entry.diff["updated"] == 1
     assert entry.diff["deleted"] == 1
-    assert entry.diff["updated_conditions"] == ["any_down"]
-    assert entry.diff["deleted_conditions"] == ["all_down"]
+    assert entry.diff["updated_conditions"] == ["availability"]
+    assert entry.diff["deleted_conditions"] == ["ssl_expiry"]
 
 
 @pytest.mark.asyncio

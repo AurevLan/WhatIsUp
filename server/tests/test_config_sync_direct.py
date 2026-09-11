@@ -67,7 +67,7 @@ async def test_export_with_data(service_db: AsyncSession, test_user: User) -> No
     rule = AlertRule(
         owner_id=test_user.id,
         monitor_id=mon.id,
-        condition=AlertCondition.any_down,
+        condition=AlertCondition.availability,
         min_duration_seconds=60,
         threshold_value=2500.0,
         digest_minutes=5,
@@ -92,7 +92,7 @@ async def test_export_with_data(service_db: AsyncSession, test_user: User) -> No
     assert len(out["alert_rules"]) == 1
     rule_out = out["alert_rules"][0]
     assert rule_out["monitor"] == "ExpDirMon"
-    assert rule_out["condition"] == "any_down"
+    assert rule_out["condition"] == "availability"
     assert rule_out["threshold_value"] == 2500.0
     assert rule_out["min_duration_seconds"] == 60
     assert rule_out["digest_minutes"] == 5
@@ -128,7 +128,7 @@ async def test_import_creates_full_stack(service_db: AsyncSession, test_user: Us
         ],
         "alert_rules": [
             {
-                "condition": "any_down",
+                "condition": "availability",
                 "monitor": "ImpDirMon",
                 "channels": ["ImpDirChan"],
                 "min_duration_seconds": 30,

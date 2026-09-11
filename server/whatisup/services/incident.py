@@ -168,7 +168,6 @@ async def process_check_result(
                         select(func.count(_Incident.id)).where(
                             _Incident.monitor_id.in_(all_in_group),
                             _Incident.resolved_at.is_(None),
-                            _Incident.alert_rule_id.is_(None),
                         )
                     )
                 ).scalar_one()

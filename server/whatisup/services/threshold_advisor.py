@@ -25,8 +25,8 @@ async def compute_threshold_suggestions(
     owner_id: uuid.UUID | None = None,
 ) -> list[dict]:
     """
-    For each monitor with >7 days of data and no response_time_above rule,
-    compute p95 and suggest a threshold.
+    For each monitor with >7 days of data and no absolute-threshold
+    ``latency_anomaly`` rule, compute p95 and suggest a threshold.
 
     Returns a list of suggestions:
       [{monitor_id, monitor_name, p95_ms, suggested_threshold_ms}]

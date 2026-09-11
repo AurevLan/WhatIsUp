@@ -45,7 +45,7 @@ async def _mk_channel(db: AsyncSession, owner: User) -> AlertChannel:
 async def _mk_tag_rule(db: AsyncSession, owner: User, channel: AlertChannel) -> AlertRule:
     rule = AlertRule(
         owner_id=owner.id,
-        condition=AlertCondition.any_down,
+        condition=AlertCondition.availability,
         tag_selector=["prod"],
         min_duration_seconds=0,
         digest_minutes=0,

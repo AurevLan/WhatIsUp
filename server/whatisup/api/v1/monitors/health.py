@@ -108,9 +108,6 @@ async def get_slo(
                 Incident.monitor_id == monitor_id,
                 Incident.started_at >= window_start,
                 Incident.resolved_at.isnot(None),
-                # C-4 — error budget is spent by downtime. A pushed-metric
-                # breach is not downtime and must not burn it.
-                Incident.alert_rule_id.is_(None),
             )
         )
     ).one()

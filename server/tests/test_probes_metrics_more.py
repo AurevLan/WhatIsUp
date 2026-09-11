@@ -308,7 +308,7 @@ async def test_alert_rule_with_group_target(client: AsyncClient, user_token: str
         "/api/v1/alerts/rules",
         json={
             "group_id": grp["id"],
-            "condition": "any_down",
+            "condition": "availability",
             "channel_ids": [chan["id"]],
         },
         headers=_auth(user_token),
@@ -333,7 +333,7 @@ async def test_alert_rule_with_unknown_group_404(client: AsyncClient, user_token
         "/api/v1/alerts/rules",
         json={
             "group_id": str(uuid.uuid4()),
-            "condition": "any_down",
+            "condition": "availability",
             "channel_ids": [chan["id"]],
         },
         headers=_auth(user_token),
@@ -358,7 +358,7 @@ async def test_alert_rule_with_unknown_monitor_404(client: AsyncClient, user_tok
         "/api/v1/alerts/rules",
         json={
             "monitor_id": str(uuid.uuid4()),
-            "condition": "any_down",
+            "condition": "availability",
             "channel_ids": [chan["id"]],
         },
         headers=_auth(user_token),

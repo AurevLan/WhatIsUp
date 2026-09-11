@@ -1,4 +1,6 @@
-"""HTTP/HTTPS checker — also handles keyword and json_path variants."""
+"""HTTP/HTTPS checker — keyword/json_path are optional assertions here, not
+separate check_types (plan cap v2, 6f-2). ``aliases`` below keeps routing the
+two retired check_type names to this checker for old/mixed-version safety."""
 
 from __future__ import annotations
 
@@ -93,14 +95,17 @@ class HTTPChecker(BaseChecker):
         ssl_check_enabled = config.get("ssl_check_enabled", False)
         ssl_pin_sha256 = (config.get("ssl_pin_sha256") or "").lower() or None
         ssl_min_chain_days = config.get("ssl_min_chain_days")
-        check_type = config.get("check_type", "http")
 
+        # keyword / json_path used to be separate check_types; they're now
+        # optional assertions any http monitor can carry (plan cap v2, 6f-2)
+        # — evaluated whenever the field is set, never gated on check_type
+        # (the probe still aliases "keyword"/"json_path" to this checker in
+        # `base.py`, for rolling-upgrade/backward-compat safety, but no
+        # branch here needs to know which name routed the call).
         keyword = config.get("keyword")
         keyword_negate = config.get("keyword_negate", False)
-        expected_json_path = config.get("expected_json_path") if check_type == "json_path" else None
-        expected_json_value = (
-            config.get("expected_json_value") if check_type == "json_path" else None
-        )
+        expected_json_path = config.get("expected_json_path")
+        expected_json_value = config.get("expected_json_value")
         body_regex = config.get("body_regex")
         expected_headers = config.get("expected_headers")
         json_schema = config.get("json_schema")

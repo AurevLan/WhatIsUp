@@ -1,8 +1,51 @@
 # WhatIsUp — Inventaire des Fonctionnalités
 
 > **Source de vérité** des features livrées. À amender à chaque release.
-> Référence : **v1.23.0** (2026-08-24) — plan V2 chantiers **B** (astreinte/escalade) et **C** (métriques poussées) + chantier **D** (découverte par la sonde) livrés en intégralité, à la suite du chantier **A** (time-series, v1.17.3-v1.18.0). **Time-series (A-2→A-4, C-2)** : rollups horaires `check_rollups_1h` désormais branchés sur les statistiques exposées (A-3 — exact sur toute largeur sauf le p95 au-delà d'une heure, réagrégé et marqué `≈`), rétention différenciée brut (`DATA_RETENTION_DAYS`) / rollups (`ROLLUP_RETENTION_MONTHS`) avec interlock — la purge du brut ne dépasse jamais la frontière du builder de rollups (A-4), `custom_metrics` partitionné par mois et enfin purgé (`METRICS_RETENTION_DAYS`, C-2). **Astreinte (B-0→B-4)** : modèle astreinte + contacts, moteur d'escalade temporisée à rotation calendaire locale (jours, pas secondes) qui retombe sur les canaux de la règle si personne n'est joint, acquittement d'incident directement depuis Slack/Telegram par jeton signé lié au canal (seuls endpoints mutants non authentifiés du produit), page « Astreinte » (rotations, politiques, widget « d'astreinte en ce moment »). **Métriques poussées (C-1, C-3, C-4)** : ingestion batch avec labels (une série = `(monitor_id, metric_name, labels)`) et double quota débit/cardinalité fail-closed, conditions d'alerte `metric_above`/`metric_below`/`metric_absent` ouvrant une population d'incidents séparée (`Incident.alert_rule_id`), corrélation métrique↔incident qui refuse explicitement de répondre plutôt que d'inventer un chiffre (série née avec l'incident, échantillonnage insuffisant, référence à zéro). **Découverte par la sonde (D-0→D-4)** : sources Docker / port scan borné / zone DNS AXFR, réconciliation serveur avec propositions pré-remplies (jamais de monitor créé silencieusement), UI de revue + bulk accept/dismiss + badge orphelin, dérive continue par empreinte de dismiss (un service refusé dont la nature change à la ré-apparition est re-proposé). Précédent : **v1.17.3** (2026-07-29) — quick wins perf DB (index morts, cache page publique, tuning Postgres). Précédent : **v1.17.2** (2026-07-29) — audit `claude-security` du 2026-07-24 soldé en 7 lots (20 findings, 1 HIGH / 14 MEDIUM / 5 LOW) : chaîne de confiance IP reprise de bout en bout (nginx écrase `X-Forwarded-For`, `TRUSTED_PROXY_IPS`), fin des fuites de secrets dans les erreurs de canaux et les résultats de scénario, chiffrement des valeurs de `custom_headers`, échappement des contenus utilisateur en email/HTML/code généré, sonde épinglée sur l'IP validée pour tous ses collecteurs (traceroute/openssl/curl/TLS) et travail CPU fourni par un tenant borné (moteur `regex` interruptible + pool de threads isolé), `/api/metrics` fail-closed en production, secrets de premier boot séparés (volume `probe_secrets`, `ADMIN_PASSWORD` effacé au 1er login superadmin), et connexion SSO liée au navigateur qui l'a initiée (cookie nonce + code d'échange à usage unique, plus de jetons dans l'URL). Précédent : **v1.17.0** (2026-07-21) — état des lieux vagues A/B/C : portées de clé API (`read`/`write`), rate-limit sur **tous** les GET `api/v1` (SEC-3), abonnements status page fonctionnels de bout en bout (double opt-in + notifications + désinscription), endpoints `incident-groups` supprimés, `monitors.py` éclaté en sous-routeurs, refactos frontend (tokens de statut, `MonitorFormFields`, `useAsyncResource`). Précédent : **v1.16.2** (2026-07-21) — vague fiabilité post-état-des-lieux (SEC-2 + R-1/R-2/R-4) : SSRF probe HTTP (portage du pinning IP SA1 côté probe — transport httpx épinglé, re-validation par hop de redirect), fail-open Redis sur l'auth API-key (panne Redis ⇒ fallback bcrypt, plus de 500), atomicité renotify (commit par incident), unification du matching des conditions d'alerte (prédicats purs partagés dispatch/preview, simulateur 7/7 conditions + garde-fou anti-divergence, enum morte `tls_grade_below` supprimée). Précédent : **v1.16.0** (2026-07-20) — 2e vague sécurité post-audit (SA1-SA7 + S1/S2/S4) : SSRF anti-DNS-rebinding (IP résolue épinglée sur le transport httpx), lockout compte par utilisateur + anti-énumération timing, rotation `FERNET_KEY` (MultiFernet + outil `rotate_fernet`), scoping cross-tenant des payloads WS (`correlated_monitor_ids`) et `incident-groups`, durcissement cache auth probe **et** API-key utilisateur (fingerprint + révocation immédiate), SSRF sur le checker `ping`, comblement rate-limit sur 19 endpoints (teams, alerts rules, onboarding, audit + sweep). Précédent : **v1.15.0** (2026-07-03) — durcissement sécurité post-audit 2026-07 (WebSocket scopé par tenant, confiance probe scope-bindée + rotation de clé, couverture audit log des mutations de config), leader election Redis, logs JSON structurés + X-Request-ID, perf (auth probe par préfixe indexé, `GET /monitors/` 7869 → 0,6 ms) et quick wins UX (toast erreurs global, tri persistant, undo bulk delete) & mobile (back Android, WS en arrière-plan, POST_NOTIFICATIONS). Socle : design system consolidé + responsive (v1.14), VELOURS + a11y gates CI (v1.13), 2FA TOTP + sessions actives (v1.12), Health Engine V2 (M0-M5, en prod sur 17/17 monitors depuis 2026-05-06).
-> Dernière release : **v1.23.0** (2026-08-24) — chantier D (découverte par la sonde, D-4) + acquittement Slack/Telegram (B-3). Précédente : **v1.22.0** (2026-08-09) — page Astreinte UI (B-4). Précédentes : v1.21.0 (B-1/B-2 escalade), v1.20.0 (C-3 corrélation métrique↔incident), v1.19.0 (C-1 ingestion métriques), v1.18.0 (C-4 alertes métrique + B-0 modèle astreinte + perf A-1→A-4/C-2), v1.17.3 (perf DB), v1.17.2 (audit sécurité), v1.17.1 (2026-07-24) — `tag_selector` d'une règle d'alerte scopé aux propriétaires du monitor (F1, HIGH).
+> Référence : **v2.0.0** — thèse du produit : le seul outil de supervision **auto-hébergeable** qui observe
+> un service depuis plusieurs réseaux à la fois et se donne les moyens de dire **lequel des deux est
+> cassé** — le service, ou le chemin réseau entre lui et un point d'observation (axe **opérateur/ASN et
+> position réseau**, pas géographique — voir `README.md`).
+>
+> **Chantier « cap v2 » (6a→6f, ce lot 7)** — nettoyage du superflu avant la 2.0 : moniteur templates
+> retirés (remplacés par « Dupliquer », tous types), types de check `udp`/`composite` retirés, `keyword`/
+> `json_path` absorbés comme assertions optionnelles du check `http` (tuiles de création 10 → 8),
+> extension navigateur d'enregistrement de scénario retirée (image de sonde sans Chromium par défaut,
+> 1,97 Go → 480 Mo ; variante `-browser` publiée séparément), navigation principale 17 → 11 entrées
+> (graphe de dépendances et flotte TLS repliés dans la fiche moniteur / liste des moniteurs, audit sous
+> Réglages, astreinte sous Alertes), maintenance et silences fusionnés en un seul objet « Suppressions »,
+> `renotify_after_minutes` absorbé par l'échelle d'escalade (un barreau répétitif = l'ancien comportement),
+> et le registre des conditions d'alerte réduit de 10 à 4 (`availability`, `ssl_expiry`, `latency_anomaly`,
+> `schema_drift`) — les conditions sur métrique poussée (`metric_above`/`metric_below`/`metric_absent`) sont
+> **coupées entièrement** (0 règle, 0 point, 0 série sur l'instance réelle ; remplacées par un endpoint
+> applicatif qui répond 500 passé son propre seuil, ou un `heartbeat` poussé). **L'ingestion de métriques
+> (batch/labels/quotas) et la corrélation métrique↔incident restent intactes** — seul le déclenchement
+> d'alerte sur métrique a disparu. Trois `BREAKING CHANGE` (image de sonde, endpoint extension, membres
+> d'enum d'API) motivent le saut en 2.0.0.
+>
+> **Livré depuis v1.23.0 (v1.24→v1.28), avant le nettoyage 6a-6f** — Health Engine activé par défaut à la
+> création d'un moniteur et devenu le **seul** moteur de détection (retrait du décideur historique) ; verdict
+> réseau désormais **calculé sur le chemin du Health Engine** (auparavant absent de la grande majorité des
+> incidents) et **montré** dans les 11 canaux d'alerte, les vues moniteur et la page de statut publique ;
+> maintenance planifiée **annoncée** sur la page de statut publique (elle s'affichait « panne » en rouge
+> auparavant) ; **annonces de statut** manuelles, découplées d'`Incident` (annoncer sans qu'une sonde ait
+> basculé) ; **nom public de moniteur** + fin de la divulgation d'inventaire sur l'endpoint public (URL,
+> ports, types d'enregistrement DNS, URL finale de redirection n'y apparaissent plus) ; **flux Atom** sur
+> chaque page de statut ; **péremption des agents de sonde** signalée (obsolète/muet) sur le dashboard et la
+> liste des sondes ; `PUBLIC_BASE_URL` enfin **transmis au conteneur** serveur (documenté et lu depuis
+> longtemps, jamais passé — les liens du flux Atom et des mails d'abonnés sortaient en `localhost`) ; images
+> de release et APK **signées keylessly avec Cosign** + SBOM SPDX. **Chantier E (découverte, ergonomie)** :
+> feedback de scan par source (`last_scan_at`, statut) + déclenchement manuel (`scan-now`), sources de
+> découverte ciblables par **groupe de sondes** (élection parmi les sondes du groupe), badge de propositions
+> en attente dans la navigation + états vides pédagogiques.
+>
+> Chantiers antérieurs (v1.17.3→v1.23.0) : plan V2 chantiers **A** (time-series — partitionnement mensuel de
+> `check_results` et `custom_metrics`, rollups horaires `check_rollups_1h`, rétention différenciée brut/
+> rollups avec interlock), **B** (astreinte/escalade/ack canal), **C-1/C-3** (ingestion de métriques poussées
+> batch/labels/quotas, corrélation métrique↔incident — **C-4**, les alertes sur métrique, a depuis été
+> coupé, voir plus haut) et **D** (découverte par la sonde — Docker / port scan borné / zone DNS AXFR).
+> Précédent : audit `claude-security` du 2026-07-24 soldé en 7 lots (chaîne de confiance IP, fuites de
+> secrets, injections de contenu, épinglage sonde, métriques fail-closed, SSO lié au navigateur).
+> Socle : design system VELOURS + a11y gates CI, 2FA TOTP + sessions actives, leader election Redis.
 > Pour la chronologie détaillée, voir `CHANGELOG.md`.
 
 **Légende** : ✅ livré · 🔬 livré + tests automatisés · 🚧 partiel (voir notes).
@@ -92,19 +135,23 @@
 
 ## 2. Monitoring — Types de checks
 
+> **8 types** (plan cap v2, 6a/6f-2 — tuiles de création 10 → 8) : `udp` et `composite` ont été retirés
+> (6a, migration `07468cd` — trop rarement configurés pour justifier leur maintenance) ; `keyword` et
+> `json_path` ont disparu **comme types de check** (6f-2, migration `a6f2b3c4d5e6`) — ce n'étaient pas des
+> façons différentes de surveiller un service mais des assertions sur une réponse HTTP, déjà implémentées
+> *dans* `HTTPChecker`. Elles sont désormais un bloc « Assertions » optionnel et repliable d'un moniteur
+> `http` (`Monitor.keyword`/`keyword_negate`/`expected_json_path`/`expected_json_value` inchangés en base).
+
 | Type | Options | Fichier checker |
 |---|---|---|
-| `http` | status codes, follow_redirects, SSL warn-days (+ pinning SHA-256 V2-02-05), body regex, expected_headers (exact ou `/regex/`), keyword (+ negate), expected_json_path/value, json_schema, schema drift baseline, waterfall (DNS+TTFB+download), custom metrics push, **custom_headers per-monitor + UA presets** (v1.7) | `probe/whatisup_probe/checkers/http.py` |
+| `http` | status codes, follow_redirects, SSL warn-days (+ pinning SHA-256 V2-02-05), waterfall (DNS+TTFB+download), custom metrics push, **custom_headers per-monitor + UA presets** (v1.7), bloc **Assertions** optionnel repliable : body regex, expected_headers (exact ou `/regex/`), keyword (+ negate), expected_json_path/value, json_schema, schema drift baseline | `probe/whatisup_probe/checkers/http.py` |
 | `tcp` | port, timeout, banner capture | `checkers/tcp.py` |
-| `udp` | port, timeout (ICMP unreachable / open) | `checkers/udp.py` |
 | `dns` | record_type (A/AAAA/CNAME/MX/TXT/NS), expected_value, custom nameservers, **DNS drift** (baseline auto-learn), **split horizon** (baseline interne/externe distincte) | `checkers/dns.py` + `services/dns.py` |
 | `smtp` | port, STARTTLS toggle, EHLO handshake, banner-to-ready ms | `checkers/smtp.py` |
 | `ping` | ICMP via `ping` système, RTT | `checkers/ping.py` |
-| `domain_expiry` | WHOIS, warn-days configurable, days remaining | `checkers/domain_expiry.py` |
-| `keyword` / `json_path` | extension du check `http` | `checkers/http.py` |
-| `scenario` | Playwright (navigate / click / fill / assert / screenshot / wait / scroll), Core Web Vitals (LCP/CLS/INP), variables `secret: true` chiffrées Fernet, pool Chromium partagé, `MAX_CONCURRENT_SCENARIOS` | `checkers/scenario.py` |
+| `domain_expiry` | WHOIS, warn-days configurable, days remaining — déclassé « avancé » dans le wizard de création | `checkers/domain_expiry.py` |
+| `scenario` | Playwright (navigate / click / fill / assert / screenshot / wait / scroll), Core Web Vitals (LCP/CLS/INP), variables `secret: true` chiffrées Fernet, pool Chromium partagé, `MAX_CONCURRENT_SCENARIOS` — nécessite la variante d'image de sonde `-browser` (voir §10) | `checkers/scenario.py` |
 | `heartbeat` | dead-man's switch `/api/v1/ping/{slug}`, grace_seconds | `services/heartbeat.py` |
-| `composite` | aggregation `all_up` / `any_up` / `majority_up` / `weighted_up`, weights, cycle detection | `services/composite.py` |
 
 ### Options communes par monitor
 - `interval_seconds`, `timeout_seconds`, `enabled`
@@ -117,6 +164,9 @@
 - `tags` + `team_id` + `group_id`
 - 🔬 **Valeurs de `custom_headers` chiffrées Fernet** (v1.17.2, audit S3/F18) — les noms d'en-têtes restent en clair (la config doit rester inspectable), les valeurs sont chiffrées sur les 5 chemins d'écriture/lecture (create, update, import JSON, import/export IaC, sync probe). **Aucune migration** : le déchiffrement retombe sur la valeur brute par entrée, les lignes antérieures se rechiffrent à la prochaine écriture. Pas de masquage en lecture, contrairement aux variables de scénario — le formulaire d'édition relit puis resoumet ces valeurs
 - 🔬 **`json_schema` plafonné à 64 Ko** (v1.17.2, audit S5) — sans cap, un schéma géant était accepté à la création puis échouait à chaque cycle côté sonde
+- ✅ **Dupliquer** (bouton sur la fiche moniteur, tous types de check) — remplace `MonitorTemplate` (plan
+  cap v2, 6a) : la table, la vue superadmin et les 6 endpoints `/api/v1/templates/` ont été retirés
+  (0 usage réel constaté), au profit d'un geste plus simple qui n'a jamais besoin d'être maintenu à part
 
 ---
 
@@ -177,16 +227,19 @@
 - ✅ **D-2 — Réconciliation serveur + propositions** — `services/discovery.py`, branché depuis
   `push_discovery` juste après le stockage du snapshot, même transaction. Matching : une cible
   découverte dont le `normalized_target` équivaut à celui d'un monitor existant du propriétaire/team
-  de la source (`monitor_network_target` — dérivé de `check_type`/`url`/`tcp_port`/`udp_port`/
-  `smtp_port`, jamais cross-tenant) est liée directement (`status="accepted"` + `monitor_id`) au lieu
-  d'être proposée ; `dns`/`ping`/`domain_expiry`/`heartbeat`/`composite` exclus du matching (pas de
-  cible réseau comparable — un défaut de port sur ces types collisionnerait à tort). Disparition :
+  de la source (`monitor_network_target` — dérivé de `check_type`/`url`/`tcp_port`/`smtp_port`, jamais
+  cross-tenant) est liée directement (`status="accepted"` + `monitor_id`) au lieu d'être proposée ;
+  `dns`/`ping`/`domain_expiry`/`heartbeat` exclus du matching (pas de cible réseau comparable — un
+  défaut de port sur ces types collisionnerait à tort ; `composite` l'était aussi jusqu'à son retrait
+  en 6a). Disparition :
   `proposed` jamais accepté et absent du dernier snapshot → supprimé ; `accepted` absent → `orphaned`
   (le monitor reste réel) ; `dismissed` intouché (le refus reste mémorisé, jamais re-proposé, y
   compris à la disparition). Réapparition : `orphaned` revu dans un snapshot → re-`accepted`, même
   `monitor_id`. Pré-remplissage (jamais stocké, recalculé à la lecture) exposé sur
   `DiscoveredServiceOut` : `suggested_check_type` (443/80/8080/8443/8000→http, 25/465/587→smtp,
-  53→dns, défaut tcp/udp selon le proto observé), `suggested_name`/`suggested_group`/`suggested_tags`
+  53→dns, défaut `tcp` sinon — un port UDP observé retombe sur `tcp` depuis le retrait du check
+  générique `udp`, 6a ; l'appelant peut toujours retyper à l'acceptation),
+  `suggested_name`/`suggested_group`/`suggested_tags`
   (depuis les hints Docker — `container_name`/`image`, labels `com.docker.compose.project`/`.service`),
   `suggested_alert_matrix_template_id` (meilleur `AlertMatrixTemplate` pour ce check_type). Accept
   (`POST /discovery/services/{id}/accept`) crée réellement le `Monitor` — via la même fonction que
@@ -254,6 +307,27 @@
   bloc opt-in commenté dans `docker-compose.yml` pour le montage `:ro` du socket Docker (toujours
   **absent par défaut**), section README « Automatic discovery ». Chantier D **complet**.
 
+### Ergonomie de la découverte (chantier E)
+
+> Trois lots livrés après le chantier D pour lever les frictions constatées à l'usage : la découverte
+> restait invisible entre deux runs, ne pouvait cibler qu'une sonde nommément et personne ne savait
+> quand la lancer.
+
+- ✅ **E-1 — feedback de scan + déclenchement manuel** — `DiscoverySource` gagne `last_scan_at` /
+  `last_scan_target_count` / `last_scan_probe_id` (migration `8d9e0f1a2b3c`) : la vue Sources affiche
+  quand une source a tourné pour la dernière fois et combien de cibles elle a vues, sans attendre le
+  prochain cycle programmé (jusqu'à `DISCOVERY_INTERVAL_SECONDS`, 900 s par défaut). Nouvel endpoint
+  `POST /discovery/sources/{id}/scan-now` (202) et support côté sonde (`scheduler.py`) pour lancer un
+  run immédiat depuis l'UI.
+- ✅ **E-2 — ciblage par groupe de sondes** — une source de découverte peut désormais viser un
+  `ProbeGroup` entier plutôt qu'une sonde nommée ; une seule sonde du groupe est élue pour exécuter le
+  scan à chaque cycle (`services/discovery_election.py`), pour éviter les doublons de push si plusieurs
+  sondes du groupe déclarent la même capability.
+- ✅ **E-3 — pédagogie** — badge de compte des propositions en attente dans la navigation
+  (`usePendingDiscoveryCount.js`, `GET /discovery/services` filtré), hint de capacités dans la modale de
+  création de source (quelles sondes savent faire quoi), état vide explicite sur `DiscoveryView.vue`
+  plutôt qu'une liste muette.
+
 ---
 
 ## 4. Incidents & Corrélation
@@ -268,13 +342,16 @@
 - ✅ **Anomaly detection** — z-score sur fenêtre 7j ± 3h (jour/nuit) (`services/anomaly.py`)
 - ✅ **Threshold advisor** statistique (`services/threshold_advisor.py`)
 - ✅ **Schema drift** (baseline + hash) sur réponses HTTP
-- ✅ **Network verdict (V2-02-02)** — classification automatique panne service vs partition réseau (`services/network_verdict.py`). Champ `Incident.network_verdict ∈ {service_down, network_partition_asn, network_partition_geo, inconclusive}` calculé à l'ouverture puis recompute toutes les 5 min tant que ouvert. Distingue ASN-level partition (un opérateur tombe), geo-level partition (une région tombe) d'une vraie panne service. Foundation pour règle "ne pas paginer si network_partition_*".
+- 🔬 **Network verdict (V2-02-02)** — classification automatique panne service vs partition réseau (`services/network_verdict.py`). Champ `Incident.network_verdict ∈ {service_down, network_partition_asn, network_partition_geo, inconclusive}` calculé à l'ouverture puis recompute toutes les 5 min tant que ouvert. Distingue ASN-level partition (un opérateur tombe), geo-level partition (une région tombe) d'une vraie panne service. **Calculé sur le chemin du Health Engine** (fix post-v1.23.0) — auparavant `classify_network_verdict` n'était jamais appelé à l'ouverture d'un incident réel, donc l'écrasante majorité des incidents n'avaient aucun verdict ; câblé dans `services/incident_slo.py` (effet de bord de `evaluate_slos`), seule voie d'ouverture d'incident de disponibilité depuis le retrait du décideur historique. **Montré** dans les 11 canaux d'alerte (`network_verdict_note_fr/en`, `services/channels/_helpers.py`), sur `IncidentsView` (badge + filtre) et sur la page de statut publique. Le verdict `_geo` dépend de `Probe.country_code` (jamais d'un découpage de `location_name`, texte libre) : fiable en théorie, mais non éprouvé sur la flotte réelle du mainteneur (15 km, deux ASN) — l'axe géographique n'est pas l'argument de tête du produit, voir `README.md`. Foundation pour règle "ne pas paginer si network_partition_*"
 
 ### Corrélation
 - ✅ `IncidentGroup` : `triggered_at`, `resolved_at`, `cause_probe_ids`, `correlation_type ∈ {probe, group, dependency, pattern}`, `root_cause_monitor_id`
 - ✅ Common cause : fenêtre 90 s + intersection JSONB `?|` (Postgres) avec fallback Python
 - ✅ Dépendances parent → child + `suppress_on_parent_down` + cycle detection 5 hops
-- ✅ Graphe SVG force-directed interactif (`DependencyGraph.vue`)
+- ✅ Graphe SVG force-directed interactif (`DependencyGraph.vue`, composant inchangé) — replié par défaut
+  dans la fiche moniteur (section « Dépendances ») et le panneau d'un incident ouvert depuis le retrait
+  de sa page dédiée (plan cap v2, 6c/F6) : une lecture qu'on fait pendant un incident, pas une
+  destination de nav à part entière
 - ✅ Patterns de corrélation persistés (`correlation_pattern.py`)
 - 🔬 **`incident-groups` scopé par tenant** (v1.16, audit SA7) — la corrélation tourne globalement sur des sondes partagées ; l'accès utilise `build_access_filter` (owner OU team) et le payload est réécrit par requêteur (monitors hors tenant filtrés/nullifiés) ; superadmin voit tout. **Depuis post-v1.16.2 : les endpoints REST dédiés `GET /incident-groups/` sont supprimés** (vue frontend débranchée depuis longtemps) — les groupes restent exposés via les métadonnées inline de `GET /incidents/` (`correlation_type`, `root_cause_monitor_name`, `group_monitor_names`), elles-mêmes scopées tenant
 
@@ -284,9 +361,13 @@
 ### Diagnostic Engine (V2-01)
 - ✅ **V2-01-01** Auto-traceroute corrélé sur incident — à l'ouverture, chaque sonde affectée collecte traceroute / dig +trace / openssl handshake / icmp ping / curl verbose, persistés dans `incident_diagnostics` (`models/incident_diagnostic.py`, `services/diagnostics.py`). UI : section dépliable "Diagnostic" dans `IncidentsView`.
 
-### Renotify
-- ✅ Escalade périodique (`services/renotify.py`) — interval par règle, skip si snoozed/acked
-- 🔬 **Atomicité par incident** (v1.16.2, R-4) — commit après chaque incident traité : l'échec d'un dispatch ne jette plus les `AlertEvent` déjà enregistrés pour les incidents précédents du cycle (avant : renotifies envoyés aux canaux mais non tracés → re-déclenchés au cycle suivant)
+### Renotify — absorbé par l'escalade (plan cap v2, 6e)
+> `AlertRule.renotify_after_minutes` et `services/renotify.py` ont disparu (migration `o9p0q1r2s3t4`).
+> Une échelle d'escalade à un seul barreau, ciblant un canal de la règle avec un compteur de répétition
+> très élevé, reproduit exactement « ré-alerter les mêmes canaux toutes les N minutes, indéfiniment » —
+> voir § 5 « Astreinte et escalade ». Une règle qui portait `renotify_after_minutes` en a reçu une
+> échelle équivalente à la migration ; l'atomicité par incident (ex-v1.16.2, R-4) est désormais assurée
+> par le même mécanisme transactionnel que le reste de l'escalade (`db.begin_nested()` par incident).
 
 ---
 
@@ -309,17 +390,26 @@
 
 ### Règles
 - ✅ Cibles : `monitor_id` | `group_id` | `tag_selector`
-- ✅ Conditions : `all_down`, `any_down`, `ssl_expiry`, `response_time_above`, `response_time_above_baseline`, `anomaly_detection`, `schema_drift`, `metric_above`, `metric_below`, `metric_absent`
+- 🔬 **Conditions — registre à 4, réduit de 10 (plan cap v2, 6f)** — `availability` (fusionne
+  `any_down`/`all_down` : un quorum `AlertRule.quorum_ratio`, `NULL`/`<1.0` = comportement `any_down`,
+  `1.0` = `all_down`), `ssl_expiry`, `latency_anomaly` (fusionne `response_time_above` /
+  `response_time_above_baseline` / `anomaly_detection` : le mode absolu/relatif/statistique se déduit de
+  **lequel** des champs `threshold_value` / `baseline_factor` / `anomaly_zscore_threshold` est renseigné),
+  `schema_drift`. Les trois conditions sur métrique poussée (`metric_above`/`metric_below`/`metric_absent`)
+  sont **coupées entièrement** — voir bullet dédié plus bas. `AlertRule.condition` est un `VARCHAR(30)`
+  simple (plus un enum PostgreSQL natif) depuis la migration `p0q1r2s3t4u5` : Postgres ne permet ni de
+  retirer un label d'un enum existant ni d'utiliser un label fraîchement ajouté dans la même transaction.
+  Chaque condition est une classe dans `services/conditions/` qui porte **dispatch et aperçu côte à
+  côte** (troisième point d'extension à registre du dépôt, après les canaux et les types de check) — un
+  gate CI (`test_condition_registry.py`) échoue si un membre de l'enum n'a pas de handler, ou l'inverse.
 - 🔬 **Acquittement depuis Slack / Telegram (plan V2, B-3)** — un bouton « Acquitter » dans le message : l'ingénieur réveillé n'a plus besoin d'un ordinateur. Ce sont **les seuls endpoints mutants non authentifiés du produit**, et la signature du fournisseur n'y suffit pas : elle prouve que la requête vient de Slack, pas **de quel incident** le bouton parlait. Un attaquant exploitant sa propre app Slack connaît son propre secret et pourrait signer parfaitement une interaction nommant l'incident d'un autre tenant — donc le faire taire. Chaque bouton porte donc un **second jeton signé par nous**, liant l'incident au canal, vérifié **avant** la signature (c'est lui qui désigne le secret à utiliser). Puis l'utilisateur est résolu depuis son identité de messagerie via `UserContact`, et son accès au moniteur contrôlé — sans bypass superadmin, ce chemin n'étant pas authentifié. Un canal sans secret de signature n'affiche aucun bouton et refuse tout callback : jamais « accepter du non signé ». Toutes les erreurs répondent à l'identique, pour ne pas offrir d'oracle.
-- ✅ **Page Astreinte (plan V2, B-4)** — rotations, politiques d'escalade et widget « d'astreinte en ce moment », avec `GET /oncall/schedules/on-call-now`. Jusque-là l'escalade tournait mais n'était configurable que par appels API à la main. L'UI **nomme l'absence de couverture** plutôt que de la laisser deviner : une rotation sans personne affiche « personne d'astreinte », une politique sans barreau dit qu'elle retombe sur les canaux de la règle, et une astreinte tenue par une exception ponctuelle est signalée comme telle.
-- 🔬 **Astreinte et escalade temporisée (plan V2, B-1/B-2)** — `renotify` relançait les *mêmes* canaux ; une échelle d'escalade en page de **différents**, dans l'ordre : L1, puis L2 si personne n'a acquitté, puis la personne d'astreinte selon la rotation. Rotations quotidienne / hebdomadaire / durée libre, avec overrides ponctuels prioritaires, et des maths qui comptent des **jours calendaires locaux** — `(now - start) / period` dérive d'une heure à chaque changement d'heure, et un relais à 09:00 Paris changerait alors de titulaire du mauvais côté de la matinée. Trois garde-fous du même principe — *attacher une politique ne doit jamais rendre une alerte plus silencieuse que ne pas en attacher* : un barreau qui ne joint personne est sauté sans consommer son délai, une échelle qui ne joint personne du tout retombe sur les canaux de la règle, et une personne sans contact déclaré est jointe sur son e-mail de compte. L'état est persisté, pas gardé en mémoire : un redémarrage en pleine escalade nocturne ne doit pas laisser un incident coincé entre deux barreaux. Arrêt sur ack / résolution / snooze / fenêtre de maintenance.
-- 🔬 **Corrélation métrique ↔ incident (plan V2, C-3)** — la thèse de valeur du chantier : le blackbox dit *que* c'est cassé, les métriques poussées disent *ce qui bougeait au même moment*. À l'ouverture d'un panneau sur un incident (ou dans le post-mortem), les séries du moniteur sont classées par ampleur de mouvement, comparées à une fenêtre de référence de **même durée immédiatement avant** — une série à forme journalière est ainsi comparée à elle-même une heure plus tôt. Le travail réel n'est pas le classement mais **savoir refuser de répondre** : série née avec l'incident, échantillonnage insuffisant, référence à zéro — trois cas où un chiffre serait une invention, et où l'API dit lequel s'applique plutôt que d'afficher un ∞. Les non-comparables trient en dernier. Formulation tenue jusqu'à l'UI : **corrélation, jamais causalité**. Calculé à la demande (les échantillons restent en base, contrairement à un traceroute) ; c'est le post-mortem qui fige le verdict, puisqu'il est censé survivre à `METRICS_RETENTION_DAYS`.
-- 🔬 **Ingestion de métriques : batch, labels, quotas (plan V2, C-1)** — `POST /api/v1/metrics/{monitor_id}` accepte désormais un objet **ou une liste** (la forme objet répond comme avant : rien de ce qui pousse aujourd'hui ne bouge), et les points portent des **labels**, ce qui transforme un nom en famille de séries (`http_latency{route="/api"}`). C'est aussi la façon classique de détruire ce genre de table : un seul label à valeurs non bornées — id d'utilisateur, de requête — et le nombre de lignes cesse d'être gouverné par la fréquence de push. Ni le partitionnement (C-2) ni la rétention n'y peuvent rien ; seul un plafond. D'où **deux quotas par moniteur** — débit (`METRICS_MAX_POINTS_PER_MINUTE`) et cardinalité (`METRICS_MAX_SERIES_PER_MONITOR`) — qui **refusent en 429 plutôt que de jeter en silence**, un lot étant tout-ou-rien et le refus de cardinalité nommant la série fautive. La table `metric_series` (un enregistrement par série) rend le plafond vérifiable sans balayer les partitions, liste les séries pour l'UI **y compris celles devenues muettes** (indispensable pour configurer un `metric_absent`), et résout le sélecteur de labels des règles C-4 — une règle sans sélecteur surveille toutes les séries du nom et se déclenche si l'une correspond, parce que l'alternative rendrait une alerte existante silencieuse le jour où l'application se met à labelliser.
-- 🔬 **Alertes sur métrique poussée (plan V2, C-4)** — `custom_metrics` était écrit et regardé, jamais *réagi* : une application pouvait pousser `queue_depth` et tracer une courbe, aucune condition ne voyait la série. Trois conditions la lisent désormais (`metric_above` / `metric_below` seuil sur la dernière valeur *fraîche*, `metric_absent` = agent mort, jusque-là totalement invisible), évaluées par `services/metric_alerts.py` (boucle leader 60 s) et non au moment du push — dispatcher signifie un appel HTTP sortant, qui n'a rien à faire sur le chemin d'ingestion. Deux garde-fous non négociables : le **silence ne résout jamais** un dépassement (sans échantillon frais, tout prédicat de seuil répond faux — résoudre là-dessus annoncerait le rétablissement à l'instant où l'on cesse d'observer), et `metric_absent` **ne se déclenche jamais pour une série jamais poussée**, sinon une faute de frappe dans le nom alerte indéfiniment. `min_duration_seconds` est honoré sans état stocké, en datant le dépassement du dernier échantillon qui contredit la condition. Ces incidents sont une **population séparée** (`Incident.alert_rule_id`, index unique dédoublé) : sans ça, un incident métrique ouvert masquait une vraie panne. Exclus de la page de statut publique, des mails aux abonnés et du web push — ce sont des signaux applicatifs internes.
-- 🔬 **Matching unifié dispatch/preview** (v1.16.2, R-1) — prédicats purs `services/alert_conditions.py`, source de vérité unique partagée entre `fire_alerts` (dispatch réel) et `simulate_rule` (préviz UI) ; le simulateur couvre désormais les **7 conditions** (baseline via la même moyenne 7 j, anomalie via le même `compute_zscore`, schema drift) et converge sur la sémantique du dispatch (fenêtre SSL per-monitor + cert invalide, seuil non défini = ne fire jamais) ; test garde-fou : toute nouvelle `AlertCondition` sans support preview casse la suite ; enum morte `tls_grade_below` supprimée (jamais présente dans le type PG — l'API la refuse désormais en 422 au lieu d'un 500 à l'INSERT)
+- ✅ **Page Astreinte (plan V2, B-4)** — rotations, politiques d'escalade et widget « d'astreinte en ce moment », avec `GET /oncall/schedules/on-call-now`. Jusque-là l'escalade tournait mais n'était configurable que par appels API à la main. L'UI **nomme l'absence de couverture** plutôt que de la laisser deviner : une rotation sans personne affiche « personne d'astreinte », une politique sans barreau dit qu'elle retombe sur les canaux de la règle, et une astreinte tenue par une exception ponctuelle est signalée comme telle. Déclassée d'entrée de nav à onglet de la page Alertes en 6c (`?tab=oncall`) — même vue, même route.
+- 🔬 **Astreinte et escalade temporisée (plan V2, B-1/B-2), a absorbé le renotify (plan cap v2, 6e)** — une échelle d'escalade page des cibles *différentes*, dans l'ordre : L1, puis L2 si personne n'a acquitté, puis la personne d'astreinte selon la rotation. Rotations quotidienne / hebdomadaire / durée libre, avec overrides ponctuels prioritaires, et des maths qui comptent des **jours calendaires locaux** — `(now - start) / period` dérive d'une heure à chaque changement d'heure, et un relais à 09:00 Paris changerait alors de titulaire du mauvais côté de la matinée. `AlertRule.renotify_after_minutes` et `services/renotify.py` ont disparu (migration `o9p0q1r2s3t4`) : une échelle à un seul barreau, ciblant un canal de la règle avec un compteur de répétition très élevé (`RENOTIFY_FOREVER_REPEAT_COUNT`), reproduit exactement « ré-alerter les mêmes canaux toutes les N minutes, indéfiniment » — une règle qui portait l'ancien réglage en a reçu une équivalente à la migration, sans perte. Trois garde-fous du même principe — *attacher une politique ne doit jamais rendre une alerte plus silencieuse que ne pas en attacher* : un barreau qui ne joint personne est sauté sans consommer son délai, une échelle qui ne joint personne du tout retombe sur les canaux de la règle, et une personne sans contact déclaré est jointe sur son e-mail de compte. L'état est persisté, pas gardé en mémoire : un redémarrage en pleine escalade nocturne ne doit pas laisser un incident coincé entre deux barreaux. Arrêt sur ack / résolution / snooze / fenêtre de maintenance.
+- 🔬 **Corrélation métrique ↔ incident (plan V2, C-3) — intacte** — la thèse de valeur du chantier métriques : le blackbox dit *que* c'est cassé, les métriques poussées disent *ce qui bougeait au même moment*. À l'ouverture d'un panneau sur un incident (ou dans le post-mortem), les séries du moniteur sont classées par ampleur de mouvement, comparées à une fenêtre de référence de **même durée immédiatement avant** — une série à forme journalière est ainsi comparée à elle-même une heure plus tôt. Le travail réel n'est pas le classement mais **savoir refuser de répondre** : série née avec l'incident, échantillonnage insuffisant, référence à zéro — trois cas où un chiffre serait une invention, et où l'API dit lequel s'applique plutôt que d'afficher un ∞. Les non-comparables trient en dernier. Formulation tenue jusqu'à l'UI : **corrélation, jamais causalité**. Calculé à la demande (les échantillons restent en base, contrairement à un traceroute) ; c'est le post-mortem qui fige le verdict, puisqu'il est censé survivre à `METRICS_RETENTION_DAYS`. Cette fonctionnalité **ne dépend pas de l'alerting** sur métrique (ci-dessous) — elle survit intacte à sa coupe.
+- 🔬 **Ingestion de métriques : batch, labels, quotas (plan V2, C-1) — intacte** — `POST /api/v1/metrics/{monitor_id}` accepte un objet **ou une liste** (la forme objet répond comme avant), et les points portent des **labels**, ce qui transforme un nom en famille de séries (`http_latency{route="/api"}`). C'est aussi la façon classique de détruire ce genre de table : un seul label à valeurs non bornées — id d'utilisateur, de requête — et le nombre de lignes cesse d'être gouverné par la fréquence de push. D'où **deux quotas par moniteur** — débit (`METRICS_MAX_POINTS_PER_MINUTE`) et cardinalité (`METRICS_MAX_SERIES_PER_MONITOR`) — qui **refusent en 429 plutôt que de jeter en silence**, un lot étant tout-ou-rien et le refus de cardinalité nommant la série fautive. La table `metric_series` (un enregistrement par série) rend le plafond vérifiable sans balayer les partitions et liste les séries pour l'UI **y compris celles devenues muettes** (utile pour repérer un agent mort à l'œil, même si plus aucune condition ne peut alerter dessus directement depuis la coupe C-4/6f). Le sélecteur de labels (`services/metric_series.py::resolve_series`) servait aussi les règles d'alerte métrique ; ses fonctions restent en place (l'ingestion et la corrélation n'en dépendent pas) mais n'ont plus d'appelant.
+- ✅ **Alertes sur métrique poussée — coupées (plan cap v2, 6f/C1)** — `metric_above` / `metric_below` / `metric_absent` ont existé (plan V2, C-4) puis ont été retirées : 0 règle, 0 point, 0 série ne les utilisaient sur l'instance réelle. Remplacées par un meilleur candidat déjà dans le produit : un endpoint applicatif qui répond 500 passé son propre seuil (surveillé par un check `http` ordinaire), ou un `heartbeat` poussé pour « l'agent est mort ». `Incident.alert_rule_id` et la scission de `uq_incidents_monitor_open` (disponibilité vs métrique) disparaissent avec elles — l'invariant redevient « un seul incident ouvert par moniteur », point. Colonnes `alert_rules.metric_name` / `metric_window_seconds` / `metric_labels` droppées.
 - ✅ `min_duration_seconds` — délai avant fire
-- ✅ `renotify_after_minutes` — escalade
-- ✅ `threshold_value`, `baseline_factor`, `anomaly_zscore_threshold`, `metric_name`, `metric_window_seconds`
+- ✅ `threshold_value`, `baseline_factor`, `anomaly_zscore_threshold` — champs qui distinguent les 3 modes de `latency_anomaly`
 - ✅ `digest_minutes` — agrégation alertes (Redis-backed)
 - ✅ `schedule` — TZ + jours + plage horaire + suppress offhours
 - ✅ Rate cap anti-storm : `storm_max_alerts` × `storm_window_seconds` → digest forcé
@@ -336,6 +426,12 @@
 - ✅ `AlertMatrixTemplate` — 3 presets seedés par check_type (`standard`, `strict/paging`, `low_noise`)
 - ✅ Superadmin CRUD UI
 - ✅ **Impact preview** `POST /alerts/monitors/{id}/matrix/preview` — replay 30 j + would-fire count par condition, badge `≈ N / 30j`, debounce, tail estimate erfc pour anomaly
+- 🔬 **Migrées sans perte à travers la réduction du registre (6f)** — les lignes JSON déjà gelées à leur
+  seeding initial ont été réécrites par les mêmes migrations qui ont réduit `AlertCondition` ; un preset
+  qui pairait deux anciennes conditions devenues identiques (ex. `all_down` immédiat + `any_down`
+  retardé) ne garde que la ligne la plus réactive. Un consommateur de `rows` (l'auto-application d'un
+  template à l'acceptation d'une découverte, § Découverte) doit tolérer une condition disparue sur une
+  ligne gelée avant 6f — la ligne est sautée plutôt que de faire échouer tout l'accept
 
 ### Silences
 > Fusionnées dans `MaintenanceWindow` (plan cap v2, 6d) — voir § 8 « Suppressions ». `AlertSilence`,
@@ -359,8 +455,30 @@
 - ✅ Customisation par `MonitorGroup` : logo, title, description, accent color, custom CSS, announcement banner
 - ✅ Historique incidents 30 j
 - ✅ Uptime bars 90 j par composant (`UptimeHistoryBars.vue`)
-- 🔬 **Abonnements email de bout en bout** (v1.17.0, C1) — `StatusSubscription` était une impasse : la table se remplissait sans jamais être relue, aucun abonné ne recevait rien, et le jeton de désinscription n'étant délivré par aucun canal, l'endpoint d'unsubscribe restait inatteignable. Désormais : **double opt-in** (`confirm_token` / `confirmed_at`, jeton effacé à la confirmation, réinscription possible si le mail se perd) — la page étant publique, cela ferme aussi l'abonnement d'une adresse tierce ; `notify_subscribers()` prévient les abonnés confirmés à l'ouverture **et** à la résolution, branché dans `fire_alerts` (point de passage commun à tous les chemins : composite, ponctuel, promu, standard) ; lien de désinscription dans chaque mail. Envoi best-effort (une panne SMTP n'interrompt ni la résolution d'incident ni les autres envois). Migration : les lignes existantes sont marquées confirmées. Nouveau réglage `PUBLIC_BASE_URL` pour construire les liens derrière un reverse proxy
+- 🔬 **Abonnements email de bout en bout** (v1.17.0, C1) — `StatusSubscription` était une impasse : la table se remplissait sans jamais être relue, aucun abonné ne recevait rien, et le jeton de désinscription n'étant délivré par aucun canal, l'endpoint d'unsubscribe restait inatteignable. Désormais : **double opt-in** (`confirm_token` / `confirmed_at`, jeton effacé à la confirmation, réinscription possible si le mail se perd) — la page étant publique, cela ferme aussi l'abonnement d'une adresse tierce ; `notify_subscribers()` prévient les abonnés confirmés à l'ouverture **et** à la résolution, branché dans le funnel unique d'alerte (`services/incident_alerts.py`) ; lien de désinscription dans chaque mail. Envoi best-effort (une panne SMTP n'interrompt ni la résolution d'incident ni les autres envois). Migration : les lignes existantes sont marquées confirmées
 - ✅ WS public `/ws/public/{slug}` (sans auth, isolé du WS dashboard)
+- 🔬 **`PUBLIC_BASE_URL` enfin transmis au conteneur serveur** (#424) — le réglage existait depuis C1
+  (`core/config.py`), était lu par le serveur pour construire les liens des mails d'abonnés et du flux
+  Atom, mais `docker-compose.yml` ne le passait jamais au conteneur : tous ces liens sortaient en
+  `http://localhost:5173` en production. `docker-compose.yml` transmet désormais
+  `PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}`
+- 🔬 **Maintenance planifiée annoncée sur la page publique** (post-v1.23.0) — `MaintenanceWindow` gagne
+  `public_message` (migration `i3j4k5l6m7n8`) : une fenêtre `is_maintenance=True` sur un moniteur ou
+  groupe publié s'affiche comme maintenance planifiée sur `/status/{slug}` au lieu de s'afficher en
+  rouge « panne majeure », comportement antérieur qui alarmait les visiteurs pour un événement planifié
+- 🔬 **Annonces de statut manuelles** (plan cap V2, 5b) — `StatusAnnouncement` / `StatusAnnouncementUpdate`
+  (`api/v1/status_announcements.py`), rattachées à un `MonitorGroup`, **délibérément pas un `Incident`** :
+  écrites à la main par un opérateur (« nous investiguons une dégradation générale »), sans qu'une sonde
+  ait basculé. Ne touchent jamais le calcul SLA/downtime ni `uq_incidents_monitor_open` — texte pur,
+  vocabulaire `investigating`/`identified`/`monitoring`/`resolved` partagé avec les mises à jour d'incident
+- 🔬 **Nom public de moniteur + fin de la divulgation d'inventaire** (#417) — `Monitor.public_name`
+  (migration `k5l6m7n8o9p0`) : la page publique affiche ce nom au lieu du nom interne quand il est
+  renseigné (`func.coalesce(Monitor.public_name, Monitor.name)`). L'endpoint public n'expose plus l'URL
+  interne, les ports, les types d'enregistrement DNS ni l'URL finale de redirection d'un moniteur —
+  autant d'information d'inventaire qu'un visiteur non authentifié n'a aucune raison de voir
+- 🔬 **Flux Atom** (plan cap V2, 5d) — `GET /status/pages/{slug}/feed.atom` (`services/atom_feed.py`) :
+  Atom 1.0 standard, une entrée par incident de disponibilité (ouverture/résolution), lecteur de flux au
+  lieu d'un polling manuel de la page
 
 ---
 
@@ -414,8 +532,9 @@
 - ✅ Filtres persistants (querystring + localStorage) — `useFilterPreset.js`
 - 🔬 **Tri persistant liste monitors** (v1.15) — preset de tri persisté localStorage + URL, restauré à chaque visite
 - 🔬 **Toast global d'erreurs API** (v1.15) — intercepteur axios : toute requête en échec affiche un toast (dédup anti-spam) au lieu d'échouer en silence ; opt-out par appel via `skipErrorToast`
-- ✅ **Badge + filtre verdict réseau (V2-02-02)** — sur `IncidentsView.vue`, badge contextuel coloré (Service/ASN/Géo) avec tooltip explicatif à côté du status badge ; chip de filtre par verdict (Tous / Service down / Partition ASN / Partition géo) appliqué client-side ; clés i18n EN+FR.
-- ✅ Wizard 3 étapes création monitor (`CreateMonitorWizard.vue`)
+- ✅ **Badge + filtre verdict réseau (V2-02-02)** — sur `IncidentsView.vue`, badge contextuel coloré (Service/ASN/Géo) avec tooltip explicatif à côté du status badge ; chip de filtre par verdict (Tous / Service down / Partition ASN / Partition géo) appliqué client-side ; clés i18n EN+FR. Étendu depuis à `MonitorIncidentBanner.vue` (fiche moniteur) — le verdict est désormais calculé pour de vrai sur le chemin du Health Engine (voir §4), montrer le badge ailleurs qu'`IncidentsView` a du sens depuis ce correctif
+- ✅ Wizard 3 étapes création monitor (`CreateMonitorWizard.vue`) — 8 types de check (4 primaires + 4 « avancés », plan cap v2 6a/6f-2)
+- 🔬 **Péremption des agents de sonde signalée** (post-v1.23.0) — `services/probe_version.py::agent_status_for` classe chaque sonde `current` / `outdated` / `unreported` par comparaison à la version du serveur, calculée à la lecture (ne va donc jamais périmer elle-même). Section « Agents de sonde à mettre à jour » sur `DashboardView.vue`, sur le même modèle que « Sondes hors ligne » — n'apparaît que s'il y a quelque chose à signaler. Badge de statut sur `ProbesView.vue`
 
 ### Personnalisation
 - ✅ Timezone utilisateur IANA (45 zones + auto, `useTimezone.js` + `<FormattedDate>`)
@@ -502,6 +621,13 @@ est coupé. Une fenêtre sans cible du tout (ni moniteur ni groupe) n'est légal
 - ✅ Nginx reverse proxy avec security headers + CSP stricte
 - ✅ Server bind sur `127.0.0.1:8000` (TLS au reverse proxy)
 - 🔬 **Secrets de premier boot séparés** (v1.17.2, audit S6/F15) — `probe-local` montait tout `/shared`, donc aussi l'`ADMIN_PASSWORD` du superadmin. Nouveau volume `probe_secrets` (clé d'API de la sonde seule), seul volume monté côté sonde ; `shared` redevient serveur-only. La clé n'étant écrite qu'à la *création* de la sonde et non récupérable ensuite (seul son hash est en base), le serveur migre automatiquement `/shared/PROBE_API_KEY` → `/probe-secrets/` au démarrage — un volume vide couperait la sonde locale des installations existantes. **`ADMIN_PASSWORD` est effacé à la première connexion superadmin réussie** (avec et sans MFA) : le moment où l'opérateur a prouvé qu'il avait lu le fichier
+- 🔬 **Image de sonde sans navigateur par défaut** (plan cap v2, 6b) — Chromium/Playwright ne sont plus
+  embarqués dans `whatisup-probe:X.Y.Z` (1,97 Go → **~480 Mo**, mesuré). Une variante
+  `whatisup-probe:X.Y.Z-browser` (~1,97 Go, inchangée) est publiée à part pour les déploiements qui
+  utilisent des moniteurs `scenario` ; un `scenario` assigné à une sonde sans navigateur échoue avec un
+  message qui nomme l'image `-browser`. L'extension navigateur d'enregistrement de scénarios (Chromium,
+  `GET /api/v1/extension/download`) est retirée avec son point de montage `docker-compose.yml` — remplacée
+  par l'import d'un script `playwright codegen` dans le Scenario Builder (voir §14)
 
 ### Données
 - ✅ Migrations Alembic versionnées et reversibles
@@ -516,7 +642,7 @@ est coupé. Une fenêtre sans cible du tout (ni moniteur ni groupe) n'est légal
 - 🔬 **Middleware X-Request-ID** (v1.15) — réutilise l'en-tête entrant s'il est bien formé (validation `^[A-Za-z0-9._-]{1,128}$`), sinon UUID généré ; injecté dans tous les logs de la requête et écho dans la réponse **y compris sur les 500** ; exposé via CORS `expose_headers`
 
 ### Haute disponibilité
-- 🔬 **Leader election Redis** (v1.15, `core/leader.py`) — lock `SET NX PX` + fencing token, renew 10 s / TTL 30 s : les **7 boucles de fond singleton** (retention, heartbeat, renotify, network verdict, ASN refresh, digest recovery…) ne tournent que sur le réplica leader → multi-réplicas serveur sans double-exécution ; **fail-open si Redis down** (mono-réplica inchangé)
+- 🔬 **Leader election Redis** (v1.15, `core/leader.py`) — lock `SET NX PX` + fencing token, renew 10 s / TTL 30 s : les boucles de fond singleton (retention, heartbeat, rollups, escalade, network verdict, ASN refresh, digest recovery…) ne tournent que sur le réplica leader → multi-réplicas serveur sans double-exécution ; **fail-open si Redis down** (mono-réplica inchangé)
 
 ### Outils
 - ✅ Script interactif `deploy.sh` (FR) — 3 modes (full / serveur seul / sonde distante), génération secrets, self-signed, prompts SMTP
@@ -588,10 +714,10 @@ est coupé. Une fenêtre sans cible du tout (ni moniteur ni groupe) n'est légal
 
 ### Anti-SSRF
 - ✅ `_validate_webhook_url()` rejette RFC 1918 / loopback / link-local
-- ✅ Appliqué à : webhooks, OIDC discovery, scenario navigation, checkers HTTP/TCP/UDP/SMTP/DNS/**ping**
+- ✅ Appliqué à : webhooks, OIDC discovery, scenario navigation, checkers HTTP/TCP/SMTP/DNS/**ping** (`udp` retiré, plan cap v2 6a)
 - ✅ Redirects re-validés à chaque hop
 - 🔬 **IP résolue épinglée — anti DNS rebinding** (v1.16, audit SA1) — la validation DNS avait lieu au moment du check mais httpx re-résolvait l'hostname à la requête réelle, laissant une fenêtre de rebinding (DNS qui bascule vers une IP privée entre validation et connexion). `_PinnedHostTransport` (transport httpx custom) résout une seule fois, rejette privé/loopback/link-local/multicast, réécrit l'URL vers l'IP validée tout en conservant le hostname d'origine en `Host` header et SNI (extension `sni_hostname`) — la vérification du certificat cible toujours le vrai hostname. Câblé sur `ssrf_safe_client()` : slack/discord/mattermost/teams/signal/webhook + digest (`services/alert.py`)
-- 🔬 **SSRF sur le checker `ping`** (v1.16, audit S1) — `validate_host_ssrf()` câblé dans `PingChecker.check()` (même pattern que TCP/UDP/SMTP/DNS) ; seule la regex anti-injection protégeait auparavant le host passé au sous-processus `ping`, laissant sonder des adresses internes/metadata cloud (`probe/whatisup_probe/checkers/ping.py`)
+- 🔬 **SSRF sur le checker `ping`** (v1.16, audit S1) — `validate_host_ssrf()` câblé dans `PingChecker.check()` (même pattern que TCP/SMTP/DNS) ; seule la regex anti-injection protégeait auparavant le host passé au sous-processus `ping`, laissant sonder des adresses internes/metadata cloud (`probe/whatisup_probe/checkers/ping.py`)
 - 🔬 **IP pinning côté probe — checker HTTP** (v1.16.2, SEC-2) — portage du pattern SA1 serveur : `_SSRFPinnedTransport` sur le client httpx partagé de la probe — chaque requête **et chaque hop de redirect** résout l'hôte une fois, rejette interne/metadata, épingle l'IP validée dans l'URL (Host header + SNI conservés sur le vrai hostname, URL restaurée après coup pour `final_url` et les redirects relatifs) ; ferme la fenêtre de rebinding validation→connexion et les hops intermédiaires non re-validés ; `SSRFBlockedError` → `CheckResult` en erreur « SSRF blocked » (`probe/whatisup_probe/checkers/_shared.py`)
 - 🔬 **Collecteurs de diagnostic épinglés sur l'IP validée** (v1.17.2, audit S5/F9) — `run_collection` résout et valide la cible **une fois** (`_ssrf_resolve_pinned_sync`) puis épingle chaque collecteur : traceroute/ping reçoivent l'IP, `openssl -connect ip:port -servername host`, `curl --resolve host:port:ip` (URL, `Host` et SNI inchangés). Seul `dig +trace` garde le nom — il interroge des résolveurs, il ne se connecte pas à la cible. Fail-closed : une résolution qui échoue annule la collecte
 - 🔬 **Audit TLS / `ssl_info` épinglés** (v1.17.2, audit S5/F20) — les deux rouvraient une connexion avec leur propre résolution *après* le check HTTP déjà épinglé (fenêtre de rebinding). Même épinglage, et un blocage est loggé explicitement : sans ça, un audit TLS absent ressemble à une panne réseau
@@ -698,6 +824,10 @@ est coupé. Une fenêtre sans cible du tout (ni moniteur ni groupe) n'est légal
 - ✅ **Plumber — compliance pipeline CI/CD** (`plumber.yml` + `.plumber.yaml`, OPA/Rego) : audit des workflows GitHub Actions (actions épinglées par SHA, permissions least-privilege déclarées, triggers non dangereux, pas de tags d'images mutables, protection de branche) → rapport noté + SARIF vers Code Scanning. **Score initial 100% / A** : toutes les actions déjà SHA-pinned, `main` protégée, et top-level `permissions: contents: read` ajouté à `release.yml`/`mobile-release.yml`/`security-audit.yml` pour atteindre 7/7 workflows avec permissions déclarées (jobs élevés en per-job). **Gate bloquant** (`soft-fail: false`, seuil 100%) : toute régression future (action non épinglée, workflow sans permissions, trigger dangereux) casse la CI. Binaire Plumber vérifié par attestation de provenance
 - ✅ **Plumber — jeu de contrôles complet (2026-07-27)** : les 5 contrôles initiaux ne couvraient qu'un cinquième du référentiel ; les 18 restants sont désormais activés (**21 actifs sur 22**), soit l'ajout des sources d'actions autorisées (allowlist explicite + first-party/same-org), refs upstream existantes / non ambiguës / non archivées / sans CVE connue, pas de code distant mutable, `write-all` interdit, `toJson(secrets)` interdit, injection d'input `${{ github.event.* }}` en `run:`, écriture non fiable dans `$GITHUB_ENV`, `pull_request_target` + checkout du head, Docker-in-Docker, `curl | sh`, cache non fiable en release, debug trace, et jobs de sécurité non affaiblis. Seul `workflowMustIncludeRequiredActions` reste off (baseline d'actions org-wide, hors sujet en mono-repo). **Score officiel publié** : `score-push` activé sur les push `main` uniquement (OIDC, sans secret ; un PR de fork ne peut pas émettre le jeton) → badge auto-actualisé `score.getplumber.io/github.com/AurevLan/WhatIsUp.svg` dans le README, en remplacement du badge de statut du workflow. Opt-in assumé : rend le nom du dépôt et son score publics (dépôt déjà public). **Une régression réelle trouvée et corrigée** : `release-please.yml` appelait `release.yml` et `mobile-release.yml` en `secrets: inherit` (2 × HIGH ISSUE-302) — `release.yml` n'a besoin d'aucun secret (le `GITHUB_TOKEN` du GHCR est fourni d'office), `mobile-release.yml` déclare maintenant ses 5 secrets en `workflow_call.secrets` et le caller les transmet nominativement. Score maintenu A — 100/100
 - ✅ CodeQL `security-extended`
+- 🔬 **Signature Cosign keyless + SBOM** (post-v1.23.0) — chaque image de release (server, probe, probe
+  `-browser`) et l'APK Android sont signés sans clé privée à gérer (Fulcio/Rekor, OIDC GitHub), avec un
+  SBOM SPDX publié à côté et une attestation de provenance vérifiable. `scripts/verify-release.sh
+  <version>` vérifie le tout en une commande (voir `SECURITY.md § Vérifier une release`)
 
 ---
 
@@ -723,7 +853,6 @@ est coupé. Une fenêtre sans cible du tout (ni moniteur ni groupe) n'est légal
 
 - ✅ **Import de scénario** (`ScenarioBuilder`) — script `playwright codegen` officiel importé en un clic, converti en étapes ; remplace l'ancienne extension navigateur Chromium (retirée, plan cap v2 6b : ~2 060 LOC pour un besoin trimestriel, cf. `frontend/src/lib/playwrightImport.js`)
 - ✅ **Web Push** VAPID — `/api/v1/push/{subscribe,unsubscribe,test}` ; opt-in serveur (`VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`)
-- ✅ **Monitor templates** (`MonitorTemplate`) — JSON config réutilisable, `/api/v1/templates/`
 - ✅ **Config import/export (IaC)** — `GET/PUT /api/v1/config/` JSON, dry-run + prune, match par nom (idempotent), secrets redacted
 - ✅ Endpoint Prometheus `/metrics` (intégration Grafana)
 
@@ -733,7 +862,7 @@ est coupé. Une fenêtre sans cible du tout (ni moniteur ni groupe) n'est légal
 
 - ✅ vue-i18n@9 Composition API (`legacy: false`)
 - ✅ **Anglais** (défaut) + **Français** complets (`i18n/{en,fr}.js`)
-- ✅ ~200+ clés hiérarchiques (`nav.*`, `auth.*`, `error.*`, `monitors.*`, `alerts.*`, `silences.*`, `wizard.*`, `empty.*`, `hotkeys.*`, …)
+- ✅ ~200+ clés hiérarchiques (`nav.*`, `auth.*`, `error.*`, `monitors.*`, `alerts.*`, `maintenance.*` (ex-`silences.*`, fusionnées 6d), `wizard.*`, `empty.*`, `hotkeys.*`, …)
 - ✅ Switch langue persistée `localStorage('whatisup_lang')`
 - ✅ Accents FR vérifiés (audit dédié — voir CHANGELOG 1.2.0)
 
@@ -768,10 +897,18 @@ est coupé. Une fenêtre sans cible du tout (ni moniteur ni groupe) n'est légal
 ### Tests dédiés
 `test_health_ingest.py`, `test_health_state_model.py`, `test_slo_quorum_down.py`, `test_slo_quorum_slow.py`, `test_probe_divergence.py`, `test_health_engine_legacy_coexistence.py`, `test_legacy_engine_flag.py`, `test_incident_timeline.py`.
 
+### Abandonné explicitement (plan cap v2, 6g)
+> `FEATURES.md` promettait ces deux items comme « planifiés » depuis la fondation du Health Engine.
+> Déclarés **morts** plutôt que laissés en `🚧`, pour qu'un futur lot ne les reprenne pas « parce que
+> c'était prévu » : c'est de l'ingénierie SRE pour équipes à SLO contractuels multi-paliers, le produit a
+> déjà `slo_target` + un burn rate simple (`GET /monitors/{id}/slo`), et personne ne l'a demandé.
+- ❌ **Burn-rate fast/slow multi-fenêtres (Google SRE)** — abandonné, aucune demande utilisateur
+- ❌ **UI history des `monitor_health_states`** (timeline percentiles) — abandonné, même raison
+
 ### Restant (M6+, planifié)
-- 🚧 Burn-rate fast/slow (Google SRE multi-fenêtres) côté Health Engine
-- 🚧 UI history des `monitor_health_states` (timeline percentiles)
-- 🚧 Migration des règles legacy `response_time_above` → `quorum_slow`
+- 🚧 Migration des règles legacy vers `quorum_slow` — l'ancienne condition d'alerte `response_time_above`
+  a depuis fusionné dans `latency_anomaly` (mode absolu, plan cap v2 6f/F4) ; l'idée d'unifier cette
+  branche avec l'évaluateur `quorum_slow` du Health Engine reste ouverte, non reprise depuis
 
 ---
 
@@ -786,12 +923,20 @@ est coupé. Une fenêtre sans cible du tout (ni moniteur ni groupe) n'est légal
 - ✅ Backend pluggable `ASN_LOOKUP_PROVIDER ∈ {cymru, disabled}`
 - ✅ Best-effort : aucun blocage du heartbeat en cas d'échec lookup
 
-### Network verdict (V2-02-02)
-- ✅ Classification automatique `service_down` / `network_partition_asn` / `network_partition_geo` / `inconclusive` (`services/network_verdict.py`)
-- ✅ Champ `Incident.network_verdict` calculé à l'ouverture, recompute toutes les 5 min tant que ouvert
+### Network verdict (V2-02-02) — c'est l'axe différenciant du produit
+- 🔬 Classification automatique `service_down` / `network_partition_asn` / `network_partition_geo` / `inconclusive` (`services/network_verdict.py`), sur l'axe **opérateur (ASN)** en premier — voir `README.md` pour la thèse complète
+- 🔬 Champ `Incident.network_verdict` **calculé sur le chemin du Health Engine** (correctif post-v1.23.0 :
+  `classify_network_verdict` était orphelin, l'écrasante majorité des incidents n'avaient aucun verdict) —
+  câblé dans `services/incident_slo.py`, à l'ouverture puis recompute toutes les 5 min tant que ouvert
+- 🔬 **Montré** dans les 11 canaux d'alerte, sur `IncidentsView`, sur la fiche moniteur
+  (`MonitorIncidentBanner.vue`) et sur la page de statut publique — pas seulement calculé en silence
 - ✅ Flag `AlertRule.suppress_on_network_partition` opt-in : court-circuite le dispatch si verdict = `network_partition_*`
 - ✅ Évènement `alert_suppressed_network_partition` loggé pour audit
 - ✅ Badge contextuel coloré + chip de filtre dans `IncidentsView` (i18n EN+FR)
+- ⚠️ Le verdict `_geo` dépend de `Probe.country_code` (pas d'un découpage de texte libre) donc fiable en
+  théorie, mais **non éprouvé** : la flotte réelle du mainteneur tient dans 15 km et deux ASN. L'axe
+  opérateur/ASN est celui qui a des données réelles derrière lui — la géographie illustre, elle ne prouve
+  pas
 
 ### TLS audit + grade A-F (V2-02-03 / V2-02-05)
 - ✅ Audit TLS approfondi par check HTTP : version protocole, cipher suite, courbe ECDHE, chain validation
@@ -814,10 +959,15 @@ est coupé. Une fenêtre sans cible du tout (ni moniteur ni groupe) n'est légal
 - ✅ Champs `Probe.self_reported_ip` + `self_reported_asn` poussés au heartbeat
 - ✅ Si différent de `public_ip` (vu par serveur via `request.client.host`) → badge `NAT/VPN` UI + tooltip
 
-### TLS fleet dashboard (V2-02-08)
-- ✅ Vue dédiée `TlsFleetView` listant tous les monitors HTTPS avec leur grade, expiration, cipher
-- ✅ Endpoint `/api/v1/tls-fleet/` (rate-limit) avec filtres
-- ✅ Module API client `frontend/src/api/tlsFleet.js`
+### Certificats — ex-TLS fleet dashboard (V2-02-08, repliée en 6c)
+- ✅ **Plus de vue dédiée** — `TlsFleetView` (~149 lignes, un seul endpoint, entrée de nav pour un besoin
+  trimestriel) est retirée (plan cap v2, 6c/F7) ; devenue un 3e mode de vue de `MonitorsView` (liste /
+  tableau / **Certificats**, `CertificatesPanel.vue`), listant tous les monitors HTTPS avec grade,
+  expiration, cipher — mêmes filtres et export CSV
+- ✅ Endpoint `/api/v1/tls-fleet/` (rate-limit) inchangé — seule la destination permanente a disparu
+- ✅ Module API client `frontend/src/api/tlsFleet.js` inchangé
+- ✅ Grade A-F ajouté à la carte SSL de la fiche moniteur elle-même (`MonitorConfigCards`, 4e colonne
+  conditionnelle) — il n'apparaissait auparavant que sur la page retirée, nulle part sur le moniteur
 
 ### Carte ASN-aware + Incident playback (V2-02-06)
 - ✅ `ProbeMap.vue` : anneau extérieur des markers coloré selon ASN (palette FNV-1a `lib/asnPalette.js`), intérieur selon uptime
@@ -833,38 +983,42 @@ est coupé. Une fenêtre sans cible du tout (ni moniteur ni groupe) n'est légal
 | Pilier | Items livrés | Fichiers clés |
 |---|---|---|
 | Auth | 11 axes (+2FA TOTP +sessions actives +lockout/anti-énumération v1.16) | `auth.py`, `totp.py`, `sessions.py`, `user.py`, `security.py`, `teams.py`, `tag.py`, `api_key.py`, `lockout.py` |
-| Check types | 11 types | `probe/whatisup_probe/checkers/*.py` |
-| Probes | 13 axes (+ASN +outbound IP +auth préfixe/rotation clé +scope-binding v1.15 +cache fingerprinté v1.16 +découverte D-0→D-4 v1.23.0) | `probe.py`, `probes.py`, `probe_group.py`, `probe_enrichment.py`, `ProbeMap.vue`, `services/discovery.py`, `DiscoveryView.vue` |
-| Incidents | 11 axes (+playback +diagnostic engine +incident-groups tenant-scopé v1.16) | `incident.py`, `correlation.py`, `anomaly.py`, `diagnostics.py`, `incident_diagnostic.py` |
-| Alerting | 20 axes (+silences +network suppress +matrix preview +pont détection→alerte +astreinte/escalade B-1/B-2 +ack Slack/Telegram B-3 +page Astreinte B-4 +ingestion métriques batch/labels/quotas C-1 +alertes métrique C-4 +corrélation métrique↔incident C-3, v1.18.0→v1.23.0) | `alert.py`, `alerts.py`, `silences.py`, `useDetectionAlertBridge.js`, `services/channels/*.py` (11 canaux), `services/oncall.py`, `services/escalation.py`, `services/metric_ingest.py`, `services/metric_alerts.py`, `services/metric_correlation.py` |
-| Status pages | 4 axes (+abonnements email de bout en bout v1.17.0) | `public.py`, `PublicPageView.vue` |
-| Dashboard UX | 18 axes (+design system VELOURS +a11y gates +consolidation composants +responsive mobile +quick wins v1.15 : toast erreurs, tri persistant, undo bulk, EmptyState ×6) | `ws.py`, `stats.py`, `style.css`, `lib/themeColors.js`, `StatusBadge.vue`, components shared/* + monitors/* |
-| Maintenance | 4 axes | `maintenance.py` × 2 |
+| Check types | **8 types** (10 → 8 : `udp`/`composite` retirés 6a, `keyword`/`json_path` devenus assertions `http` 6f-2) | `probe/whatisup_probe/checkers/*.py` |
+| Probes | 14 axes (+ASN +outbound IP +auth préfixe/rotation clé +scope-binding v1.15 +cache fingerprinté v1.16 +découverte D-0→D-4 v1.23.0 +ergonomie découverte E-1/E-2/E-3 +péremption agent signalée) | `probe.py`, `probes.py`, `probe_group.py`, `probe_enrichment.py`, `probe_version.py`, `ProbeMap.vue`, `services/discovery.py`, `services/discovery_election.py`, `DiscoveryView.vue` |
+| Incidents | 11 axes (+playback +diagnostic engine +incident-groups tenant-scopé v1.16 +verdict réseau calculé sur le chemin Health Engine) | `incident.py`, `correlation.py`, `anomaly.py`, `diagnostics.py`, `incident_diagnostic.py`, `services/incident_slo.py` |
+| Alerting | 4 conditions (registre 10 → 4, 6f) + astreinte/escalade fusionnées + ack Slack/Telegram + corrélation métrique↔incident (C-3, intacte) + ingestion métriques (C-1, intacte) — **alertes sur métrique poussée coupées** (C-4/6f) | `alert.py`, `alerts.py`, `services/conditions/*.py`, `useDetectionAlertBridge.js`, `services/channels/*.py` (11 canaux), `services/oncall.py`, `services/escalation.py`, `services/metric_ingest.py`, `services/metric_correlation.py` |
+| Status pages | 8 axes (+abonnements email de bout en bout v1.17.0 +maintenance planifiée annoncée +annonces manuelles 5b +nom public/fin d'inventaire +flux Atom 5d +`PUBLIC_BASE_URL` transmis au conteneur) | `public.py`, `PublicPageView.vue`, `status_announcements.py`, `atom_feed.py` |
+| Dashboard UX | 19 axes (+design system VELOURS +a11y gates +consolidation composants +responsive mobile +quick wins v1.15 : toast erreurs, tri persistant, undo bulk, EmptyState ×6 +badge péremption agent sonde) | `ws.py`, `stats.py`, `style.css`, `lib/themeColors.js`, `StatusBadge.vue`, components shared/* + monitors/* |
+| Suppressions (ex-Maintenance+Silences, 6d) | 6 axes — table et route fusionnées, un seul objet `is_maintenance` | `maintenance.py` |
 | Audit/Compliance | 9 axes (+couverture complète mutations config v1.15 +partitionnement mensuel `check_results` A-1 +rollups horaires `check_rollups_1h` A-2 +stats servies depuis les rollups A-3 +rétention différenciée brut/rollups A-4 +partitionnement `custom_metrics` C-2, v1.18.0) | `audit_log.py`, `retention.py`, `reports.py`, `core/partitions.py`, `services/rollup.py` |
-| Infra | 10 axes (+leader election +logs JSON/X-Request-ID v1.15) | `docker-compose.yml`, Dockerfiles, deploy.sh, `core/leader.py` |
+| Infra | 11 axes (+leader election +logs JSON/X-Request-ID v1.15 +image sonde sans navigateur par défaut 6b +signature Cosign/SBOM) | `docker-compose.yml`, Dockerfiles, deploy.sh, `core/leader.py` |
 | Sécurité | 21 axes (+SC-07 distributed RL +WS tenant scoping v1.15 +SSRF anti-rebinding +lockout +rotation FERNET_KEY +WS correlated_ids scopé +incident-groups scopé +cache probe/API-key fingerprinté +ping SSRF +19 rate-limits v1.16 +SSRF probe pinning +fail-open Redis auth v1.16.2 +portées de clé API +rate-limit GET v1.17.0 +tag_selector scopé v1.17.1 **+audit 2026-07-24 soldé v1.17.2** : chaîne de confiance IP, fuites de secrets, injections de contenu, épinglage sonde + bornes CPU, métriques fail-closed, SSO lié au navigateur) | `security.py`, `middleware.py`, `validators.py`, `_helpers.py`, `core/limiter.py`, `lockout.py`, `tools/rotate_fernet.py`, `checkers/_shared.py`, `checkers/_regex_guard.py` |
-| CI/CD | 6 workflows + release-please | `.github/workflows/*.yml` |
+| CI/CD | 7 workflows + release-please + Cosign/SBOM | `.github/workflows/*.yml` |
 | Mobile | 7 axes (+quick wins Android v1.15 : back button, WS background, POST_NOTIFICATIONS) | Capacitor 8, FCM, biometrics, mobile-release.yml |
-| Extensions | 4 axes | config IaC, web_push, templates, prometheus |
-| i18n | 2 langues | i18n/{en,fr}.js (~1330 / 1298 clés) |
-| **Health Engine V2** | M0-M5 livrés (M6+ à venir) | `services/health.py`, `services/slo.py`, `monitor_health.py`, `core/percentile.py` |
-| **Réseau & Intelligence (V2-02)** | 8 axes (ASN, partition, TLS, BGP, DNS consistency, playback, NAT/VPN, fleet dashboard) | `services/network_verdict.py`, `services/probe_enrichment.py`, `api/v1/bgp.py`, `api/v1/tls_fleet.py` |
+| Extensions | 4 axes (templates retirés 6a, extension navigateur retirée 6b — remplacée par import `playwright codegen`) | `lib/playwrightImport.js`, config IaC, web_push, prometheus |
+| i18n | 2 langues | i18n/{en,fr}.js |
+| **Health Engine V2** | M0-M5 livrés, seul moteur de détection ; burn-rate multi-fenêtres et UI history `monitor_health_states` **abandonnés explicitement** (6g) | `services/health.py`, `services/slo.py`, `monitor_health.py`, `core/percentile.py` |
+| **Réseau & Intelligence (V2-02)** | 7 axes (ASN, partition — calculée sur le chemin Health Engine, TLS, BGP, DNS consistency, playback, NAT/VPN) ; flotte TLS repliée dans `MonitorsView` (6c, plus de vue dédiée) | `services/network_verdict.py`, `services/probe_enrichment.py`, `api/v1/bgp.py`, `api/v1/tls_fleet.py` |
 
 **Stack** : Python 3.12 (FastAPI / SQLAlchemy 2 async / Alembic), Vue 3.5 (Pinia / Tailwind 4 / vue-i18n@9), Postgres 16, Redis 7, Nginx, Capacitor 8 (JDK 21), Docker Compose multi-stage.
 
-**Volumétrie** (mise à jour 2026-05-10, chiffres non recomptés depuis — baseline antérieure aux chantiers
-plan V2 B/C et D listés ci-dessous) :
-- ~28 modèles SQLAlchemy (+`monitor_health`, `silence`, `incident_diagnostic`, `alert_matrix_template`) ;
-  +`models/rollup.py`, `models/oncall.py` (schedules/participants/policies/contacts), `models/discovery.py`
-  (`discovery_sources`/`discovered_services`) depuis plan V2 B/C et chantier D
-- ~26 services métier (+`health`, `slo`, `network_verdict`, `probe_enrichment`, `diagnostics`, `alert_matrix_preview`, `alert_matrix_templates`) ;
-  +`services/rollup.py`, `metric_ingest.py`, `metric_series.py`, `metric_alerts.py`, `metric_correlation.py`,
-  `oncall.py`, `escalation.py`, `channel_ack.py`, `discovery.py` depuis plan V2 B/C et chantier D
-- ~24 vues frontend (+`SilencesView`, `TlsFleetView`) ; +`OnCallView.vue`, `DiscoveryView.vue`
-- ~47 endpoints API v1 (+`silences`, `bgp`, `tls_fleet`, SLO rules, health state, diagnostics, `totp`, `sessions`) ;
-  +`metrics` (batch), `oncall`, `callbacks` (ack Slack/Telegram non authentifiés), `discovery`
-- ~11 checkers probe + module `diagnostics.py` + `public_ip.py` ; +`probe/whatisup_probe/discovery/`
-  (registre `docker` / `port_scan` / `dns_zone`)
+**Volumétrie** — chiffres non recomptés à ce lot (7a), à prendre comme ordre de grandeur plutôt que compte
+exact ; baseline antérieure au nettoyage 6a-6f, donc probablement haute sur plusieurs lignes ci-dessous
+(`services/metric_alerts.py`, `services/renotify.py` et le modèle `silence` ont disparu depuis) :
+- modèles SQLAlchemy : +`models/rollup.py`, `models/oncall.py` (schedules/participants/policies/contacts),
+  `models/discovery.py` (`discovery_sources`/`discovered_services`), `models/status_announcement.py`
+  depuis plan V2 B/C, chantier D et le lot statut public post-v1.23.0 ; le modèle `silence` (`AlertSilence`)
+  a été droppé (fusionné dans `MaintenanceWindow`, 6d)
+- services métier : +`services/rollup.py`, `metric_ingest.py`, `metric_series.py`, `metric_correlation.py`,
+  `oncall.py`, `escalation.py`, `channel_ack.py`, `discovery.py`, `discovery_election.py`, `probe_version.py`,
+  `atom_feed.py` ; `services/metric_alerts.py` et `services/renotify.py` ont disparu (coupés 6f / absorbé 6e)
+- vues frontend : `SilencesView.vue` et `TlsFleetView.vue` ont disparu (fusionnée dans `SuppressionsView.vue`
+  6d, repliée dans `MonitorsView`/`CertificatesPanel.vue` 6c) ; +`OnCallView.vue`, `DiscoveryView.vue`
+- endpoints API v1 : `silences` a disparu (fusionné dans `maintenance`), `templates` a disparu (6a) ;
+  +`bgp`, `tls_fleet`, SLO rules, health state, diagnostics, `totp`, `sessions`, `metrics` (batch), `oncall`,
+  `callbacks` (ack Slack/Telegram non authentifiés), `discovery`, `status_announcements`
+- **8 checkers probe** (`udp`/`composite` retirés 6a) + module `diagnostics.py` + `public_ip.py` +
+  `probe/whatisup_probe/discovery/` (registre `docker` / `port_scan` / `dns_zone`)
 - 11 canaux d'alerte (8 historiques + Discord/Mattermost/Teams)
 
 ---
@@ -878,4 +1032,4 @@ plan V2 B/C et D listés ci-dessous) :
 > 4. Si la PR introduit un nouveau type de check ou canal → reporter dans §2 ou §5.
 > 5. Si la PR touche le Health Engine ou les V2-02 → reporter dans §16 ou §17.
 
-*Dernière revue exhaustive : 2026-05-10 (v1.8.0 + Health Engine V2). Amendement précédent : 2026-07-29 (v1.17.0 → v1.17.2 — portées de clé API, rate-limit GET, abonnements status page, `tag_selector` scopé, et les 7 lots de l'audit `claude-security` 2026-07-24 : chaîne de confiance IP, fuites de secrets, injections de contenu, épinglage sonde + bornes CPU, métriques fail-closed + secrets de boot, SSO lié au navigateur). Dernier amendement : 2026-08-29 (v1.17.3 → v1.23.0 — plan V2 chantier A branché sur les stats + rétention différenciée + partitionnement `custom_metrics` (A-3/A-4/C-2), chantier B astreinte/escalade/ack canal/UI (B-0→B-4), chantier C métriques poussées ingestion/alertes/corrélation (C-1/C-3/C-4), chantier D découverte par la sonde complet (D-0→D-4)).*
+*Dernière revue exhaustive : 2026-05-10 (v1.8.0 + Health Engine V2). Amendement : 2026-07-29 (v1.17.0 → v1.17.2 — portées de clé API, rate-limit GET, abonnements status page, `tag_selector` scopé, et les 7 lots de l'audit `claude-security` 2026-07-24 : chaîne de confiance IP, fuites de secrets, injections de contenu, épinglage sonde + bornes CPU, métriques fail-closed + secrets de boot, SSO lié au navigateur). Amendement : 2026-08-29 (v1.17.3 → v1.23.0 — plan V2 chantier A branché sur les stats + rétention différenciée + partitionnement `custom_metrics` (A-3/A-4/C-2), chantier B astreinte/escalade/ack canal/UI (B-0→B-4), chantier C métriques poussées ingestion/alertes/corrélation (C-1/C-3/C-4), chantier D découverte par la sonde complet (D-0→D-4)). Dernier amendement : 2026-09-11 (plan cap v2, lot 7a — mise à mort de ce que l'étape 6 a retiré : templates de moniteur, types `udp`/`composite`/`keyword`/`json_path`, extension navigateur, `renotify_after_minutes`, silences séparés, alertes sur métrique poussée ; ajout de ce que v1.24→v1.28 et l'étape 6 ont livré : verdict réseau sur le chemin du Health Engine, maintenance/annonces/nom public/flux Atom sur la page de statut, `PUBLIC_BASE_URL` transmis, signature Cosign/SBOM, ergonomie de la découverte (chantier E) ; burn-rate multi-fenêtres et UI history `monitor_health_states` déclarés morts (6g) ; en-tête porté à v2.0.0).*

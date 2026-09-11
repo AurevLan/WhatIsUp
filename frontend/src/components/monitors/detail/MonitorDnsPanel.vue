@@ -154,7 +154,7 @@
   >
     <template #description>
       <i18n-t keypath="monitor_detail.dns_alert_desc" tag="span">
-        <template #code><code class="text-(--up)">any_down</code></template>
+        <template #code><code class="text-(--up)">availability</code></template>
       </i18n-t>
     </template>
   </DetectionAlertBridge>
@@ -184,7 +184,7 @@ const { t } = useI18n()
 // Detection ↔ notification state indicator (B-3): is a down-alert wired?
 watch(
   () => props.monitor?.dns_drift_alert && props.monitor?.id,
-  (ready) => { if (ready) state.refreshWired('any_down') },
+  (ready) => { if (ready) state.refreshWired('availability') },
   { immediate: true },
 )
 </script>

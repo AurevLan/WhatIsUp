@@ -6,14 +6,16 @@
 // so both merges are expressed as extra fields on a single row rather than
 // two rows. Pushed-metric conditions (`metric_above`/`below`/`absent`) were
 // cut entirely (C1) and never appear here.
-export const CHECK_TYPES = ['http', 'tcp', 'dns', 'keyword', 'json_path', 'scenario', 'heartbeat']
+//
+// keyword/json_path merged into http as optional assertions (plan cap v2,
+// 6f-2) — no longer distinct check_types, so `schema_drift` (which only ever
+// applied to JSON responses) now hangs off `http`.
+export const CHECK_TYPES = ['http', 'tcp', 'dns', 'scenario', 'heartbeat']
 
 export const CONDITIONS_BY_TYPE = {
-  http: ['availability', 'ssl_expiry', 'latency_anomaly'],
+  http: ['availability', 'ssl_expiry', 'latency_anomaly', 'schema_drift'],
   tcp: ['availability', 'latency_anomaly'],
   dns: ['availability'],
-  keyword: ['availability'],
-  json_path: ['availability', 'schema_drift'],
   scenario: ['availability', 'latency_anomaly'],
   heartbeat: ['availability'],
 }

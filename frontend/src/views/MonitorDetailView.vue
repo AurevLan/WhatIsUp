@@ -720,7 +720,9 @@ const noHttpTypes = ['tcp', 'smtp', 'ping', 'domain_expiry', 'heartbeat']
 
 // ── Check type groups (controls section visibility) ─────────────────────────
 const ct = computed(() => monitor.value?.check_type)
-const isHttpLike = computed(() => ['http', 'keyword', 'json_path'].includes(ct.value))
+// keyword/json_path merged into http as optional assertions (6f-2) — a
+// monitor of either legacy type no longer exists past the migration.
+const isHttpLike = computed(() => ct.value === 'http')
 const isNetwork = computed(() => ['tcp', 'smtp', 'ping'].includes(ct.value))
 const isDns = computed(() => ct.value === 'dns')
 const isDomainExpiry = computed(() => ct.value === 'domain_expiry')

@@ -28,34 +28,6 @@ ALERT_PRESETS: dict[str, list[dict]] = {
             "default": False,
         },
     ],
-    "keyword": [
-        {
-            "condition": AlertCondition.availability,
-            "label": "Alert when down / keyword mismatch",
-            "min_duration_seconds": 0,
-            "default": True,
-        },
-        {
-            "condition": AlertCondition.ssl_expiry,
-            "label": "SSL certificate expiry",
-            "min_duration_seconds": 0,
-            "default": True,
-        },
-    ],
-    "json_path": [
-        {
-            "condition": AlertCondition.availability,
-            "label": "Alert when down / value mismatch",
-            "min_duration_seconds": 0,
-            "default": True,
-        },
-        {
-            "condition": AlertCondition.schema_drift,
-            "label": "API schema changed",
-            "min_duration_seconds": 0,
-            "default": False,
-        },
-    ],
     "tcp": [
         {
             "condition": AlertCondition.availability,

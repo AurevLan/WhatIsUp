@@ -45,9 +45,9 @@ describe('CreateMonitorWizard — type cards', () => {
     vi.clearAllMocks()
   })
 
-  it('renders all 10 check types', () => {
+  it('renders all 8 check types', () => {
     const w = mount(CreateMonitorWizard, { global: globalConfig })
-    expect(w.findAll('.wizard__type-card')).toHaveLength(10)
+    expect(w.findAll('.wizard__type-card')).toHaveLength(8)
   })
 
   it('selects a native type locally without emitting switch-advanced', async () => {
@@ -70,8 +70,6 @@ describe('CreateMonitorWizard — type cards', () => {
   it('emits switch-advanced with each advanced type value', async () => {
     const w = mount(CreateMonitorWizard, { global: globalConfig })
     const expectations = [
-      ['Keyword', 'keyword'],
-      ['JSON', 'json_path'],
       ['Ping', 'ping'],
       ['SMTP', 'smtp'],
       ['Domain', 'domain_expiry'],

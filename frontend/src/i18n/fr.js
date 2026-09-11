@@ -272,8 +272,6 @@ export default {
       http: 'HTTP',
       tcp: 'TCP',
       dns: 'DNS',
-      keyword: 'Mot-clé',
-      json_path: 'JSON Path',
       scenario: 'Scénario',
       heartbeat: 'Heartbeat',
       smtp: 'SMTP',
@@ -916,7 +914,7 @@ export default {
       availability: "Se déclenche sur un quorum de sondes signalant le moniteur DOWN. « Une sonde en panne » se déclenche dès qu'une seule le signale — bon défaut pour une détection rapide, bruyant si tes sondes sont instables ou en cas de glitch régional. « Toutes les sondes en panne » ne se déclenche que sur une vraie panne globale — peu de bruit, signal fort, idéal pour les canaux de paging (PagerDuty), mais silencieux sur un problème partiel ou régional.",
       ssl_expiry: "Se déclenche quand le certificat TLS est invalide OU quand le nombre de jours restants passe sous le seuil `ssl_expiry_warn_days` du moniteur (défaut 14). Évalué à chaque check HTTPS réussi. Uniquement pertinent pour les moniteurs `http` en TLS.",
       latency_anomaly: "Se déclenche quand le temps de réponse est anormal, selon le mode choisi : un seuil fixe en millisecondes (check SLA simple, n'ajuste pas selon l'heure) ; une moyenne glissante 7 jours × un facteur (capture les ralentissements généraux sans seuil fixe, nécessite quelques jours d'historique) ; ou un z-score contre la moyenne ± écart-type des 7 derniers jours, filtré sur la même fenêtre ±3h de la journée (min 10 échantillons ; défaut 3.0 ≈ 0,3 % de faux positifs).",
-      schema_drift: "Uniquement pour les moniteurs `json_path`. Calcule une empreinte de la structure JSON (clés + types) et se déclenche quand elle diffère de la référence définie sur le moniteur. Utile pour détecter les changements cassants dans une API amont.",
+      schema_drift: "Uniquement pour les moniteurs `http`. Calcule une empreinte de la structure JSON (clés + types) et se déclenche quand elle diffère de la référence définie sur le moniteur. Utile pour détecter les changements cassants dans une API amont.",
     },
   },
   alerts: {
@@ -1769,8 +1767,6 @@ export default {
     type_tcp_desc: 'Port TCP joignable',
     type_dns_desc: 'Résolution DNS',
     type_heartbeat_desc: 'Ping entrant (cron, jobs)',
-    type_keyword_desc: 'Mot-clé dans la réponse',
-    type_json_path_desc: 'Assertion JSON path',
     type_ping_desc: 'Joignabilité ping ICMP',
     type_smtp_desc: 'Bannière SMTP + EHLO',
     type_domain_expiry_desc: 'Expiration domaine (WHOIS)',
@@ -1778,9 +1774,7 @@ export default {
     // Catalogue détaillé utilisé par les formulaires de création / édition
     // (les type_*_desc courts ci-dessus restent pour les cartes du wizard).
     types: {
-      http:          { description: 'Vérifie qu\'une URL renvoie le code HTTP attendu.', url_label: 'URL', url_placeholder: 'https://example.com', name_placeholder: 'Mon site web' },
-      keyword:       { description: 'Check HTTP + vérifie qu\'un mot-clé est (ou non) présent dans le corps de la réponse.', url_label: 'URL', url_placeholder: 'https://api.example.com/health', name_placeholder: 'Health check API' },
-      json_path:     { description: 'Check HTTP + valide une valeur par chemin JSON dans la réponse (ex. $.status == "ok").', url_label: 'URL', url_placeholder: 'https://api.example.com/status', name_placeholder: 'Statut API' },
+      http:          { description: 'Vérifie qu\'une URL renvoie le code HTTP attendu — avec, en option, une assertion sur un mot-clé ou une valeur par chemin JSON.', url_label: 'URL', url_placeholder: 'https://example.com', name_placeholder: 'Mon site web' },
       tcp:           { description: 'Vérifie qu\'un port TCP est joignable (bases de données, SSH, SMTP, etc.).', url_label: 'Hôte', url_placeholder: 'db.example.com', name_placeholder: 'Base PostgreSQL' },
       dns:           { description: 'Vérifie la résolution DNS et, au besoin, la valeur renvoyée.', url_label: 'Domaine', url_placeholder: 'example.com', name_placeholder: 'DNS example.com' },
       scenario:      { description: 'Exécute un scénario de navigation complet dans un vrai navigateur (authentification, clics, assertions…).', url_label: 'URL de départ', url_placeholder: 'https://app.example.com', name_placeholder: 'Connexion + tableau de bord' },
@@ -1794,6 +1788,7 @@ export default {
     heartbeat_interval: 'Intervalle attendu (s)',
     heartbeat_grace: 'Délai de grâce (s)',
     scenario_label: 'Scénario de navigation',
+    assertions_title: 'Assertions (mot-clé, chemin JSON)',
     advanced_assertions: 'Assertions avancées',
     body_regex: 'Regex corps',
     body_regex_hint: 'Expression régulière à rechercher dans le corps de la réponse.',

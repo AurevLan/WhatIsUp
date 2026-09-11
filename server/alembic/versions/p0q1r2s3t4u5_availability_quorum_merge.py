@@ -1,7 +1,7 @@
 """Merge any_down/all_down into a quorum-based availability condition — plan cap v2, 6f (F1-conditions).
 
 Revision ID: p0q1r2s3t4u5
-Revises: o9p0q1r2s3t4
+Revises: a6f2b3c4d5e6
 Create Date: 2026-09-10
 
 Why
@@ -76,7 +76,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "p0q1r2s3t4u5"
-down_revision: str | None = "o9p0q1r2s3t4"
+down_revision: str | None = "a6f2b3c4d5e6"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

@@ -1014,7 +1014,7 @@ async def test_schema_baseline_accept_404_without_fingerprint(
         json={
             "name": "schema-mon",
             "url": "https://example.com",
-            "check_type": "json_path",
+            "check_type": "http",
             "schema_drift_enabled": True,
             "interval_seconds": 60,
         },
@@ -1041,7 +1041,7 @@ async def test_schema_baseline_accept_persists_fingerprint(
 
     monitor = Monitor(
         name="schema-mon-accept",
-        check_type="json_path",
+        check_type="http",
         url="https://example.com",
         owner_id=regular_user.id,
         schema_drift_enabled=True,
@@ -1088,7 +1088,7 @@ async def test_schema_baseline_reset_clears_fingerprint(
 
     monitor = Monitor(
         name="schema-mon-reset",
-        check_type="json_path",
+        check_type="http",
         url="https://example.com",
         owner_id=regular_user.id,
         schema_drift_enabled=True,

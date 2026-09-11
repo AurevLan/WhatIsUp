@@ -116,7 +116,7 @@ class MonitorCreate(BaseModel):
     tag_ids: list[uuid.UUID] = Field(default=[])
     check_type: str = Field(
         default="http",
-        pattern=r"^(http|tcp|dns|keyword|json_path|scenario|heartbeat|smtp|ping|domain_expiry)$",
+        pattern=r"^(http|tcp|dns|scenario|heartbeat|smtp|ping|domain_expiry)$",
     )
     tcp_port: int | None = Field(default=None, ge=1, le=65535)
     smtp_port: int | None = Field(default=None, ge=1, le=65535)
@@ -221,7 +221,7 @@ class MonitorUpdate(BaseModel):
     tag_ids: list[uuid.UUID] | None = None
     check_type: str | None = Field(
         default=None,
-        pattern=r"^(http|tcp|dns|keyword|json_path|scenario|heartbeat|smtp|ping|domain_expiry)$",
+        pattern=r"^(http|tcp|dns|scenario|heartbeat|smtp|ping|domain_expiry)$",
     )
     tcp_port: int | None = Field(default=None, ge=1, le=65535)
     smtp_port: int | None = Field(default=None, ge=1, le=65535)

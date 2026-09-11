@@ -282,8 +282,6 @@ export default {
       http: 'HTTP',
       tcp: 'TCP',
       dns: 'DNS',
-      keyword: 'Keyword',
-      json_path: 'JSON Path',
       scenario: 'Scenario',
       heartbeat: 'Heartbeat',
       smtp: 'SMTP',
@@ -932,7 +930,7 @@ export default {
       availability: 'Fires on a quorum of probes reporting the monitor DOWN. "Any probe down" fires as soon as one does — good default for early detection, noisy on flaky probes or regional glitches. "All probes down" only fires on a true global outage — low noise, high signal, ideal for paging channels like PagerDuty, but silent on a partial/regional issue.',
       ssl_expiry: 'Fires when the TLS certificate is invalid OR when days-remaining drops below the monitor\'s `ssl_expiry_warn_days` setting (default 14). Evaluated on every successful HTTPS check. Only meaningful for `http` monitors with TLS.',
       latency_anomaly: 'Fires when the response time is abnormal, in one of three modes you pick: a fixed threshold in milliseconds (simple SLA check, ignores time-of-day variance); a 7-day rolling baseline × a factor (catches general slowdowns without a hardcoded number, needs a few days of history); or a z-score against the mean ± stddev of the last 7 days, filtered to the same ±3h window of the day (min 10 samples; default threshold 3.0 ≈ 0.3% false-positive rate).',
-      schema_drift: 'For `json_path` monitors only. Computes a fingerprint of the JSON structure (keys + types) and fires when it differs from the baseline you set on the monitor. Useful to catch breaking API changes in dependencies.',
+      schema_drift: 'For `http` monitors only. Computes a fingerprint of the JSON structure (keys + types) and fires when it differs from the baseline you set on the monitor. Useful to catch breaking API changes in dependencies.',
     },
   },
 
@@ -1800,8 +1798,6 @@ export default {
     type_tcp_desc: 'Raw TCP port reachability',
     type_dns_desc: 'DNS resolution',
     type_heartbeat_desc: 'Inbound ping (cron, jobs)',
-    type_keyword_desc: 'Keyword in response body',
-    type_json_path_desc: 'JSON path assertion',
     type_ping_desc: 'ICMP ping reachability',
     type_smtp_desc: 'SMTP banner + EHLO',
     type_domain_expiry_desc: 'Domain expiry (WHOIS)',
@@ -1809,9 +1805,7 @@ export default {
     // Long-form catalog used by the create / edit monitor forms (short
     // type_*_desc above stays for the wizard cards).
     types: {
-      http:          { description: 'Check that a URL returns an expected HTTP status code.', url_label: 'URL', url_placeholder: 'https://example.com', name_placeholder: 'My Website' },
-      keyword:       { description: "HTTP check + verify a keyword is (or isn't) present in the response body.", url_label: 'URL', url_placeholder: 'https://api.example.com/health', name_placeholder: 'API Health Check' },
-      json_path:     { description: 'HTTP check + validate a JSON path value in the response (e.g. $.status == "ok").', url_label: 'URL', url_placeholder: 'https://api.example.com/status', name_placeholder: 'API Status' },
+      http:          { description: 'Check that a URL returns an expected HTTP status code — optionally assert a keyword or a JSON path value too.', url_label: 'URL', url_placeholder: 'https://example.com', name_placeholder: 'My Website' },
       tcp:           { description: 'Check that a TCP port is reachable (databases, SSH, SMTP, etc.).', url_label: 'Host', url_placeholder: 'db.example.com', name_placeholder: 'PostgreSQL DB' },
       dns:           { description: 'Check DNS resolution and optionally assert the returned value.', url_label: 'Domain', url_placeholder: 'example.com', name_placeholder: 'DNS example.com' },
       scenario:      { description: 'Run a full browser scenario (authentication, clicks, assertions…).', url_label: 'Start URL', url_placeholder: 'https://app.example.com', name_placeholder: 'Login + Dashboard' },
@@ -1825,6 +1819,7 @@ export default {
     heartbeat_interval: 'Expected interval (s)',
     heartbeat_grace: 'Grace period (s)',
     scenario_label: 'Browser scenario',
+    assertions_title: 'Assertions (keyword, JSON path)',
     advanced_assertions: 'Advanced assertions',
     body_regex: 'Body regex',
     body_regex_hint: 'Regular expression to search in the response body.',

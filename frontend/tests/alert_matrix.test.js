@@ -78,34 +78,34 @@ describe('AddRuleMenu', () => {
 
   it('filters out already-used conditions', async () => {
     const wrapper = mountMenu({
-      available: ['any_down', 'all_down', 'ssl_expiry'],
-      used: ['any_down'],
+      available: ['availability', 'ssl_expiry', 'latency_anomaly'],
+      used: ['availability'],
     })
     await wrapper.find('button').trigger('click')
     const texts = conditionButtons(wrapper).map(b => b.text())
-    expect(texts.some(t => t.includes('all_down'))).toBe(true)
     expect(texts.some(t => t.includes('ssl_expiry'))).toBe(true)
-    expect(texts.some(t => t.includes('any_down'))).toBe(false)
+    expect(texts.some(t => t.includes('latency_anomaly'))).toBe(true)
+    expect(texts.some(t => t.includes('availability'))).toBe(false)
   })
 
   it('disables trigger when nothing available', () => {
-    const wrapper = mountMenu({ available: ['any_down'], used: ['any_down'] })
+    const wrapper = mountMenu({ available: ['availability'], used: ['availability'] })
     expect(wrapper.find('button').attributes('disabled')).toBeDefined()
   })
 
   it('emits add once per selected condition on confirm', async () => {
-    const wrapper = mountMenu({ available: ['any_down', 'all_down', 'ssl_expiry'], used: [] })
+    const wrapper = mountMenu({ available: ['availability', 'ssl_expiry', 'latency_anomaly'], used: [] })
     await wrapper.find('button').trigger('click')
     const options = conditionButtons(wrapper)
     await options[0].trigger('click')
     await options[2].trigger('click')
     const confirmBtn = wrapper.findAll('.footer-stub button').filter(b => b.text().startsWith('Add'))[0]
     await confirmBtn.trigger('click')
-    expect(wrapper.emitted('add')).toEqual([['any_down'], ['ssl_expiry']])
+    expect(wrapper.emitted('add')).toEqual([['availability'], ['latency_anomaly']])
   })
 
   it('select all toggles every option', async () => {
-    const wrapper = mountMenu({ available: ['any_down', 'all_down'], used: [] })
+    const wrapper = mountMenu({ available: ['availability', 'ssl_expiry'], used: [] })
     await wrapper.find('button').trigger('click')
     const selectAllBtn = wrapper.findAll('.footer-stub button').filter(b => b.text() === 'Select all')[0]
     await selectAllBtn.trigger('click')
@@ -117,7 +117,7 @@ describe('AddRuleMenu', () => {
 describe('ConditionCard', () => {
   function makeRow(overrides = {}) {
     return {
-      condition: 'any_down',
+      condition: 'availability',
       channel_ids: [],
       enabled: true,
       min_duration_seconds: 0,
@@ -161,8 +161,8 @@ describe('TemplatePicker', () => {
   it('loads templates on open and emits apply with selected rows', async () => {
     api.get.mockResolvedValue({
       data: [
-        { id: 'standard', rows: [{ condition: 'any_down' }, { condition: 'ssl_expiry' }] },
-        { id: 'strict', rows: [{ condition: 'all_down' }] },
+        { id: 'standard', rows: [{ condition: 'availability' }, { condition: 'ssl_expiry' }] },
+        { id: 'strict', rows: [{ condition: 'availability', quorum_ratio: 1.0 }] },
       ],
     })
     const wrapper = mount(TemplatePicker, {
@@ -178,12 +178,12 @@ describe('TemplatePicker', () => {
     const applyBtn = wrapper.findAll('.footer-stub button').filter(b => b.text() === 'Apply')[0]
     await applyBtn.trigger('click')
     expect(wrapper.emitted('apply')).toHaveLength(1)
-    expect(wrapper.emitted('apply')[0][0]).toEqual([{ condition: 'any_down' }, { condition: 'ssl_expiry' }])
+    expect(wrapper.emitted('apply')[0][0]).toEqual([{ condition: 'availability' }, { condition: 'ssl_expiry' }])
   })
 
   it('shows replace warning when hasExistingRows is true and a template is selected', async () => {
     api.get.mockResolvedValue({
-      data: [{ id: 'standard', rows: [{ condition: 'any_down' }] }],
+      data: [{ id: 'standard', rows: [{ condition: 'availability' }] }],
     })
     const wrapper = mount(TemplatePicker, {
       props: { checkType: 'http', hasExistingRows: true },
@@ -213,7 +213,7 @@ describe('AlertMatrix integration', () => {
           monitor_id: 'mon-1',
           rows: [
             {
-              condition: 'any_down',
+              condition: 'availability',
               channels: [makeChannel()],
               enabled: true,
               min_duration_seconds: 0,
@@ -255,7 +255,7 @@ describe('AlertMatrix integration', () => {
     })
     await flushPromises()
     const menu = wrapper.findComponent(AddRuleMenu)
-    menu.vm.$emit('add', 'any_down')
+    menu.vm.$emit('add', 'availability')
     await flushPromises()
     expect(wrapper.findAllComponents(ConditionCard)).toHaveLength(1)
   })
@@ -269,7 +269,7 @@ describe('AlertMatrix integration', () => {
           monitor_id: 'mon-1',
           rows: [
             {
-              condition: 'any_down',
+              condition: 'availability',
               channels: [makeChannel()],
               enabled: true,
               min_duration_seconds: 0,
@@ -280,7 +280,7 @@ describe('AlertMatrix integration', () => {
       })
     })
     api.post.mockResolvedValue({
-      data: { window_days: 30, counts: [{ condition: 'any_down', count: 7 }], total: 7 },
+      data: { window_days: 30, counts: [{ condition: 'availability', count: 7 }], total: 7 },
     })
     const wrapper = mount(AlertMatrix, {
       props: { monitorId: 'mon-1', checkType: 'http' },

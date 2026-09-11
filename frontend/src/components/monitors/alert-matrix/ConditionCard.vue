@@ -71,15 +71,46 @@
             <span v-if="hasAdvancedValues" class="ml-1 text-(--accent)">•</span>
           </summary>
           <div class="mt-3 pl-2 border-l-2 border-(--border) space-y-3">
-            <div class="flex flex-wrap items-center gap-3 text-xs text-(--text-2)">
-              <label v-if="needsThreshold" class="flex items-center gap-1.5">
+            <!-- F1-conditions — availability's quorum: any probe down (old
+                 any_down) vs every probe down at once (old all_down). -->
+            <div v-if="isAvailability" class="flex items-center gap-1.5 text-xs text-(--text-2)">
+              <span>{{ t('alert_matrix.quorum_label') }}</span>
+              <select
+                :value="row.quorum_ratio >= 1.0 ? 'all' : 'any'"
+                @change="row.quorum_ratio = $event.target.value === 'all' ? 1.0 : null"
+                class="input py-1"
+              >
+                <option value="any">{{ t('alert_matrix.quorum_any') }}</option>
+                <option value="all">{{ t('alert_matrix.quorum_all') }}</option>
+              </select>
+            </div>
+
+            <!-- F4 — latency_anomaly's sensitivity mode: exactly one of
+                 threshold_value/baseline_factor/anomaly_zscore_threshold. -->
+            <div v-if="isLatency" class="flex flex-wrap items-center gap-3 text-xs text-(--text-2)">
+              <label class="flex items-center gap-1.5">
+                <span>{{ t('alert_matrix.latency_mode_label') }}</span>
+                <select :value="latencyMode" @change="setLatencyMode($event.target.value)" class="input py-1">
+                  <option value="absolute">{{ t('alert_matrix.latency_mode_absolute') }}</option>
+                  <option value="relative">{{ t('alert_matrix.latency_mode_relative') }}</option>
+                  <option value="statistical">{{ t('alert_matrix.latency_mode_statistical') }}</option>
+                </select>
+              </label>
+              <label v-if="latencyMode === 'absolute'" class="flex items-center gap-1.5">
                 <span>{{ t('alert_matrix.threshold') }}</span>
                 <input v-model.number="row.threshold_value" type="number" min="0" class="input w-24 py-1" />
               </label>
-              <label v-if="isAnomaly" class="flex items-center gap-1.5">
+              <label v-if="latencyMode === 'relative'" class="flex items-center gap-1.5">
+                <span>{{ t('alert_matrix.baseline_factor') }}</span>
+                <input v-model.number="row.baseline_factor" type="number" min="1.1" step="0.1" placeholder="2.0" class="input w-20 py-1" />
+              </label>
+              <label v-if="latencyMode === 'statistical'" class="flex items-center gap-1.5">
                 <span>{{ t('alert_matrix.zscore_threshold') }}</span>
                 <input v-model.number="row.anomaly_zscore_threshold" type="number" min="1" step="0.1" placeholder="3.0" class="input w-20 py-1" />
               </label>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3 text-xs text-(--text-2)">
               <label class="flex items-center gap-1.5">
                 <span>{{ t('alert_matrix.min_duration') }}</span>
                 <input v-model.number="row.min_duration_seconds" type="number" min="0" class="input w-20 py-1" />
@@ -104,7 +135,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ChannelChip from './ChannelChip.vue'
 import ScheduleEditor from '../ScheduleEditor.vue'
-import { needsThreshold as isThresholdCondition } from '../../../constants/alertMatrix'
+import { latencyModeOf } from '../../../constants/alertMatrix'
 
 const props = defineProps({
   row: { type: Object, required: true },
@@ -114,13 +145,28 @@ const props = defineProps({
 defineEmits(['remove'])
 const { t } = useI18n()
 
-const needsThreshold = computed(() => isThresholdCondition(props.row.condition))
-const isAnomaly = computed(() => props.row.condition === 'anomaly_detection')
+const isAvailability = computed(() => props.row.condition === 'availability')
+const isLatency = computed(() => props.row.condition === 'latency_anomaly')
+const latencyMode = computed(() => latencyModeOf(props.row))
+
+function setLatencyMode(mode) {
+  // Exactly one of the three fields may be set (schemas.alert.
+  // assert_latency_rule_is_fireable) — switching mode clears the others.
+  // eslint-disable-next-line vue/no-mutating-props
+  props.row.threshold_value = mode === 'absolute' ? (props.row.threshold_value ?? null) : null
+  // eslint-disable-next-line vue/no-mutating-props
+  props.row.baseline_factor = mode === 'relative' ? (props.row.baseline_factor ?? 2.0) : null
+  // eslint-disable-next-line vue/no-mutating-props
+  props.row.anomaly_zscore_threshold = mode === 'statistical' ? (props.row.anomaly_zscore_threshold ?? 3.0) : null
+}
 
 const hasAdvancedValues = computed(() => {
   const r = props.row
   return (
     (r.threshold_value != null) ||
+    (r.baseline_factor != null) ||
+    (r.anomaly_zscore_threshold != null) ||
+    (r.quorum_ratio != null) ||
     (r.min_duration_seconds > 0) ||
     (r.digest_minutes > 0) ||
     !!r.schedule

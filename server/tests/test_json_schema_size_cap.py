@@ -19,7 +19,7 @@ def _monitor(json_schema: dict) -> dict:
     return {
         "name": "schema monitor",
         "url": "https://example.com",
-        "check_type": "json_path",
+        "check_type": "http",
         "json_schema": json_schema,
     }
 

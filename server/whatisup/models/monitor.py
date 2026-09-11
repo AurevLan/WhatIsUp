@@ -32,11 +32,19 @@ _JSON = JSON().with_variant(JSONB(), "postgresql")
 
 
 class CheckType(enum.StrEnum):
+    """Physical/logical check types the probe can run.
+
+    ``keyword`` and ``json_path`` retired in plan cap v2, 6f-2: they weren't
+    distinct ways of observing a service, they were assertions on an HTTP
+    response. ``Monitor.keyword``/``expected_json_path`` (and friends) still
+    exist and still work exactly the same — they're just optional fields on
+    an ``http`` monitor now, not a separate type. Migration ``a6f2b3c4d5e6``
+    repoints any existing monitor of those two types to ``http`` in place.
+    """
+
     http = "http"
     tcp = "tcp"
     dns = "dns"
-    keyword = "keyword"
-    json_path = "json_path"
     scenario = "scenario"
     heartbeat = "heartbeat"
     smtp = "smtp"
@@ -235,11 +243,12 @@ class Monitor(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     dns_baseline_ips_internal: Mapped[list[str] | None] = mapped_column(_JSON, nullable=True)
     dns_baseline_ips_external: Mapped[list[str] | None] = mapped_column(_JSON, nullable=True)
 
-    # Keyword / body checks
+    # Keyword assertion — optional, evaluated on any http monitor (plan cap
+    # v2, 6f-2: no longer a distinct check_type).
     keyword: Mapped[str | None] = mapped_column(String(512), nullable=True)
     keyword_negate: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
-    # JSON path checks
+    # JSON path assertion — same status as keyword above (6f-2).
     expected_json_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
     expected_json_value: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
@@ -252,7 +261,7 @@ class Monitor(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     expected_headers: Mapped[dict | None] = mapped_column(_JSON, nullable=True)
     json_schema: Mapped[dict | None] = mapped_column(_JSON, nullable=True)
 
-    # Custom request headers sent by the probe on each HTTP/keyword/json_path check.
+    # Custom request headers sent by the probe on each http check.
     # Used to bypass UA-based bot filters (Cloudflare etc.) or to inject auth tokens.
     custom_headers: Mapped[dict | None] = mapped_column(_JSON, nullable=True)
 

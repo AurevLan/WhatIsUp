@@ -192,10 +192,13 @@ const creatingMonitor = ref(false)
 const monitorCreated = ref(false)
 const monitorError = ref('')
 
+// json_path merged into http as an optional assertion (plan cap v2, 6f-2) —
+// the "API" onboarding preset it powered isn't a distinct check_type
+// anymore, so it's dropped rather than pointed at a check_type that would
+// 422. The keyword/json_path assertion panel lives in the full monitor form.
 const monitorPresets = [
   { type: 'http', label: 'Website', desc: 'HTTP(S) status check', icon: Globe },
   { type: 'ping', label: 'Server', desc: 'ICMP ping check', icon: Server },
-  { type: 'json_path', label: 'API', desc: 'JSON response check', icon: Activity },
 ]
 
 // Step 3

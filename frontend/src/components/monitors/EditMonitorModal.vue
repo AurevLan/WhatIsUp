@@ -148,7 +148,7 @@ function buildPayload() {
   }
   p.url = url
 
-  if (['http', 'keyword', 'json_path'].includes(form.value.check_type)) {
+  if (form.value.check_type === 'http') {
     p.follow_redirects = form.value.follow_redirects
     p.ssl_check_enabled = form.value.ssl_check_enabled
     p.ssl_pin_sha256 = form.value.ssl_pin_sha256?.trim() || null
@@ -182,14 +182,15 @@ function buildPayload() {
     p.network_scope = form.value.network_scope
   }
 
-  if (form.value.check_type === 'keyword') {
-    p.keyword = form.value.keyword
-    p.keyword_negate = form.value.keyword_negate
-  }
-
-  if (form.value.check_type === 'json_path') {
-    p.expected_json_path = form.value.expected_json_path
-    if (form.value.expected_json_value) p.expected_json_value = form.value.expected_json_value
+  if (form.value.check_type === 'http') {
+    if (form.value.keyword) {
+      p.keyword = form.value.keyword
+      p.keyword_negate = form.value.keyword_negate
+    }
+    if (form.value.expected_json_path) {
+      p.expected_json_path = form.value.expected_json_path
+      if (form.value.expected_json_value) p.expected_json_value = form.value.expected_json_value
+    }
   }
 
   if (form.value.check_type === 'scenario') {
@@ -205,7 +206,7 @@ function buildPayload() {
     p.heartbeat_grace_seconds = form.value.heartbeat_grace_seconds
   }
 
-  if (['http', 'keyword', 'json_path'].includes(form.value.check_type)) {
+  if (form.value.check_type === 'http') {
     if (form.value.body_regex) {
       p.body_regex = form.value.body_regex
     }

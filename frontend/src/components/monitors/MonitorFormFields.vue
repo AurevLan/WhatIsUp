@@ -7,9 +7,12 @@
         v-for="ct in checkTypes" :key="ct.value" type="button"
         @click="form.check_type = ct.value"
         class="py-2 px-1 rounded-lg border text-xs font-medium transition-colors text-center"
-        :class="form.check_type === ct.value
-          ? 'bg-(--accent-glow) border-(--accent-border) text-(--accent)'
-          : 'border-(--border) text-(--text-2) hover:border-(--border-hover) hover:text-(--text-1)'"
+        :class="[
+          form.check_type === ct.value
+            ? 'bg-(--accent-glow) border-(--accent-border) text-(--accent)'
+            : 'border-(--border) text-(--text-2) hover:border-(--border-hover) hover:text-(--text-1)',
+          ct.advanced && form.check_type !== ct.value ? 'border-dashed opacity-70' : '',
+        ]"
       >
         <div class="text-base mb-0.5">{{ ct.icon }}</div>
         {{ ct.label }}
@@ -144,34 +147,6 @@
     </div>
   </div>
 
-  <!-- Keyword options -->
-  <div v-if="form.check_type === 'keyword'">
-    <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('create_monitor.keyword_label') }} *</label>
-    <input v-model="form.keyword" class="input w-full" placeholder="&quot;status&quot;: &quot;ok&quot;" required />
-    <div class="flex items-center gap-2 mt-2">
-      <input v-model="form.keyword_negate" type="checkbox" id="negate" />
-      <label for="negate" class="text-sm text-(--text-2)">
-        <i18n-t keypath="create_monitor.keyword_negate" tag="span">
-          <template #strong><strong class="text-(--text-1)">{{ t('create_monitor.keyword_negate_strong') }}</strong></template>
-        </i18n-t>
-      </label>
-    </div>
-  </div>
-
-  <!-- JSON path options -->
-  <div v-if="form.check_type === 'json_path'" class="grid grid-cols-2 gap-4">
-    <div>
-      <label class="block text-sm font-medium text-(--text-2) mb-1">{{ t('create_monitor.json_path_label') }} *</label>
-      <input v-model="form.expected_json_path" class="input w-full" placeholder="$.status" required />
-    </div>
-    <div>
-      <label class="block text-sm font-medium text-(--text-2) mb-1">
-        {{ t('create_monitor.json_expected_value') }} <span class="text-(--text-3)">({{ t('common.optional') }})</span>
-      </label>
-      <input v-model="form.expected_json_value" class="input w-full" placeholder="ok" />
-    </div>
-  </div>
-
   <!-- Scenario builder -->
   <div v-if="form.check_type === 'scenario'">
     <label class="block text-sm font-medium text-(--text-2) mb-2">{{ t('create_monitor.scenario_label') }}</label>
@@ -233,6 +208,51 @@
         <label class="text-xs text-(--text-2) block mb-1">{{ t('monitors.sslAdvanced.minChainDays') }}</label>
         <input v-model.number="form.ssl_min_chain_days" type="number" class="input w-32 text-xs" min="1" max="365" :placeholder="t('monitors.sslAdvanced.minChainPlaceholder')" />
         <p class="text-xs text-(--text-3) mt-1">{{ t('monitors.sslAdvanced.minChainHint') }}</p>
+      </div>
+    </div>
+
+    <!-- Assertions accordion (keyword / json path) — plan cap v2, 6f-2:
+         optional content checks on the http response, no longer separate
+         check_types. Repliable, vide par défaut. -->
+    <div class="border border-(--border) rounded-lg overflow-hidden">
+      <button
+        type="button"
+        @click="showAssertions = !showAssertions"
+        class="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium text-(--text-2) hover:text-(--text-1) hover:bg-(--bg-surface-2) transition-colors"
+      >
+        <span>{{ t('create_monitor.assertions_title') }}</span>
+        <span class="text-xs transition-transform" :class="showAssertions ? 'rotate-180' : ''">▼</span>
+      </button>
+      <div v-if="showAssertions" class="px-4 pb-4 pt-2 space-y-4 border-t border-(--border) bg-(--bg-surface-2)">
+        <div>
+          <label class="block text-sm font-medium text-(--text-2) mb-1">
+            {{ t('create_monitor.keyword_label') }} <span class="text-(--text-3)">({{ t('common.optional') }})</span>
+          </label>
+          <input v-model="form.keyword" class="input w-full" placeholder="&quot;status&quot;: &quot;ok&quot;" />
+          <div v-if="form.keyword" class="flex items-center gap-2 mt-2">
+            <input v-model="form.keyword_negate" type="checkbox" id="negate" />
+            <label for="negate" class="text-sm text-(--text-2)">
+              <i18n-t keypath="create_monitor.keyword_negate" tag="span">
+                <template #strong><strong class="text-(--text-1)">{{ t('create_monitor.keyword_negate_strong') }}</strong></template>
+              </i18n-t>
+            </label>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">
+              {{ t('create_monitor.json_path_label') }} <span class="text-(--text-3)">({{ t('common.optional') }})</span>
+            </label>
+            <input v-model="form.expected_json_path" class="input w-full" placeholder="$.status" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-(--text-2) mb-1">
+              {{ t('create_monitor.json_expected_value') }} <span class="text-(--text-3)">({{ t('common.optional') }})</span>
+            </label>
+            <input v-model="form.expected_json_value" class="input w-full" placeholder="ok" />
+          </div>
+        </div>
       </div>
     </div>
 
@@ -388,7 +408,10 @@ const { t } = useI18n()
 const form = inject(MonitorFormKey)
 const { checkTypes, findType } = useCheckTypes()
 
-const HTTP_TYPES = ['http', 'keyword', 'json_path']
+// keyword/json_path merged into http as optional assertions (6f-2) — this
+// list used to gate the whole SSL/headers/assertions block on three
+// check_types, now it's just http.
+const HTTP_TYPES = ['http']
 const DNS_RECORD_TYPES = ['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS']
 
 const currentType = computed(() => findType(form.value.check_type))
@@ -415,6 +438,7 @@ const showAdvanced = ref(
   ),
 )
 const showCustomHeaders = ref(Boolean(form.value.custom_headers_list?.length))
+const showAssertions = ref(Boolean(form.value.keyword || form.value.expected_json_path))
 const showAdvancedDetection = ref(false)
 const selectedUaPreset = ref('')
 

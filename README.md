@@ -1,11 +1,11 @@
 <h1 align="center">WhatIsUp</h1>
 
 <p align="center">
-  <strong>The self-hosted uptime platform that tells you <em>where</em> things break — and stops shouting when it shouldn't.</strong>
+  <strong>The only self-hostable uptime platform that watches a service from more than one network at once — and tells you whether it's the service or the network path that broke.</strong>
 </p>
 
 <p align="center">
-  Multi-probe geographic correlation · real-time dashboard · SLO tracking · intelligent alerting · public status pages · mobile app.
+  Multi-probe network correlation (ASN & network position) · real-time dashboard · SLO tracking · intelligent alerting · public status pages · mobile app.
 </p>
 
 <p align="center">
@@ -39,13 +39,27 @@
 
 ## Why WhatIsUp
 
-There's no shortage of uptime tools. WhatIsUp focuses on three things most of them don't do well at once:
+Most uptime tools answer one question: *is it up?* When a check fails, the harder question is
+*why* — is the service actually down, or did the path between it and this one vantage point break?
+A single probe can't tell the difference: a probe-local blip and a real outage look identical from
+one point of observation.
 
-- 🌍 **Real multi-probe correlation** — deploy lightweight probes in any datacenter, office, or region, and let WhatIsUp tell you whether an outage is global, regional, probe-local, or actually an upstream network partition. One failed probe no longer means one false page.
+WhatIsUp is built around answering that second question, self-hosted, with three things most tools
+don't do well at once:
+
+- 🔀 **Network-aware correlation** — deploy lightweight probes across networks you control, and each one
+  is enriched with its ASN and network position (Team Cymru DNS lookups, no API key). When several probes
+  disagree, WhatIsUp classifies the incident as a real service outage, an ASN-level partition (one
+  operator's transit breaks), or inconclusive — instead of paging on every probe-local blip. The
+  classification runs on the same path as incident detection, not as a side report, and every alert
+  channel, the incident view, and the public status page show the verdict. The probe map and incident
+  playback illustrate this on a map; geography is not the axis the verdict is built on, network
+  topology is.
 - 🔕 **Alerting that shuts up** — quorum-based incident detection with a per-rule cooldown against flapping, incident groups, dependency-aware cascade suppression, maintenance windows, storm protection, business-hours schedules, and an impact preview that replays your rules against the last 30 days so you calibrate thresholds with data instead of vibes.
-- 🎛 **Self-hosted, batteries included** — one `docker compose up`, no SaaS lock-in, no per-monitor pricing. Playwright scenarios, SSO/OIDC, teams & RBAC, IaC import/export, and an Android app all ship in the box.
+- 🎛 **Self-hosted, batteries included, nothing phones home** — one `docker compose up`, no SaaS tier, no per-monitor pricing, no telemetry leaving your infrastructure. Playwright scenarios, SSO/OIDC, teams & RBAC, IaC import/export, and an Android app all ship in the box, and every extension point (check types, alert channels, alert conditions) is a plugin registry you can add to without forking core code.
 
-Built for teams who want Datadog-grade monitoring without Datadog-grade bills, and who'd rather own their data than rent it.
+Built for teams who want Datadog-grade monitoring without Datadog-grade bills or a Datadog-shaped data
+pipeline — and who'd rather own their infrastructure's telemetry than rent it out.
 
 ---
 
@@ -62,23 +76,45 @@ The check-result table used to be one flat, ever-growing heap. It now has a shap
 - **Differentiated retention** — `DATA_RETENTION_DAYS` (90) now governs only the per-result detail (scenario traces, TLS audits, DNS answers). `ROLLUP_RETENTION_MONTHS` (13) governs the shape of history, two orders of magnitude cheaper. Dropping the raw window no longer costs you your uptime history — and an interlock stops the purge from ever overtaking the rollup builder, so shortening it mid-backfill can't lose data twice.
 - **`custom_metrics` partitioned too**, with `METRICS_RETENTION_DAYS`. Before this it was the one time-series table nothing ever purged.
 
-### Alerting on pushed application metrics
+### The network verdict is real now
 
-`POST /api/v1/metrics/{monitor_id}` could always be written to and graphed — but no alert condition could see the series, so nothing ever fired. Three conditions now read it:
+Classifying an outage as a real service failure vs. an ASN-level partition existed for a while, but it
+sat on a code path that incident opening never actually walked — so the large majority of incidents
+carried no verdict at all. It's now computed on the same path the Health Engine uses to open every
+availability incident, and shown everywhere an operator looks: all 11 alert channels, the incident list,
+the monitor detail view, and the public status page. `AlertRule.suppress_on_network_partition` (opt-in)
+uses it to stop paging on-call for an upstream operator's outage instead of your service's.
 
-| Condition | Fires when |
-|---|---|
-| `metric_above` | the latest **fresh** value exceeds the threshold |
-| `metric_below` | the latest **fresh** value falls under it |
-| `metric_absent` | nothing has been pushed for longer than the freshness window — the dead-agent case, previously invisible |
+### A pass of deliberate removal
 
-Two properties worth knowing, because they are the ones that make this safe to page on: **silence never resolves** a threshold breach (without a fresh sample every predicate answers false, and resolving on that would announce recovery at the exact moment you stopped being able to observe), and `metric_absent` **never fires for a series that was never pushed**, so a typo in the metric name stays quiet instead of paging forever.
+Seven lots removed what had accumulated but wasn't earning its keep, ahead of a 2.0 release: monitor
+templates (replaced by a **Duplicate** button that works for every check type), the `udp` and
+`composite` check types, `keyword`/`json_path` as separate check types (they're now an optional
+"Assertions" section of an `http` monitor — same functionality, one fewer thing to pick from a list of
+10), the browser-extension scenario recorder (replaced by importing a `playwright codegen` script),
+separate maintenance/silence objects (merged into one "suppression window" with a checkbox), and
+`renotify_after_minutes` (subsumed by a one-rung, repeating escalation ladder). Alert conditions went
+from 10 to 4 (`availability`, `ssl_expiry`, `latency_anomaly`, `schema_drift`) — pushed-metric alerting
+(`metric_above`/`metric_below`/`metric_absent`) is cut entirely (0 rules, 0 points, 0 series were using
+it), replaced by an application endpoint that returns 500 past its own threshold. **Ingestion of pushed
+metrics and metric↔incident correlation are untouched** — only alerting *on* a metric is gone. Main
+navigation went from 17 entries to 11 (dependency graph and the TLS fleet view folded into the monitor
+detail view and the monitors list; audit moved under Settings; on-call became a tab of Alerts). Removing
+the browser stack from the default probe image cut it from 1.97 GB to ~480 MB; a `-browser` variant is
+published separately for `scenario` monitors.
 
-Evaluated by a background loop rather than at push time — dispatching means an outbound HTTP call, which has no business on the ingestion path.
+### Alert conditions are a plugin registry
 
-### Alert conditions are now a plugin registry
+Conditions used to be dispatched by three parallel `if/elif` chains — what pages, the UI preview, and the impact badge. Every divergence between them was silent, and one had already shipped. Each condition is now a single class holding its dispatch decision and its preview side by side, registered like alert channels and check types already were, and reduced from 10 members to 4 in the same pass. A CI gate fails the build if an `AlertCondition` has no handler.
 
-Conditions were dispatched by three parallel `if/elif` chains — what pages, the UI preview, and the impact badge. Every divergence between them was silent, and one had already shipped. Each condition is now a single class holding its dispatch decision and its preview side by side, registered like alert channels and check types already were. A CI gate fails the build if an `AlertCondition` has no handler.
+### The status page tells the truth
+
+A status page used to show a hard-red "major outage" for planned maintenance, never let an operator
+narrate an incident without a probe flipping first, exposed a monitor's internal URL/ports/DNS record
+types to any visitor, and had no feed to subscribe to. All four are fixed: planned-maintenance windows
+render as maintenance, not an outage; manual status announcements can be posted independently of any
+probe-detected incident; a monitor gets an optional public-facing name and the public API no longer
+leaks its internal configuration; and there's a standard Atom feed per status page.
 
 ### Security & supply chain
 
@@ -89,10 +125,10 @@ Conditions were dispatched by three parallel `if/elif` chains — what pages, th
 
 ### Ops & platform
 
-- **Leader election** — singleton background loops (heartbeat, retention, rollups, escalation, digest flush, metric alerts…) elect a leader via Redis `SET NX` with fencing tokens, so running several API replicas is safe.
+- **Leader election** — singleton background loops (heartbeat, retention, rollups, escalation, digest flush, network verdict…) elect a leader via Redis `SET NX` with fencing tokens, so running several API replicas is safe.
 - **Structured JSON logs** with `X-Request-ID` correlation end-to-end, plus Prometheus metrics.
-- **Global Health Engine V2** — probes are sensors, the server is the sole judge: a 5-minute rolling p50/p95/p99 aggregator with `quorum_down` / `quorum_slow` SLO rules, per-probe divergence scoring, and a global rollback flag.
-- **Network intelligence** — probes are auto-enriched with ASN via Team Cymru; every incident gets a verdict (`service_down` / `network_partition_asn` / `network_partition_geo` / `inconclusive`), and rules can opt out of paging on upstream operator failures.
+- **Global Health Engine V2** — probes are sensors, the server is the sole judge, and it's the only detection engine (the legacy per-probe decider was retired): a 5-minute rolling p50/p95/p99 aggregator with `quorum_down` / `quorum_slow` SLO rules and per-probe divergence scoring, enabled by default on every new monitor.
+- **Network intelligence** — probes are auto-enriched with ASN via Team Cymru; every incident gets a verdict (`service_down` / `network_partition_asn` / `network_partition_geo` / `inconclusive`), computed on the same path that opens the incident (see above), and rules can opt out of paging on upstream operator failures.
 - **2FA (TOTP), active session management, teams & RBAC, tag-scoped permissions, OIDC/SSO** configured entirely from the admin GUI.
 - **VELOURS design system** on two tokenised themes, with permanent CI accessibility gates (axe audit + anti-artisanal-overlay), a mobile-first responsive pass, and an Android build via Capacitor 8.
 
@@ -289,39 +325,37 @@ POSTGRES_WORK_MEM=32MB POSTGRES_MEM_LIMIT=3g
 
 | Type | What it does |
 |------|--------------|
-| **HTTP / HTTPS** | Status codes, redirect following, response time, TLS grade (A–F, Mozilla SSTLS), SHA-256 certificate pinning, per-monitor custom headers |
+| **HTTP / HTTPS** | Status codes, redirect following, response time, TLS grade (A–F, Mozilla SSTLS), SHA-256 certificate pinning, per-monitor custom headers, optional collapsible "Assertions" block (body regex, header check, keyword scan, JSON path/schema, response-shape drift) |
 | **TCP** | Port reachability (databases, SSH, custom services) |
-| **UDP** | Datagram probe — ICMP port-unreachable = down, timeout = filtered/open |
 | **DNS** | Record resolution with optional value assertion (A, AAAA, CNAME, MX, TXT, NS), drift detection with baseline auto-learn, cross-probe consistency with split-horizon support |
-| **Keyword** | Response body scan, with optional negate mode |
-| **JSON Path** | Structured validation (e.g. `$.status == "ok"`) plus JSON Schema and response-shape drift detection |
 | **SMTP** | Banner + EHLO handshake with optional STARTTLS; measures banner-to-ready time |
 | **Ping** | ICMP round-trip time |
 | **Domain expiry** | WHOIS lookup with configurable warning window |
-| **Browser scenarios** | Multi-step Playwright automation (navigate, click, fill, assert, extract, screenshot) with Core Web Vitals (LCP, CLS, INP) |
-| **Composite** | Aggregate several monitors with `all_up` / `any_up` / `majority_up` / `weighted_up`; drives the full incident pipeline |
+| **Browser scenarios** | Multi-step Playwright automation (navigate, click, fill, assert, extract, screenshot) with Core Web Vitals (LCP, CLS, INP); needs the `-browser` probe image |
 | **Heartbeat** | Dead-man's switch for cron jobs — unique ping URL, incident opened when a ping is late |
 
-Advanced assertions across types: regex body check, response header validation (exact or `/regex/`), JSON Schema validation. Tenant-supplied patterns run on an interruptible engine in an isolated thread pool, so a catastrophic regex can't take the probe with it.
+8 types (down from 10 — `udp` and `composite` were removed, `keyword`/`json_path` folded into HTTP's
+assertions block). Tenant-supplied patterns run on an interruptible engine in an isolated thread pool, so a catastrophic regex can't take the probe with it.
 
 ### Infrastructure
 
-- **Multi-probe architecture** — lightweight agents anywhere; outages correlated geographically and by ASN
+- **Multi-probe architecture** — lightweight agents anywhere; probes are enriched with their ASN and network position for cross-probe correlation
 - **Network type per probe** — `external` (public internet) or `internal` (corporate LAN)
 - **Network scope per monitor** — restrict a check to `all`, `internal` or `external` probes
 - **Probe map** — Leaflet world map, ASN as outer ring, 24 h uptime as inner colour, ASN filter chip
 - **Incident playback** — scrub through how an outage propagated across probes
-- **Probe groups** — admin-defined; grant probe visibility per user
+- **Probe groups** — admin-defined; grant probe visibility per user, and target automatic-discovery sources at a whole group
 - **City / address geocoding** — Nominatim, no API key
+- **Stale-agent warning** — a probe running an outdated build is flagged on the dashboard and the probes list, not left to skew verdicts silently
 
 ### Observability
 
 - **Real-time dashboard** — WebSocket push, no polling
 - **SLO / error budget** — configurable target and window, burn-rate tracking
 - **SLA reports** — custom date range, uptime %, incident list, P95; JSON download
-- **Custom push metrics** — business KPIs alongside uptime data, now alertable
+- **Custom push metrics** — business KPIs alongside uptime data, batched and labeled, with rate and cardinality quotas
 - **Annotations** — timestamped notes on the monitor timeline (deployments, changes)
-- **TLS fleet dashboard** — certificate grade and expiry across every monitor
+- **Certificates view** — a filterable mode of the monitors list showing certificate grade and expiry across every HTTPS monitor
 - **Metric correlation on incident** — ranks the monitor's pushed metrics by how much they moved against the equivalent window just before, in a panel and in the post-mortem. Says *correlation*, never causation, and refuses to invent a figure when there is no baseline, too few samples, or a baseline of zero
 - **Auto-diagnostics on incident** — every affected probe runs `traceroute`, `dig +trace`, `openssl s_client`, `ping` and `curl -v` in parallel, persisted and surfaced per incident
 - **Prometheus metrics** — `/api/metrics`, fail-closed in production
@@ -329,16 +363,15 @@ Advanced assertions across types: regex body check, response header validation (
 ### Incidents & alerting
 
 - **Automatic lifecycle** — open on failure, resolve on recovery, driven by cross-probe quorum with a per-rule cooldown against rapid re-opening
-- **Global Health Engine V2** — quorum-based judgement (`quorum_down`, `quorum_slow`) with per-probe divergence exclusion; the only detection engine (the legacy per-probe decider was retired)
-- **Network verdict** — distinguishes a real outage from an upstream partition; rules can opt out of paging on the latter
+- **Global Health Engine** — quorum-based judgement (`quorum_down`, `quorum_slow`) with per-probe divergence exclusion; the only detection engine (the legacy per-probe decider was retired), enabled by default on every new monitor
+- **Network verdict** — distinguishes a real outage from an upstream ASN-level partition, computed on the same path that opens the incident, and shown in every alert, the incident view and the public status page; rules can opt out of paging on the latter
 - **Incident groups** — monitors sharing failing probes within a 90 s window are grouped; one notification instead of N
 - **Monitor dependencies** — child incidents suppressed while a parent is down
 - **Storm protection** — per-rule rate cap, forced digest past the threshold
-- **Maintenance windows** — planned-downtime suppression, group-level supported
-- **Programmable silences** — mute a known-noisy window without distorting uptime
+- **Suppression windows** — one object covers both planned maintenance (downtime excluded from uptime, publishable) and a plain silence (incident still opens and counts, only dispatch is muted), a checkbox apart
 - **Alert matrix v2** — one card per condition, coloured channel chips, collapsible advanced params, and a live `≈ N / 30j` impact badge that replays the config against the last 30 days
 - **Alerting templates** — Standard / Strict-Paging / Low-noise presets in one click; superadmins manage their own
-- **Conditions** — `any_down`, `all_down`, `ssl_expiry`, `response_time_above`, `response_time_above_baseline`, `anomaly_detection` (z-score against the same ±3 h window of day), `schema_drift`, `metric_above`, `metric_below`, `metric_absent`
+- **Conditions** — `availability` (quorum-based, replaces the old `any_down`/`all_down`), `ssl_expiry`, `latency_anomaly` (absolute threshold, rolling-baseline ratio, or z-score — whichever field you set), `schema_drift`
 - **Tag-scoped rules** — one rule targets every monitor carrying a tag
 - **Acknowledge from Slack / Telegram** — a button in the alert itself. Every button carries a token we minted binding the incident to the channel, verified *before* the provider signature: a provider signature proves the request came from Slack, not which incident the button was for
 - **On-call page** — rotations, escalation policies and a "who is on call right now" widget. An uncovered rotation says so rather than rendering blank
@@ -354,6 +387,10 @@ Advanced assertions across types: regex body check, response header validation (
 - **90-day history bars** — daily uptime per component, served from the rollups
 - **Incident timeline** — 30-day log with durations
 - **Email subscriptions** — double opt-in, secure unsubscribe token
+- **Atom feed** — one entry per availability incident, for anyone who'd rather subscribe than poll
+- **Planned maintenance shown as maintenance** — not a red "major outage" banner
+- **Manual announcements** — narrate an incident to visitors without a probe having to detect anything first
+- **No inventory disclosure** — an optional public-facing name per monitor, and the public API no longer leaks internal URLs, ports, DNS record types or redirect targets
 
 ### Platform
 
@@ -451,7 +488,6 @@ Every singleton loop is leader-elected through Redis, so N API replicas run each
 | Loop | Interval | If it stops |
 |------|----------|-------------|
 | **Partition maintainer** | 6 h | **Inserts fail.** If no partition covers the current instant, every check result is rejected. It keeps three months of head-room ahead |
-| **Metric alert evaluator** | 60 s | Pushed-metric rules never fire — nothing else evaluates them |
 | Rollup builder | 5 min | Stats fall back to the raw table; retention loses its interlock |
 | Heartbeat checker | 30 s | Late cron jobs go unnoticed |
 | **Escalation engine** | 30 s | **On-call ladders stop advancing** — this is also what re-pages an unacknowledged incident's own channels on a timer (a single-rung, repeating ladder), so this loop stopping means no periodic re-alerting either |
@@ -525,7 +561,7 @@ The same endpoint takes a **batch**, and points carry **labels** so one metric c
 
 A batch is all-or-nothing: if it would breach a quota, nothing is stored and the response is a 429 saying which ceiling was hit. Keep label *values* bounded — a label carrying a user or request id creates one series per value and will hit the cardinality ceiling, which is exactly what that ceiling is for.
 
-Metrics are graphed per series on the monitor detail view, and can be alerted on with the `metric_*` conditions. A personal API key (`X-Api-Key: wiu_u_…`) works here too, so an application doesn't need a user password.
+Metrics are graphed per series on the monitor detail view, and ranked against an incident's timeline by the metric-correlation panel (see [Observability](#observability)). There is no `metric_above`/`metric_below`/`metric_absent` alerting anymore — a metric threshold worth paging on is better served by an application endpoint that returns 500 past its own threshold, watched with a plain `http` check. A personal API key (`X-Api-Key: wiu_u_…`) works here too, so an application doesn't need a user password.
 
 ### Signal alerts
 
@@ -597,6 +633,7 @@ curl https://your-whatisup.example.com/api/v1/monitors/ -H "Authorization: Beare
 | `GET` | `/api/v1/oncall/schedules/on-call-now` | Who is on call right now, per schedule |
 | `POST` | `/api/v1/callbacks/slack` `…/telegram` | Acknowledge from a chat message (signed) |
 | `GET` | `/api/v1/public/pages/{slug}/monitors` | Public status page data (no auth) |
+| `GET` | `/api/v1/public/pages/{slug}/feed.atom` | Public Atom feed (no auth) |
 | `POST` | `/api/v1/public/pages/{slug}/subscribe` | Subscribe to a status page |
 | `GET` | `/api/v1/ping/{slug}` | Heartbeat ping |
 | `GET` `PUT` | `/api/v1/config/` | Export / import full config (IaC) |

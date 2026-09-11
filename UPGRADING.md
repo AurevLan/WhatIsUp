@@ -1,5 +1,125 @@
 # Upgrading WhatIsUp
 
+## v2.0.0 — le grand dégraissage
+
+La v2 **retire** beaucoup et n'ajoute presque rien : une revue produit a arbitré que
+plusieurs fonctionnalités coûtaient une entrée de navigation permanente, un concept de
+plus ou un verdict faux, pour un usage nul ou mieux servi ailleurs. Presque tout est
+migré automatiquement. **Deux choses, et deux seulement, exigent une action de ta part
+AVANT de monter** — sans quoi la migration s'arrête net et ne change rien.
+
+### ⛔ À faire avant de monter
+
+Les deux migrations ci-dessous **refusent de tourner** plutôt que d'inventer une
+conversion qui perdrait de l'information. Elles lèvent une erreur explicite, ne
+modifient rien, et se rejouent une fois le terrain dégagé.
+
+**1. Moniteurs `udp` ou `composite`.** Il n'existe aucune conversion sans perte — une
+agrégation composite de N moniteurs ne devient pas un moniteur unique. Vérifie :
+
+```sql
+SELECT count(*) FROM monitors WHERE check_type IN ('udp', 'composite');
+SELECT count(*) FROM composite_monitor_members;
+```
+
+Si ce n'est pas `0` partout : retype ou supprime ces moniteurs et leurs liens. Un `udp`
+se remplace par `ping` (joignabilité de l'hôte), `dns` (pour DNS) ou `heartbeat` poussé
+par l'application. Un `composite` se remplace par un **groupe** (affichage agrégé), une
+**dépendance** + `suppress_on_parent_down` (causalité), ou une `SLORule` `quorum_down`
+(consensus multi-sondes).
+
+**2. Règles d'alerte sur métrique poussée.** `metric_above` / `metric_below` /
+`metric_absent` disparaissent. Vérifie :
+
+```sql
+SELECT count(*) FROM alert_rules
+ WHERE condition IN ('metric_above', 'metric_below', 'metric_absent');
+SELECT count(*) FROM incidents WHERE alert_rule_id IS NOT NULL;
+```
+
+Si ce n'est pas `0` : supprime ces règles, et laisse leurs incidents se résoudre ou
+supprime-les. Le besoin se replace mieux ailleurs — un endpoint applicatif qui répond
+`500` passé son propre seuil, surveillé par un check `http` ordinaire (le seuil vit
+alors dans le code qui le connaît, pas dans un second système), ou un `heartbeat` pour
+« l'agent est mort ».
+
+⚠️ **L'ingestion de métriques et la corrélation métrique↔incident ne bougent pas.**
+`POST /metrics/{monitor_id}`, les tables `custom_metrics` / `metric_series` et le
+panneau de corrélation dans le post-mortem restent intacts. Seul le *déclenchement
+d'alerte* sur une métrique disparaît.
+
+### 🐳 L'image de sonde n'embarque plus de navigateur
+
+`whatisup-probe` passe de **1,97 Go à ~480 Mo**. Déployer une sonde est le geste que
+l'on refait pour chaque point d'observation ; Chromium y pesait pour la fonctionnalité
+la moins utilisée du produit.
+
+- **Tu n'utilises pas de moniteur `scenario`** : rien à faire, l'image maigrit.
+- **Tu utilises des scénarios Playwright** : bascule sur `ghcr.io/aurevlan/whatisup-probe:2.0.0-browser`
+  (ou `:latest-browser`). La fonctionnalité est identique, seule l'image change.
+
+Une sonde sans navigateur à qui l'on confie un moniteur `scenario` **ne plante pas** :
+le check échoue avec un message qui nomme l'image `-browser` à utiliser.
+
+### 🔌 L'extension navigateur disparaît
+
+`GET /api/v1/extension/download` et le panneau de téléchargement dans les Réglages sont
+retirés. Pour enregistrer un parcours plutôt que l'écrire : `playwright codegen`
+(officiel, maintenu par Microsoft), puis **« Importer »** dans le Scenario Builder, qui
+accepte désormais un script codegen en plus de son propre format JSON.
+
+### 🔁 Migrations automatiques — rien à faire
+
+Tout ce qui suit est converti au démarrage, sans perte, et **sans changement de
+comportement observable** pour qui passe par l'interface.
+
+| Ce qui disparaît | Ce que ça devient |
+|---|---|
+| `any_down`  | `availability` avec `quorum_ratio` NULL — « au moins une sonde » |
+| `all_down` | `availability` avec `quorum_ratio = 1.0` — « toutes les sondes » |
+| `response_time_above` · `response_time_above_baseline` · `anomaly_detection` | `latency_anomaly`, le mode se déduisant du champ renseigné (`threshold_value` / `baseline_factor` / `anomaly_zscore_threshold`) |
+| `renotify_after_minutes` | une politique d'escalade à un barreau par canal, même cadence, répétition indéfinie |
+| `AlertSilence` | une `MaintenanceWindow` avec `is_maintenance = false` (l'incident s'ouvre et compte, seul l'envoi est coupé) |
+| `check_type` `keyword` / `json_path` | `check_type = http`, les champs d'assertion conservés tels quels |
+| `MonitorTemplate` | un bouton **« Dupliquer »** sur la fiche moniteur, disponible pour *tous* les types |
+
+### 🧭 L'interface bouge, rien n'est perdu
+
+La navigation passe de **17 à 11 entrées**. Aucune fonctionnalité n'est retirée — elles
+changent de place :
+
+- **Graphe de dépendances** → replié dans la fiche moniteur et le panneau d'incident.
+- **Flotte TLS** → vue « Certificats » de la liste des moniteurs. L'endpoint reste.
+- **Audit** → sous Réglages. Le journal est intact (c'est une exigence de conformité).
+- **Astreinte** → onglet d'Alertes.
+- **Silences** → fusionné dans « Suppressions », avec une case « compter comme
+  maintenance planifiée » qui porte la seule différence de fond entre les deux objets.
+- Le geste « je touche à ça, tais-toi 30 minutes » est désormais offert **depuis la
+  fiche du moniteur**, avec des presets de durée.
+
+### 🔧 Appelants d'API — ce qui renvoie maintenant 4xx
+
+Si tu pilotes WhatIsUp par script, par import/export de configuration ou par IaC :
+
+- `check_type` `udp` · `composite` · `keyword` · `json_path` → rejetés. Utiliser
+  `http` avec les champs d'assertion pour les deux derniers.
+- `condition` `any_down` · `all_down` · `response_time_above` ·
+  `response_time_above_baseline` · `anomaly_detection` · `metric_above` ·
+  `metric_below` · `metric_absent` → rejetés. Voir la table ci-dessus.
+- `renotify_after_minutes` dans un payload de règle → **422**.
+- `GET /api/v1/extension/download` → **404**.
+
+### ↩️ Revenir en arrière
+
+Chaque migration est réversible (`alembic downgrade`), **sauf ce qu'elles ont refusé de
+faire** : les deux garde-fous ci-dessus ne créent rien, il n'y a donc rien à défaire.
+Comme pour toute montée de version majeure, **sauvegarde la base avant** :
+
+```bash
+docker compose exec -T postgres pg_dump -U whatisup -d whatisup | gzip > avant-v2.sql.gz
+```
+
+
 ## Correctifs de sécurité — lot S6 (déploiement)
 
 Deux changements de comportement, sans migration de base.

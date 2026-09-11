@@ -189,9 +189,8 @@ const supportedTypes = computed(() => [
 ])
 
 // Types handled by the advanced form only — clicking one hands over to CreateMonitorModal.
+// keyword/json_path merged into http as optional assertions (plan cap v2, 6f-2).
 const advancedTypes = computed(() => [
-  { value: 'keyword',       icon: '🔍', label: 'Keyword',   description: t('create_monitor.type_keyword_desc') },
-  { value: 'json_path',     icon: '{ }', label: 'JSON',     description: t('create_monitor.type_json_path_desc') },
   { value: 'ping',          icon: '🏓', label: 'Ping',      description: t('create_monitor.type_ping_desc') },
   { value: 'smtp',          icon: '✉️', label: 'SMTP',      description: t('create_monitor.type_smtp_desc') },
   { value: 'domain_expiry', icon: '🔑', label: 'Domain',    description: t('create_monitor.type_domain_expiry_desc') },

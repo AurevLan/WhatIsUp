@@ -11,8 +11,6 @@ import fr from '../src/i18n/fr'
 
 const TYPES = [
   'http',
-  'keyword',
-  'json_path',
   'tcp',
   'dns',
   'scenario',

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.0.1](https://github.com/AurevLan/WhatIsUp/compare/v2.0.0...v2.0.1) (2026-09-12)
+
+
+### Fixed
+
+* **probe:** une sonde sans navigateur plantait au démarrage ([#436](https://github.com/AurevLan/WhatIsUp/issues/436)) ([7587471](https://github.com/AurevLan/WhatIsUp/commit/75874713f4c65b0ccddd46aec24db124991523c6))
+
 ## [2.0.0](https://github.com/AurevLan/WhatIsUp/compare/v1.28.0...v2.0.0) (2026-09-11)
 
 

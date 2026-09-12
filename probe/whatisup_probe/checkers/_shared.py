@@ -6,7 +6,6 @@ import asyncio
 import hashlib
 import ipaddress
 import json
-import logging
 import socket
 import ssl
 import time
@@ -16,10 +15,11 @@ from typing import Any
 from urllib.parse import urlparse
 
 import httpx
+import structlog
 
 from whatisup_probe.checkers.base import CheckResult
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 # ── DNS cache (TTL 60s, max 1000 entries) ───────────────────────────────────
 
@@ -385,7 +385,7 @@ def _extract_tls_audit_sync(url: str) -> dict | None:
     except SSRFBlockedError as exc:
         # Signalé explicitement : sans log, un audit TLS absent ressemble à une
         # panne réseau alors que c'est un refus délibéré.
-        logger.warning("tls_audit_ssrf_blocked: %s", exc)
+        logger.warning("tls_audit_ssrf_blocked", error=str(exc))
         return None
     except Exception:
         return None
@@ -441,7 +441,7 @@ def _extract_ssl_info_sync(
 
         return True, None, None, pin_hex
     except SSRFBlockedError as exc:
-        logger.warning("ssl_info_ssrf_blocked: %s", exc)
+        logger.warning("ssl_info_ssrf_blocked", error=str(exc))
         return False, None, None, None
     except ssl.SSLCertVerificationError:
         return False, None, None, None

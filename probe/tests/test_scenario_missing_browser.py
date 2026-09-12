@@ -47,3 +47,27 @@ async def test_scenario_check_without_chromium_binary_fails_cleanly() -> None:
     # Never the raw Playwright trace.
     assert "Executable doesn't exist" not in result.error_message
     assert "Traceback" not in result.error_message
+
+
+async def test_browser_pool_start_without_chromium_does_not_raise() -> None:
+    """La sonde sans navigateur doit **démarrer**, pas seulement échouer proprement
+    sur un scénario.
+
+    Régression v2.0.0 : `PlaywrightPool.start()` signalait l'absence de binaire
+    avec `logger.warning("...", hint=...)` alors que `_shared.py` utilisait le
+    logger de la bibliothèque standard, qui n'accepte pas de mot-clé arbitraire.
+    Le `TypeError` remontait jusqu'à `scheduler.start()` et **toute sonde sans
+    navigateur plantait en boucle au démarrage** — c'est-à-dire l'image par
+    défaut publiée en v2.0.0.
+
+    Les tests existants couvraient `ScenarioChecker.check()`, jamais ce
+    chemin-là : un scénario qui échoue proprement ne prouve rien si la sonde
+    n'arrive jamais à démarrer.
+    """
+    from whatisup_probe.checkers._shared import PlaywrightPool
+
+    pool = PlaywrightPool()
+
+    await pool.start()  # ne doit rien lever
+
+    assert pool._browser is None

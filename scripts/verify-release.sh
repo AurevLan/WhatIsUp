@@ -6,6 +6,7 @@
 # Checks, for a given version:
 #   - Cosign keyless signature on ghcr.io/aurevlan/whatisup-server
 #   - Cosign keyless signature on ghcr.io/aurevlan/whatisup-probe
+#   - Cosign keyless signature on ghcr.io/aurevlan/whatisup-probe (-browser variant)
 #   - Cosign keyless SBOM attestation (SPDX) on both images
 #   - Cosign keyless signature on the release APK (sign-blob, Sigstore bundle)
 #
@@ -150,10 +151,16 @@ verify_image_signature "ghcr.io/${REPO_OWNER}/whatisup-server:${VERSION}" || tru
 verify_image_sbom "ghcr.io/${REPO_OWNER}/whatisup-server:${VERSION}" || true
 verify_image_signature "ghcr.io/${REPO_OWNER}/whatisup-probe:${VERSION}" || true
 verify_image_sbom "ghcr.io/${REPO_OWNER}/whatisup-probe:${VERSION}" || true
+# The browser variant is a separate image (same repository, `-browser` suffix),
+# published since v2.0.0 for probes that run `scenario` monitors. It is signed
+# and SBOM-attested exactly like the others, so leaving it unverified would mean
+# the one image an operator pulls *deliberately* is the one nobody checks.
+verify_image_signature "ghcr.io/${REPO_OWNER}/whatisup-probe:${VERSION}-browser" || true
+verify_image_sbom "ghcr.io/${REPO_OWNER}/whatisup-probe:${VERSION}-browser" || true
 verify_apk || true
 
 if [ "$FAILURES" -gt 0 ]; then
   fail "${FAILURES} check(s) failed — do NOT deploy this release without investigating (see SECURITY.md)."
 fi
 
-log "all checks passed — server image, probe image and APK are signed by this repository's release CI."
+log "all checks passed — server image, both probe images and the APK are signed by this repository's release CI."

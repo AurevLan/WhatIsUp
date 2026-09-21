@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.0.2](https://github.com/AurevLan/WhatIsUp/compare/v2.0.1...v2.0.2) (2026-09-21)
+
+
+### Fixed
+
+* **release:** vérifier aussi la variante -browser de l'image de sonde ([#442](https://github.com/AurevLan/WhatIsUp/issues/442)) ([8af3763](https://github.com/AurevLan/WhatIsUp/commit/8af37633229e035ae391d4b41f44fbcf6f837648))
+
 ## [2.0.1](https://github.com/AurevLan/WhatIsUp/compare/v2.0.0...v2.0.1) (2026-09-12)
 
 

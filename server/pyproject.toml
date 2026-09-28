@@ -21,7 +21,7 @@ dependencies = [
     "uvicorn[standard]>=0.32.0,<0.54",
 
     # Database
-    "sqlalchemy[asyncio]>=2.0.36,<2.1",
+    "sqlalchemy[asyncio]>=2.0.36,<2.2",
     "asyncpg>=0.30.0,<0.32",
     "alembic>=1.18.4,<1.21",
 
